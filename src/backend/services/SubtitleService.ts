@@ -23,6 +23,16 @@ import {
 } from '@/backend/utils/language/SentenceElementParser';
 
 /**
+ * parse 缓存条目：SrtSentence 附加解析时的意群重切分开关状态。
+ *
+ * 缓存键保持裸 fileHash（翻译调度、收藏、聊天等消费方按它读取），
+ * 开关状态只能进值；命中时与当前开关比对，不一致即重建。
+ */
+type SrtParseCache = SrtSentence & { /** 写入时意群重切分是否开启；增量转录写入的条目无此标记。 */
+    resegmented?: boolean;
+};
+
+/**
  * 字幕生词匹配结果。
  */
 export interface SubtitleVocabularyMatchResult {
@@ -191,13 +201,16 @@ export class SubtitleServiceImpl implements SubtitleService {
         const content = await this.fileSystemGateway.readTextFile(path);
         // fileHash 保持纯内容 hash：收藏、时间调整等外部引用都以它为身份。
         const fileHash = ObjUtil.hash(content);
-        // 意群重切分开关实时读取（sysConf 无值视为开启）；开关状态编入缓存键，
-        // 切换后同文件自然 miss 重建，无需额外失效逻辑。
+        // 意群重切分开关实时读取（sysConf 无值视为开启）。
         const resegment =
             (await this.systemConfigService.getValue(SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY)) !== 'false';
-        const cacheKey = resegment ? `mg:${fileHash}` : fileHash;
-        const cache = this.cacheService.get('cache:srt', cacheKey);
-        if (cache) {
+        // 缓存一律以裸 fileHash 为键：翻译调度器（update-subtitle-demand）、收藏片段、
+        // 聊天会话等消费方都按 fileHash 读取，键里掺开关前缀会让它们全部 miss。
+        // 开关状态改存进缓存值：命中时与当前开关比对，不一致视为 miss 重建，
+        // 「切换开关后重开视频生效」语义不变，也不需要额外的失效订阅。
+        const cache = this.cacheService.get('cache:srt', fileHash) as SrtParseCache | null;
+        // 无标记的存量条目（增量转录 buildSentencesFromLines 写入）视为未重切分。
+        if (cache && (cache.resegmented ?? false) === resegment) {
             this.cacheVocabularyTexts(fileHash, cache.sentences);
             const adjustedSentence = await this.adjustTime(cache.sentences, fileHash);
             return {
@@ -214,17 +227,19 @@ export class SubtitleServiceImpl implements SubtitleService {
         groupSentence(subtitles, 20, (s, index) => {
             s.transGroup = index;
         });
-        const res = {
+        const res: SrtParseCache = {
             fileHash,
             filePath: path,
-            sentences: subtitles
+            sentences: subtitles,
+            resegmented: resegment
         };
-        this.cacheService.set('cache:srt', cacheKey, res);
+        this.cacheService.set('cache:srt', fileHash, res);
         this.cacheVocabularyTexts(fileHash, subtitles);
         const adjustedSentence = await this.adjustTime(subtitles, fileHash);
 
         return {
-            ...res,
+            fileHash: res.fileHash,
+            filePath: res.filePath,
             sentences: adjustedSentence
         };
     }
