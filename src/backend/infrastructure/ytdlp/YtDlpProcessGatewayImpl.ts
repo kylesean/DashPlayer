@@ -64,6 +64,8 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
             '--ffmpeg-location', getRuntimeResourcePath('lib'),
             '--newline', '--progress',
             '--print', 'after_move:filepath', '--no-simulate',
+            // 先试 android 客户端（部分 IP 下可绕过人机验证，LingoTube 即此路线），失败退回默认客户端。
+            '--extractor-args', 'youtube:player_client=android,default',
             ...(request.cookiesFilePath ? ['--cookies', request.cookiesFilePath] : []),
             '-P', request.outputDir,
             // 标题截断到 80 字节，避免超长文件名触碰到文件系统上限。
