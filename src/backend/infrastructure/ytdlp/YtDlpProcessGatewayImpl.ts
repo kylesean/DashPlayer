@@ -2,6 +2,7 @@ import { ChildProcess, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { injectable } from 'inversify';
+import { getMainLogger } from '@/backend/infrastructure/logger';
 import { CancelByUserError } from '@/backend/utils/errors/errors';
 import { OutputTail } from '@/backend/utils/output-tail';
 import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
@@ -32,6 +33,8 @@ const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.webm'];
  */
 @injectable()
 export class YtDlpProcessGatewayImpl implements YtDlpGateway {
+    private readonly logger = getMainLogger('YtDlpProcessGatewayImpl');
+
 
     /**
      * 启动一个可取消的 yt-dlp 下载任务。
@@ -58,12 +61,19 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
             '-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b',
             '--merge-output-format', 'mp4',
             '--write-subs', '--write-auto-subs',
-            '--sub-langs', 'en,en-orig,en.*,zh-Hans,zh-Hans.*',
+            // 只取英语与简中两轨：通配符会抓大量字幕轨，连续请求易触发 timedtext 429 限流。
+            '--sub-langs', 'en,en-orig,zh-Hans',
             '--convert-subs', 'srt',
+            // HTTP 429 限流需要退避重试；字幕逐轨下载之间再加间隔。
+            '--retry-sleep', 'http:4',
+            '--sleep-subtitles', '1',
             // 合并与字幕转格式依赖 ffmpeg，指向项目运行时 lib 目录（内含 ffmpeg/ffprobe）。
             '--ffmpeg-location', getRuntimeResourcePath('lib'),
             '--newline', '--progress',
             '--print', 'after_move:filepath', '--no-simulate',
+            // 字幕轨被限流（429）时不能拖死整个任务：跳过该轨继续下载视频，
+            // 视频落盘后由“视频为主”语义兜底，缺字幕在结果里如实呈现。
+            '--ignore-errors',
             // 先试 android 客户端（部分 IP 下可绕过人机验证，LingoTube 即此路线），失败退回默认客户端。
             '--extractor-args', 'youtube:player_client=android,default',
             ...(request.cookiesFilePath ? ['--cookies', request.cookiesFilePath] : []),
@@ -110,7 +120,15 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
                     clearTimeout(sigkillTimer);
                 }
                 const durationMs = Date.now() - startedAt;
-                if (code === 0) {
+                // 视频为主、字幕尽力：字幕下载失败等可恢复情形会让 yt-dlp 以非零码退出，
+                // 但完整视频已落盘时仍按成功处理，由上层在结果里体现“无字幕”。
+                if (code === 0 || this.hasCompletedVideo(request.outputDir)) {
+                    if (code !== 0) {
+                        this.logger.warn('yt-dlp exited nonzero but video completed; treating as success', {
+                            exitCode: code,
+                            stderrTail: stderrTail.logTail(),
+                        });
+                    }
                     resolve(this.collectResult(request.outputDir, producedPaths, durationMs));
                     return;
                 }
@@ -136,6 +154,31 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
         };
 
         return { result, cancel };
+    }
+
+    /**
+     * 判断输出目录里是否已有完整落盘的视频文件。
+     *
+     * 只认视频扩展名且大小大于零的普通文件；`.part` 半成品扩展名不同，天然排除。
+     *
+     * @param outputDir 输出目录。
+     * @returns 存在完整视频时返回 `true`。
+     */
+    private hasCompletedVideo(outputDir: string): boolean {
+        try {
+            for (const name of fs.readdirSync(outputDir)) {
+                if (!VIDEO_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext))) {
+                    continue;
+                }
+                const stat = fs.statSync(path.join(outputDir, name));
+                if (stat.isFile() && stat.size > 0) {
+                    return true;
+                }
+            }
+        } catch {
+            return false;
+        }
+        return false;
     }
 
     /**
