@@ -35,10 +35,9 @@ const pathExists = async (target: string): Promise<boolean> => {
 /**
  * 打包时裁掉非目标平台/架构的原生库变体。
  *
- * 背景：onnxruntime-node 会把 darwin/linux/win32 × x64/arm64 六套预编译库
- * （约 208MB）一起装进 node_modules，其中 5/6 对当前产物毫无用处；这些异架构
- * ELF 还会让 Linux RPM 打包阶段的 brp-strip 报 "Unable to recognise the
- * format" 而整包失败。sharp 的平台包、better-sqlite3 的预编译目录同理。
+ * 背景：sharp 的平台包、better-sqlite3 的预编译目录会把异平台/异架构
+ * 的原生库一起装进 node_modules；这些异架构 ELF 还会让 Linux RPM 打包
+ * 阶段的 brp-strip 报 "Unable to recognise the format" 而整包失败。
  *
  * @param buildPath 打包暂存目录（应用根目录）。
  * @param platform 目标平台（darwin/linux/win32/mas）。
@@ -53,23 +52,6 @@ const pruneForeignNativeVariants = async (buildPath: string, platform: string, a
         await fs.rm(target, { recursive: true, force: true });
         console.log(`[prune-native] 移除 ${path.relative(buildPath, target)}`);
     };
-
-    // onnxruntime-node：bin/napi-v3/<platform>/<arch> 只保留目标组合
-    const variantsRoot = path.join(buildPath, 'node_modules/onnxruntime-node/bin/napi-v3');
-    if (await pathExists(variantsRoot)) {
-        for (const variantPlatform of await fs.readdir(variantsRoot)) {
-            const platformDir = path.join(variantsRoot, variantPlatform);
-            if (variantPlatform !== nativePlatform) {
-                await drop(platformDir);
-                continue;
-            }
-            for (const variantArch of await fs.readdir(platformDir)) {
-                if (variantArch !== arch) {
-                    await drop(path.join(platformDir, variantArch));
-                }
-            }
-        }
-    }
 
     // sharp：@img/sharp-<platform>-<arch>、@img/sharp-libvips-<platform>-<arch>
     const imgRoot = path.join(buildPath, 'node_modules/@img');
@@ -87,72 +69,6 @@ const pruneForeignNativeVariants = async (buildPath: string, platform: string, a
             if (variant.startsWith(`${nativePlatform}-${arch}-`)) continue;
             await drop(path.join(sqliteBinRoot, variant));
         }
-    }
-};
-
-/**
- * onnxruntime 原生绑定动态依赖的 VC++ 运行库清单（x64）。
- * 与 onnxruntime_binding.node / onnxruntime.dll 的导入表一一对应；升级 onnxruntime 时要重新核对。
- */
-const ONNXRUNTIME_WINDOWS_VC_DLLS = ['msvcp140.dll', 'msvcp140_1.dll', 'vcruntime140.dll', 'vcruntime140_1.dll'];
-
-/**
- * 把 VC++ 运行库随包分发到 onnxruntime-node 的 win32 绑定目录。
- *
- * 背景：onnxruntime-node 分发的是微软预编译的 /MD 二进制（绑定与 onnxruntime.dll 的
- * 导入表依赖 MSVCP140(_1)/VCRUNTIME140(_1)），而干净 Windows（未装 VC++
- * Redistributable）的 System32 里没有这些 DLL，Node 以 dlopen 加载绑定时直接报
- * 「找不到指定的模块」(126)，轻量翻译整条链路不可用。Node 以
- * LOAD_WITH_ALTERED_SEARCH_PATH 加载 .node，依赖优先在绑定自身目录解析，所以把运行库
- * 副本放到绑定同目录（随 asar unpack 落到 app.asar.unpacked 内）即可自足。
- *
- * 来源取构建机 System32（与 download.mjs 的 vcomp140 同源、同 fail-closed 约定）：
- * vc_redist 安装的副本是 app-local 可再分发版本，缺件说明构建机没装 VC++
- * Redistributable，显式失败而不是发出一个在干净系统上不可用的包。该副本不随
- * Windows Update 更新：微软给 CRT 发安全更新时需要跟版重建安装包。
- *
- * @param buildPath 打包暂存目录（应用根目录）。
- * @param platform 目标平台（darwin/linux/win32/mas）。
- * @param arch 目标架构（x64/arm64/ia32）。
- */
-const bundleVcRuntimeForOnnxruntime = async (buildPath: string, platform: string, arch: string): Promise<void> => {
-    if (platform !== 'win32') return;
-    if (arch !== 'x64') {
-        throw new Error(`onnxruntime 的 VC++ 运行库随包只支持 win32/x64，当前目标架构为 ${arch}：需要补充该架构的运行库来源`);
-    }
-    const targetDir = path.join(buildPath, 'node_modules/onnxruntime-node/bin/napi-v3/win32/x64');
-    if (!await pathExists(targetDir)) {
-        throw new Error(`打包暂存目录里没有 onnxruntime 绑定目录：${targetDir}，检查 node_modules 白名单是否漏了 onnxruntime-node`);
-    }
-    for (const name of ONNXRUNTIME_WINDOWS_VC_DLLS) {
-        const src = path.join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', name);
-        if (!await pathExists(src)) {
-            throw new Error(`找不到 ${src}：Windows 打包需要构建机安装 VC++ Redistributable（微软官方 vc_redist.x64.exe），轻量翻译依赖随包的这些运行库`);
-        }
-        const dest = path.join(targetDir, name);
-        await fs.copyFile(src, dest);
-        console.log(`[onnxruntime-crt] ${name} -> ${path.relative(buildPath, dest)}`);
-    }
-};
-
-/**
- * 校验打包产物里随包运行库确实落到了绑定目录。
- *
- * asar unpack 规则或 node_modules 白名单一旦回归，运行库会被留在 asar 内或直接丢包
- * （实测的失败形态就是干净系统上 dlopen 报 126），在这里当场失败而不是等用户报错。
- *
- * @param packageResult postPackage 提供的打包结果（平台与产物目录）。
- */
-const assertOnnxruntimeVcRuntimePacked = async (packageResult: { platform: string; outputPaths: string[] }): Promise<void> => {
-    if (packageResult.platform !== 'win32') return;
-    for (const outputPath of packageResult.outputPaths) {
-        for (const name of ONNXRUNTIME_WINDOWS_VC_DLLS) {
-            const dllPath = path.join(outputPath, 'resources/app.asar.unpacked/node_modules/onnxruntime-node/bin/napi-v3/win32/x64', name);
-            if (!await pathExists(dllPath)) {
-                throw new Error(`打包产物缺少随包运行库：${dllPath}，干净 Windows 上轻量翻译会加载失败`);
-            }
-        }
-        console.log(`[onnxruntime-crt] 产物校验通过：${outputPath}`);
     }
 };
 
@@ -208,8 +124,6 @@ const config: ForgeConfig = {
                 '/node_modules/ip-address',
                 '/node_modules/ipaddr.js',
 
-                '/node_modules/@huggingface/jinja',
-                '/node_modules/@huggingface/transformers',
                 '/node_modules/@img/',
                 '/node_modules/@isaacs/fs-minipass',
                 '/node_modules/@protobufjs/aspromise',
@@ -245,9 +159,6 @@ const config: ForgeConfig = {
                 '/node_modules/minipass',
                 '/node_modules/minizlib',
                 '/node_modules/object-keys',
-                '/node_modules/onnxruntime-common',
-                '/node_modules/onnxruntime-node',
-                '/node_modules/onnxruntime-web',
                 '/node_modules/platform',
                 '/node_modules/protobufjs',
                 '/node_modules/roarr',
@@ -281,11 +192,8 @@ const config: ForgeConfig = {
         },
         asar: {
             // 原生库必须解到 app.asar.unpacked：dyld/ld.so 读不了 asar 内部，
-            // 例如 onnxruntime 的 binding.node 会按 @rpath（自身目录）找
-            // libonnxruntime.*，只解包 .node 会导致 dlopen 报 Library not loaded。
-            // Windows 同理：onnxruntime_binding.node 的导入表直接依赖同目录的
-            // onnxruntime.dll / DirectML.dll，DLL 留在 asar 内时 LoadLibrary
-            // 报「找不到指定的模块」（126），装机后启动即崩。
+            // 原生 .node 绑定按自身目录解析动态库（@rpath / 导入表），只解包
+            // .node 会导致 dlopen/LoadLibrary 找不到依赖库而启动即崩。
             unpack: '**/*.{wasm,node,dylib,dll,so,so.*}',
         },
         icon: './assets/icons/icon',
@@ -402,16 +310,12 @@ const config: ForgeConfig = {
         },
     ],
     hooks: {
-        // 在 asar 打包前：裁掉异平台/异架构原生库（同时避免 Linux RPM 的 brp-strip 失败），
-        // 并把 VC++ 运行库随包放进 onnxruntime 的 Windows 绑定目录
+        // 在 asar 打包前：裁掉异平台/异架构原生库（同时避免 Linux RPM 的 brp-strip 失败）
         packageAfterCopy: async (_forgeConfig, buildPath, _electronVersion, platform, arch) => {
             await pruneForeignNativeVariants(buildPath, platform, arch);
-            await bundleVcRuntimeForOnnxruntime(buildPath, platform, arch);
         },
-        // asar 打包后校验随包运行库确实进了 app.asar.unpacked（unpack 规则/白名单回归时当场失败），
-        // 并把 mac 产物重签为有效 ad-hoc 签名（否则 TCC 麦克风授权静默失败，见函数注释）
+        // 把 mac 产物重签为有效 ad-hoc 签名（否则 TCC 麦克风授权静默失败，见函数注释）
         postPackage: async (_forgeConfig, packageResult) => {
-            await assertOnnxruntimeVcRuntimePacked(packageResult);
             await adhocResignMacApp(packageResult);
         },
         postMake: async (_forgeConfig, makeResults) => {

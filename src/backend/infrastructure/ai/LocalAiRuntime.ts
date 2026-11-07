@@ -240,6 +240,39 @@ export class LocalAiRuntime implements LocalAiService {
         return await this.fileSize(this.runtimePath()) > 0 && await this.runtimeMarkerReady();
     }
 
+    /**
+     * 自愈 llama.cpp linux 运行包缺失的 SONAME 别名（libllama.so.0.4.0 → libllama.so.0）。
+     *
+     * 官方发行包不再内含 .so.0 别名符号链接，而动态链接器按 SONAME 查找；
+     * 缺别名时 llama-server 启动即报 "cannot open shared object file"。
+     * 新装由 scripts/download.mjs 补齐；这里幂等补一次，覆盖从不重跑
+     * 下载脚本的存量安装。
+     */
+    private async ensureSonameAliases(): Promise<void> {
+        if (process.platform === 'win32' || process.platform === 'darwin') return;
+        const dir = path.dirname(this.runtimePath());
+        let entries: string[];
+        try {
+            entries = await fs.promises.readdir(dir);
+        } catch {
+            return;
+        }
+        for (const entry of entries) {
+            const match = entry.match(/^(.+)\.so\.\d+\.\d+\.\d+$/);
+            if (!match) continue;
+            const alias = path.join(dir, `${match[1]}.so.0`);
+            try {
+                await fs.promises.symlink(entry, alias);
+                this.logger.info('runtime soname alias created', { alias, target: entry });
+            } catch (error) {
+                // 别名已存在（EEXIST）属预期；其余错误交由真实启动显式暴露。
+                if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
+                    this.logger.warn('runtime soname alias creation failed', { alias, error });
+                }
+            }
+        }
+    }
+
     /** 推送节流后的下载快照；阶段变化和终态始终立即发出。 */
     private emitProgress(modelId: string, force = false): void {
         const now = Date.now();
@@ -458,8 +491,13 @@ export class LocalAiRuntime implements LocalAiService {
             }
             await this.stop();
             const modelPath = await this.modelPath(model);
-            await fs.promises.rm(modelPath, { force: true });
-            await fs.promises.rm(`${modelPath}.part`, { force: true });
+            if (model.source === 'catalog') {
+                // 目录模型的安装产物在独立子目录（GGUF、续传文件与可能的聊天模板），整目录删除。
+                await fs.promises.rm(path.dirname(modelPath), { force: true, recursive: true });
+            } else {
+                await fs.promises.rm(modelPath, { force: true });
+                await fs.promises.rm(`${modelPath}.part`, { force: true });
+            }
             this.modelErrors.delete(modelId);
             this.downloaded = 0;
         } finally { this.busy--; }
@@ -496,6 +534,15 @@ export class LocalAiRuntime implements LocalAiService {
         if (!(await this.runtimeReady())) {
             throw new Error('llama.cpp 运行时缺失，请重新执行 yarn run download 或重新安装应用');
         }
+        await this.ensureSonameAliases();
+        // 声明了模板覆盖的模型先把模板落进模型目录（自愈：手动删除后启动即重写），
+        // 再以 --chat-template-file 启动；这类 GGUF 的内嵌模板与纯字符串消息
+        // 不兼容，不覆盖会导致 llama-server 启动即退出。
+        let chatTemplateFile: string | null = null;
+        if (model.chatTemplate) {
+            chatTemplateFile = path.join(path.dirname(modelPath), 'chat-template.jinja');
+            await fs.promises.writeFile(chatTemplateFile, model.chatTemplate, 'utf8');
+        }
         const port = await this.reservePort();
         signal.throwIfAborted();
         const endpoint = `http://127.0.0.1:${port}`;
@@ -503,6 +550,7 @@ export class LocalAiRuntime implements LocalAiService {
         const child = spawn(this.runtimePath(), [
             '--model', modelPath, '--host', '127.0.0.1', '--port', String(port),
             '--ctx-size', String(LOCAL_TOTAL_CTX), '--parallel', String(LOCAL_PARALLEL_SLOTS), '--jinja', '--no-webui',
+            ...(chatTemplateFile ? ['--chat-template-file', chatTemplateFile] : []),
             '--chat-template-kwargs', '{"enable_thinking":false}', '--reasoning-budget', '0',
             // 带后端库时把全部层放进 GPU；纯 CPU 包传 0 保持纯 CPU 推理。
             '--n-gpu-layers', gpuRequested ? '99' : '0',

@@ -5,7 +5,7 @@ describe('computeCloudModelUsage', () => {
     it('功能切走引擎或关闭后，槽位残留的旧模型不再算占用', () => {
         const usage = computeCloudModelUsage({
             sentenceLearningEnabled: false,
-            subtitleTranslationEngine: 'local-mt',
+            subtitleTranslationEngine: 'local',
             dictionaryEngine: 'none',
             modelSlots: {
                 sentenceLearning: 'gpt-5.4-nano',

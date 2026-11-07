@@ -38,10 +38,6 @@ interface UIRendererDef {
         params: { modelId: string; percent: number; downloaded: number; total: number; phase: 'idle' | 'downloading' | 'verifying' },
         return: void
     };
-    'settings/local-mt-download-progress': {
-        params: { downloaded: number; total: number; phase: 'idle' | 'downloading' | 'verifying' },
-        return: void
-    };
     'youtube-import/yt-dlp-binary-download-progress': {
         params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase },
         return: void

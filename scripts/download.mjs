@@ -268,6 +268,28 @@ const downloadAndExtractBinaryFromArchive = async ({
 };
 
 /**
+ * 补建 llama.cpp linux 运行包缺失的 SONAME 别名。
+ *
+ * 官方 linux 发行包只带版本化动态库（如 libllama.so.0.4.0），不再包含
+ * .so.0 别名符号链接；动态链接器按 SONAME 查找，缺别名时 llama-server
+ * 启动即报 "cannot open shared object file: libllama-common.so.0"。
+ * 本函数保证 yarn run download 侧新装/存量都完整；运行时侧
+ * （LocalAiRuntime.start）另有等价自愈，覆盖从不重跑下载脚本的安装。
+ * @param {string} runtimeDir 运行时目录。
+ */
+const ensureLlamaSonameAliases = (runtimeDir) => {
+    if (process.platform === 'win32' || process.platform === 'darwin') return;
+    for (const entry of fs.readdirSync(runtimeDir)) {
+        const match = entry.match(/^(.+)\.so\.\d+\.\d+\.\d+$/);
+        if (!match) continue;
+        const alias = path.join(runtimeDir, `${match[1]}.so.0`);
+        if (fs.existsSync(alias)) continue;
+        fs.symlinkSync(entry, alias);
+        console.info(chalk.green(`✅ runtime alias: ${match[1]}.so.0 -> ${entry}`));
+    }
+};
+
+/**
  * 判断 llama.cpp 官方运行包是否已完整安装。
  * @param {string} runtimeDir 运行时目录。
  * @param {string} executableName 可执行文件名。
@@ -445,6 +467,9 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
     // 动态链接器按 SONAME 查找）；Windows 的 DLL；macOS 另有 Metal 着色器。
     const extraCopyPatterns = platform === 'win32' ? [/\.dll$/] : [/\.dylib$/, /\.metal$/, /\.so(\.|$)/];
     const exePath = path.join(llamaDir, exeName);
+    // 官方包不再内含 .so.0 别名；无论是否需要重新下载都补一次（幂等），
+    // 存量安装（.complete 已存在）也能在重跑下载脚本时修复。
+    ensureLlamaSonameAliases(llamaDir);
     if (!isLlamaRuntimeReady(llamaDir, exeName, dependencyPrefixes)) {
         await downloadAndExtractBinaryFromArchive({
             url: `https://github.com/ggml-org/llama.cpp/releases/download/${llamaVersion}/${assetName}`,

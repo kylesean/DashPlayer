@@ -1,5 +1,4 @@
 import type { LocalAiStatus } from '@/common/contracts/local-ai';
-import type { LocalMtStatus } from '@/common/contracts/local-mt';
 import type { ResourceFallbackSnapshot } from '@/common/contracts/resource-fallback';
 import type { SystemInfo } from '@/common/contracts/system-info';
 import type { TranscriptionEngine } from '@/common/contracts/transcription-engine';
@@ -18,8 +17,6 @@ export interface ResourceStatusSnapshot {
     tts: ModelInstallationStatusVO;
     /** 字幕识别模型状态（随识别方式取 whisper.cpp 或 sherpa-onnx）。 */
     transcription: ModelInstallationStatusVO;
-    /** 轻量翻译模型状态。 */
-    localMt: LocalMtStatus;
     /** 本地增强资源包状态。 */
     localAi: LocalAiStatus;
     /** 本机硬件概要。 */

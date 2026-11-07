@@ -4,7 +4,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { OnboardingView, CURRENT_ONBOARDING_VERSION } from '../OnboardingView';
 import { markOnboardingCompleted } from '../onboardingApi';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
-import type { LocalMtStatus } from '@/common/contracts/local-mt';
 
 vi.mock('@/fronted/features/onboarding/onboardingApi', () => ({
     markOnboardingCompleted: vi.fn(),
@@ -23,9 +22,6 @@ vi.mock('@/fronted/features/settings/settingsApi', () => ({
         downloadWhisperCppModel: vi.fn(),
         cancelSherpaTtsModelDownload: vi.fn(),
         cancelWhisperCppModelDownload: vi.fn(),
-        getLocalMtStatus: vi.fn(),
-        downloadLocalMt: vi.fn(),
-        cancelLocalMtDownload: vi.fn(),
         getEngineSelection: vi.fn(),
         saveEngineSelection: vi.fn(),
         saveTranscriptionEngine: vi.fn(),
@@ -57,19 +53,6 @@ const NOT_READY = {
 /** 已下载就绪的模型状态。 */
 const READY = { ...NOT_READY, ready: true };
 
-/** 未下载完成的轻量翻译模型状态。 */
-function localMtStatus(ready: boolean): LocalMtStatus {
-    return {
-        ready,
-        phase: 'idle',
-        downloaded: ready ? 1 : 0,
-        total: 1,
-        modelPath: '/path/opus-mt-en-zh',
-        downloadUrls: ['https://example.com/opus-mt-en-zh'],
-        error: null,
-    };
-}
-
 describe('OnboardingView Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -88,7 +71,6 @@ describe('OnboardingView Component', () => {
         });
         vi.mocked(settingsApi.getSherpaTtsModelStatus).mockResolvedValue(NOT_READY);
         vi.mocked(settingsApi.getWhisperCppModelStatus).mockResolvedValue(NOT_READY);
-        vi.mocked(settingsApi.getLocalMtStatus).mockResolvedValue(localMtStatus(false));
         vi.mocked(settingsApi.getEngineSelection).mockResolvedValue({
             openai: {
                 enableSentenceLearning: false,
@@ -118,16 +100,12 @@ describe('OnboardingView Component', () => {
         await waitFor(() => {
             expect(settingsApi.getSherpaTtsModelStatus).toHaveBeenCalled();
             expect(settingsApi.getWhisperCppModelStatus).toHaveBeenCalled();
-            expect(settingsApi.getLocalMtStatus).toHaveBeenCalled();
         });
     });
 
-    it('下载会依次处理三项资源，全部完成后保存配置并切到核显引擎', async () => {
+    it('下载会依次处理资源项，全部完成后保存配置并切到核显引擎', async () => {
         // 模拟真实时序：下载完成后对应模型状态变为就绪
-        let mtReady = false;
         let whisperReady = false;
-        vi.mocked(settingsApi.getLocalMtStatus).mockImplementation(async () => localMtStatus(mtReady));
-        vi.mocked(settingsApi.downloadLocalMt).mockImplementation(async () => { mtReady = true; });
         vi.mocked(settingsApi.getWhisperCppModelStatus).mockImplementation(async () => (whisperReady ? READY : NOT_READY));
         vi.mocked(settingsApi.downloadWhisperCppModel).mockImplementation(async () => {
             whisperReady = true;
@@ -142,11 +120,9 @@ describe('OnboardingView Component', () => {
         await waitFor(() => {
             expect(settingsApi.downloadSherpaTtsModel).toHaveBeenCalled();
             expect(settingsApi.downloadWhisperCppModel).toHaveBeenCalled();
-            expect(settingsApi.downloadLocalMt).toHaveBeenCalled();
             expect(settingsApi.saveEngineSelection).toHaveBeenCalledWith(
                 expect.objectContaining({
                     providers: expect.objectContaining({
-                        subtitleTranslationEngine: 'local-mt',
                         dictionaryEngine: 'none',
                     }),
                 })
@@ -169,8 +145,7 @@ describe('OnboardingView Component', () => {
         await waitFor(() => {
             expect(screen.getByText('网络中断')).toBeDefined();
         });
-        // 失败后不再继续后面的项，也不进入完成页
-        expect(settingsApi.downloadLocalMt).not.toHaveBeenCalled();
+        // 失败后不进入完成页
         expect(markOnboardingCompleted).not.toHaveBeenCalled();
     });
 
@@ -184,7 +159,8 @@ describe('OnboardingView Component', () => {
             expect(settingsApi.saveEngineSelection).toHaveBeenCalledWith(
                 expect.objectContaining({
                     providers: expect.objectContaining({
-                        subtitleTranslationEngine: 'none',
+                        // 引擎预设不代做决定：跳过下载时保留用户当前引擎
+                        subtitleTranslationEngine: 'openai',
                         dictionaryEngine: 'none',
                     }),
                 })
@@ -215,7 +191,6 @@ describe('OnboardingView Component', () => {
         const readyStatus = { ...NOT_READY, ready: true };
         vi.mocked(settingsApi.getSherpaTtsModelStatus).mockResolvedValue(readyStatus);
         vi.mocked(settingsApi.getWhisperCppModelStatus).mockResolvedValue(readyStatus);
-        vi.mocked(settingsApi.getLocalMtStatus).mockResolvedValue(localMtStatus(true));
         const onCompleted = vi.fn();
         render(<OnboardingView onCompleted={onCompleted} />);
 

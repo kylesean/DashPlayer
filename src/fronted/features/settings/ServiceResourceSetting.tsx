@@ -413,7 +413,7 @@ const ServiceResourceSetting: React.FC = () => {
         modelField: 'openai.featureModels.subtitleTranslation' | 'openai.featureModels.dictionary',
     ) => {
         const { engine, model } = parseEngineValue(value);
-        setValue(engineKey, engine as 'openai' | 'local' | 'local-mt' | 'tencent' | 'none', { shouldDirty: true });
+        setValue(engineKey, engine as 'openai' | 'local' | 'tencent' | 'none', { shouldDirty: true });
         setValue(modelField, model ?? '', { shouldDirty: true });
     };
 
@@ -572,14 +572,12 @@ const ServiceResourceSetting: React.FC = () => {
                     headerAction={renderCapabilityIcons([
                         { cap: CAPABILITY_TTS, active: true },
                         { cap: CAPABILITY_TRANSCRIPTION, active: true },
-                        { cap: CAPABILITY_TRANSLATION, active: subtitleEngine === 'local-mt' },
                     ])}
                 >
                     <ResourcePackCard
                         transcriptionEngine={resourceStatus.transcriptionEngine}
                         ttsStatus={resourceStatus?.tts ?? null}
                         transcriptionStatus={resourceStatus?.transcription ?? null}
-                        localMtStatus={resourceStatus?.localMt ?? null}
                         onRefresh={() => { void refreshResourceStatus(); }}
                         onChangeEngine={(engine) => { void changeTranscriptionEngine(engine); }}
                     />
@@ -697,7 +695,6 @@ const ServiceResourceSetting: React.FC = () => {
                                             {watched.openai.featureModels.subtitleTranslation}
                                         </SelectItem>
                                     )}
-                                    <SelectItem value="local-mt">{t('resources.preference.engineLocalBase')}</SelectItem>
                                     <SelectItem value="local">{t('resources.preference.engineLocalAi')}</SelectItem>
                                     <SelectItem value="none">{t('resources.preference.engineNone')}</SelectItem>
                                 </SelectContent>
@@ -715,40 +712,34 @@ const ServiceResourceSetting: React.FC = () => {
                                 <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
                                 <span>{t('resources.preference.styleLabel')}</span>
                             </div>
-                            {subtitleEngine === 'local-mt' ? (
-                                <div className="text-xs text-muted-foreground">{t('resources.preference.localMtZhOnlyHint')}</div>
-                            ) : (
-                                <Select
-                                    value={watched.openai?.subtitleTranslationMode}
-                                    onValueChange={(value: 'zh' | 'simple_en' | 'custom') => {
-                                        setValue('openai.subtitleTranslationMode', value, { shouldDirty: true });
-                                    }}
-                                >
-                                    <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="zh">{t('resources.preference.styleZh')}</SelectItem>
-                                        <SelectItem value="simple_en">{t('resources.preference.styleSimpleEn')}</SelectItem>
-                                        <SelectItem value="custom">{t('resources.preference.styleCustom')}</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        </div>
-                        {subtitleEngine !== 'local-mt' && (
-                            <Textarea
-                                value={subtitleMode === 'custom'
-                                    ? watched.openai?.subtitleCustomStyle
-                                    : OPENAI_SUBTITLE_DEFAULT_STYLES[subtitleMode === 'simple_en' ? 'simple_en' : 'zh']}
-                                onChange={(event) => {
-                                    setValue('openai.subtitleCustomStyle', event.target.value, { shouldDirty: true });
+                            <Select
+                                value={watched.openai?.subtitleTranslationMode}
+                                onValueChange={(value: 'zh' | 'simple_en' | 'custom') => {
+                                    setValue('openai.subtitleTranslationMode', value, { shouldDirty: true });
                                 }}
-                                readOnly={subtitleMode !== 'custom'}
-                                placeholder={t('resources.preference.stylePlaceholder')}
-                                className={cn(
-                                    'min-h-[100px] w-full resize-none text-xs',
-                                    subtitleMode !== 'custom' && 'cursor-default bg-muted/40 text-muted-foreground',
-                                )}
-                            />
-                        )}
+                            >
+                                <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="zh">{t('resources.preference.styleZh')}</SelectItem>
+                                    <SelectItem value="simple_en">{t('resources.preference.styleSimpleEn')}</SelectItem>
+                                    <SelectItem value="custom">{t('resources.preference.styleCustom')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Textarea
+                            value={subtitleMode === 'custom'
+                                ? watched.openai?.subtitleCustomStyle
+                                : OPENAI_SUBTITLE_DEFAULT_STYLES[subtitleMode === 'simple_en' ? 'simple_en' : 'zh']}
+                            onChange={(event) => {
+                                setValue('openai.subtitleCustomStyle', event.target.value, { shouldDirty: true });
+                            }}
+                            readOnly={subtitleMode !== 'custom'}
+                            placeholder={t('resources.preference.stylePlaceholder')}
+                            className={cn(
+                                'min-h-[100px] w-full resize-none text-xs',
+                                subtitleMode !== 'custom' && 'cursor-default bg-muted/40 text-muted-foreground',
+                            )}
+                        />
                     </div>
 
                     <SettingRow

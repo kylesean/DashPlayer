@@ -1,3 +1,5 @@
+import { TRANSLATEGEMMA_4B_CHAT_TEMPLATE } from '@/common/constants/localAiChatTemplate';
+
 /** 本地模型目录项；id 同时作为设置值、安装目录名与缓存隔离键的一部分。 */
 export interface LocalAiModelDefinition {
     /** 稳定模型标识，目录内唯一。 */
@@ -19,6 +21,15 @@ export interface LocalAiModelDefinition {
     sha256: string;
     /** 模型来源：catalog 由应用目录预置，custom 为用户手动放入模型目录的文件。 */
     source: 'catalog' | 'custom';
+    /**
+     * 可选的服务端聊天模板覆盖（Jinja 文本）。
+     *
+     * llama-server 以 `--jinja` 启动并优先使用 GGUF 内嵌模板；个别模型
+     * （如 TranslateGemma 官方模板要求结构化 content）与纯字符串消息
+     * 不兼容时必须在此声明等价模板，运行时会写入模型目录并以
+     * `--chat-template-file` 启动。不声明的模型沿用内嵌模板。
+     */
+    chatTemplate?: string;
 }
 
 /** 可下载的本地模型目录；同一家族保证提示词与推理参数行为一致。 */
@@ -36,9 +47,29 @@ export const LOCAL_AI_MODELS: readonly LocalAiModelDefinition[] = [
         sha256: 'aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223',
         source: 'catalog',
     },
+    {
+        id: 'translategemma-4b-q4_k_m',
+        name: 'TranslateGemma 4B Q4_K_M',
+        file: 'translategemma-4b-it.Q4_K_M.gguf',
+        bytes: 2489909760,
+        sizeLabel: '2.49 GB',
+        urls: [
+            'https://hf-mirror.com/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q4_K_M.gguf',
+            'https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q4_K_M.gguf',
+        ],
+        sha256: '81200d03e843d2ec1ece6eeafe7d13cb6e5211e1fcd336ade55790b683a08330',
+        source: 'catalog',
+        chatTemplate: TRANSLATEGEMMA_4B_CHAT_TEMPLATE,
+    },
 ] as const;
 
-/** 本地模型设置键的默认取值；选择官方目录中翻译质量与体积平衡最好的一档。 */
+/**
+ * 本地模型设置键的默认取值。
+ *
+ * 词典与字幕翻译共用同一个本地模型槽位，默认取通用模型保证两个功能都可用；
+ * 以字幕翻译为主且不用本地词典的用户，可在本地模型页切换到 TranslateGemma
+ * （专用翻译模型，翻译质量显著更好，但不擅长词典讲解类生成）。
+ */
 export const LOCAL_AI_DEFAULT_MODEL_ID = 'qwen3.5-2b-q4_k_m';
 
 /** 自定义模型 id 的固定前缀；后缀为模型目录根下的 GGUF 文件名。 */

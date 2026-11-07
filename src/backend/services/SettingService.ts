@@ -38,7 +38,7 @@ import {
 import { TRANSCRIPTION_ENGINES, type TranscriptionEngine } from '@/common/contracts/transcription-engine';
 
 /** 字幕翻译引擎的合法取值；设置校验与运行时查询共用，避免各处字面量漂移。 */
-const SUBTITLE_TRANSLATION_ENGINES = ['openai', 'local', 'local-mt', 'tencent', 'none'] as const;
+const SUBTITLE_TRANSLATION_ENGINES = ['openai', 'local', 'tencent', 'none'] as const;
 /** 词典引擎的合法取值。 */
 const DICTIONARY_ENGINES = ['openai', 'local', 'none'] as const;
 
@@ -87,7 +87,7 @@ export default interface SettingService {
     getProxySettingDetail(): Promise<ProxySettingDetailVO>;
     saveProxySettings(settings: ProxySettingSaveVO): Promise<void>;
     getCurrentSentenceLearningProvider(): Promise<'openai' | null>;
-    getCurrentTranslationProvider(): Promise<'openai' | 'local' | 'local-mt' | 'tencent' | null>;
+    getCurrentTranslationProvider(): Promise<'openai' | 'local' | 'tencent' | null>;
     getOpenAiSubtitleTranslationMode(): Promise<'zh' | 'simple_en' | 'custom'>;
     getOpenAiSubtitleCustomStyle(): Promise<string>;
     getCurrentDictionaryProvider(): Promise<'openai' | 'local' | null>;
@@ -749,13 +749,13 @@ export class SettingServiceImpl implements SettingService {
         return openaiEnabled ? 'openai' : null;
     }
 
-    public async getCurrentTranslationProvider(): Promise<'openai' | 'local' | 'local-mt' | 'tencent' | null> {
+    public async getCurrentTranslationProvider(): Promise<'openai' | 'local' | 'tencent' | null> {
         const engine = this.requireEnumValue(
             this.getValue('providers.subtitleTranslation'),
             SUBTITLE_TRANSLATION_ENGINES,
             'providers.subtitleTranslation',
         );
-        if (engine === 'local' || engine === 'openai' || engine === 'tencent' || engine === 'local-mt') {
+        if (engine === 'local' || engine === 'openai' || engine === 'tencent') {
             return engine;
         }
         return null;

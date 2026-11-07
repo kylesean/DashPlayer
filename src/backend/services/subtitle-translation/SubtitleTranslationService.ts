@@ -8,7 +8,6 @@ import type SettingService from '@/backend/services/SettingService';
 import type ResourceFallbackService from '@/backend/services/ResourceFallbackService';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type LocalSubtitleBatchTranslator from '@/backend/services/gateways/translate/LocalSubtitleBatchTranslator';
-import type LocalMtSubtitleBatchTranslator from '@/backend/services/gateways/translate/LocalMtSubtitleBatchTranslator';
 import type OpenAiSubtitleBatchTranslator from '@/backend/services/gateways/translate/OpenAiSubtitleBatchTranslator';
 import type {
     SubtitleBatchTranslationInput,
@@ -32,7 +31,6 @@ import {
     buildSubtitleStorageMode,
     type SubtitleTranslationStorageMode,
 } from '@/backend/services/subtitle-translation/SubtitleTranslationStorageMode';
-import { LOCAL_MT_MODEL_ID } from '@/common/contracts/local-mt';
 import { concurrency } from '@/backend/utils/concurrency';
 import {
     resolveSubtitleStyleWithSignature,
@@ -207,7 +205,6 @@ const createAbortError = (): Error => {
 
 /** 批次失败提示里的引擎展示名；新引擎接入时在此补一行。 */
 const PROVIDER_LABELS: Partial<Record<TranslationProvider, string>> = {
-    'local-mt': '轻量翻译',
     local: '本地模型',
     openai: 'OpenAI',
 };
@@ -245,9 +242,6 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
 
     @inject(TYPES.LocalSubtitleBatchTranslator)
     private localSubtitleTranslator!: LocalSubtitleBatchTranslator;
-
-    @inject(TYPES.LocalMtSubtitleBatchTranslator)
-    private localMtSubtitleTranslator!: LocalMtSubtitleBatchTranslator;
 
     @inject(TYPES.ResourceFallbackService)
     private resourceFallback!: ResourceFallbackService;
@@ -414,11 +408,6 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
     }> {
         if (provider === 'tencent') {
             return { mode: 'zh', storageMode: 'tencent', profileKey: 'tencent', localModelId: null };
-        }
-        if (provider === 'local-mt') {
-            // 专用翻译模型只支持中文模式，固定 mode 与存储模式；无风格概念。
-            const storageMode = buildSubtitleStorageMode('local-mt', LOCAL_MT_MODEL_ID, 'zh', '');
-            return { mode: 'zh', storageMode, style: undefined, profileKey: storageMode, localModelId: null };
         }
         const mode = await this.settingService.getOpenAiSubtitleTranslationMode();
         const customStyle = mode === 'custom'
@@ -913,8 +902,12 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
         request: SubtitleTranslationBatchRequest<SubtitleTranslationExecutionContext>,
         targets: SubtitleBatchTarget[]
     ): Promise<Map<string, string>> {
+        // 腾讯引擎有自己的批量链路，不经过网关；此处只为类型收窄兜底。
+        if (request.context.provider === 'tencent') {
+            throw new Error('腾讯翻译引擎不经过字幕翻译网关');
+        }
         const style = request.context.style;
-        if (!style && request.context.provider !== 'local-mt') {
+        if (!style) {
             throw new Error('OpenAI 字幕翻译风格配置缺失');
         }
 
@@ -950,51 +943,54 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
     }
 
     /**
-     * 调用对应引擎翻译一批目标，失败时对这一批回退到基础资源（轻量翻译）。
+     * 调用对应引擎翻译一批目标，云端失败时对这一批回退到本地大模型。
      *
-     * 云端与本地增强都建立在基础资源之上，它们失败时字幕不应直接空掉。
-     * 回退只作用于失败的那一批：不设冷却窗口，每一批都会重新尝试当前引擎，
-     * 原引擎恢复后立即生效。回退状态仅用于设置页展示，不短路后续批次。
+     * 本地大模型是字幕翻译的基础资源：云端不可用时字幕不应直接空掉，
+     * 回退按回退时刻的使用中模型执行。回退只作用于失败的那一批：不设
+     * 冷却窗口，每一批都会重新尝试当前引擎，原引擎恢复后立即生效。
+     * 回退状态仅用于设置页展示，不短路后续批次。
      *
      * @param input 本批次的翻译输入。
      * @param provider 当前配置的引擎。
-     * @param localModelId 本地增强模型标识；云端与轻量翻译为 null。
+     * @param localModelId 本地增强模型标识；云端为 null。
      * @param targets 本次要校验的目标条目。
      * @returns 校验后的翻译结果。
      */
     private async translateWithFallback(
         input: SubtitleBatchTranslationInput,
-        provider: 'openai' | 'local' | 'local-mt' | 'tencent',
+        provider: 'openai' | 'local',
         localModelId: string | null,
         targets: SubtitleTranslationTarget[]
     ): Promise<Map<string, string>> {
-        const translateWithLocalMt = async () => this.validateGatewayItems(
-            targets,
-            await this.localMtSubtitleTranslator.translate(input)
-        );
-        if (provider === 'local-mt') {
-            return translateWithLocalMt();
+        const translateWithLocal = async () => {
+            const fallbackModelId = await this.localAiService.getActiveModelId();
+            return this.validateGatewayItems(
+                targets,
+                await this.localSubtitleTranslator.translate({ ...input, modelId: fallbackModelId })
+            );
+        };
+        if (provider === 'local') {
+            if (!localModelId) {
+                throw new Error('本地字幕翻译缺少模型标识');
+            }
+            const items = await this.localSubtitleTranslator.translate({ ...input, modelId: localModelId });
+            this.resourceFallback.clear('subtitleTranslation');
+            return this.validateGatewayItems(targets, items);
         }
-        if (provider === 'local' && !localModelId) {
-            throw new Error('本地字幕翻译缺少模型标识');
-        }
-        const from = provider === 'local' ? (localModelId as string) : provider;
         try {
-            const items = provider === 'local'
-                ? await this.localSubtitleTranslator.translate({ ...input, modelId: localModelId as string })
-                : await this.openAiSubtitleTranslator.translate(input);
+            const items = await this.openAiSubtitleTranslator.translate(input);
             this.resourceFallback.clear('subtitleTranslation');
             return this.validateGatewayItems(targets, items);
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
-            this.logger.warn('字幕翻译引擎失败，回退到轻量翻译', { provider, from, reason });
+            this.logger.warn('字幕翻译引擎失败，回退到本地模型', { provider, from: provider, reason });
             try {
-                const result = await translateWithLocalMt();
+                const result = await translateWithLocal();
                 // 仅登记展示状态（设置页可见），不依据它短路后续批次。
-                this.resourceFallback.markFallback('subtitleTranslation', from, 'local-mt', reason);
+                this.resourceFallback.markFallback('subtitleTranslation', provider, 'local', reason);
                 return result;
             } catch (fallbackError) {
-                this.logger.error('回退到轻量翻译同样失败', {
+                this.logger.error('回退到本地模型同样失败', {
                     reason: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
                 });
                 throw error;
@@ -1016,9 +1012,9 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
         mode: TranslationMode,
         style: string | undefined,
         localModelId: string | null,
-        provider: 'openai' | 'local' | 'local-mt'
+        provider: 'openai' | 'local'
     ): Promise<Map<string, string>> {
-        if (!style && provider !== 'local-mt') {
+        if (!style) {
             throw new Error('OpenAI 字幕翻译风格配置缺失');
         }
         // 独立直翻场景没有播放窗口，不携带上下文。

@@ -13,7 +13,7 @@ import { rendererSessionId } from '@/fronted/infrastructure/electron/rendererSes
  */
 export interface TranslationState {
     /** 当前启用的翻译引擎。 */
-    engine: 'tencent' | 'openai' | 'local' | 'local-mt' | 'none';
+    engine: 'tencent' | 'openai' | 'local' | 'none';
     /** OpenAI 字幕模式。 */
     openAiMode: TranslationMode;
     /** 当前激活字幕文件哈希。 */
@@ -36,7 +36,7 @@ export interface TranslationActions {
      * @param mode 启动快照中的 OpenAI 字幕模式。
      */
     initializeRuntimeSettings: (
-        engine: 'tencent' | 'openai' | 'local' | 'local-mt' | 'none',
+        engine: 'tencent' | 'openai' | 'local' | 'none',
         mode: TranslationMode
     ) => void;
 
@@ -68,7 +68,7 @@ export interface TranslationActions {
      *
      * @param engine 新翻译引擎。
      */
-    setEngine: (engine: 'tencent' | 'openai' | 'local' | 'local-mt' | 'none') => void;
+    setEngine: (engine: 'tencent' | 'openai' | 'local' | 'none') => void;
 
     /**
      * 设置 OpenAI 字幕模式。

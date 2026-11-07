@@ -29,13 +29,12 @@ import {
 } from '@/fronted/components/ui/alert-dialog';
 import { ManualDownloadGuide } from '@/fronted/components/shared/ManualDownloadGuide';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
-import type { LocalMtStatus } from '@/common/contracts/local-mt';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 import type { TranscriptionEngine } from '@/common/contracts/transcription-engine';
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 
 /** 资源包内的资源标识。 */
-type PackItemKey = 'tts' | 'transcription' | 'mt';
+type PackItemKey = 'tts' | 'transcription';
 
 /** 进度与网速刷新到 UI 的最小间隔（毫秒）：进度事件很密，节流后数字才不会闪。 */
 const PROGRESS_RENDER_INTERVAL_MS = 500;
@@ -76,7 +75,7 @@ interface PackItem {
 }
 
 /**
- * 本地基础资源包卡片：发音、字幕识别、轻量翻译三合一。
+ * 本地基础资源包卡片：发音、字幕识别二合一。
  *
  * 默认只显示"就绪状态 + 一个下载按钮"，下载时是一条整体进度（按项数均分），
  * 识别方式、手动下载教程等技术细节收在「查看详情」里。
@@ -88,8 +87,6 @@ export interface ResourcePackCardProps {
     ttsStatus: ModelInstallationStatusVO | null;
     /** 字幕识别模型状态。 */
     transcriptionStatus: ModelInstallationStatusVO | null;
-    /** 轻量翻译模型状态。 */
-    localMtStatus: LocalMtStatus | null;
     /** 下载/删除结束后刷新外层聚合状态。 */
     onRefresh: () => void;
     /** 切换字幕识别方式。 */
@@ -100,7 +97,6 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
     transcriptionEngine,
     ttsStatus,
     transcriptionStatus,
-    localMtStatus,
     onRefresh,
     onChangeEngine,
 }) => {
@@ -164,28 +160,13 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             }
             if (detail.phase === 'idle') onRefresh();
         };
-        const handleLocalMtProgress = (event: Event) => {
-            const detail = (event as CustomEvent<{
-                downloaded: number;
-                total: number;
-                phase: LocalMtStatus['phase'];
-            }>).detail;
-            setActivePhase(detail.phase);
-            if (detail.phase === 'downloading' && detail.total > 0) {
-                trackProgress(detail.downloaded, detail.total);
-            }
-            if (detail.phase === 'idle') onRefresh();
-        };
-
         window.addEventListener('sherpa-tts-model-download-progress', handleArchiveProgress);
         window.addEventListener('whisper-cpp-model-download-progress', handleArchiveProgress);
         window.addEventListener('parakeet-model-download-progress', handleArchiveProgress);
-        window.addEventListener('local-mt-download-progress', handleLocalMtProgress);
         return () => {
             window.removeEventListener('sherpa-tts-model-download-progress', handleArchiveProgress);
             window.removeEventListener('whisper-cpp-model-download-progress', handleArchiveProgress);
             window.removeEventListener('parakeet-model-download-progress', handleArchiveProgress);
-            window.removeEventListener('local-mt-download-progress', handleLocalMtProgress);
         };
     }, [onRefresh, trackProgress]);
 
@@ -263,18 +244,6 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                     await settingsApi.deleteParakeetModel();
                 }
             },
-        },
-        {
-            key: 'mt',
-            title: t('resources.pack.itemMt'),
-            description: t('resources.pack.itemMtDesc'),
-            ready: localMtStatus?.ready ?? false,
-            modelLabel: t('resources.pack.mtFiles'),
-            urls: localMtStatus?.downloadUrls ?? [],
-            targetPath: localMtStatus?.modelPath ?? '',
-            download: async () => { await settingsApi.downloadLocalMt(); },
-            cancel: async () => { await settingsApi.cancelLocalMtDownload(); },
-            remove: async () => { await settingsApi.deleteLocalMt(); },
         },
     ];
     const pendingItems = items.filter((item) => !item.ready);

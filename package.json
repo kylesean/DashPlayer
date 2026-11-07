@@ -100,7 +100,6 @@
     "@electron-forge/publisher-github": "^7.11.2",
     "@floating-ui/react": "^0.26.9",
     "@hookform/resolvers": "^5.2.2",
-    "@huggingface/transformers": "^3.8.1",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-aspect-ratio": "^1.1.7",

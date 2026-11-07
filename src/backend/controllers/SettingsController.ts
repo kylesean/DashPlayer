@@ -5,7 +5,6 @@ import type { ResourceStatusSnapshot } from '@/common/contracts/resource-status'
 import type SherpaTtsModelService from '@/backend/services/SherpaTtsModelService';
 import type WhisperCppModelService from '@/backend/services/WhisperCppModelService';
 import type ParakeetModelService from '@/backend/services/ParakeetModelService';
-import type LocalMtService from '@/backend/services/LocalMtService';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
 import type MobileAccessService from '@/backend/services/MobileAccessService';
@@ -44,7 +43,6 @@ export default class SettingsController implements Controller {
     @inject(TYPES.SherpaTtsModelService) private sherpaTtsModelService!: SherpaTtsModelService;
     @inject(TYPES.WhisperCppModelService) private whisperCppModelService!: WhisperCppModelService;
     @inject(TYPES.ParakeetModelService) private parakeetModelService!: ParakeetModelService;
-    @inject(TYPES.LocalMtService) private localMtService!: LocalMtService;
     @inject(TYPES.LocalAiService) private localAiService!: LocalAiService;
     @inject(TYPES.TranscriptionEngineSelector) private transcriptionEngineSelector!: TranscriptionEngineSelector;
     @inject(TYPES.MobileAccessService) private mobileAccessService!: MobileAccessService;
@@ -105,12 +103,11 @@ export default class SettingsController implements Controller {
      */
     public async getResourceStatusDetail(): Promise<ResourceStatusSnapshot> {
         const transcriptionEngine = this.transcriptionEngineSelector.currentEngine();
-        const [tts, transcription, localMt, localAi, hardware] = await Promise.all([
+        const [tts, transcription, localAi, hardware] = await Promise.all([
             this.sherpaTtsModelService.getStatus(),
             transcriptionEngine === 'whisper-cpp'
                 ? this.whisperCppModelService.getStatus()
                 : this.parakeetModelService.getStatus(),
-            this.localMtService.getStatus(),
             this.localAiService.getStatus(),
             readSystemInfo(),
         ]);
@@ -118,7 +115,6 @@ export default class SettingsController implements Controller {
             transcriptionEngine,
             tts,
             transcription,
-            localMt,
             localAi,
             hardware,
             fallback: this.resourceFallback.getSnapshot(),

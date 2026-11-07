@@ -1,15 +1,15 @@
 /**
  * 资源回退的公共契约。
  *
- * 云端与本地增强都建立在基础资源之上：它们不可用时，功能自动落到基础资源
- * （字幕翻译用轻量翻译、查词只用内置词库），并在这里登记状态，供设置页展示。
+ * 云端增强都建立在基础资源之上：它们不可用时，功能自动落到基础资源
+ * （字幕翻译用本地大模型、查词只用内置词库），并在这里登记状态，供设置页展示。
  */
 
 /** 支持自动回退的功能。 */
 export type FallbackFeature = 'subtitleTranslation' | 'dictionary';
 
 /** 回退时落到的基础资源。 */
-export type FallbackTarget = 'local-mt' | 'builtinDictionary';
+export type FallbackTarget = 'local' | 'builtinDictionary';
 
 /** 某个功能当前的回退状态。 */
 export interface ResourceFallbackState {

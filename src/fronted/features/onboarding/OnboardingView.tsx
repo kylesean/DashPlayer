@@ -23,13 +23,12 @@ import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { markOnboardingCompleted } from '@/fronted/features/onboarding/onboardingApi';
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
-import type { LocalMtStatus } from '@/common/contracts/local-mt';
 import toast from 'react-hot-toast';
 
 export const CURRENT_ONBOARDING_VERSION = '1';
 
-/** 离线资源包内三项资源的标识；数组顺序即下载顺序（先小后大）。 */
-type BundleItemKey = 'tts' | 'transcription' | 'mt';
+/** 离线资源包内资源项的标识；数组顺序即下载顺序（先小后大）。 */
+type BundleItemKey = 'tts' | 'transcription';
 
 /** 点阵涟漪背景的列数与行数。 */
 const RIPPLE_COLUMNS = 11;
@@ -196,10 +195,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
     const [storageAvailable, setStorageAvailable] = useState(true);
     const [choosingStorage, setChoosingStorage] = useState(false);
 
-    // 资源包内三项资源的状态（识别一项固定检测 whisper.cpp 核显引擎，GPU 优先）
+    // 资源包内资源项的状态（识别一项固定检测 whisper.cpp 核显引擎，GPU 优先）
     const [ttsStatus, setTtsStatus] = useState<ModelInstallationStatusVO | null>(null);
     const [transcriptionStatus, setTranscriptionStatus] = useState<ModelInstallationStatusVO | null>(null);
-    const [localMtStatus, setLocalMtStatus] = useState<LocalMtStatus | null>(null);
 
     // 下载过程
     const [downloadingBundle, setDownloadingBundle] = useState(false);
@@ -217,14 +215,13 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
     /** 最近一次进度采样，用于估算网速。 */
     const speedSampleRef = React.useRef<{ at: number; downloaded: number } | null>(null);
 
-    /** 拉取存储位置与资源包内三项资源的状态。 */
+    /** 拉取存储位置与资源包内资源项的状态。 */
     const refreshAllStatuses = React.useCallback(async () => {
         try {
-            const [storageStatus, tts, transcription, localMt] = await Promise.all([
+            const [storageStatus, tts, transcription] = await Promise.all([
                 settingsApi.getStorageStatus().catch(() => null),
                 settingsApi.getSherpaTtsModelStatus().catch(() => null),
                 settingsApi.getWhisperCppModelStatus().catch(() => null),
-                settingsApi.getLocalMtStatus().catch(() => null),
             ]);
             if (storageStatus) {
                 setStoragePath(storageStatus.resolvedPath);
@@ -232,7 +229,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
             }
             if (tts) setTtsStatus(tts);
             if (transcription) setTranscriptionStatus(transcription);
-            if (localMt) setLocalMtStatus(localMt);
         } catch {
             // 状态拉取失败不阻断引导：页面保持"未下载"，用户仍可点下载或跳过
         }
@@ -292,26 +288,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
             }
             if (detail.phase === 'idle') void refreshAllStatuses();
         };
-        const handleLocalMtProgress = (event: Event) => {
-            const detail = (event as CustomEvent<{
-                downloaded: number;
-                total: number;
-                phase: LocalMtStatus['phase'];
-            }>).detail;
-            setActivePhase(detail.phase);
-            if (detail.phase === 'downloading' && detail.total > 0) {
-                trackProgress(detail.downloaded, detail.total);
-            }
-            if (detail.phase === 'idle') void refreshAllStatuses();
-        };
-
         window.addEventListener('sherpa-tts-model-download-progress', handleArchiveProgress);
         window.addEventListener('whisper-cpp-model-download-progress', handleArchiveProgress);
-        window.addEventListener('local-mt-download-progress', handleLocalMtProgress);
         return () => {
             window.removeEventListener('sherpa-tts-model-download-progress', handleArchiveProgress);
             window.removeEventListener('whisper-cpp-model-download-progress', handleArchiveProgress);
-            window.removeEventListener('local-mt-download-progress', handleLocalMtProgress);
         };
     }, [refreshAllStatuses, trackProgress]);
 
@@ -361,7 +342,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
         }
     };
 
-    /** 资源包内的三项资源；顺序即下载顺序。 */
+    /** 资源包内的资源项；顺序即下载顺序。 */
     const bundleEntries: BundleEntry[] = [
         {
             key: 'tts',
@@ -382,15 +363,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
             targetPath: transcriptionStatus?.archivePath ?? null,
             run: async () => { await settingsApi.downloadWhisperCppModel(); },
             cancel: async () => { await settingsApi.cancelWhisperCppModelDownload(); },
-        },
-        {
-            key: 'mt',
-            title: t('steps.download.itemMt'),
-            ready: localMtStatus?.ready ?? false,
-            urls: localMtStatus?.downloadUrls ?? null,
-            targetPath: localMtStatus?.modelPath ?? null,
-            run: async () => { await settingsApi.downloadLocalMt(); },
-            cancel: async () => { await settingsApi.cancelLocalMtDownload(); },
         },
     ];
     const pendingEntries = bundleEntries.filter((entry) => !entry.ready);
@@ -422,22 +394,21 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
      *
      * 识别引擎 GPU 优先：whisper.cpp 模型就绪时切到核显引擎；未就绪时保留当前
      * 引擎（走过老版本迁移的用户为 sherpa-onnx CPU），避免存下指向缺失模型的引擎。
-     * 字幕翻译只在轻量模型确实就绪时才指向它，否则关闭：避免存下一个指向未下载模型的引擎。
+     * 字幕翻译保持用户在引导中的选择（本地大模型需先在本地模型页下载，指向
+     * 未下载的模型会在使用时显式报错），引导不代做引擎决定。
      * 词典固定走内置词库（引擎关闭），超出词库的查询留到设置页再配。
      */
     const finishOnboarding = async () => {
         setFinishing(true);
         try {
-            const [current, localMt, whisperCpp] = await Promise.all([
+            const [current, whisperCpp] = await Promise.all([
                 settingsApi.getEngineSelection(),
-                settingsApi.getLocalMtStatus(),
                 settingsApi.getWhisperCppModelStatus(),
             ]);
             await settingsApi.saveEngineSelection({
                 ...current,
                 providers: {
                     ...current.providers,
-                    subtitleTranslationEngine: localMt.ready ? 'local-mt' : 'none',
                     dictionaryEngine: 'none',
                 },
             });

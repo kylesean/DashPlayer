@@ -1,7 +1,6 @@
 import type {DpTask} from '@/common/contracts/dp-task';
 import type { YoutubeImportSettingDetailVO, YoutubeImportSettingSaveVO, YoutubeImportStartResult } from '@/common/contracts/youtube-import';
 import type { LocalAiSpeedTestResult, LocalAiStatus } from '@/common/contracts/local-ai';
-import type { LocalMtStatus } from '@/common/contracts/local-mt';
 import type { ResourceFallbackSnapshot } from '@/common/contracts/resource-fallback';
 import type { ResourceStatusSnapshot } from '@/common/contracts/resource-status';
 import type { MigrationFailureDetail } from '@/common/contracts/migration-failure';
@@ -77,10 +76,6 @@ interface ApiDefinition {
     'local-ai/cancel-download': { params: void, return: void };
     'local-ai/delete': { params: { modelId: string }, return: void };
     'local-ai/speed-test': { params: { modelId: string }, return: LocalAiSpeedTestResult };
-    'local-mt/status': { params: void, return: LocalMtStatus };
-    'local-mt/download': { params: void, return: void };
-    'local-mt/cancel-download': { params: void, return: void };
-    'local-mt/delete': { params: void, return: void };
     'eg': { params: string, return: number },
 }
 
