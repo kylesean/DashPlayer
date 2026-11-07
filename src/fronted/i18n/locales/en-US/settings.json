@@ -29,6 +29,7 @@
         "storage": "Storage",
         "proxy": "Network Proxy",
         "mobile": "Mobile Access",
+        "import": "YouTube Import",
         "about": "About & Updates"
     },
     "appearance": {

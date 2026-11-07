@@ -1,0 +1,28 @@
+{
+    "entry": {
+        "button": "链接导入"
+    },
+    "dialog": {
+        "title": "从 YouTube 导入视频",
+        "description": "粘贴视频观看地址，下载完成后自动进入视频库并挂载字幕。",
+        "placeholder": "https://www.youtube.com/watch?v=...",
+        "start": "导入",
+        "pending": "排队中…",
+        "play": "去播放",
+        "cancel": "取消",
+        "cancelled": "已取消",
+        "failed": "导入失败",
+        "noSubtitle": "未找到字幕，可在播放页用 AI 字幕生成"
+    },
+    "settings": {
+        "title": "YouTube 导入",
+        "description": "粘贴 YouTube 链接即可下载视频与字幕到视频库，离线精听学习。",
+        "loadFailed": "设置加载失败，请稍后重试。",
+        "featureTitle": "功能开关",
+        "enableTitle": "启用 YouTube 链接导入",
+        "enableDescription": "关闭后隐藏首页入口，并停止接受新的导入请求；进行中的任务不受影响。首次使用会自动下载 yt-dlp 组件（约 40MB）。",
+        "cookiesTitle": "Cookies 文件",
+        "cookiesDescription": "代理出口 IP 常触发 YouTube 人机验证，配置已登录账号导出的 cookies.txt（Netscape 格式，可用浏览器扩展 Get cookies.txt LOCALLY 导出）即可绕过；留空则不带 cookies。",
+        "cookiesPlaceholder": "/home/xxx/cookies.txt"
+    }
+}

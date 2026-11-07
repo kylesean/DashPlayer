@@ -1,0 +1,28 @@
+{
+    "entry": {
+        "button": "Import URL"
+    },
+    "dialog": {
+        "title": "Import from YouTube",
+        "description": "Paste a video watch URL. The video and its subtitles will be downloaded into your library automatically.",
+        "placeholder": "https://www.youtube.com/watch?v=...",
+        "start": "Import",
+        "pending": "Queued…",
+        "play": "Play",
+        "cancel": "Cancel",
+        "cancelled": "Cancelled",
+        "failed": "Import failed",
+        "noSubtitle": "No subtitles found; generate AI subtitles in the player"
+    },
+    "settings": {
+        "title": "YouTube Import",
+        "description": "Paste a YouTube link to download the video and subtitles into your library for offline study.",
+        "loadFailed": "Failed to load settings. Please try again.",
+        "featureTitle": "Feature Toggle",
+        "enableTitle": "Enable YouTube URL import",
+        "enableDescription": "Hides the home entry and rejects new imports when off; running tasks are unaffected. The yt-dlp component (~40MB) is downloaded automatically on first use.",
+        "cookiesTitle": "Cookies file",
+        "cookiesDescription": "Proxy exit IPs often trigger YouTube's bot check. Configure a cookies.txt (Netscape format, exported via the Get cookies.txt LOCALLY extension from a signed-in browser) to bypass it; leave empty to download without cookies.",
+        "cookiesPlaceholder": "/home/xxx/cookies.txt"
+    }
+}
