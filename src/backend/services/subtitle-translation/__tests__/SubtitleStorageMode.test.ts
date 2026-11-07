@@ -10,8 +10,8 @@ describe('字幕翻译缓存键按配置隔离', () => {
     it('本地引擎的缓存键包含使用中的模型 ID，不同模型互不复用缓存', () => {
         const catalog = buildSubtitleStorageMode('local', 'qwen3.5-2b-q4_k_m', 'zh', 'sig');
         const custom = buildSubtitleStorageMode('local', 'custom:my-qwen.gguf', 'zh', 'sig');
-        expect(catalog).toBe('local#v2#qwen3.5-2b-q4_k_m#zh#sig');
-        expect(custom).toBe('local#v2#custom:my-qwen.gguf#zh#sig');
+        expect(catalog).toBe('local#v3#qwen3.5-2b-q4_k_m#zh#sig');
+        expect(custom).toBe('local#v3#custom:my-qwen.gguf#zh#sig');
         expect(catalog).not.toBe(custom);
     });
 
@@ -32,7 +32,7 @@ describe('字幕翻译缓存键按配置隔离', () => {
 
     it('模型 ID 自带的下划线不会破坏 # 分段，各段都能正确辨认', () => {
         const mode = buildSubtitleStorageMode('local', 'qwen3.5-2b-q4_k_m', 'simple_en', 'abc123');
-        expect(mode.split('#')).toEqual(['local', 'v2', 'qwen3.5-2b-q4_k_m', 'simple_en', 'abc123']);
+        expect(mode.split('#')).toEqual(['local', 'v3', 'qwen3.5-2b-q4_k_m', 'simple_en', 'abc123']);
     });
 
     it('不同的翻译模式或风格签名产生不同的缓存键', () => {

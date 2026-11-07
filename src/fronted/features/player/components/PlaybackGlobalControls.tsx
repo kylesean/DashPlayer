@@ -18,6 +18,9 @@ import {
     SquareDashedBottom,
 } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import useSWR, { useSWRConfig } from 'swr';
+
+import { playerApi } from '@/fronted/features/player/playerApi';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
@@ -199,6 +202,21 @@ export function PlaybackModeControls({
     const changeShowCn = usePlayerUi((state) => state.changeShowCn);
     const changeShowSourceZh = usePlayerUi((state) => state.changeShowSourceZh);
     const changeSentenceBlockMode = usePlayerUi((state) => state.changeSentenceBlockMode);
+
+    // 意群重切分：解析层设置（sysConf），切换后重新打开视频生效；写走 system/config/set。
+    const { mutate: mutateGlobalConfig } = useSWRConfig();
+    const { data: meaningGroupRaw } = useSWR(
+        `player/getMeaningGroupResegmentation`,
+        () => playerApi.getMeaningGroupResegmentation(),
+    );
+    const meaningGroupOn = meaningGroupRaw !== 'false';
+    const changeMeaningGroupResegmentation = () => {
+        const next = !meaningGroupOn;
+        void playerApi.setMeaningGroupResegmentation(next);
+        void mutateGlobalConfig('player/getMeaningGroupResegmentation', next ? 'true' : 'false', {
+            revalidate: false,
+        });
+    };
     const changeShowSideTranslation = usePlayerUi((state) => state.changeShowSideTranslation);
     const changeSyncSide = usePlayerUi((state) => state.changeSyncSide);
     // 侧栏此刻是否真的被收起：收起时「随英文字幕隐藏」这行的提示要从「会怎样」换成「现在就是这样」
@@ -456,6 +474,12 @@ export function PlaybackModeControls({
                             checked={sentenceBlockMode}
                             label={t('controlBox.sentenceBlockMode')}
                             onActivate={() => changeSentenceBlockMode()}
+                        />
+                        {/* 意群重切分：解析层把碎片字幕重切分成完整意群（切换后重新打开视频生效） */}
+                        <ControlPopoverRow
+                            checked={meaningGroupOn}
+                            label={t('controlBox.meaningGroupResegmentation')}
+                            onActivate={changeMeaningGroupResegmentation}
                         />
                         {/* 侧栏：译文与「随英文字幕隐藏」同一块栏的两个开关，顺序与播放控制面板保持一致 */}
                         <div className={CONTROL_POPOVER_SEPARATOR} />

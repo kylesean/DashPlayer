@@ -119,6 +119,7 @@
         "showChinese": "Machine AI",
         "showSourceZh": "Source ZH",
         "sentenceBlockMode": "Sentence blocks (loop by group)",
+        "meaningGroupResegmentation": "Meaning-group resegmentation (reopen video)",
         "trackEnHint": "Original subtitles (`{{shortcut}}`)",
         "trackCnHint": "Machine/AI translation (`{{shortcut}}`)",
         "trackSourceZhHint": "Original Chinese from SRT source",

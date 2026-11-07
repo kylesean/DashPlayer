@@ -9,9 +9,12 @@ import type CacheService from '@/backend/services/CacheService';
 import type { SubtitleTimestampAdjustment } from '@/common/contracts/subtitle-timestamp-adjustment';
 import { ObjUtil } from '@/backend/utils/ObjUtil';
 import { parseSrt, parseAss, srtLineToSentence, type SrtLine } from '@/common/utils/subtitle';
+import { resegmentIntoMeaningGroups } from '@/common/utils/subtitle/meaning-group-segmenter';
+import { SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY } from '@/common/constants/systemConfigKeys';
 import MediaUtil from '@/common/utils/MediaUtil';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
+import type SystemConfigService from '@/backend/services/SystemConfigService';
 import type { SubtitleVocabularyAnalysisService } from '@/backend/services/SubtitleVocabularyAnalysisService';
 import {
     WinkSentenceElementParser,
@@ -169,6 +172,8 @@ export class SubtitleServiceImpl implements SubtitleService {
     private storageDirectoryProvider!: StorageDirectoryProvider;
     @inject(TYPES.FileSystemGateway)
     private fileSystemGateway!: FileSystemGateway;
+    @inject(TYPES.SystemConfigService)
+    private systemConfigService!: SystemConfigService;
 
     /**
      * 解析字幕文件并缓存后续生词匹配所需的纯文本。
@@ -184,32 +189,39 @@ export class SubtitleServiceImpl implements SubtitleService {
         }
         await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(path);
         const content = await this.fileSystemGateway.readTextFile(path);
-        const hashKey = ObjUtil.hash(content);
-        const cache = this.cacheService.get('cache:srt', hashKey);
+        // fileHash 保持纯内容 hash：收藏、时间调整等外部引用都以它为身份。
+        const fileHash = ObjUtil.hash(content);
+        // 意群重切分开关实时读取（sysConf 无值视为开启）；开关状态编入缓存键，
+        // 切换后同文件自然 miss 重建，无需额外失效逻辑。
+        const resegment =
+            (await this.systemConfigService.getValue(SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY)) !== 'false';
+        const cacheKey = resegment ? `mg:${fileHash}` : fileHash;
+        const cache = this.cacheService.get('cache:srt', cacheKey);
         if (cache) {
-            this.cacheVocabularyTexts(hashKey, cache.sentences);
-            const adjustedSentence = await this.adjustTime(cache.sentences, hashKey);
+            this.cacheVocabularyTexts(fileHash, cache.sentences);
+            const adjustedSentence = await this.adjustTime(cache.sentences, fileHash);
             return {
-                fileHash: hashKey,
+                fileHash,
                 filePath: path,
                 sentences: adjustedSentence
             };
         }
         const lines: SrtLine[] = MediaUtil.isAss(path) ? parseAss(content) : parseSrt(content);
-        const subtitles = lines.map<Sentence>((line, index) =>
-            srtLineToSentence(line, hashKey, this.processSentence(line.contentEn), index)
+        const segmented = resegment ? resegmentIntoMeaningGroups(lines) : lines;
+        const subtitles = segmented.map<Sentence>((line, index) =>
+            srtLineToSentence(line, fileHash, this.processSentence(line.contentEn), index)
         );
         groupSentence(subtitles, 20, (s, index) => {
             s.transGroup = index;
         });
         const res = {
-            fileHash: hashKey,
+            fileHash,
             filePath: path,
             sentences: subtitles
         };
-        this.cacheService.set('cache:srt', hashKey, res);
-        this.cacheVocabularyTexts(hashKey, subtitles);
-        const adjustedSentence = await this.adjustTime(subtitles, hashKey);
+        this.cacheService.set('cache:srt', cacheKey, res);
+        this.cacheVocabularyTexts(fileHash, subtitles);
+        const adjustedSentence = await this.adjustTime(subtitles, fileHash);
 
         return {
             ...res,

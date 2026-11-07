@@ -119,6 +119,7 @@
         "showChinese": "机器翻译",
         "showSourceZh": "自带中文",
         "sentenceBlockMode": "整句模式（按意群循环）",
+        "meaningGroupResegmentation": "意群重切分（重新打开视频生效）",
         "trackEnHint": "原文字幕（快捷键 `{{shortcut}}`）",
         "trackCnHint": "机器/AI 翻译字幕（快捷键 `{{shortcut}}`）",
         "trackSourceZhHint": "SRT 字幕源自带的中文字幕",
