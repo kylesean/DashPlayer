@@ -27,6 +27,7 @@ import FolderSelector, { FolderSelectAction } from '@/fronted/features/file-brow
 import FileSelector, { FileAction } from '@/fronted/features/file-browser/components/FileSelector';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
+import YoutubeImportButton from '@/fronted/features/youtube-import/YoutubeImportButton';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 const logger = getRendererLogger('HomePage');
@@ -159,6 +160,7 @@ const HomePage = () => {
                                             })}
                                         />
                                     </div>
+                                    <YoutubeImportButton />
                                 </div>
                             </div>
 
@@ -246,6 +248,7 @@ const HomePage = () => {
                                             })}
                                         />
                                     </div>
+                                    <YoutubeImportButton />
                                 </div>
                             </div>
                         </div>
