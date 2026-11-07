@@ -57,4 +57,50 @@ describe('ProxySetting（SWR 版本）', () => {
         await sleep(200);
         expect(combo.textContent).toContain('proxy.modeNone');
     });
+
+    it('system 模式未探测到系统代理时显示直连警告', async () => {
+        window.electron = {
+            call: vi.fn((path: string) => {
+                if (path === KEY) {
+                    return Promise.resolve({ mode: 'system', url: '', bypassRules: '', systemProxy: { detected: false, url: null } });
+                }
+                return Promise.resolve(undefined);
+            }),
+        } as never;
+
+        renderPage();
+        expect(await screen.findByRole('alert', {}, { timeout: 3000 })).toBeDefined();
+        expect(screen.getByText('proxy.directConnectionWarning')).toBeDefined();
+    });
+
+    it('system 模式探测到系统代理时不显示直连警告', async () => {
+        window.electron = {
+            call: vi.fn((path: string) => {
+                if (path === KEY) {
+                    return Promise.resolve({ mode: 'system', url: '', bypassRules: '', systemProxy: { detected: true, url: 'http://127.0.0.1:10808' } });
+                }
+                return Promise.resolve(undefined);
+            }),
+        } as never;
+
+        renderPage();
+        await screen.findByRole('combobox', {}, { timeout: 3000 });
+        await sleep(200);
+        expect(screen.queryByText('proxy.directConnectionWarning')).toBeNull();
+    });
+
+    it('custom 模式地址为空时显示直连警告，填写地址后消失', async () => {
+        window.electron = {
+            call: vi.fn((path: string) => {
+                if (path === KEY) {
+                    return Promise.resolve({ mode: 'custom', url: '', bypassRules: '', systemProxy: { detected: false, url: null } });
+                }
+                return Promise.resolve(undefined);
+            }),
+        } as never;
+
+        renderPage();
+        expect(await screen.findByRole('alert', {}, { timeout: 3000 })).toBeDefined();
+        expect(screen.getByText('proxy.directConnectionWarning')).toBeDefined();
+    });
 });

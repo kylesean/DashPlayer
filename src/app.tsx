@@ -4,6 +4,7 @@ import useSetting from '@/fronted/features/settings/settingsStore';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import HomePage from '@/fronted/features/file-browser/HomePage';
 import TitleBarLayout from '@/fronted/pages/TieleBarLayout';
+import YoutubeImportDialogHost from '@/fronted/features/youtube-import/YoutubeImportDialogHost';
 import PlayerPage from '@/fronted/features/player/PlayerPage';
 import Layout from '@/fronted/pages/Layout';
 import SettingLayout from '@/fronted/features/settings/SettingLayout';
@@ -240,6 +241,7 @@ export const App = () => {
                                 </Route>
                             </Route>
                         </Routes>
+                        <YoutubeImportDialogHost />
                     </HashRouter>
                 )}
                 {gate === null && <StartupLoading />}

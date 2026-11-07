@@ -39,6 +39,10 @@ const ProxySetting = () => {
     const { setValue } = form;
     const currentMode = normalizeMode(useWatch({ control: form.control, name: 'mode' }));
     const [url, bypassRules] = useWatch({ control: form.control, name: ['url', 'bypassRules'] });
+    // 实际生效代理为空时显式警告：system 模式未探测到系统代理，或 custom 模式地址为空。
+    // 探测结果未下发（旧版本 detail）时不误报。
+    const effectiveNoProxy = (currentMode === 'system' && settings?.systemProxy?.detected === false)
+        || (currentMode === 'custom' && !(url ?? '').trim());
 
     const { ready, status: autoSaveStatus, error: autoSaveError, initialize, flush } = useAutoSaveSettingsForm<ProxyFormValues>({
         form,
@@ -91,6 +95,15 @@ const ProxySetting = () => {
                         className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
                     >
                         {autoSaveError}
+                    </div>
+                )}
+
+                {effectiveNoProxy && (
+                    <div
+                        role="alert"
+                        className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400"
+                    >
+                        {t('proxy.directConnectionWarning')}
                     </div>
                 )}
 

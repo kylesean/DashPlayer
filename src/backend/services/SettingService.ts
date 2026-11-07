@@ -26,6 +26,7 @@ import type { ProxySettingDetailVO, ProxySettingSaveVO } from '@/common/contract
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
 import type { StorageSettingVO } from '@/common/contracts/storage-setting-vo';
 import { getSubtitleDefaultStyle } from '@/common/constants/openaiSubtitlePrompts';
+import { readSystemProxy } from '@/backend/infrastructure/system/proxy/readSystemProxy';
 import { AI_API_FORMATS } from '@/common/utils/cloud-ai-api-format';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type LocalAiService from '@/backend/services/LocalAiService';
@@ -722,6 +723,9 @@ export class SettingServiceImpl implements SettingService {
      * 查询代理设置详情，严格校验代理模式。
      */
     public async getProxySettingDetail(): Promise<ProxySettingDetailVO> {
+        // system 模式依赖系统级代理发现（Linux 环境变量 / macOS scutil / Windows 注册表）；
+        // 探测失败与探测不到同样按未探测处理，由设置页显式警告直连风险。
+        const systemProxy = await readSystemProxy().catch(() => null);
         return {
             mode: this.requireEnumValue(
                 this.getValue('proxy.mode'),
@@ -730,6 +734,9 @@ export class SettingServiceImpl implements SettingService {
             ),
             url: this.getValue('proxy.url'),
             bypassRules: this.getValue('proxy.bypass_rules'),
+            systemProxy: systemProxy
+                ? { detected: true, url: systemProxy.proxyUrl }
+                : { detected: false, url: null },
         };
     }
 

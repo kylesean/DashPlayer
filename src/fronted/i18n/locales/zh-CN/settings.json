@@ -70,7 +70,8 @@
         "urlTitle": "代理地址",
         "urlDescription": "支持 http://、https:// 与 socks5:// 协议。",
         "bypassRulesTitle": "直连规则",
-        "bypassRulesDescription": "逗号分隔的域名/IP/CIDR，命中这些地址的请求不走代理（如 localhost,127.0.0.1）。"
+        "bypassRulesDescription": "逗号分隔的域名/IP/CIDR，命中这些地址的请求不走代理（如 localhost,127.0.0.1）。",
+        "directConnectionWarning": "未检测到有效的代理：YouTube 下载等网络请求将直连，当前网络下很可能失败。如需代理，请切换到「自定义」并填写代理地址。"
     },
     "mobile": {
         "title": "手机访问",

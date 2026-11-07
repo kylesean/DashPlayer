@@ -11,5 +11,6 @@
     "backNavRecent": "Recently opened",
     "backNavUp": "Go up one level",
     "backNavRecentHint": "Browse recently opened projects",
-    "backNavCurrentDir": "Current folder: {{dir}}"
+    "backNavCurrentDir": "Current folder: {{dir}}",
+    "youtubeImport": "Import YouTube video"
 }

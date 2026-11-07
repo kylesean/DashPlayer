@@ -4,6 +4,7 @@ import { cn } from '@/fronted/lib/utils';
 import logoLight from '../../../../assets/logo-light.png';
 import logoDark from '../../../../assets/logo-dark.png';
 import useFile from '@/fronted/features/file-browser/fileStore';
+import YoutubeImportSidebarItem from '@/fronted/features/youtube-import/YoutubeImportSidebarItem';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { AudioLines, BookOpen, Captions, Rotate3D, Settings, SquareSplitHorizontal, Star, Video } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
@@ -77,6 +78,7 @@ const SideBar = ({ compact }: SideBarProps) => {
             </div>
             <div className={cn('basis-3/4 flex flex-col p-3 gap-1')}>
                 {/* {item('Home', '/home', 'home', <HiOutlineHome />)} */}
+                <YoutubeImportSidebarItem compact={compact} />
                 {item(
                     t('playbackLab'),
                     `/player/${videoId}?sideBarAnimation=false`,

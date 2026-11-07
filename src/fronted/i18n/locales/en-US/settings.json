@@ -70,7 +70,8 @@
         "urlTitle": "Proxy URL",
         "urlDescription": "Supports http://, https:// and socks5:// protocols.",
         "bypassRulesTitle": "Bypass Rules",
-        "bypassRulesDescription": "Comma-separated domains/IPs/CIDRs that bypass the proxy (e.g., localhost, 127.0.0.1)."
+        "bypassRulesDescription": "Comma-separated domains/IPs/CIDRs that bypass the proxy (e.g., localhost, 127.0.0.1).",
+        "directConnectionWarning": "No effective proxy detected: network requests such as YouTube downloads will go direct and are likely to fail on this network. Switch to Custom and fill in a proxy address if you need one."
     },
     "mobile": {
         "title": "Mobile Access",
