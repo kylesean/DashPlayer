@@ -95,6 +95,32 @@ describe('意群重切分', () => {
         expect(resegmentIntoMeaningGroups(input)).toEqual(input);
     });
 
+    it('上限强切回溯到最后一个逗号，不把句子拦腰斩断（真实 5yCqhY1D-VE 案例）', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 999.92, 1000.32, '>> Okay. How do you use topic to help you be a better communicator? Anyone who\'s'),
+            line(2, 998.399, 1003.519, 'going out on a date is already thinking about what they\'re going to wear, how'),
+            line(3, 1002.0, 1005.839, 'they\'re going to do their hair, what makeup they\'re going to put on, where'),
+            line(4, 1004.639, 1008.16, 'they\'re going to what restaurant they\'re going to meet at, what activity they\'re'),
+            line(5, 1007.279, 1010.56, 'going to do.'),
+        ]);
+        expect(result.some((item) => item.contentEn.endsWith('meet at,'))).toBe(true);
+        expect(result.some((item) => item.contentEn === 'what activity they\'re going to do.')).toBe(true);
+        expect(result.some((item) => item.contentEn === 'going to do.')).toBe(false);
+        for (let i = 1; i < result.length; i++) {
+            expect(result[i].start).toBeGreaterThanOrEqual(result[i - 1].end);
+        }
+    });
+
+    it('缓冲内没有可用逗号（唯一逗号贴近开头）时维持 cue 边界强切', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 2, 'Yes, ' + 'a'.repeat(230)),
+            line(2, 2.1, 4, 'b'.repeat(140)),
+        ]);
+        // 唯一逗号在头部 5 字符处，低于回溯下限：回退为 cue 边界强切
+        expect(result).toHaveLength(2);
+        expect(result[0].contentEn).toBe('Yes, ' + 'a'.repeat(230));
+    });
+
     it('真实 YouTube 样本：碎片句跨 cue 拼回完整意群', () => {
         const result = resegmentIntoMeaningGroups([
             line(1, 0, 5.96, 'Today, you and I are going to talk about'),

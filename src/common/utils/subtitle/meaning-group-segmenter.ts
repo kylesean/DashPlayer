@@ -20,6 +20,14 @@ const GAP_BREAK_SECONDS = 0.8;
 /** 句缓冲字符数达到该值仍无句末标点时，在 cue 边界强制封句，防止无标点段落归并出巨块。 */
 const MAX_BUFFER_CHARS = 250;
 
+/**
+ * 上限强切回溯边界的最小头部长度（字符）。
+ *
+ * 回溯到逗号时，头部短于该值意味着只切出一个碎头——与碎片化无异，
+ * 此时放弃回溯，维持 cue 边界强切。
+ */
+const BACKTRACK_MIN_HEAD_CHARS = 60;
+
 /** 切分后子区间的最小时长（秒）：低于它的相邻子区间会被延展，保证 createSrtLine 的严格递增校验。 */
 const MIN_SEGMENT_SECONDS = 0.2;
 
@@ -43,6 +51,21 @@ interface TextPiece {
 const endsWithTerminal = (text: string): boolean => {
     const trimmed = text.trimEnd();
     return /[.!?…]["'”』」)\]]?$/.test(trimmed);
+};
+
+/**
+ * 在缓冲文本中从尾部找最后一个可回溯的意群边界（逗号/分号/冒号），
+ * 返回切点偏移（标点之后）；头部长度不足 {@link BACKTRACK_MIN_HEAD_CHARS} 的边界
+ * 不可用——把巨块切成碎头加长尾等于换一种碎片。找不到返回 -1，调用方维持
+ * cue 边界强切。
+ */
+const findLastBreakOffset = (text: string): number => {
+    for (let i = text.length - 1; i >= BACKTRACK_MIN_HEAD_CHARS; i--) {
+        if (',;:'.includes(text[i])) {
+            return i + 1;
+        }
+    }
+    return -1;
 };
 
 /**
@@ -124,6 +147,13 @@ const splitLineIntoPieces = (line: SrtLine): TextPiece[] => {
             piece.start = Math.max(piece.start - needed, prev.start + MIN_SEGMENT_SECONDS);
         }
     }
+    // 5. 单调钳制：借时长只调整了短段终点，邻段起点可能落在被借走的区间内；
+    //    向前对齐起点，保证 cue 内子区间严格递增。
+    for (let i = 1; i < rawPieces.length; i++) {
+        if (rawPieces[i].start < rawPieces[i - 1].end) {
+            rawPieces[i].start = rawPieces[i - 1].end;
+        }
+    }
     return rawPieces.filter((piece) => piece.text.length > 0);
 };
 
@@ -168,10 +198,35 @@ export const resegmentIntoMeaningGroups = (lines: SrtLine[]): SrtLine[] => {
     for (const line of lines) {
         for (const piece of splitLineIntoPieces(line)) {
             // 封块条件：并入后超出上限（而非当前已达到），否则恰好达标的块永远无法再并入。
-            const startsNewGroup = buffer === null
-                || (buffer.text.trim().length > 0 && endsWithTerminal(buffer.text))
-                || piece.start - buffer.end >= GAP_BREAK_SECONDS
-                || bufferChars + piece.text.length > MAX_BUFFER_CHARS;
+            const terminalClose = buffer !== null && buffer.text.trim().length > 0 && endsWithTerminal(buffer.text);
+            const gapClose = buffer !== null && piece.start - buffer.end >= GAP_BREAK_SECONDS;
+            const capClose = buffer !== null && bufferChars + piece.text.length > MAX_BUFFER_CHARS;
+            if (buffer !== null && capClose && !terminalClose && !gapClose) {
+                // 上限强切的默认切点是 cue 边界，常把句子拦腰斩断（真实案例：
+                // "... what activity they're" | "going to do."）。列表/从句的
+                // 逗号是更自然的意群边界：回溯到缓冲内最后一个逗号，把逗号后的
+                // 尾巴连同触发片段一起留给下一组；无可用逗号时维持 cue 边界强切。
+                // 分界时间按字符占比在缓冲区间内插值，与 cue 内拆分同一口径。
+                // current 固定收窄引用 + splitTime 显式注解：buffer 的控制流收窄
+                // 类型依赖下方含 splitTime 的赋值，推断会绕成环（TS7022），
+                // 注解把环从类型层剪断。
+                const current = buffer;
+                const splitOffset = findLastBreakOffset(current.text);
+                if (splitOffset >= 0) {
+                    const splitTime: number = current.start + (current.end - current.start) * (splitOffset / current.text.length);
+                    const headText: string = current.text.slice(0, splitOffset).trim();
+                    const tailText: string = current.text.slice(splitOffset).trim();
+                    buffers.push({ text: headText, start: current.start, end: splitTime });
+                    buffer = {
+                        text: `${tailText} ${piece.text}`.trim(),
+                        start: splitTime,
+                        end: Math.max(piece.end, splitTime + MIN_SEGMENT_SECONDS),
+                    };
+                    bufferChars = tailText.length + piece.text.length;
+                    continue;
+                }
+            }
+            const startsNewGroup = buffer === null || terminalClose || gapClose || capClose;
             if (startsNewGroup || buffer === null) {
                 closeBuffer();
                 buffer = { text: piece.text, start: piece.start, end: piece.end };
@@ -185,6 +240,14 @@ export const resegmentIntoMeaningGroups = (lines: SrtLine[]): SrtLine[] => {
     }
     closeBuffer();
 
+    // 输出前做跨组单调钳制：滚动式 cue 的相邻片段在时间轴上重叠，终端/上限封句
+    // 后下一组的起点可能早于上一组终点；把它对齐到上一组终点（组内 end 必然
+    // 不早于首片段起点，钳制不会产生空区间），保证整条时间轴严格递增。
+    for (let i = 1; i < buffers.length; i++) {
+        if (buffers[i].start < buffers[i - 1].end && buffers[i - 1].end < buffers[i].end) {
+            buffers[i].start = buffers[i - 1].end;
+        }
+    }
     return buffers.map((item, index) => ({
         index: index + 1,
         start: item.start,
