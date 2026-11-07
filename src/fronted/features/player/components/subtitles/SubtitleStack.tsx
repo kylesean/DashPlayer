@@ -7,6 +7,8 @@ import SubtitleLine from './SubtitleLine';
 import StrUtil from '@/common/utils/str-util';
 import useTranslation from '@/fronted/features/player/translationStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
+import { cn } from '@/fronted/lib/utils';
+import type { Sentence } from '@/common/types/SentenceC';
 
 const SubtitleStack = () => {
     const sentence = usePlayerState((state) => state.currentSentence);
@@ -15,11 +17,17 @@ const SubtitleStack = () => {
 
     const translationKey = sentence?.translationKey || '';
     const newTranslation = useTranslation((state) => state.translations.get(translationKey)) || '';
+    /** 整句模式需要渲染块内其他行的译文：订阅整个译文表，任一译文到达都触发重渲染。 */
+    const translations = useTranslation((state) => state.translations);
 
     const showCn = usePlayerUi((state) => state.showCn);
     const showSourceZh = usePlayerUi((state) => state.showSourceZh);
 
-    const renderLines = (): ReactElement[] => {
+    /** 当前句所在的意群块；整句模式关闭时为 null，回退单行渲染。 */
+    const block = usePlayerState((state) => state.getCurrentBlock());
+
+    /** 单行渲染（整句模式关闭时的原始行为）：当前句的原文/机翻/自带中文三行。 */
+    const renderSingleLine = (): ReactElement[] => {
         if (!sentence) {
             return [];
         }
@@ -65,6 +73,67 @@ const SubtitleStack = () => {
         return lines;
     };
 
+    /**
+     * 渲染当前行附带的译文与源自带中文（整句模式用）。
+     * 译文尚未流式返回时不占位，返回后自动补上。
+     */
+    const renderZhForSentence = (item: Sentence): ReactElement[] => {
+        const zhLines: ReactElement[] = [];
+        if (showCn) {
+            const translation = translations.get(item.translationKey) || '';
+            if (StrUtil.isNotBlank(translation)) {
+                zhLines.push(
+                    <SubtitleLine
+                        key={`translation-${item.key}`}
+                        text={translation}
+                        order="second"
+                    />
+                );
+            }
+        }
+        if (showSourceZh && StrUtil.isNotBlank(item.textZH)) {
+            zhLines.push(
+                <SubtitleLine
+                    key={`sourceZh-${item.key}`}
+                    text={item.textZH!}
+                    order={zhLines.length === 0 ? 'second' : 'third'}
+                />
+            );
+        }
+        return zhLines;
+    };
+
+    /** 整句模式：渲染当前句所在意群块的全部行，块内当前行高亮、其余降透明度。 */
+    const renderBlockLines = (): ReactElement[] => {
+        if (!block) {
+            return [];
+        }
+        const lines: ReactElement[] = [];
+        for (const item of block.sentences) {
+            const active = item.key === sentence?.key;
+            if (StrUtil.isNotBlank(item.text)) {
+                lines.push(
+                    <div
+                        key={`block-en-${item.key}`}
+                        className={cn('w-full transition-opacity', !active && 'opacity-50')}
+                    >
+                        <FullscreenTranslatableLine
+                            adjusted={active ? adjusted : false}
+                            clearAdjust={active
+                                ? () => {
+                                    void playerActions.clearAdjust();
+                                }
+                                : () => {}}
+                            sentence={item}
+                        />
+                    </div>
+                );
+            }
+            lines.push(...renderZhForSentence(item));
+        }
+        return lines;
+    };
+
     if (!sentence) {
         return <div className="w-full h-full" />;
     }
@@ -74,7 +143,7 @@ const SubtitleStack = () => {
             key={`trans-sub:${sentence.key}`}
             className="flex flex-col w-full text-center text-textColor justify-center items-center gap-2 pointer-events-auto"
         >
-            {renderLines()}
+            {block ? renderBlockLines() : renderSingleLine()}
         </div>
     );
 };

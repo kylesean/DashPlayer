@@ -192,11 +192,13 @@ export function PlaybackModeControls({
     const showEn = usePlayerUi((state) => state.showEn);
     const showCn = usePlayerUi((state) => state.showCn);
     const showSourceZh = usePlayerUi((state) => state.showSourceZh);
+    const sentenceBlockMode = usePlayerUi((state) => state.sentenceBlockMode);
     const showSideTranslation = usePlayerUi((state) => state.showSideTranslation);
     const syncSide = usePlayerUi((state) => state.syncSide);
     const changeShowEn = usePlayerUi((state) => state.changeShowEn);
     const changeShowCn = usePlayerUi((state) => state.changeShowCn);
     const changeShowSourceZh = usePlayerUi((state) => state.changeShowSourceZh);
+    const changeSentenceBlockMode = usePlayerUi((state) => state.changeSentenceBlockMode);
     const changeShowSideTranslation = usePlayerUi((state) => state.changeShowSideTranslation);
     const changeSyncSide = usePlayerUi((state) => state.changeSyncSide);
     // 侧栏此刻是否真的被收起：收起时「随英文字幕隐藏」这行的提示要从「会怎样」换成「现在就是这样」
@@ -448,6 +450,12 @@ export function PlaybackModeControls({
                             checked={showSourceZh}
                             label={t('controlBox.showSourceZh')}
                             onActivate={() => changeShowSourceZh()}
+                        />
+                        {/* 整句模式：连续字幕行按标点与停顿归并成完整意群，导航/循环/自动暂停以意群为单位 */}
+                        <ControlPopoverRow
+                            checked={sentenceBlockMode}
+                            label={t('controlBox.sentenceBlockMode')}
+                            onActivate={() => changeSentenceBlockMode()}
                         />
                         {/* 侧栏：译文与「随英文字幕隐藏」同一块栏的两个开关，顺序与播放控制面板保持一致 */}
                         <div className={CONTROL_POPOVER_SEPARATOR} />

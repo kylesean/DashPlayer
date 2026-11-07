@@ -9,6 +9,13 @@ import useFile from '@/fronted/features/file-browser/fileStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
+// 说明：playerUiStore 同时有同名具名导出，这里用别名引用默认导出，避免 import/no-named-as-default 告警。
+import playerUiStore from '@/fronted/features/player/playerUiStore';
+import {
+    findSentenceBlock,
+    groupSentencesIntoBlocks,
+    type SentenceBlock,
+} from '@/fronted/features/player/lib/sentence-grouping';
 
 /**
  * seek 请求：目标时间与是否继续播放的意图。
@@ -213,6 +220,14 @@ interface PlayerState {
   getVirtualGroupRange: () => Range | null;
   getLoopRange: () => Range;
 
+  /**
+   * 当前句所在的意群块（整句模式）。
+   *
+   * 供渲染层按块展示双语字幕；整句模式关闭、无字幕或当前句无所属块时返回 null。
+   * 返回引用在块内移动时保持稳定，避免渲染层频繁重算。
+   */
+  getCurrentBlock: () => SentenceBlock | null;
+
   // 播放起点延迟（配合 autoPause）
   onPlaySeek: (time: number | null) => void;
 
@@ -335,6 +350,34 @@ export const usePlayer = create<PlayerState>((set, get) => {
     }
     if (!isFinite(start)) start = 0;
     return { start, end };
+  };
+
+  /** 意群归并结果的引用缓存：loadSubtitles/mergeSubtitles 换入新 sentences 数组时自动失效重建。 */
+  let sentenceBlocksCache: { source: Sentence[]; blocks: SentenceBlock[] } | null = null;
+  const getSentenceBlocks = (sentences: Sentence[]): SentenceBlock[] => {
+    if (sentenceBlocksCache?.source === sentences) {
+      return sentenceBlocksCache.blocks;
+    }
+    const blocks = groupSentencesIntoBlocks(sentences);
+    sentenceBlocksCache = { source: sentences, blocks };
+    return blocks;
+  };
+
+  /**
+   * 当前句所在的意群块。
+   *
+   * 整句模式关闭、无字幕或当前句不在任何块内时返回 null，调用方回退到行级行为。
+   * 返回的是缓存中的块对象（引用稳定）：当前句在块内移动不会产生新引用。
+   */
+  const getCurrentBlock = (): SentenceBlock | null => {
+    if (!playerUiStore.getState().sentenceBlockMode) {
+      return null;
+    }
+    const { sentences, currentSentence } = get();
+    if (sentences.length === 0) {
+      return null;
+    }
+    return findSentenceBlock(getSentenceBlocks(sentences), currentSentence);
   };
 
   // 清理尾部预览
@@ -471,6 +514,14 @@ export const usePlayer = create<PlayerState>((set, get) => {
       ? sentences
       : [...sentences].sort((a, b) => a.index - b.index);
     if (!virtualGroup.active || virtualGroup.sentences.length === 0) {
+      // 整句模式：意群块整体作为一个导航单位（复用 vg 语义，跳转/循环以块为单位）；
+      // 用户手动拖选的虚拟组优先级更高，激活时维持既有行为。
+      if (playerUiStore.getState().sentenceBlockMode) {
+        const blocks = getSentenceBlocks(ordered);
+        if (blocks.length > 0) {
+          return blocks.map((block) => ({ type: 'vg' as const, sentences: block.sentences, repr: block.repr }));
+        }
+      }
       return ordered.map((s) => ({ type: 'sentence' as const, s }));
     }
 
@@ -647,9 +698,12 @@ export const usePlayer = create<PlayerState>((set, get) => {
       return;
     }
 
-    // 3) AutoPause（基于当前句）
+    // 3) AutoPause（整句模式在意群末尾暂停，否则基于当前句）
     if (currentSentence && playing && autoPause) {
-      const { start, end } = srtTender.mapSeekTime(currentSentence);
+      const block = getCurrentBlock();
+      const { start, end } = block
+        ? calcRangeForSentences(srtTender, block.sentences)
+        : srtTender.mapSeekTime(currentSentence);
       if (effectiveTime > end) {
         state.pause();
         state.onPlaySeek(start);
@@ -657,14 +711,19 @@ export const usePlayer = create<PlayerState>((set, get) => {
       return;
     }
 
-    // 4) SingleRepeat：组优先（保留 overdue；单句冻结，虚拟组内允许高亮随时间移动）
+    // 4) SingleRepeat：组优先（保留 overdue；单句冻结，虚拟组/意群块内允许高亮随时间移动）
     if (playing && singleRepeat) {
       const { start, end } = state.getLoopRange();
       const focusInGroup = isFocusInVirtualGroup();
+      const block = getCurrentBlock();
+      const focusInBlock = block !== null;
       if (effectiveTime > end) {
         if (focusInGroup && virtualGroup.active && virtualGroup.sentences.length > 0) {
           const first = virtualGroup.sentences.slice().sort((a, b) => a.index - b.index)[0];
           state.seekToTarget({ time: start, target: first });
+        } else if (focusInBlock) {
+          // 整句模式：回到意群块首句，块内高亮随播放自然流动
+          state.seekToTarget({ time: start, target: block!.repr });
         } else {
           state.seekToTarget({ time: start, target: currentSentence ?? undefined });
         }
@@ -675,6 +734,11 @@ export const usePlayer = create<PlayerState>((set, get) => {
         const next = srtTender.getByTime(effectiveTime);
         const nextKey = `${next.fileHash}-${next.index}`;
         if (vgSet.has(nextKey) && next !== currentSentence) {
+          set({ currentSentence: next });
+        }
+      } else if (focusInBlock && block) {
+        const next = srtTender.getByTime(effectiveTime);
+        if (block.sentences.some((s) => s.key === next.key) && next !== currentSentence) {
           set({ currentSentence: next });
         }
       }
@@ -1187,11 +1251,20 @@ export const usePlayer = create<PlayerState>((set, get) => {
       if (focusInGroup && virtualGroup.active && srtTender && virtualGroup.sentences.length > 0) {
         return calcRangeForSentences(srtTender, virtualGroup.sentences);
       }
+      // 整句模式：单句循环的循环区间取整个意群块。
+      if (playerUiStore.getState().sentenceBlockMode && srtTender) {
+        const block = getCurrentBlock();
+        if (block) {
+          return calcRangeForSentences(srtTender, block.sentences);
+        }
+      }
       if (currentSentence && srtTender) {
         return srtTender.mapSeekTime(currentSentence);
       }
       return { start: 0, end: 0 };
     },
+
+    getCurrentBlock,
 
     // 播放起点延迟（配合 autoPause）
     onPlaySeek: (time) => {

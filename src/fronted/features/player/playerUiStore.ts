@@ -11,6 +11,11 @@ type PlayerUiState = {
   showEn: boolean;
   showCn: boolean;
   showSourceZh: boolean;
+  /**
+   * 整句模式：连续字幕行按句末标点与停顿归并成完整意群，精听导航、
+   * 单句循环与自动暂停都以意群为单位；关闭时回到逐行行为。
+   */
+  sentenceBlockMode: boolean;
   /** 右侧字幕列表是否显示译文（原文行恒显示）。与主字幕区的 showCn / showSourceZh 互不影响。 */
   showSideTranslation: boolean;
   syncSide: boolean;
@@ -50,6 +55,7 @@ type PlayerUiActions = {
   changeShowEn: () => void;
   changeShowCn: () => void;
   changeShowSourceZh: () => void;
+  changeSentenceBlockMode: () => void;
   changeShowSideTranslation: () => void;
   changeShowEnCn: () => void;
   changeSyncSide: () => void;
@@ -83,6 +89,7 @@ type PersistedPreferenceKey =
   | 'showEn'
   | 'showCn'
   | 'showSourceZh'
+  | 'sentenceBlockMode'
   | 'showSideTranslation'
   | 'syncSide'
   | 'showWordLevel'
@@ -94,6 +101,7 @@ const PERSISTED_DEFAULTS: Pick<PlayerUiState, PersistedPreferenceKey> = {
   showEn: true,
   showCn: true,
   showSourceZh: true,
+  sentenceBlockMode: true,
   showSideTranslation: true,
   syncSide: false,
   showWordLevel: false,
@@ -173,6 +181,7 @@ function pickPersisted(
     showEn: state.showEn ?? PERSISTED_DEFAULTS.showEn,
     showCn: state.showCn ?? PERSISTED_DEFAULTS.showCn,
     showSourceZh: state.showSourceZh ?? PERSISTED_DEFAULTS.showSourceZh,
+    sentenceBlockMode: state.sentenceBlockMode ?? PERSISTED_DEFAULTS.sentenceBlockMode,
     showSideTranslation: state.showSideTranslation ?? PERSISTED_DEFAULTS.showSideTranslation,
     syncSide: state.syncSide ?? PERSISTED_DEFAULTS.syncSide,
     showWordLevel: state.showWordLevel ?? PERSISTED_DEFAULTS.showWordLevel,
@@ -196,6 +205,7 @@ export const usePlayerUi = create(
       changeShowEn: () => set((s) => ({ showEn: !s.showEn })),
       changeShowCn: () => set((s) => ({ showCn: !s.showCn })),
       changeShowSourceZh: () => set((s) => ({ showSourceZh: !s.showSourceZh })),
+      changeSentenceBlockMode: () => set((s) => ({ sentenceBlockMode: !s.sentenceBlockMode })),
       changeShowSideTranslation: () => set((s) => ({ showSideTranslation: !s.showSideTranslation })),
       changeShowEnCn: () => set((s) => ({ showEn: !s.showEn, showCn: !s.showEn })),
       changeSyncSide: () => set((s) => ({ syncSide: !s.syncSide })),

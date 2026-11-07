@@ -21,6 +21,7 @@ import {
 } from '@/fronted/components/ui/popover';
 import { Input } from '@/fronted/components/ui/input';
 import { cn } from '@/fronted/lib/utils';
+import type { Sentence } from '@/common/types/SentenceC';
 import LearningModeButton from './LearningModeButton';
 import {
     CAPTION_CARD_ANCHOR_CLASS,
@@ -105,6 +106,10 @@ export default function MainSubtitle() {
     // 在组件顶层获取当前句子的翻译
     const translationKey = sentence?.translationKey || '';
     const newTranslation = useTranslation(state => state.translations.get(translationKey)) || '';
+    /** 整句模式需要渲染块内其他行的译文：订阅整个译文表，任一译文到达都触发重渲染。 */
+    const translations = useTranslation(state => state.translations);
+    /** 当前句所在的意群块；整句模式关闭时为 null，回退单行渲染。 */
+    const block = usePlayer(state => state.getCurrentBlock());
 
     useEffect(() => {
         if (sentence && engine !== 'none' && activeFileHash === sentence.fileHash) {
@@ -124,9 +129,73 @@ export default function MainSubtitle() {
     const showCn = usePlayerUi((state) => state.showCn);
     const showSourceZh = usePlayerUi((state) => state.showSourceZh);
 
+    /** 渲染一行字幕的译文与源自带中文（整句模式用），按开关与有无依次输出。 */
+    const renderZhLinesForBlock = (item: Sentence): ReactElement[] => {
+        const lines: ReactElement[] = [];
+        const translation = translations.get(item.translationKey) || '';
+        if (showCn && StrUtil.isNotBlank(translation)) {
+            lines.push(
+                <div key={`block-translation-${item.key}`} className="w-full min-h-0">
+                    <NormalLine
+                        text={translation}
+                        order="second"
+                        source={showSourceZh && StrUtil.isNotBlank(item.textZH) ? 'ai' : undefined}
+                    />
+                </div>
+            );
+        }
+        if (showSourceZh && StrUtil.isNotBlank(item.textZH)) {
+            lines.push(
+                <div key={`block-sourceZh-${item.key}`} className="w-full min-h-0">
+                    <NormalLine
+                        text={item.textZH!}
+                        order={lines.length === 0 ? 'second' : 'third'}
+                        source={showCn && StrUtil.isNotBlank(translation) ? 'source' : undefined}
+                    />
+                </div>
+            );
+        }
+        return lines;
+    };
+
+    /** 整句模式：渲染当前句所在意群块的全部行，块内当前行高亮、其余降透明度。 */
+    const renderBlockLines = (): ReactElement[] => {
+        if (!block) {
+            return [];
+        }
+        const lines: ReactElement[] = [];
+        for (const item of block.sentences) {
+            const active = item.key === sentence?.key;
+            if (StrUtil.isNotBlank(item.text)) {
+                lines.push(
+                    <div
+                        key={`block-first-${item.key}`}
+                        className={cn('w-full shrink-0 transition-opacity', !active && 'opacity-50')}
+                    >
+                        <TranslatableLine
+                            variant="plain"
+                            adjusted={active ? adjusted : false}
+                            clearAdjust={active
+                                ? () => { void playerActions.clearAdjust(); }
+                                : () => {}}
+                            sentence={item}
+                        />
+                    </div>
+                );
+            }
+            lines.push(...renderZhLinesForBlock(item));
+        }
+        return lines;
+    };
+
     const ele = (): ReactElement[] => {
         if (!sentence) {
             return [];
+        }
+
+        // 整句模式：按意群块渲染（块内全部行 + 逐行译文）
+        if (block) {
+            return renderBlockLines();
         }
 
         const lines: ReactElement[] = [];
