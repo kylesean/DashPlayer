@@ -1,4 +1,4 @@
-import React, { type ReactElement, useEffect, useMemo, useState } from 'react';
+import React, { type ReactElement, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import TranslatableLine from '@/fronted/features/player/components/subtitles/TranslatableLineWrapper';
 import NormalLine from './NormalLine';
 import useTranslation from '@/fronted/features/player/translationStore';
@@ -102,6 +102,37 @@ export default function MainSubtitle() {
     const engine = useTranslation(state => state.engine);
     const openAiMode = useTranslation(state => state.openAiMode);
     const activeFileHash = useTranslation(state => state.activeFileHash);
+
+    // 长意群溢出适配:字幕内容块整体等比缩放(CSS zoom),保证原文+译文永远完整可见。
+    // 正常长度时 zoom 恒为 1,用户设置的固定字号不受影响——固定档位保证日常阅读一致性,
+    // 缩放只在内容高度超过容器时兜底,下限 0.75 防止缩到不可读。
+    const subtitleContainerRef = React.useRef<HTMLDivElement>(null);
+    const subtitleContentRef = React.useRef<HTMLDivElement>(null);
+    const [, bumpSubtitleFitTick] = React.useReducer((tick: number) => tick + 1, 0);
+
+    // 绘制前测量:先复位 zoom=1 量自然高度,超出容器则按比例缩小(上限 1,不放大)。
+    // 无依赖数组——每次渲染都重测:译文到达、意群切换、字号设置变更都会改变内容高度,
+    // 测量本身只是两次 getBoundingClientRect,开销可忽略。
+    useLayoutEffect(() => {
+        const container = subtitleContainerRef.current;
+        const content = subtitleContentRef.current;
+        if (!container || !content) return;
+        content.style.zoom = '1';
+        const natural = content.getBoundingClientRect().height;
+        const available = container.clientHeight;
+        content.style.zoom = natural > available
+            ? String(Math.max(0.75, available / natural))
+            : '1';
+    });
+
+    // 容器尺寸变化(拖窗口/切换窗口模式)不经过 React 渲染,监听后触发一次重渲染走上面的测量
+    useEffect(() => {
+        const container = subtitleContainerRef.current;
+        if (!container) return;
+        const observer = new ResizeObserver(() => bumpSubtitleFitTick());
+        observer.observe(container);
+        return () => observer.disconnect();
+    }, []);
 
     // 在组件顶层获取当前句子的翻译
     const translationKey = sentence?.translationKey || '';
@@ -260,13 +291,17 @@ export default function MainSubtitle() {
         }
         return (
             <div
+                ref={subtitleContainerRef}
                 className="relative flex flex-col w-full h-full items-center px-12 pt-3 pb-2 text-center text-textColor select-none overflow-hidden"
             >
                 {/* 顶部弹性占位：比底部占位少，让文字动态停留在“中上”黄金位置（约 40% 高度） */}
                 <div className="w-full flex-[2] min-h-0 pointer-events-none" />
 
                 {/* 字幕内容区：永远受到外层 pt-3 顶距保护，绝不削顶 */}
-                <div className="flex flex-col justify-start items-center gap-1.5 w-full min-w-0 shrink-0">
+                <div
+                    ref={subtitleContentRef}
+                    className="flex flex-col justify-start items-center gap-1.5 w-full min-w-0 shrink-0"
+                >
                     {ele()}
                 </div>
 
