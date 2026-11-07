@@ -102,6 +102,11 @@ import { ParakeetModelController } from '@/backend/controllers/ParakeetModelCont
 import WhisperCppModelController from '@/backend/controllers/WhisperCppModelController';
 import type ParakeetModelService from '@/backend/services/ParakeetModelService';
 import { ParakeetModelServiceImpl } from '@/backend/services/ParakeetModelService';
+import type YoutubeImportService from '@/backend/services/YoutubeImportService';
+import { YoutubeImportServiceImpl } from '@/backend/services/YoutubeImportService';
+import type YtDlpGateway from '@/backend/services/gateways/ytdlp/YtDlpGateway';
+import { YtDlpProcessGatewayImpl } from '@/backend/infrastructure/ytdlp/YtDlpProcessGatewayImpl';
+import { YoutubeImportController } from '@/backend/controllers/YoutubeImportController';
 import type WhisperCppModelService from '@/backend/services/WhisperCppModelService';
 import { WhisperCppModelServiceImpl } from '@/backend/services/WhisperCppModelService';
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
@@ -209,6 +214,7 @@ container.bind<Controller>(TYPES.Controller).to(SubtitleController).inSingletonS
 container.bind<Controller>(TYPES.Controller).to(WatchHistoryController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SettingsController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(ParakeetModelController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(YoutubeImportController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(WhisperCppModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(LocalAiController).inSingletonScope();
 container.bind<LocalAiService>(TYPES.LocalAiService).to(LocalAiRuntime).inSingletonScope();
@@ -228,6 +234,8 @@ container.bind<MainWindowRegistry>(TYPES.MainWindowRegistry).to(MainWindowRegist
 container.bind<WindowPort>(TYPES.WindowPort).to(WindowPortImpl).inSingletonScope();
 container.bind<AiFuncService>(TYPES.AiFuncService).to(AiFuncServiceImpl).inSingletonScope();
 container.bind<ParakeetModelService>(TYPES.ParakeetModelService).to(ParakeetModelServiceImpl).inSingletonScope();
+container.bind<YtDlpGateway>(TYPES.YtDlpGateway).to(YtDlpProcessGatewayImpl).inSingletonScope();
+container.bind<YoutubeImportService>(TYPES.YoutubeImportService).to(YoutubeImportServiceImpl).inSingletonScope();
 container.bind<SherpaOnnxCli>(TYPES.SherpaOnnxCli).to(SherpaOnnxCli).inSingletonScope();
 container.bind<WhisperCppCli>(TYPES.WhisperCppCli).to(WhisperCppCli).inSingletonScope();
 container.bind<SherpaOnnxGatewayImpl>(TYPES.SherpaOnnxGateway).to(SherpaOnnxGatewayImpl).inSingletonScope();

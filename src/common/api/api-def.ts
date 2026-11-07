@@ -1,4 +1,5 @@
 import type {DpTask} from '@/common/contracts/dp-task';
+import type { YoutubeImportSettingDetailVO, YoutubeImportSettingSaveVO, YoutubeImportStartResult } from '@/common/contracts/youtube-import';
 import type { LocalAiSpeedTestResult, LocalAiStatus } from '@/common/contracts/local-ai';
 import type { LocalMtStatus } from '@/common/contracts/local-mt';
 import type { ResourceFallbackSnapshot } from '@/common/contracts/resource-fallback';
@@ -322,6 +323,13 @@ interface ParakeetModelDef {
     'parakeet/models/delete': { params: void, return: { success: boolean; message: string } };
 }
 
+interface YoutubeImportDef {
+    'youtube-import/start': { params: { url: string }, return: YoutubeImportStartResult };
+    'youtube-import/cancel': { params: { taskId: number }, return: { cancelled: boolean } };
+    'youtube-import/setting-detail': { params: void, return: YoutubeImportSettingDetailVO };
+    'youtube-import/setting-save': { params: YoutubeImportSettingSaveVO, return: YoutubeImportSettingDetailVO };
+}
+
 interface WhisperCppModelDef {
     'whisper-cpp/models/status': { params: void, return: ModelInstallationStatusVO };
     'whisper-cpp/models/download': { params: void, return: { success: boolean; message: string } };
@@ -516,6 +524,7 @@ export type ApiDefinitions = ApiDefinition
     & StorageDef
     & SettingsDef
     & ParakeetModelDef
+    & YoutubeImportDef
     & WhisperCppModelDef
     & PlaybackRepairDef
     & FavoriteClipsDef

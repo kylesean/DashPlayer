@@ -35,12 +35,17 @@ export interface ModelArchiveInstallerOptions {
     archiveFileName: string;
     /** 归档形态：tar.bz2 解压后取模型目录；raw 单文件即模型文件本身。缺省为 tar.bz2。 */
     archiveKind?: 'tar.bz2' | 'raw';
-    /** 安装目标目录名（位于 models 根目录下）。 */
+    /** 安装目标目录名（位于存储目标根目录下）。 */
     modelDirectoryName: string;
+    /**
+     * 安装目标所在的存储目录目标；缺省为 MODELS。
+     * 非“模型”类产物（如 yt-dlp 二进制）可指向 BIN 等其他可写目录。
+     */
+    storageTarget?: StorageDirectoryTarget;
     /** 安装完成后必须存在的文件列表。 */
     requiredFiles: string[];
     /** 向前端广播下载进度的事件名。 */
-    progressEventName: 'settings/parakeet-model-download-progress' | 'settings/sherpa-tts-model-download-progress' | 'settings/whisper-cpp-model-download-progress';
+    progressEventName: 'settings/parakeet-model-download-progress' | 'settings/sherpa-tts-model-download-progress' | 'settings/whisper-cpp-model-download-progress' | 'youtube-import/yt-dlp-binary-download-progress';
     /** 下载被取消时抛出的错误信息。 */
     cancelledMessage: string;
     /** 模型显示名，用于结果消息和日志。 */
@@ -239,7 +244,9 @@ export class ModelArchiveInstaller {
 
     /** @returns 固定模型安装目录。 */
     private async getModelPath(): Promise<string> {
-        const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
+        const modelsRoot = await this.storageDirectoryProvider.provideDirectory(
+            this.options.storageTarget ?? StorageDirectoryTarget.MODELS,
+        );
         return path.join(modelsRoot, this.options.modelDirectoryName);
     }
 

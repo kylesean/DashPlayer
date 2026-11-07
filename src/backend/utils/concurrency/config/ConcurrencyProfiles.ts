@@ -70,6 +70,8 @@ export const defaultConcurrencyProfiles: ConcurrencyProfiles = {
         ffprobe: { capacity: 5 },
         whisper: { capacity: 10 },
         tts: { capacity: 1 },
+        // 外部 yt-dlp 下载串行：一次拉一个视频，避免多任务抢占带宽与 YouTube 风控。
+        'yt-dlp': { capacity: 1 },
     },
     rateLimiter: {
         whisper: { maxRequests: 5, windowMs: 1000 },

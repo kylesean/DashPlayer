@@ -302,6 +302,8 @@ export function resolveStorageDirectory(rootPath: string, target: StorageDirecto
             return path.join(rootPath, 'models');
         case StorageDirectoryTarget.DUBBING:
             return path.join(rootPath, 'dubbing');
+        case StorageDirectoryTarget.BIN:
+            return path.join(rootPath, 'bin');
         default:
             throw new Error(`未知的外部目录目标：${target satisfies never}`);
     }

@@ -57,5 +57,7 @@ export const SettingKeyObj = {
     'proxy.bypass_rules': '',
     'mobileAccess.enabled': 'false',
     'mobileAccess.port': '27182',
+    'youtubeImport.enabled': 'true',
+    'youtubeImport.cookiesFilePath': '',
 }
 export type SettingKey = keyof typeof SettingKeyObj;

@@ -43,6 +43,8 @@ const TYPES = {
     RendererEvents: Symbol('RendererEvents'),
     AiFuncService: Symbol('AiFuncService'),
     ParakeetModelService: Symbol('ParakeetModelService'),
+    YoutubeImportService: Symbol('YoutubeImportService'),
+    YtDlpGateway: Symbol('YtDlpGateway'),
     LocalAiService: Symbol('LocalAiService'),
     SherpaOnnxCli: Symbol('SherpaOnnxCli'),
     WhisperCppCli: Symbol('WhisperCppCli'),
