@@ -19,27 +19,33 @@ const buildSkeleton = (sources: string[]): string =>
 
 describe('本地填槽语法构造', () => {
     it('骨架字面量与译文自由段交替，槽数与源文逐字固定', () => {
-        const grammar = buildLocalSubtitleFillGrammar(['hello world.', 'second line.']);
+        const grammar = buildLocalSubtitleFillGrammar(['hello world.', 'second line.'], 'zh');
         expect(grammar).toBe(String.raw`root ::= "{\"items\":[{\"source\": \"hello world.\", \"translation\": \"" tran0 "\"},{\"source\": \"second line.\", \"translation\": \"" tran1 "\"}]}"
-tran0 ::= [^"\\\x00-\x1f]{1,60}
-tran1 ::= [^"\\\x00-\x1f]{1,60}`);
+tran0 ::= [^"\\\x00-\x1f]{1,30}
+tran1 ::= [^"\\\x00-\x1f]{1,30}`);
     });
 
     it('单槽批次不产生槽间字面量', () => {
-        const grammar = buildLocalSubtitleFillGrammar(['only line.']);
+        const grammar = buildLocalSubtitleFillGrammar(['only line.'], 'zh');
         expect(grammar).toBe(String.raw`root ::= "{\"items\":[{\"source\": \"only line.\", \"translation\": \"" tran0 "\"}]}"
-tran0 ::= [^"\\\x00-\x1f]{1,60}`);
+tran0 ::= [^"\\\x00-\x1f]{1,30}`);
     });
 
-    it('槽上限按源文长度 2 倍推导，下限 60 兜住短句', () => {
-        const grammar = buildLocalSubtitleFillGrammar(['a'.repeat(100), 'ok.']);
+    it('非 zh 模式槽上限按源文长度 2 倍推导，下限 60 兜住短句', () => {
+        const grammar = buildLocalSubtitleFillGrammar(['a'.repeat(100), 'ok.'], 'simple_en');
         expect(grammar).toContain(String.raw`tran0 ::= [^"\\\x00-\x1f]{1,200}`);
         expect(grammar).toContain(String.raw`tran1 ::= [^"\\\x00-\x1f]{1,60}`);
     });
 
+    it('zh 模式槽上限收紧为源文 1.2 倍、下限 30，抑制双语叠排译文爆长', () => {
+        const grammar = buildLocalSubtitleFillGrammar(['a'.repeat(100), 'ok.'], 'zh');
+        expect(grammar).toContain(String.raw`tran0 ::= [^"\\\x00-\x1f]{1,120}`);
+        expect(grammar).toContain(String.raw`tran1 ::= [^"\\\x00-\x1f]{1,30}`);
+    });
+
     it('源文转义后进入字面量，字面量解码序列可被解析侧按 JSON 回读', () => {
         const sources = ['He said "go" \\ now.', 'plain line.'];
-        const grammar = buildLocalSubtitleFillGrammar(sources);
+        const grammar = buildLocalSubtitleFillGrammar(sources, 'zh');
         // GBNF 字符串字面量转义与 JSON 兼容，直接用 JSON.parse 还原固定文本。
         const literals = grammar.split('\n')[0]
             .replace(/^root ::= /, '')
@@ -47,13 +53,13 @@ tran0 ::= [^"\\\x00-\x1f]{1,60}`);
             .map((literal) => JSON.parse(literal) as string);
         // 字面量解码后拼上任意译文，即是解析侧期望的原始输出形状。
         const raw = literals[0] + '他说走。' + literals[1] + '现在。' + literals[2];
-        expect(parseLocalSubtitleFill(raw, sources)).toEqual(['他说走。', '现在。']);
+        expect(parseLocalSubtitleFill(raw, sources, 'zh')).toEqual(['他说走。', '现在。']);
         // 解码后的骨架里，源文必须是 JSON.stringify 的形态（双引号与反斜杠已转义）。
         expect(literals[0]).toContain('"He said \\"go\\" \\\\ now."');
     });
 
     it('空槽数显式报错', () => {
-        expect(() => buildLocalSubtitleFillGrammar([])).toThrow('非法的字幕批次槽数');
+        expect(() => buildLocalSubtitleFillGrammar([], 'zh')).toThrow('非法的字幕批次槽数');
     });
 });
 
@@ -97,30 +103,31 @@ describe('本地填槽输出解析', () => {
     it('合法填槽输出返回按槽序排列的译文，并 trim 首尾空白', () => {
         const sources = ['hello.', 'world.'];
         const text = '{"items":[{"source": "hello.", "translation": " 你好。"},{"source": "world.", "translation": "世界。"}]}';
-        expect(parseLocalSubtitleFill(text, sources)).toEqual(['你好。', '世界。']);
+        expect(parseLocalSubtitleFill(text, sources, 'zh')).toEqual(['你好。', '世界。']);
     });
 
     it('输出不是合法 JSON 时显式报错', () => {
-        expect(() => parseLocalSubtitleFill('not json', ['hello.'])).toThrow('不是合法 JSON');
+        expect(() => parseLocalSubtitleFill('not json', ['hello.'], 'zh')).toThrow('不是合法 JSON');
     });
 
     it('形状不符（缺字段/类型错误）显式报错', () => {
-        expect(() => parseLocalSubtitleFill('{"items":[{"key":"k"}]}', ['hello.'])).toThrow('形状不符');
+        expect(() => parseLocalSubtitleFill('{"items":[{"key":"k"}]}', ['hello.'], 'zh')).toThrow('形状不符');
     });
 
     it('槽数与目标不一致时显式报错，不做静默对齐', () => {
         const text = '{"items":[{"source": "a.", "translation": "甲"}]}';
-        expect(() => parseLocalSubtitleFill(text, ['a.', 'b.'])).toThrow('槽数不匹配');
+        expect(() => parseLocalSubtitleFill(text, ['a.', 'b.'], 'zh')).toThrow('槽数不匹配');
     });
 
     it('源文回显错位时显式报错，防御推理端未按约束解码', () => {
         const text = '{"items":[{"source": "错位的源文.", "translation": "甲"}]}';
-        expect(() => parseLocalSubtitleFill(text, ['a.'])).toThrow('源文错位');
+        expect(() => parseLocalSubtitleFill(text, ['a.'], 'zh')).toThrow('源文错位');
     });
 
-    it('译文长度触到槽上限时显式报错，不让语法截断的文本静默进入字幕', () => {
+    it('zh 模式译文长度触到收紧后的槽上限时显式报错，不让语法截断的文本静默进入字幕', () => {
         const source = 'a'.repeat(40);
-        const text = JSON.stringify({ items: [{ source, translation: '译'.repeat(80) }] });
-        expect(() => parseLocalSubtitleFill(text, [source])).toThrow('译文触顶');
+        const text = JSON.stringify({ items: [{ source, translation: '译'.repeat(48) }] });
+        // 40 字源文的 zh 上限 = ceil(40 * 1.2) = 48，译文达到 48 即触顶。
+        expect(() => parseLocalSubtitleFill(text, [source], 'zh')).toThrow('译文触顶');
     });
 });

@@ -8,7 +8,7 @@
 import type { TranslationMode } from '@/common/types/TranslationResult';
 
 export const OPENAI_SUBTITLE_DEFAULT_STYLES: Record<TranslationMode, string> = {
-    zh: '将原句自然、口语化地翻译成简体中文，语序可适度调整以保证流畅易读，保留原句语气与情感。',
+    zh: '将原句自然、口语化地翻译成简体中文，语序可适度调整以保证流畅易读，保留原句语气与情感。译文以字幕节奏为准：简洁凝练，长度与源文信息量相称，避免逐词直译造成的冗长。',
     simple_en: '使用简洁易懂的英文重写字幕，尽量保留原有语序和标点，仅将难懂词汇替换为常见表达，同时保持原意与语气。',
     custom: '将原句自然、口语化地翻译成简体中文，语序可适度调整以保证流畅易读，保留原句语气与情感。',
 };

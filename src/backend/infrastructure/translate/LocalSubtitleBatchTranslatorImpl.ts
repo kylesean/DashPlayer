@@ -74,14 +74,14 @@ implements LocalSubtitleBatchTranslator {
         const prompt = buildLocalSubtitleFillPrompt(input, input.style, {
             forbidEcho: input.mode === 'zh',
         });
-        const grammar = buildLocalSubtitleFillGrammar(sources);
+        const grammar = buildLocalSubtitleFillGrammar(sources, input.mode);
         const text = await this.localAi.generateText(prompt, input.modelId, input.signal, {
             grammar,
             temperature: LOCAL_TRANSLATION_TEMPERATURE,
         });
         let translations: string[];
         try {
-            translations = parseLocalSubtitleFill(text, sources);
+            translations = parseLocalSubtitleFill(text, sources, input.mode);
         } catch (error) {
             // 解析失败时把模型原始输出按行落盘留归因证据（长文本以行数组入日志，
             // 避免单字段长度上限截掉尾部）；语法约束下该分支属于纯防御。

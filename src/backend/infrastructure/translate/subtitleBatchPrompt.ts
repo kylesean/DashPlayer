@@ -14,9 +14,10 @@ export const LOCAL_TRANSLATION_TEMPERATURE = 0.3;
  * 提示词、填槽语法或采样参数任一变化，都会改变同一源文的期望译文；
  * 此处改动后必须进位，否则升级用户会继续命中按旧策略缓存的译文
  * （本策略要修的坏译文恰好在旧缓存里）。v2：行式输出改为源文锚定
- * 填槽，翻译链路温度降至 0.3。
+ * 填槽，翻译链路温度降至 0.3。v3：zh 模式槽位预算收紧（见
+ * subtitleFillSlotLimit），抑制双语叠排下译文过长的爆行。
  */
-export const LOCAL_SUBTITLE_STRATEGY_VERSION = 2;
+export const LOCAL_SUBTITLE_STRATEGY_VERSION = 3;
 
 /**
  * 批量字幕翻译的提示词模板与结构化输出约定。
@@ -161,15 +162,26 @@ const FILL_TRANSLATION_CLASS = String.raw`[^"\\\x00-\x1f]`;
  * 单槽译文的长度上限（按字符计）。
  *
  * 中英文特点：中文信息密度高，英译中的译文长度通常不超过源文一半；simple_en
- * 与自定义是同语种改写，长度与源文相当。取「源文 2 倍、下限 60」给足正常
- * 翻译的余量——触顶只可能是模型在槽内退化重复循环（评测中观察到过 100 秒
- * 以上的循环），语法会在上限处强制闭引号，因此解析侧对触顶显式报错，
- * 不让截断文本静默进入字幕。
+ * 与自定义是同语种改写，长度与源文相当。非 zh 模式取「源文 2 倍、下限 60」
+ * 给足正常翻译的余量——触顶只可能是模型在槽内退化重复循环（评测中观察到
+ * 过 100 秒以上的循环），语法会在上限处强制闭引号，因此解析侧对触顶显式
+ * 报错，不让截断文本静默进入字幕。
+ *
+ * zh 模式单独收紧：译文在播放页与英文行叠排显示，过长的中文译文会把双语
+ * 字幕块挤成三四行。中文同信息量的字符数远低于英文，按「源文 1.2 倍、
+ * 下限 30」给正常译文留足余量（实测中文译文极少超过源文长度），同时把
+ * 冗长直译与退化循环都压回解码层。
  *
  * @param source 该槽的源文。
+ * @param mode 当前字幕模式；仅 zh 收紧，其余维持宽预算。
  * @returns 该槽允许的最大译文长度。
  */
-const subtitleFillSlotLimit = (source: string): number => Math.max(60, source.length * 2);
+const subtitleFillSlotLimit = (source: string, mode: TranslationMode): number => {
+    if (mode === 'zh') {
+        return Math.max(30, Math.ceil(source.length * 1.2));
+    }
+    return Math.max(60, source.length * 2);
+};
 
 /**
  * 构建源文锚定的填槽语法：源文预拼进 JSON 骨架字面量，GBNF 在解码层
@@ -184,22 +196,24 @@ const subtitleFillSlotLimit = (source: string): number => Math.max(60, source.le
  * 在解析层可判定（触顶即报错），不会静默截断进字幕。
  *
  * @param sources 批次内各句源文，顺序即槽序，必须非空。
+ * @param mode 当前字幕模式；决定槽位长度预算。
  * @returns 可直接传给 llama-server `grammar` 参数的 GBNF 文本。
  */
-export const buildLocalSubtitleFillGrammar = (sources: string[]): string => {
+export const buildLocalSubtitleFillGrammar = (sources: string[], mode: TranslationMode): string => {
     if (sources.length < 1) {
         throw new Error(`非法的字幕批次槽数：${sources.length}`);
     }
-    const parts: string[] = [gbnfLiteral(`{"items":[{"source": ${JSON.stringify(sources[0])}, "translation": "`)];
+    // 骨架字面量与槽引用交替 push：首槽字面量以 JSON 开头，后续槽间字面量
+    // 以上一槽译文的收尾引号开头。
+    const parts: string[] = [];
     const rules: string[] = [];
     for (const [index, source] of sources.entries()) {
-        if (index > 0) {
-            // 槽间字面量以上一槽译文的收尾引号开头。
-            parts.push(gbnfLiteral(`"},{"source": ${JSON.stringify(source)}, "translation": "`));
-        }
+        const lead = index === 0
+            ? `{"items":[{"source": ${JSON.stringify(source)}, "translation": "`
+            : `"},{"source": ${JSON.stringify(source)}, "translation": "`;
+        parts.push(gbnfLiteral(lead), `tran${index}`);
         // 逐槽独立规则：上限按各自源文推导，退化循环最多烧掉本槽的解码预算。
-        parts.push(`tran${index}`);
-        rules.push(`tran${index} ::= ${FILL_TRANSLATION_CLASS}{1,${subtitleFillSlotLimit(source)}}`);
+        rules.push(`tran${index} ::= ${FILL_TRANSLATION_CLASS}{1,${subtitleFillSlotLimit(source, mode)}}`);
     }
     parts.push(gbnfLiteral('"}]}'));
     return `root ::= ${parts.join(' ')}\n${rules.join('\n')}`;
@@ -260,9 +274,10 @@ export const buildLocalSubtitleFillPrompt = (
  *
  * @param text 模型返回的原始文本。
  * @param sources 按槽序的源文，用于回显校验。
+ * @param mode 当前字幕模式；决定槽位长度预算的校验口径。
  * @returns 按输入顺序排列的译文（已 trim）。
  */
-export const parseLocalSubtitleFill = (text: string, sources: string[]): string[] => {
+export const parseLocalSubtitleFill = (text: string, sources: string[], mode: TranslationMode): string[] => {
     let parsed: unknown;
     try {
         parsed = JSON.parse(text);
@@ -282,7 +297,7 @@ export const parseLocalSubtitleFill = (text: string, sources: string[]): string[
         if (item.source !== sources[index]) {
             throw new Error(`本地模型填槽源文错位（第 ${index + 1} 槽）`);
         }
-        const limit = subtitleFillSlotLimit(sources[index]);
+        const limit = subtitleFillSlotLimit(sources[index], mode);
         if (item.translation.length >= limit) {
             throw new Error(`本地模型译文触顶（第 ${index + 1} 槽，limit=${limit}）：语法强制闭引号截断，疑为槽内退化重复`);
         }

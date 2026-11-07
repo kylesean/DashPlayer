@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { cn } from "@/fronted/lib/utils";
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { FONT_SIZE } from '@/fronted/styles/style';
@@ -39,7 +38,7 @@ const NormalLine = ({ text, order, source }: NormalLineParam) => {
                     {source === 'ai' ? 'AI' : 'SRT'}
                 </span>
             )}
-            <span>{text}</span>
+            <span className="text-balance">{text}</span>
         </div>
     );
 };

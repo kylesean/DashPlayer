@@ -221,14 +221,14 @@ describe.skipIf(!evalReady)('本地增强字幕翻译真实推理评测（源文
             const input = buildEvalInput(evalCase.lines, evalCase.contextBefore);
             const sources = input.targets.map((target) => target.text);
             const prompt = buildLocalSubtitleFillPrompt(input, input.style, { forbidEcho: true });
-            const grammar = buildLocalSubtitleFillGrammar(sources);
+            const grammar = buildLocalSubtitleFillGrammar(sources, input.mode);
             const startedAt = Date.now();
             const result = await generate(prompt, grammar);
             expect(result.choices[0].finish_reason).toBe('stop');
             if (result.usage) {
                 console.log(`[usage] prompt=${result.usage.prompt_tokens} completion=${result.usage.completion_tokens} temperature=${evalTemperature}`);
             }
-            const lines = parseLocalSubtitleFill(result.choices[0].message.content, sources);
+            const lines = parseLocalSubtitleFill(result.choices[0].message.content, sources, input.mode);
             console.log(`[fill] ${evalCase.name} 耗时 ${Date.now() - startedAt}ms`);
             console.log('---------- 逐行对照 ----------');
             for (const [index, source] of evalCase.lines.entries()) {
