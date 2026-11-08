@@ -18,7 +18,7 @@ import type LocalAiService from '@/backend/services/LocalAiService';
 const buildService = (options: {
     cloudModel: 'configured' | null;
     localStatus: { runtimeReady: boolean; hasReadyModel: boolean } | null;
-    localGenerate?: (prompt: string) => string;
+    localGenerate?: (prompt: string) => unknown;
 }) => {
     const service = new SentenceLearningServiceImpl();
     (service as unknown as { aiProviderService: AiProviderService }).aiProviderService = {
@@ -32,7 +32,8 @@ const buildService = (options: {
                 : [],
             activeModelId: options.localStatus?.hasReadyModel ? 'custom:gemma-4-E4B_q4_0-it.gguf' : '',
         })),
-        generate: vi.fn(async () => options.localGenerate?.('') ?? '{}'),
+        // 与 LocalAiRuntime.generate 真实契约一致:返回已解析的对象
+        generate: vi.fn(async () => options.localGenerate?.('') ?? {}),
     } as unknown as LocalAiService;
     return service;
 };
@@ -48,7 +49,7 @@ describe('整句学习的本地回退', () => {
         const service = buildService({
             cloudModel: null,
             localStatus: { runtimeReady: true, hasReadyModel: true },
-            localGenerate: () => JSON.stringify({
+            localGenerate: () => ({
                 complete: true,
                 sentence: PARAMS.text,
                 translation: '如果你对此感到不快,你可以说:"我只是想把我的事情做完。"',
@@ -59,6 +60,21 @@ describe('整句学习的本地回退', () => {
         expect(result.complete).toBe(true);
         expect(result.sentence).toBe(PARAMS.text);
         expect(result.translation).toContain('做完');
+    });
+
+    it('本地 generate 若返回原始 JSON 字符串(历史形态),同样归一化后通过', async () => {
+        const service = buildService({
+            cloudModel: null,
+            localStatus: { runtimeReady: true, hasReadyModel: true },
+            localGenerate: () => JSON.stringify({
+                complete: true,
+                sentence: PARAMS.text,
+                translation: '如果你对此感到不快,你可以说:"我只是想把我的事情做完。"',
+            }),
+        });
+
+        const result = await service.completeSentence(PARAMS);
+        expect(result.complete).toBe(true);
     });
 
     it('可用性判定:云端缺失但本地就绪为 true,两者皆无为 false', async () => {

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { APICallError, isStepCount, type LanguageModel, type ModelMessage, Output, streamText, toUIMessageStream, tool, type UIMessageChunk } from 'ai';
 import { z } from 'zod';
 import { getMainLogger } from '@/backend/infrastructure/logger';
+import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import TYPES from '@/backend/ioc/types';
 import type AiProviderService from '@/backend/services/AiProviderService';
@@ -533,17 +534,17 @@ export class ChatSessionServiceImpl implements ChatSessionService {
     ): Promise<void> {
         const startedAt = Date.now();
         this.logger.info('analysis local start', { sessionId, messageId, modelId });
-        const raw = (await this.localAiService.generate(
+        const output = await this.localAiService.generate(
             prompt,
             z.toJSONSchema(AiUnifiedAnalysisSchema),
             modelId,
             abortSignal,
-        )) as string;
-        const parsed = AiUnifiedAnalysisSchema.safeParse(JSON.parse(raw));
+        );
+        const parsed = AiUnifiedAnalysisSchema.safeParse(parseMaybeJson(output));
         if (!parsed.success) {
             this.logger.error('analysis local 结构无效', {
                 modelId,
-                rawText: raw.slice(0, 500),
+                rawText: JSON.stringify(output)?.slice(0, 500),
                 issues: parsed.error.issues,
             });
             throw new Error('本地模型分析输出不符合契约');

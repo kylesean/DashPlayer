@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { getMainLogger } from '@/backend/infrastructure/logger';
+import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
 import TYPES from '@/backend/ioc/types';
 import type AiProviderService from '@/backend/services/AiProviderService';
 import type LocalAiService from '@/backend/services/LocalAiService';
@@ -112,16 +113,16 @@ export class SentenceLearningServiceImpl implements SentenceLearningService {
     ): Promise<CompleteSentenceResult> {
         const startedAt = Date.now();
         this.logger.info('complete sentence (local) start', { modelId, textLength: params.text.length });
-        const raw = (await this.localAiService.generate(
+        const output = await this.localAiService.generate(
             buildCompleteSentencePrompt(params),
             z.toJSONSchema(CompleteSentenceSchema),
             modelId,
-        )) as string;
-        const parsed = CompleteSentenceSchema.safeParse(JSON.parse(raw));
+        );
+        const parsed = CompleteSentenceSchema.safeParse(parseMaybeJson(output));
         if (!parsed.success) {
             this.logger.error('complete sentence (local) 结构无效', {
                 modelId,
-                rawText: raw.slice(0, 500),
+                rawText: JSON.stringify(output)?.slice(0, 500),
                 issues: parsed.error.issues,
             });
             throw new Error('本地模型补全输出不符合契约');
