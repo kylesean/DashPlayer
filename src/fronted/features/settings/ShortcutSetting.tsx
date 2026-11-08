@@ -547,7 +547,7 @@ const ShortcutSetting: React.FC = () => {
                     onChange={(val) => setSearchQuery(val)}
                     hasClear
                     size="sm"
-                    width="100%"
+                    width={360}
                     placeholder={t('shortcut.searchPlaceholder')}
                     startIcon={Search as unknown as IconType}
                 />
@@ -653,35 +653,43 @@ const ShortcutRow: React.FC<{
             title={title}
             description={description}
         >
-            <HStack gap={2} align="center" justify="end">
-                <Button
-                    label={value || editLabel}
-                    variant="ghost"
-                    size="sm"
+            <HStack gap={3} align="center" justify="end">
+                <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setIsDialogOpen(true)}
-                    tooltip={editLabel}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setIsDialogOpen(true);
+                        }
+                    }}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    title={editLabel}
                 >
                     <KeyBadge keys={value} />
-                </Button>
+                </div>
 
-                <IconButton
-                    label={editLabel}
-                    tooltip={editLabel}
-                    size="sm"
-                    variant="ghost"
-                    icon={<Icon icon={Pencil as unknown as IconType} size="sm" />}
-                    onClick={() => setIsDialogOpen(true)}
-                />
+                <HStack gap={1} align="center">
+                    <IconButton
+                        label={editLabel}
+                        tooltip={editLabel}
+                        size="sm"
+                        variant="ghost"
+                        icon={<Icon icon={Pencil as unknown as IconType} size="sm" />}
+                        onClick={() => setIsDialogOpen(true)}
+                    />
 
-                <IconButton
-                    label={resetDefaultLabel}
-                    tooltip={resetDefaultLabel}
-                    size="sm"
-                    variant="ghost"
-                    isDisabled={isDefault}
-                    icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
-                    onClick={() => onChange(defaultValue)}
-                />
+                    <IconButton
+                        label={resetDefaultLabel}
+                        tooltip={resetDefaultLabel}
+                        size="sm"
+                        variant="ghost"
+                        isDisabled={isDefault}
+                        icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
+                        onClick={() => onChange(defaultValue)}
+                    />
+                </HStack>
             </HStack>
 
             <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} width={500}>

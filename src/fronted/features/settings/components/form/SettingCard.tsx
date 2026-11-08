@@ -123,7 +123,7 @@ export const SettingRow: React.FC<SettingRowProps> = ({
     className,
 }) => {
     return (
-        <VStack padding={4} gap={2} width="100%" className={className}>
+        <VStack paddingInline={4} paddingBlock={2} gap={1} width="100%" className={className}>
             <HStack
                 gap={3}
                 align={alignTop ? 'start' : 'center'}

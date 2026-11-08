@@ -81,7 +81,7 @@ const SettingLayout: React.FC = () => {
         <Layout
             height="fill"
             start={
-                <LayoutPanel width={220} isScrollable={false} hasDivider padding={2}>
+                <LayoutPanel width={240} isScrollable={false} hasDivider padding={2}>
                     <SideNav
                         header={
                             <SideNavHeading
@@ -127,7 +127,7 @@ const SettingLayout: React.FC = () => {
                     }
                     content={
                         <LayoutContent padding={6} isScrollable>
-                            <VStack width="100%" gap={6} paddingBlockEnd={8}>
+                            <VStack width="100%" maxWidth={960} gap={6} paddingBlockEnd={8} className="mx-auto">
                                 <Outlet />
                             </VStack>
                         </LayoutContent>
