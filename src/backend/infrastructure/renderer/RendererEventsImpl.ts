@@ -4,6 +4,7 @@ import type RendererEvents from '@/backend/services/gateways/renderer/RendererEv
 import type { RuntimeSettingKey } from '@/common/contracts/runtime-settings';
 import { type DpTask, DpTaskState } from '@/common/contracts/dp-task';
 import { type RepairTaskEvent, RepairTaskState } from '@/common/contracts/playback-repair';
+import type { WindowState } from '@/common/types/Types';
 import { createWindowedDeduper } from '@/common/log/windowed-dedup';
 import type MainWindowRegistry from '@/backend/infrastructure/system/MainWindowRegistry';
 import { getMainLogger } from '@/backend/infrastructure/logger';
@@ -93,6 +94,23 @@ export default class RendererEventsImpl implements RendererEvents {
         }
         logger.debug('renderer event sent', { channel: 'store-update', key });
         win.webContents.send('store-update', key, value);
+    }
+
+    /**
+     * 推送窗口几何状态变化。
+     *
+     * 系统手势/F11/窗口管理器最大化不经过 renderer 发起的 change 请求，
+     * 渲染端标题栏的窗口状态缓存只能靠本推送失效，否则按钮图标失真。
+     *
+     * @param state 推送时的窗口状态。
+     */
+    public windowStateUpdate(state: WindowState): void {
+        const win = this.resolveWindow('window-state-update');
+        if (!win) {
+            return;
+        }
+        logger.debug('renderer event sent', { channel: 'window-state-update', state });
+        win.webContents.send('window-state-update', state);
     }
 
     /**

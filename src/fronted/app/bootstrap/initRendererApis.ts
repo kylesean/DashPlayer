@@ -1,7 +1,10 @@
 import type { RendererApiDefinitions, RendererApiMap } from '@/common/api/renderer-api-def';
+import { mutate as globalMutate } from 'swr';
 import { registerRendererApi, type RegisterRendererApi } from '@/fronted/infrastructure/electron/rendererApiRegistry';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { showNotification } from '@/fronted/components/shared/toasts/notification';
+import { rendererEvents } from '@/fronted/infrastructure/electron/rendererEvents';
+import { SWR_KEY } from '@/fronted/lib/swr-util';
 import { registerSettingsRendererApis } from '@/fronted/features/settings/settingsEvents';
 import { registerTranscriptRendererApis } from '@/fronted/features/transcript/transcriptEvents';
 import { registerPlayerRendererApis } from '@/fronted/features/player/playerEvents';
@@ -50,6 +53,12 @@ export function initRendererApis(): () => void {
     registerPlayerRendererApis(register);
     registerChatRendererApis(register);
     registerVideoLearningRendererApis(register);
+
+    // main 推送的窗口几何状态变化（系统手势/F11/WM 最大化等不经过 renderer 的
+    // 路径）：失效标题栏窗口状态缓存，保证全屏/最大化按钮图标跟随真实状态
+    unregisters.push(rendererEvents.onWindowStateUpdate(() => {
+        void globalMutate(SWR_KEY.WINDOW_SIZE);
+    }));
 
     logger.info('renderer apis registered', { count: unregisters.length });
 

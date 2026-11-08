@@ -27,6 +27,7 @@ import { storeGet } from '@/backend/infrastructure/settings/store';
 import type { TranscriptionService } from '@/backend/services/TranscriptionService';
 import type PlaybackRepairService from '@/backend/services/PlaybackRepairService';
 import type MobileAccessService from '@/backend/services/MobileAccessService';
+import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
 
 // 导入日志 IPC 监听
 import '@/backend/controllers/ipc/renderer-log';
@@ -189,6 +190,27 @@ const createWindow = () => {
             }),
     });
     mainWindowRef.current = mainWindow;
+    // 窗口几何状态推送给渲染端：系统手势/F11/WM 最大化不经过 renderer 的
+    // change 请求，标题栏的窗口状态缓存需要显式失效，否则按钮图标失真。
+    const pushWindowState = (): void => {
+        const win = mainWindowRef.current;
+        if (!win || win.isDestroyed()) {
+            return;
+        }
+        const state = win.isFullScreen()
+            ? 'fullscreen'
+            : win.isMinimized()
+                ? 'minimized'
+                : win.isMaximized()
+                    ? 'maximized'
+                    : 'normal';
+        container.get<RendererEvents>(TYPES.RendererEvents).windowStateUpdate(state);
+    };
+    for (const event of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen', 'minimize'] as const) {
+        // 五个事件的回调签名同为 () => void，Electron 类型按逐事件重载声明，
+        // 统一以 maximize 的签名挂接即可
+        mainWindow.on(event as 'maximize', pushWindowState);
+    }
     mainWindow.webContents.once('dom-ready', () => {
         logger.info('renderer dom ready', {
             durationMs: Math.round(performance.now() - startupStartedAt),
