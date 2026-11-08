@@ -24,6 +24,13 @@ const PROGRESS_LINE_PATTERN = /\[download\]\s+(\d+(?:\.\d+)?)%/;
 const VIDEO_EXTENSIONS = ['.mp4', '.mkv', '.webm'];
 
 /**
+ * yt-dlp 分轨中间产物正则：合并前的单流文件（如 `Title [id].f137.mp4`）。
+ * 成功合并后 yt-dlp 会自动清理；仅当音频流失败或用户取消时才会残留，
+ * 此类文件没有音轨，不得当作合并成品。
+ */
+const INTERMEDIATE_VIDEO_PATTERN = /\.f\d+\.(mp4|mkv|webm)$/i;
+
+/**
  * 基于 child_process 的 yt-dlp 网关实现。
  *
  * 与 FfmpegProcessRunner 同一范式：spawn + 逐行解析 stdout 进度 +
@@ -120,6 +127,12 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
                     clearTimeout(sigkillTimer);
                 }
                 const durationMs = Date.now() - startedAt;
+                // 取消优先判定：SIGTERM/SIGKILL 后视频流可能已部分落盘，
+                // 部分产物不代表成功，用户取消必须如实上报而不是被“视频为主”吞掉。
+                if (cancelRequested && code !== 0) {
+                    reject(new CancelByUserError(`yt-dlp 已取消（退出码 ${code}）`));
+                    return;
+                }
                 // 视频为主、字幕尽力：字幕下载失败等可恢复情形会让 yt-dlp 以非零码退出，
                 // 但完整视频已落盘时仍按成功处理，由上层在结果里体现“无字幕”。
                 if (code === 0 || this.hasCompletedVideo(request.outputDir)) {
@@ -130,10 +143,6 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
                         });
                     }
                     resolve(this.collectResult(request.outputDir, producedPaths, durationMs));
-                    return;
-                }
-                if (cancelRequested) {
-                    reject(new CancelByUserError(`yt-dlp 已取消（退出码 ${code}）`));
                     return;
                 }
                 reject(new Error(
@@ -159,7 +168,8 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
     /**
      * 判断输出目录里是否已有完整落盘的视频文件。
      *
-     * 只认视频扩展名且大小大于零的普通文件；`.part` 半成品扩展名不同，天然排除。
+     * 只认视频扩展名且大小大于零的普通文件；`.part` 半成品扩展名不同，天然排除；
+     * 无音轨的分轨中间产物（`.fNNN.mp4`）不算完成，避免音频流失败时把无声视频当成品。
      *
      * @param outputDir 输出目录。
      * @returns 存在完整视频时返回 `true`。
@@ -167,6 +177,9 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
     private hasCompletedVideo(outputDir: string): boolean {
         try {
             for (const name of fs.readdirSync(outputDir)) {
+                if (INTERMEDIATE_VIDEO_PATTERN.test(name)) {
+                    continue;
+                }
                 if (!VIDEO_EXTENSIONS.some((ext) => name.toLowerCase().endsWith(ext))) {
                     continue;
                 }
@@ -194,7 +207,8 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
         } catch {
             // 输出目录不可读时只信任 stdout 收集结果，后续定位不到视频会显式报错。
         }
-        const all = [...existed];
+        // 排除分轨中间产物：失败/取消残留的 `.fNNN.mp4` 没有音轨，不能被选成成品视频。
+        const all = [...existed].filter((p) => !INTERMEDIATE_VIDEO_PATTERN.test(p));
         const videoPath = all.find((p) => VIDEO_EXTENSIONS.some((ext) => p.toLowerCase().endsWith(ext)));
         if (!videoPath) {
             throw new Error(`yt-dlp 结束但未找到视频产物（耗时 ${(durationMs / 1000).toFixed(1)}s），输出目录：${outputDir}`);
