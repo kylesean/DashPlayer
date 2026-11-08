@@ -18,6 +18,7 @@ vi.mock('fs', async (importOriginal) => ({
 
 import { CancelByUserError } from '@/backend/utils/errors/errors';
 import WhisperCppGatewayImpl from '@/backend/infrastructure/media/whispercpp/WhisperCppGatewayImpl';
+import { WhisperCppAbnormalExitError } from '@/backend/infrastructure/media/whispercpp/WhisperCppCli';
 import type { WhisperCppCli, WhisperCppOutput, WhisperCppRunRequest } from '@/backend/infrastructure/media/whispercpp/WhisperCppCli';
 
 /** 构造网关实例与受控的 CLI 桩:按脚本依次返回结果或抛错,记录每次 run 的请求。 */
@@ -89,5 +90,27 @@ describe('WhisperCppGatewayImpl GPU 崩溃回退 CPU', () => {
         await expect(gateway.transcribe(REQUEST)).resolves.toMatchObject({ text: OUTPUT.text });
         expect(calls).toHaveLength(1);
         expect(calls[0].disableGpu).toBe(false);
+    });
+
+    it('Windows NTSTATUS 崩溃退出码同样触发 CPU 重试', async () => {
+        const { gateway, calls } = buildGateway([
+            // 3221225477 = 0xC0000005（STATUS_ACCESS_VIOLATION）：Windows 崩溃无 POSIX 信号
+            () => Promise.reject(new WhisperCppAbnormalExitError('whisper.cpp 退出码 3221225477：内存访问冲突', 3221225477, null)),
+            () => Promise.resolve(OUTPUT),
+        ]);
+
+        const result = await gateway.transcribe(REQUEST);
+        expect(result.text).toBe(OUTPUT.text);
+        expect(calls).toHaveLength(2);
+        expect(calls[1].disableGpu).toBe(true);
+    });
+
+    it('确定性失败（输出契约解析失败）不做 CPU 重试', async () => {
+        const { gateway, calls } = buildGateway([
+            () => Promise.reject(new Error('whisper.cpp 未返回识别文本：audio format error')),
+        ]);
+
+        await expect(gateway.transcribe(REQUEST)).rejects.toThrow('未返回识别文本');
+        expect(calls).toHaveLength(1);
     });
 });

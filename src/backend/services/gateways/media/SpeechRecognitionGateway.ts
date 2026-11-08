@@ -46,6 +46,12 @@ export default interface SpeechRecognitionGateway {
      */
     transcribe(request: SpeechRecognitionRequest): Promise<SpeechRecognitionResult>;
 
-    /** 终止当前活跃的底层识别进程。 */
-    cancelActive(): void;
+    /**
+     * 终止底层识别进程。
+     *
+     * @param job 目标任务的 job 标识；传入时只终止该任务自己的进程，
+     *            避免并发识别场景下误杀其他任务的进程。缺省时由实现
+     *            自行退化（如终止最近启动的进程）。
+     */
+    cancelActive(job?: string): void;
 }

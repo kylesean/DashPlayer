@@ -6,7 +6,7 @@ import { type SpeechRecognitionRequest, type SpeechRecognitionResult } from '@/b
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import TYPES from '@/backend/ioc/types';
 import { CancelByUserError } from '@/backend/utils/errors/errors';
-import { WhisperCppCli } from '@/backend/infrastructure/media/whispercpp/WhisperCppCli';
+import { WhisperCppAbnormalExitError, WhisperCppCli } from '@/backend/infrastructure/media/whispercpp/WhisperCppCli';
 import { WHISPER_CPP_MODEL_DIRECTORY, WHISPER_CPP_REQUIRED_FILES } from '@/backend/services/models/whisperCppModel';
 
 /**
@@ -29,6 +29,21 @@ const GPU_CRASH_MARKERS = [
     'failed to allocate Vulkan',
     'vk::Device::allocateMemory',
 ] as const;
+
+/**
+ * Windows 结构化异常退出码（NTSTATUS）：GPU 驱动崩溃在 Windows 上
+ * 不产生 POSIX 信号，而是以这些退出码结束进程（signal 为 null）。
+ * 按现有 marker 门控会漏掉 Windows 的全部崩溃，必须并入判定。
+ */
+const WINDOWS_CRASH_EXIT_CODES = new Set<number>([
+    0xC0000005, // STATUS_ACCESS_VIOLATION（内存访问冲突，即 Windows 版 SIGSEGV）
+    0xC00000FD, // STATUS_STACK_OVERFLOW
+    0xC0000409, // STATUS_STACK_BUFFER_OVERRUN
+    0x8007000E, // STATUS_NO_MEMORY（内存耗尽，即 OOM）
+]);
+
+/** POSIX 崩溃信号集合；SIGKILL 不在内——它是主动终止手段，不是崩溃。 */
+const CRASH_SIGNALS = new Set(['SIGSEGV', 'SIGILL', 'SIGABRT', 'SIGBUS', 'SIGFPE']);
 
 /**
  * 基于 whisper.cpp parakeet-cli 与 Parakeet v3 GGUF 的本地识别网关。
@@ -67,18 +82,44 @@ export default class WhisperCppGatewayImpl implements SpeechRecognitionGateway {
             // 用户主动取消与模型缺失不属于 GPU 层问题，不做 CPU 重试
             if (error instanceof CancelByUserError) throw error;
             if (String((error as Error)?.message ?? '').includes('模型文件缺失')) throw error;
+            // 只有带 GPU 崩溃特征的失败才值得整轮重跑：输出契约解析失败、音频损坏等
+            // 确定性错误重跑也必然失败，直接抛出，别让每个分片白跑一轮 CPU。
+            if (!this.isGpuCrash(error)) throw error;
             return await this.retryOnCpu(request, modelPath, error);
         }
     }
 
     /** 终止当前 whisper.cpp 识别进程。 */
-    public cancelActive(): void {
-        this.cli.killActive();
+    public cancelActive(job?: string): void {
+        this.cli.killActive(job);
     }
 
     /**
-     * GPU 尝试失败后的 CPU 重试：识别错误是否带 GPU 崩溃特征并记录归因日志，
-     * 随后禁用 Vulkan 重跑一次；CPU 也失败时抛出后一次的原始错误。
+     * 判定一次失败是否带 GPU 崩溃特征。
+     *
+     * 三条线索任一命中即算：错误文案命中 {@link GPU_CRASH_MARKERS}（POSIX 与
+     * stderr 字样）、进程被崩溃信号终止（SIGSEGV 等，不含主动终止的 SIGKILL）、
+     * Windows 下以结构化异常退出码（NTSTATUS）结束。
+     *
+     * @param error GPU 尝试的失败原因。
+     */
+    private isGpuCrash(error: unknown): boolean {
+        const message = String((error as Error)?.message ?? '');
+        if (GPU_CRASH_MARKERS.some((marker) => message.includes(marker))) {
+            return true;
+        }
+        if (error instanceof WhisperCppAbnormalExitError) {
+            if (error.signal !== null && CRASH_SIGNALS.has(error.signal)) {
+                return true;
+            }
+            return error.exitCode !== null && WINDOWS_CRASH_EXIT_CODES.has(error.exitCode);
+        }
+        return false;
+    }
+
+    /**
+     * GPU 尝试失败后的 CPU 重试：记录归因日志后禁用 Vulkan 重跑一次；
+     * CPU 也失败时抛出后一次的原始错误。
      */
     private async retryOnCpu(
         request: SpeechRecognitionRequest,
@@ -86,10 +127,8 @@ export default class WhisperCppGatewayImpl implements SpeechRecognitionGateway {
         gpuError: unknown,
     ): Promise<SpeechRecognitionResult> {
         const message = String((gpuError as Error)?.message ?? gpuError ?? '');
-        const gpuCrash = GPU_CRASH_MARKERS.some((marker) => message.includes(marker));
         this.logger.warn('whisper.cpp GPU 尝试失败，回退 CPU 重试', {
             job: request.job,
-            gpuCrash,
             error: message.slice(0, 500),
         });
         return this.run(request, modelPath, true);

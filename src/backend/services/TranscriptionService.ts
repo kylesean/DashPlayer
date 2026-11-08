@@ -609,8 +609,9 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
             // 触发取消信号：正在排队等待的任务会直接退出，正在识别的任务会中止循环并在检查点退出。
             this.abortControllers.get(normalizedFilePath)?.abort();
             // 目标是当前正在识别的任务时，再终止底层识别进程以缩短等待时间。
+            // 按 job 作用域终止：跟读练习等并发识别进程不能被误杀。
             if (this.activeFilePath === normalizedFilePath) {
-                this.activeRecognitionGateway?.cancelActive();
+                this.activeRecognitionGateway?.cancelActive(transcriptionJob(normalizedFilePath));
             }
             return true;
         }

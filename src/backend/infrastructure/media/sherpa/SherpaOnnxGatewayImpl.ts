@@ -57,8 +57,11 @@ export default class SherpaOnnxGatewayImpl implements SpeechRecognitionGateway {
         };
     }
 
-    /** 终止当前 sherpa-onnx 进程。 */
-    public cancelActive(): void {
+    /**
+     * 终止当前 sherpa-onnx 进程。
+     * @param _job 目标任务的 job 标识；sherpa-onnx 单进程运行，忽略该参数按原行为终止。
+     */
+    public cancelActive(_job?: string): void {
         this.cli.killActive();
     }
 }
