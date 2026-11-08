@@ -6,7 +6,7 @@ import logoDark from '../../../../assets/logo-dark.png';
 import useFile from '@/fronted/features/file-browser/fileStore';
 import YoutubeImportSidebarItem from '@/fronted/features/youtube-import/YoutubeImportSidebarItem';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import { AudioLines, BookOpen, Captions, Rotate3D, Settings, SquareSplitHorizontal, Star, Video } from 'lucide-react';
+import { BookOpen, Captions, Rotate3D, Settings, SquareSplitHorizontal, Star, Video } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 export interface SideBarProps {
@@ -114,12 +114,6 @@ const SideBar = ({ compact }: SideBarProps) => {
                     '/vocabulary',
                     'vocabulary',
                     <BookOpen />
-                )}
-                {item(
-                    t('dubbingExport'),
-                    '/dubbing',
-                    'dubbing',
-                    <AudioLines />
                 )}
                 {item(t('settingsCenter'), '/settings', 'settings', <Settings />)}
             </div>

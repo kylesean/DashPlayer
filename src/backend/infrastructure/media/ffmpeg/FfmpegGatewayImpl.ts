@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import type FfmpegGateway from '@/backend/services/gateways/media/FfmpegGateway';
-import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type MixDubbedAudioArgs, type ProcessRecordingArgs, type RepairArgs, type SplitVideoByTimesArgs, type SplitVideoRangeArgs, type TrimAudioArgs, type TrimVideoArgs, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
+import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type RepairArgs, type SplitVideoByTimesArgs, type SplitVideoRangeArgs, type TrimAudioArgs, type TrimVideoArgs, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
 import type { VideoInfo } from '@/common/types/video-info';
 import fs from 'fs';
 import path from 'path';
@@ -235,34 +235,6 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
      */
     public async trimAudio(args: TrimAudioArgs, options: FfmpegRunOptions = {}): Promise<void> {
         await this.runCommand(args, (a) => this.commandBuilder.buildTrimAudio(a), options);
-    }
-
-    /**
-     * 配音录音处理：掐头去尾静音并转 WAV。
-     */
-    public async processRecording(args: ProcessRecordingArgs, options: FfmpegRunOptions = {}): Promise<void> {
-        await this.runCommand(args, (a) => this.commandBuilder.buildProcessRecording(a), options);
-    }
-
-    /**
-     * 配音混音导出：多输入命令，不能复用单输入的 runCommand，先逐一校验输入后执行。
-     */
-    public async mixDubbedAudio(args: MixDubbedAudioArgs, options: FfmpegRunOptions = {}): Promise<void> {
-        if (args.segments.length === 0) {
-            throw new Error('配音混音至少需要一个替换片段');
-        }
-        this.assertInputFileExists(args.videoFile);
-        for (const segment of args.segments) {
-            this.assertInputFileExists(segment.takeFile);
-        }
-        this.assertOutputDirectoryExists(args.outputFile);
-
-        const inputDurationSecond = options.inputDurationSecond
-            ?? (options.onProgress ? await this.duration(args.videoFile) : undefined);
-        await this.executeCommand(
-            this.commandBuilder.buildDubbingMix(args),
-            { ...options, inputDurationSecond },
-        );
     }
 
     /**

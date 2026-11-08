@@ -220,10 +220,6 @@
                 "title": "添加收藏片段",
                 "description": "将当前句子片段保存至收藏片段列表"
             },
-            "dubbingRecord": {
-                "title": "录制配音",
-                "description": "长按录制当前句配音（按住说话、松手即停），短按试听本句录音"
-            },
             "openControlPanel": {
                 "title": "打开控制面板",
                 "description": "打开播放器控制面板"

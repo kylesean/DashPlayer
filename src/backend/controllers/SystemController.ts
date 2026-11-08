@@ -161,7 +161,7 @@ export default class SystemController implements Controller {
      * 确保应用已获得 macOS 麦克风授权，未决定时弹出系统授权框。
      *
      * Electron 渲染进程的 getUserMedia 在 macOS 上不会触发系统 TCC 授权框；
-     * 未授权时 Chromium 也不报错，只会给出一条全静音的音轨（配音会录出无声音频）。
+     * 未授权时 Chromium 也不报错，只会给出一条全静音的音轨（录音会采到无声）。
      * 因此录音前必须由主进程显式请求授权。其余平台没有这道闸门，直接视为已授权。
      *
      * @returns 授权状态；仅 'granted' 表示可以录音。

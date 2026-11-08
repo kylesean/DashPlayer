@@ -202,32 +202,6 @@
         "suitable1": "针对生词快速生成上下文语境视频",
         "suitable2": "批量生成高频词汇复习切片"
     },
-    "dubbing": {
-        "micLabel": "本句已配音",
-        "noSubtitle": "当前视频没有字幕，无法配音",
-        "noSentence": "没有可选中的句子，无法配音",
-        "micUnsupported": "当前环境不支持录音",
-        "micDenied": "无法访问麦克风，请在系统设置中允许录音权限",
-        "emptyRecording": "录音内容为空，没有检测到声音",
-        "saveFailed": "保存录音失败，请重试",
-        "tooLong": "这遍录音偏长，导出时会自动变速至 {{factor}} 倍速，建议重录",
-        "saving": "正在处理录音…",
-        "preview": "试听这句",
-        "clearSentence": "删除本句配音",
-        "updateFailed": "更新配音状态失败，请重试",
-        "export": {
-            "button": "配音导出",
-            "tooltipTitle": "配音导出",
-            "tooltipSubtitle": "查看并导出所有录过配音的视频",
-            "workflow1": "观看时{{action}}逐句录音（按住说话、松手即停；短按试听本句录音）",
-            "workflow2": "点击此处进入导出页面，选择要导出的视频",
-            "recordKey": "按 {{key}} 键",
-            "recordNoKey": "（未配置录音快捷键，可在设置中绑定）"
-        },
-        "record": "长按录音，短按试听",
-        "preparing": "准备录音…",
-        "stop": "松手结束录音"
-    },
     "subtitle": {
         "favoriteCurrent": "收藏当前句",
         "adjustApplied": "字幕微调已生效（{{start}} / {{end}}）",

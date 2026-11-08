@@ -66,7 +66,6 @@ import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installa
 import type { VideoInfo } from '@/common/types/video-info';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 import type { TranscriptTask } from '@/common/contracts/transcript/transcript-task';
-import type { DubbingExportStatus, DubbingLibraryEntry, DubbingManifest, DubbingTakeVO } from '@/common/contracts/dubbing';
 import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams } from '@/common/contracts/sentence-practice';
 
 /** 跨进程请求与返回值契约。 */
@@ -474,34 +473,6 @@ interface VideoLearningDef {
 }
 
 
-interface DubbingDef {
-    'dubbing/save-take': {
-        params: {
-            videoKey: string;
-            sentenceIndex: number;
-            audio: Uint8Array;
-            /** 录音时正在播放的视频绝对路径，记入清单供导出页定位。 */
-            videoPath: string;
-            /** 录音时绑定的字幕文件绝对路径；转录会话期间可能为空。 */
-            subtitlePath: string | null;
-        },
-        /** 整段无有效声音（空录音，用户没开口）时返回 null，属正常结果而非错误。 */
-        return: DubbingTakeVO | null
-    };
-    'dubbing/list': { params: { videoKey: string }, return: DubbingManifest | null };
-    'dubbing/list-library': { params: void, return: DubbingLibraryEntry[] };
-    'dubbing/clear-sentence': { params: { videoKey: string; sentenceIndex: number }, return: void };
-    'dubbing/clear-video': { params: { videoKey: string }, return: void };
-    'dubbing/export': {
-        params: {
-            videoKey: string;
-            outputFolder: string;
-        },
-        return: string
-    };
-    'dubbing/export-status': { params: void, return: DubbingExportStatus | null };
-}
-
 interface PracticeDef {
     /** 跟读评分:录音上传 → 本地 ASR 转写 → 词级对齐评分,结果同时落库。 */
     'practice/score-shadowing': {
@@ -545,7 +516,6 @@ export type ApiDefinitions = ApiDefinition
     & TagDef
     & VocabularyDef
     & VideoLearningDef
-    & DubbingDef
     & PracticeDef;
 
 // 更新 ApiMap 类型以使用 CombinedApiDefinitions

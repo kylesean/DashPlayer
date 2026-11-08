@@ -31,8 +31,6 @@ import {
     CAPTION_CARD_IDLE_CLASS,
     captionCardActiveClass,
 } from '@/fronted/features/player/components/captionCardShell';
-import DubbingRecordButton from '@/fronted/features/player/dubbing/components/DubbingRecordButton';
-import DubbingTakeChip from '@/fronted/features/player/dubbing/components/DubbingTakeChip';
 
 export default function MainSubtitle() {
     const { t } = useI18nTranslation('player');
@@ -315,23 +313,17 @@ export default function MainSubtitle() {
                 <div className="w-full flex-[3] min-h-0 pointer-events-none" />
 
                 {/* 右下角悬浮控制栏：绝对定位、完全不占排版空间。
-                    只承载绑定当前句的操作（录音卡片/配音/收藏/微调/整句学习）；
-                    整条悬停期间临时切换为当前句循环（录音卡片也在内），离开即还原。
+                    只承载绑定当前句的操作（收藏/微调/跟读听写/整句学习）；
+                    整条悬停期间临时切换为当前句循环，离开即还原。
                     全局控制（上一句/下一句/播放/训练模式/字幕轨道）在视频底部控制条里，不在这里 */}
                 <div
                     className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-20 pointer-events-auto flex items-center gap-1.5')}
                     onMouseEnter={() => playerActions.setHoverRepeat(true)}
                     onMouseLeave={() => playerActions.setHoverRepeat(false)}
                 >
-                    {/* 当前句录音卡片：位于胶囊左侧，点击试听、按删除键清除 */}
-                    <DubbingTakeChip />
-
-                    {/* 当前句操作胶囊：配音/收藏/微调/整句学习 */}
+                    {/* 当前句操作胶囊：收藏/微调/跟读听写/整句学习 */}
                     <div className={CAPTION_CARD_CLASS}>
                         <TooltipProvider delayDuration={300}>
-                            {/* 自配音：录制当前句；已配音句子的录音卡片展示在胶囊左侧 */}
-                            <DubbingRecordButton />
-
                             {/* 收藏当前句 */}
                             <Tooltip>
                                 <TooltipTrigger asChild>

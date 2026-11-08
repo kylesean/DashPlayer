@@ -8,7 +8,6 @@ import useLayout from '@/fronted/hooks/useLayout';
 import PlaybackControlBar from './ControlBar';
 import HardsubMask from '@/fronted/features/player/components/HardsubMask';
 import FullscreenSubtitleOverlay from '@/fronted/features/player/components/subtitles/FullscreenSubtitleOverlay';
-import DubbingStageController from '@/fronted/features/player/dubbing/components/DubbingStageController';
 import { cn } from '@/fronted/lib/utils';
 
 type PlaybackStageProps = {
@@ -83,9 +82,6 @@ export default function PlaybackStage({ className, onReady, onEnded, onProvideVi
                     />
                 )}
                 {fullScreen && <FullscreenSubtitleOverlay />}
-
-                {/* 配音控制器：快捷键监听与配音清单加载，无 UI */}
-                <DubbingStageController />
             </div>
         </div>
     );

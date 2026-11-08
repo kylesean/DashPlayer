@@ -28,8 +28,8 @@ interface UsePracticeRecorderOptions {
 
 /**
  * 跟读录音交互:点击开始、再次点击结束并提交评分。
- * 与配音录音同一套麦克风约束(显式关闭回声消除/降噪/自动增益,要麦克风原始输入),
- * 但不做长按判定、不接配音清单,录音字节直接交给调用方评分。
+ * 麦克风约束:显式关闭回声消除/降噪/自动增益,要麦克风原始输入;
+ * 录音字节直接交给调用方评分。
  */
 export function usePracticeRecorder({ onRecordingComplete }: UsePracticeRecorderOptions) {
     const { t } = useTranslation('practice');

@@ -23,7 +23,6 @@ export const runtimeSettingKeys = [
     'shortcut.nextPlaybackRate',
     'shortcut.aiChat',
     'shortcut.addClip',
-    'shortcut.dubbingRecord',
     'shortcut.openControlPanel',
     'userSelect.playbackRateStack',
     'providers.subtitleTranslation',

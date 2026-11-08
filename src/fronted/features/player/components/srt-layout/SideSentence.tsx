@@ -14,7 +14,6 @@ import useVocabulary from '@/fronted/features/player/vocabularyStore';
 import { shallow } from 'zustand/shallow';
 import { splitWords, isWordToken, cleanWord } from '@/common/utils/subtitle';
 import { Bookmark, Pause, Repeat1 } from 'lucide-react';
-import DubbingMark from '@/fronted/features/player/dubbing/components/DubbingMark';
 
 interface SideSentenceNewParam {
     sentence: Sentence;
@@ -230,7 +229,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                 )}
 
                 {/* 左上角状态指示器：固定 4x4 占位布局，通过透明度显隐，绝对不挤压文字；
-                    下方紧跟已配音话筒标记（同样透明占位），两行布局恒定不跳变 */}
+                    两行布局恒定不跳变 */}
                 <div className="relative z-10 flex flex-col items-center shrink-0 mt-0.5">
                     <div
                         className={cn(
@@ -240,7 +239,6 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                     >
                         {renderStatusIcon()}
                     </div>
-                    <DubbingMark sentenceIndex={sentence.index} />
                 </div>
 
                 {/* 文本内容区：水平居中对齐 */}

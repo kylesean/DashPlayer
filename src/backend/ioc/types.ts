@@ -26,7 +26,6 @@ const TYPES = {
     SentenceLearningService: Symbol('SentenceLearningService'),
     FfmpegGateway: Symbol('FfmpegGateway'),
     FfmpegService: Symbol('FfmpegService'),
-    DubbingService: Symbol('DubbingService'),
     SentencePracticeService: Symbol('SentencePracticeService'),
     SplitVideoService: Symbol('SplitVideoService'),
     PlaybackRepairService: Symbol('PlaybackRepairService'),

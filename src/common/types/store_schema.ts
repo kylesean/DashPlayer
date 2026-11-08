@@ -21,7 +21,6 @@ export const SettingKeyObj = {
     'shortcut.aiChat': 'slash',
     'shortcut.addClip': 'shift+l',
     'shortcut.openControlPanel': 'shift+p',
-    'shortcut.dubbingRecord': 'q',
     'userSelect.playbackRateStack':'',
     'apiKeys.tencent.secretId': '',
     'apiKeys.tencent.secretKey': '',
