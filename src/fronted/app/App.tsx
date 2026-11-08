@@ -18,7 +18,6 @@ import YoutubeImportSetting from '@/fronted/features/settings/YoutubeImportSetti
 import ServiceResourceSetting from '@/fronted/features/settings/ServiceResourceSetting';
 import toast, { Toaster as HotToaster, type Toast } from 'react-hot-toast';
 
-import TranscriptPage from '@/fronted/features/transcript/TranscriptPage';
 import SplitPage from '@/fronted/features/split/SplitPage';
 import GlobalShortCut from '@/fronted/components/shared/shortcuts/GlobalShortCut';
 import RepairPage from '@/fronted/features/repair/RepairPage';
@@ -190,10 +189,6 @@ export const App = () => {
                                     element={<PlayerPage />}
                                 />
                                 <Route path="*" element={<AppShellLayout />}>
-                                    <Route
-                                        path="transcript"
-                                        element={<Eb key="transcript"><TranscriptPage /></Eb>}
-                                    />
                                     <Route
                                         path="favorite"
                                         element={<Eb key="favorite"><FavouritePage /></Eb>}

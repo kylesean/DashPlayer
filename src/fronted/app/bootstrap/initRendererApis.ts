@@ -6,7 +6,6 @@ import { showNotification } from '@/fronted/components/shared/toasts/notificatio
 import { rendererEvents } from '@/fronted/infrastructure/electron/rendererEvents';
 import { SWR_KEY } from '@/fronted/lib/swr-util';
 import { registerSettingsRendererApis } from '@/fronted/features/settings/settingsEvents';
-import { registerTranscriptRendererApis } from '@/fronted/features/transcript/transcriptEvents';
 import { registerPlayerRendererApis } from '@/fronted/features/player/playerEvents';
 import { registerChatRendererApis } from '@/fronted/features/chat/chatEvents';
 import { registerVideoLearningRendererApis } from '@/fronted/features/video-learning/videoLearningEvents';
@@ -49,7 +48,6 @@ export function initRendererApis(): () => void {
 
     // 委派给各业务域的注册器，保持启动层职责单一清晰
     registerSettingsRendererApis(register);
-    registerTranscriptRendererApis(register);
     registerPlayerRendererApis(register);
     registerChatRendererApis(register);
     registerVideoLearningRendererApis(register);

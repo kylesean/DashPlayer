@@ -2,7 +2,6 @@ import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import type { RendererTranslationItem } from '@/common/types/TranslationResult';
 import type { ChatStreamEvent } from '@/common/types/chat';
 import type { AnalysisStreamEvent } from '@/common/types/analysis';
-import type { TranscriptTaskUpdate } from '@/common/contracts/transcript/transcript-task';
 import type { Sentence } from '@/common/types/SentenceC';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 
@@ -58,12 +57,6 @@ interface DictionaryRendererDef {
 }
 
 // 转录相关的前端API定义
-interface TranscriptRendererDef {
-    'transcript/batch-result': { params: { updates: TranscriptTaskUpdate[] }, return: void };
-    // sentences 为该会话到目前为止的全部句子（已完成块的并集），随块完成单调追加；
-    // 接收方应做合并而非整体替换，避免打断播放期状态
-    'transcript/chunk-result': { params: { filePath: string; sessionId: string; sentences: Sentence[] }, return: void };
-}
 
 // 视频学习裁切状态更新的前端API定义
 interface VideoLearningRendererDef {
@@ -98,7 +91,6 @@ export type RendererApiDefinitions = RendererApiDefinition
     & UIRendererDef
     & TranslationRendererDef
     & DictionaryRendererDef
-    & TranscriptRendererDef
     & VideoLearningRendererDef
     & ChatRendererDef
     & AnalysisRendererDef;

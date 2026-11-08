@@ -15,7 +15,6 @@ import AutoClipButton from './AutoClipButton';
 import ClearAdjustButton from './ClearAdjustButton';
 import RepairPlaybackButton from './RepairPlaybackButton';
 import SettingToggle from './SettingToggle';
-import TranscriptButton from './TranscriptButton';
 import WithMarkdownTooltip from '@/fronted/components/shared/common/WithMarkdownTooltip';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
@@ -332,7 +331,6 @@ export default function ControlBox() {
         <div className="flex flex-wrap items-center gap-2 pt-2.5 pb-1">
           <ClearAdjustButton className="h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/70 px-3 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors shadow-none" />
           <RepairPlaybackButton className="h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/70 px-3 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors shadow-none" />
-          <TranscriptButton className="h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/70 px-3 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors shadow-none" />
           <AutoClipButton className="h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/70 px-3 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors shadow-none" />
         </div>
       </CardContent>

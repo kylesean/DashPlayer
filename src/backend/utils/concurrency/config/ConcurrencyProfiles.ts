@@ -86,7 +86,6 @@ export const defaultConcurrencyProfiles: ConcurrencyProfiles = {
         // 业务串行互斥锁：始终在底层资源信号量之前获取，禁止在持有信号量后反向加互斥锁。
         'favourite-clip-sync',
         'video-learning-sync',
-        'transcription',
         // 底层工具与推理信号量：按依赖链路与约定顺序排列。
         'localAi',
         'yt-dlp',

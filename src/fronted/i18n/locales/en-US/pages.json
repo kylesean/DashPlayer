@@ -123,39 +123,6 @@
         "aiFormatFailed": "AI formatting failed",
         "aiFormatParseFailed": "Could not parse the AI response. Please try again"
     },
-    "subtitleWorkspace": {
-        "title": "Subtitle Generator",
-        "description": "Generate high-accuracy subtitles for videos using AI speech recognition",
-        "modelMissing": "Please download the subtitle model first in Settings Center > Service Credentials.",
-        "importSectionTitle": "Files & Media",
-        "importSectionDesc": "Select local media files or recent projects to add to the queue",
-        "queueSectionTitle": "Task Queue",
-        "queueSectionDesc": "Manage transcription tasks and live progress",
-        "table": {
-            "videoColumn": "Video",
-            "statusColumn": "Status",
-            "actionColumn": "Actions",
-            "empty": "No videos in queue",
-            "emptyDesc": "Select media files from the left panel or click a recent project to get started"
-        },
-        "status": {
-            "notStarted": "Not started",
-            "initializing": "Initializing...",
-            "processing": "Processing...",
-            "done": "Done",
-            "doneWithDuration": "Done ({{duration}}s)",
-            "cancelled": "Cancelled",
-            "failed": "Failed",
-            "unknown": "Unknown",
-            "cancelling": "Cancelling..."
-        },
-        "actions": {
-            "transcribe": "Transcribe",
-            "delete": "Delete",
-            "cancel": "Cancel",
-            "cancelledMessage": "Transcription cancelled"
-        }
-    },
     "videoLearning": {
         "playbackGuide": "Click a clip above to start playing"
     }

@@ -24,7 +24,6 @@ import { initLogMaintenance } from '@/backend/startup/initLogMaintenance';
 import { RESET_DB_RESYNC_FLAG } from '@/common/constants/resetDb';
 import { isDevelopmentMode } from '@/backend/utils/runtimeEnv';
 import { storeGet } from '@/backend/infrastructure/settings/store';
-import type { TranscriptionService } from '@/backend/services/TranscriptionService';
 import type PlaybackRepairService from '@/backend/services/PlaybackRepairService';
 import type MobileAccessService from '@/backend/services/MobileAccessService';
 import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
@@ -264,9 +263,6 @@ app.on('ready', async () => {
     logStartupPhase('controllers');
     await seedDefaultVocabularyIfNeeded();
     await container.get<DpTaskService>(TYPES.DpTaskService).recoverInterruptedTasks();
-    await container
-        .get<TranscriptionService>(TYPES.LocalTranscriptionService)
-        .recoverInterruptedTasks();
     // 修复任务只存活在进程内，重启后遗留的「进行中」记录必须标成已中断。
     await container
         .get<PlaybackRepairService>(TYPES.PlaybackRepairService)

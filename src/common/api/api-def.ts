@@ -65,7 +65,6 @@ import type {
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 import type { VideoInfo } from '@/common/types/video-info';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
-import type { TranscriptTask } from '@/common/contracts/transcript/transcript-task';
 import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams } from '@/common/contracts/sentence-practice';
 
 /** 跨进程请求与返回值契约。 */
@@ -85,15 +84,6 @@ interface AiFuncDef {
     'ai-func/format-split': { params: string, return: number };
 }
 
-interface TranscriptDef {
-    'transcript/list': { params: void, return: TranscriptTask[] };
-    'transcript/enqueue': { params: { filePath: string }, return: TranscriptTask };
-    'transcript/remove': { params: { filePath: string }, return: void };
-    'transcript/start': { params: { filePath: string; currentPosition?: number }, return: 'started' | 'model_missing' };
-    'transcript/update-demand': { params: { filePath: string; currentPosition: number }, return: void };
-    'transcript/session-snapshot': { params: { filePath: string }, return: { sessionId: string; sentences: Sentence[] } | null };
-    'transcript/cancel': { params: { filePath: string }, return: boolean };
-}
 
 interface SherpaTtsModelDef {
     'sherpa-tts/models/status': { params: void, return: ModelInstallationStatusVO };
@@ -487,7 +477,6 @@ interface PracticeDef {
 // 使用交叉类型合并 ApiDefinitions 和 ExtraApiDefinition
 export type ApiDefinitions = ApiDefinition
     & AiFuncDef
-    & TranscriptDef
     & DpTaskDef
     & SystemDef
     & AiTransDef

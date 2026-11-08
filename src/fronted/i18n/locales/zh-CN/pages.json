@@ -123,39 +123,6 @@
         "aiFormatFailed": "AI 整理失败",
         "aiFormatParseFailed": "AI 整理结果无法解析，请重试"
     },
-    "subtitleWorkspace": {
-        "title": "视频字幕生成",
-        "description": "基于 AI 语音识别，为视频自动生成高精度时间轴字幕",
-        "modelMissing": "需要先下载字幕模型，请前往“设置中心 > 服务凭据”中下载",
-        "importSectionTitle": "资源与文件",
-        "importSectionDesc": "选择本地媒体文件或已浏览的项目添加至转录队列",
-        "queueSectionTitle": "任务队列",
-        "queueSectionDesc": "管理视频转录任务与实时进度",
-        "table": {
-            "videoColumn": "视频",
-            "statusColumn": "状态",
-            "actionColumn": "操作",
-            "empty": "暂无待转录的视频",
-            "emptyDesc": "从左侧选择媒体文件或点击已浏览项目，快速添加至转录队列"
-        },
-        "status": {
-            "notStarted": "未开始",
-            "initializing": "初始化中...",
-            "processing": "转录处理中...",
-            "done": "已完成",
-            "doneWithDuration": "已完成（耗时 {{duration}}s）",
-            "cancelled": "已取消",
-            "failed": "转录失败",
-            "unknown": "未知状态",
-            "cancelling": "取消中..."
-        },
-        "actions": {
-            "transcribe": "转录",
-            "delete": "删除",
-            "cancel": "取消",
-            "cancelledMessage": "转录任务已取消"
-        }
-    },
     "videoLearning": {
         "playbackGuide": "点击上方片段开始播放"
     }

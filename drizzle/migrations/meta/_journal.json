@@ -78,6 +78,13 @@
       "when": 1794143837298,
       "tag": "0010_sticky_aaron_stack",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1794156006766,
+      "tag": "0011_optimal_grim_reaper",
+      "breakpoints": true
     }
   ]
 }

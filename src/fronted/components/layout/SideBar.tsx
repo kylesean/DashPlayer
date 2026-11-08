@@ -97,12 +97,6 @@ const SideBar = ({ compact = false }: SideBarProps) => {
                     <Star />
                 )}
                 {item(
-                    t('subtitleWorkspace'),
-                    '/transcript',
-                    'transcript',
-                    <Captions />
-                )}
-                {item(
                     t('sentenceSplitter'),
                     '/split',
                     'split',

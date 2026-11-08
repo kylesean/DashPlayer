@@ -21,10 +21,6 @@ import {
     PlaybackRepairToast,
     type RepairToastVariant,
 } from '@/fronted/components/shared/toasts/PlaybackRepairToast';
-import { SubtitleSuspicionToast } from '@/fronted/components/shared/toasts/SubtitleSuspicionToast';
-import { useSubtitleSuspicion } from '@/fronted/features/player/subtitleSuspicion';
-import { useSubtitleSuspicionNudge } from '@/fronted/features/player/hooks/useSubtitleSuspicionNudge';
-import { startTranscriptionForCurrentVideo } from '@/fronted/features/player/startTranscription';
 import useSystem from '@/fronted/app/stores/systemStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { diagnosePlayback, probeAndRecordPlaybackCapability, repairPlayback } from '@/fronted/features/player/repairPlayback';
@@ -38,7 +34,6 @@ import { useDevPlayerEntry } from '@/fronted/features/player/dev/useDevPlayerEnt
 const logger = getRendererLogger('PlayerWithControlsPage');
 const MODE_SWITCH_TOAST_ID = 'mode-switch-toast';
 const PLAYBACK_ISSUE_TOAST_ID = 'playback-issue-toast';
-const SUBTITLE_SUSPICION_TOAST_ID = 'subtitle-suspicion-toast';
 
 /**
  * 生成播放修复提示的 toast ID：同一条提示只允许存在一个，不同场景互不覆盖。
@@ -83,8 +78,6 @@ const PlayerWithControlsPage = () => {
     const windowButtonsVisibleRef = useRef<boolean | null>(null);
     // 播放问题提示去重：同一文件同一场景只提示一次
     const repairToastShownRef = useRef<Set<string>>(new Set());
-    // 字幕引导提示去重：同一视频本次页面会话内只提示一次
-    const subtitleToastShownRef = useRef<Set<string>>(new Set());
     // 音频兼容预检去重：会话内每个文件只探测一次
     const audioProbeDoneRef = useRef<Set<string>>(new Set());
     // 卡死提示的"暂时忽略"：记录被忽略的视频 id，本次运行内该视频不再提示（不持久化）
@@ -192,7 +185,6 @@ const PlayerWithControlsPage = () => {
                 // 否则返回同一个视频时路径和 videoId 不变，播放器不会重新触发 ready。
                 usePlaybackSession.getState().clear();
                 useSubtitleTranslation.getState().clearTranslations();
-                useSubtitleSuspicion.getState().setReasons([]);
                 playerActions.clearSubtitles();
                 playerActions.setSource(null);
                 return;
@@ -207,8 +199,6 @@ const PlayerWithControlsPage = () => {
                     srtHash: null,
                     subtitleSessionId: null,
                 });
-                // 换视频后旧字幕的可疑结论不再成立，等 player-subtitle 重新解析
-                useSubtitleSuspicion.getState().setReasons([]);
                 // 整句学习会话绑定在具体视频与字幕缓存上，换片必须结束，否则会检索到上一部片的字幕
                 useChatPanel.getState().clear();
             }
@@ -381,15 +371,12 @@ const PlayerWithControlsPage = () => {
                         videoPath,
                         mismatchSuspected: resolution.mismatchSuspected,
                     });
-                    // 先写可疑结论再更新字幕路径，保证字幕解析副作用读到一致的初始结论
-                    useSubtitleSuspicion.getState().setReasons(resolution.mismatchSuspected ? ['name-mismatch'] : []);
                     latestFileState.updateFile(resolution.subtitlePath);
                 } else {
                     logger.info('player subtitle not found', {
                         videoId: video.id,
                         videoPath,
                     });
-                    useSubtitleSuspicion.getState().setReasons(['no-subtitle']);
                     latestFileState.clearSrt();
                 }
             } catch (error) {
@@ -404,48 +391,6 @@ const PlayerWithControlsPage = () => {
             cancelled = true;
         };
     }, [video, videoLoaded]);
-    const subtitleSuspicions = useSubtitleSuspicion((s) => s.reasons);
-    const subtitleNudge = useSubtitleSuspicionNudge();
-    useEffect(() => {
-        if (!video || !videoLoaded || !subtitleNudge) {
-            return;
-        }
-        const videoKey = video.id;
-        if (subtitleToastShownRef.current.has(videoKey)) {
-            return;
-        }
-        // 延迟触发：等字幕解析合并 chinese-only 结论，并避开增量转录会话清除可疑的竞态。
-        // 期间原因集合变化会重启定时器，触发时再读取最新结论。
-        const timer = window.setTimeout(() => {
-            const reasons = useSubtitleSuspicion.getState().reasons;
-            if (subtitleToastShownRef.current.has(videoKey) || reasons.length === 0) {
-                return;
-            }
-            subtitleToastShownRef.current.add(videoKey);
-            toast(
-                (tState: Toast) => (
-                    <SubtitleSuspicionToast
-                        reasons={reasons}
-                        onGenerate={() => {
-                            toast.dismiss(tState.id);
-                            void startTranscriptionForCurrentVideo();
-                        }}
-                        onIgnore={() => {
-                            toast.dismiss(tState.id);
-                            useSubtitleSuspicion.getState().setReasons([]);
-                        }}
-                    />
-                ),
-                {
-                    id: SUBTITLE_SUSPICION_TOAST_ID,
-                    duration: 10000,
-                }
-            );
-        }, 1200);
-        return () => {
-            window.clearTimeout(timer);
-        };
-    }, [video, videoLoaded, subtitleSuspicions, subtitleNudge]);
     // 只补充 sideBarAnimation，保留 URL 上已有的参数（如 dev/qa 的 `?file=`）
     useEffect(() => {
         setSearchParams((prev) => {

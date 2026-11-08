@@ -1,6 +1,5 @@
 import type LocalTtsService from '@/backend/services/LocalTtsService';
 import type DpTaskService from '@/backend/services/DpTaskService';
-import type { TranscriptionService } from '@/backend/services/TranscriptionService';
 import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import UrlUtil from '@/common/utils/UrlUtil';
@@ -10,12 +9,6 @@ import { AiFuncFormatSplitPrompt } from '@/common/types/aiRes/AiFuncFormatSplit'
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type ParakeetModelService from '@/backend/services/ParakeetModelService';
 import type WhisperCppModelService from '@/backend/services/WhisperCppModelService';
-import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
-import {
-    type TranscriptTask,
-    type TranscriptTaskResult,
-    TranscriptTaskState,
-} from '@/common/contracts/transcript/transcript-task';
 
 /**
  * AiFuncService 的业务契约。
@@ -25,23 +18,12 @@ export default interface AiFuncService {
 
     tts(text: string): Promise<string>;
 
-    listTranscriptionTasks(): Promise<TranscriptTask[]>;
-
-    enqueueTranscription(params: { filePath: string }): Promise<TranscriptTask>;
-
-    removeTranscription(params: { filePath: string }): Promise<void>;
-
-    transcript(params: { filePath: string; currentPosition?: number }): Promise<'started' | 'model_missing'>;
-    updateTranscriptionDemand(params: { filePath: string; currentPosition: number }): Promise<void>;
-    getTranscriptionSnapshot(params: { filePath: string }): Promise<ReturnType<TranscriptionService['getSessionSnapshot']>>;
-
-    cancelTranscription(params: { filePath: string }): Promise<boolean>;
 }
 
 
 
 /**
- * 编排 AI 功能，并将转录列表与状态统一交给后端持久化服务管理。
+ * 编排 AI 功能（文本切分与语音合成）。
  */
 @injectable()
 export class AiFuncServiceImpl implements AiFuncService {
@@ -52,21 +34,13 @@ export class AiFuncServiceImpl implements AiFuncService {
      *
      * @param dpTaskService 后台任务管理服务。
      * @param chatService 结构化对话任务服务。
-     * @param storageDirectoryProvider 外部存储目录提供器。
-     * @param parakeetModelService Parakeet 语音模型服务。
-     * @param whisperCppModelService WhisperCpp 语音模型服务。
-     * @param transcriptionEngineSelector 转录引擎选择器。
-     * @param localTranscriptionService 本地转录服务。
+     * @param dpTaskService 后台任务管理服务。
+     * @param chatService 结构化对话任务服务。
      * @param localTtsService 本地语音合成服务。
      */
     constructor(
         @inject(TYPES.DpTaskService) private readonly dpTaskService: DpTaskService,
         @inject(TYPES.ChatService) private readonly chatService: ChatService,
-        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
-        @inject(TYPES.ParakeetModelService) private readonly parakeetModelService: ParakeetModelService,
-        @inject(TYPES.WhisperCppModelService) private readonly whisperCppModelService: WhisperCppModelService,
-        @inject(TYPES.TranscriptionEngineSelector) private readonly transcriptionEngineSelector: TranscriptionEngineSelector,
-        @inject(TYPES.LocalTranscriptionService) private readonly localTranscriptionService: TranscriptionService,
         @inject(TYPES.LocalTtsService) private readonly localTtsService: LocalTtsService,
     ) {}
 
@@ -88,90 +62,5 @@ export class AiFuncServiceImpl implements AiFuncService {
 
     public async tts(text: string): Promise<string> {
         return UrlUtil.toUrl(await this.localTtsService.synthesize(text));
-    }
-
-    /**
-     * 查询后端持久化的转录任务列表。
-     *
-     * @returns 当前全部转录任务。
-     */
-    public listTranscriptionTasks(): Promise<TranscriptTask[]> {
-        return this.localTranscriptionService.listTasks();
-    }
-
-    /**
-     * 将媒体文件加入后端转录队列，重复路径返回已有任务。
-     *
-     * @param params 待加入队列的媒体路径。
-     * @returns 新建或已存在的转录任务。
-     */
-    public enqueueTranscription(params: { filePath: string }): Promise<TranscriptTask> {
-        return this.localTranscriptionService.enqueue(params.filePath);
-    }
-
-    /**
-     * 删除未执行中的转录任务。
-     *
-     * @param params 要删除的媒体路径。
-     */
-    public removeTranscription(params: { filePath: string }): Promise<void> {
-        return this.localTranscriptionService.remove(params.filePath);
-    }
-
-    /**
-     * 启动指定媒体的转录任务，并将状态写入后端任务表。
-     *
-     * @param params 待转录的媒体路径。
-     * @returns 模型缺失时返回 model_missing，否则返回 started。
-     */
-    public async transcript(params: { filePath: string; currentPosition?: number }): Promise<'started' | 'model_missing'> {
-        const { filePath, currentPosition } = params;
-        this.logger.info('Transcription task started', { filePath });
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
-        await this.localTranscriptionService.enqueue(filePath);
-
-        // 引擎按设置路由：whisper.cpp 走 GGUF 模型，sherpa-onnx 走 INT8 模型，各自独立下载。
-        const engine = this.transcriptionEngineSelector.currentEngine();
-        const modelStatus = engine === 'whisper-cpp'
-            ? await this.whisperCppModelService.getStatus()
-            : await this.parakeetModelService.getStatus();
-        if (!modelStatus.ready) {
-            this.logger.warn('Transcription model not downloaded', { engine, modelPath: modelStatus?.modelPath });
-            const result: TranscriptTaskResult = {
-                error: '字幕模型尚未下载',
-                message: '请先到“设置中心 > 服务凭据”中下载字幕模型',
-            };
-            await this.localTranscriptionService.updateTask(filePath, TranscriptTaskState.FAILED, result);
-            return 'model_missing';
-        }
-
-        this.localTranscriptionService.transcribe(filePath, currentPosition).catch((error) => {
-            this.logger.error('Local transcription failed', { error: error instanceof Error ? error.message : String(error) });
-        });
-        return 'started';
-    }
-
-    /** 更新转录任务的最新播放位置。 */
-    public async updateTranscriptionDemand(params: { filePath: string; currentPosition: number }): Promise<void> {
-        this.localTranscriptionService.updateDemand(params.filePath, params.currentPosition);
-    }
-
-    /** 查询运行中转录任务的内存增量结果。 */
-    public async getTranscriptionSnapshot(params: { filePath: string }): Promise<ReturnType<TranscriptionService['getSessionSnapshot']>> {
-        return this.localTranscriptionService.getSessionSnapshot(params.filePath);
-    }
-
-    public async cancelTranscription(params: { filePath: string }): Promise<boolean> {
-        const { filePath } = params;
-        this.logger.info('Cancelling transcription task', { filePath });
-
-        const localSuccess = this.localTranscriptionService.cancel(filePath);
-        if (localSuccess) {
-            this.logger.info('Local transcription task cancelled successfully', { filePath });
-            return true;
-        }
-
-        this.logger.warn('Transcription task does not exist', { filePath });
-        return false;
     }
 }

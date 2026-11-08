@@ -106,7 +106,6 @@ import type WhisperCppModelService from '@/backend/services/WhisperCppModelServi
 import { WhisperCppModelServiceImpl } from '@/backend/services/WhisperCppModelService';
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
 import { TranscriptionEngineSelectorImpl } from '@/backend/services/TranscriptionEngineSelector';
-import { LocalTranscriptionServiceImpl, type TranscriptionService } from '@/backend/services/TranscriptionService';
 import { SherpaOnnxCli } from '@/backend/infrastructure/media/sherpa/SherpaOnnxCli';
 import SherpaOnnxGatewayImpl from '@/backend/infrastructure/media/sherpa/SherpaOnnxGatewayImpl';
 import { WhisperCppCli } from '@/backend/infrastructure/media/whispercpp/WhisperCppCli';
@@ -135,10 +134,8 @@ import type WordsRepository from '@/backend/services/repositories/WordsRepositor
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
 import type DpTaskRepository from '@/backend/services/repositories/DpTaskRepository';
 import DpTaskRepositoryImpl from '@/backend/infrastructure/db/repositories/DpTaskRepositoryImpl';
-import type TranscriptionTaskRepository from '@/backend/services/repositories/TranscriptionTaskRepository';
 import type RepairTaskRepository from '@/backend/services/repositories/RepairTaskRepository';
 import type RepairGroupRepository from '@/backend/services/repositories/RepairGroupRepository';
-import TranscriptionTaskRepositoryImpl from '@/backend/infrastructure/db/repositories/TranscriptionTaskRepositoryImpl';
 import RepairTaskRepositoryImpl from '@/backend/infrastructure/db/repositories/RepairTaskRepositoryImpl';
 import RepairGroupRepositoryImpl from '@/backend/infrastructure/db/repositories/RepairGroupRepositoryImpl';
 import type VideoLearningClipRepository from '@/backend/services/repositories/VideoLearningClipRepository';
@@ -248,7 +245,6 @@ container.bind<SherpaTtsModelService>(TYPES.SherpaTtsModelService).to(SherpaTtsM
 container.bind<LocalTtsService>(TYPES.LocalTtsService).to(LocalTtsServiceImpl).inSingletonScope();
 container.bind<WordsRepository>(TYPES.WordsRepository).to(WordsRepositoryImpl).inSingletonScope();
 container.bind<DpTaskRepository>(TYPES.DpTaskRepository).to(DpTaskRepositoryImpl).inSingletonScope();
-container.bind<TranscriptionTaskRepository>(TYPES.TranscriptionTaskRepository).to(TranscriptionTaskRepositoryImpl).inSingletonScope();
 container.bind<RepairTaskRepository>(TYPES.RepairTaskRepository).to(RepairTaskRepositoryImpl).inSingletonScope();
 container.bind<RepairGroupRepository>(TYPES.RepairGroupRepository).to(RepairGroupRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipRepository>(TYPES.VideoLearningClipRepository).to(VideoLearningClipRepositoryImpl).inSingletonScope();
@@ -296,7 +292,6 @@ container.bind<SubtitleTranslationService>(TYPES.SubtitleTranslationService)
     .inSingletonScope();
 container.bind<WatchHistoryService>(TYPES.WatchHistoryService).to(WatchHistoryServiceImpl).inSingletonScope();
 container.bind<MobileAccessService>(TYPES.MobileAccessService).to(MobileAccessServiceImpl).inSingletonScope();
-container.bind<TranscriptionService>(TYPES.LocalTranscriptionService).to(LocalTranscriptionServiceImpl).inSingletonScope();
 container.bind<WordMatchService>(TYPES.WordMatchService).to(WordMatchServiceImpl).inSingletonScope();
 container.bind<VocabularyService>(TYPES.VocabularyService).to(VocabularyServiceImpl).inSingletonScope();
 container.bind<SentenceVocabularyService>(TYPES.SentenceVocabularyService).to(SentenceVocabularyServiceImpl).inSingletonScope();
