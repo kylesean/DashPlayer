@@ -170,6 +170,7 @@
     "zx": "^8.0.2"
   },
   "resolutions": {
+    "@electron/asar": "^4.3.1",
     "node-abi": "^4.35.0",
     "@electron/rebuild": "^4.2.0",
     "undici": "^8.12.4"
