@@ -100,6 +100,21 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => undefined
 }
 
+// jsdom 未实现 HTMLDialogElement 的 showModal / close 方法，Astryx / 标准 <dialog> 组件依赖它们。
+if (typeof HTMLDialogElement !== 'undefined') {
+  if (!HTMLDialogElement.prototype.showModal) {
+    HTMLDialogElement.prototype.showModal = function () {
+      this.setAttribute('open', '')
+    }
+  }
+  if (!HTMLDialogElement.prototype.close) {
+    HTMLDialogElement.prototype.close = function () {
+      this.removeAttribute('open')
+      this.dispatchEvent(new Event('close'))
+    }
+  }
+}
+
 // jsdom 未实现 requestIdleCallback（首页列表用它做延迟加载），补一个立即执行的回调。
 if (!globalThis.requestIdleCallback) {
   globalThis.requestIdleCallback = ((callback: IdleRequestCallback) =>

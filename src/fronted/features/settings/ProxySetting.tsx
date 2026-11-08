@@ -1,23 +1,38 @@
-import * as React from 'react';
+import React, { useEffect } from 'react';
 import useSWR from 'swr';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
-import { SettingCard, SettingRow, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/fronted/components/ui/select';
-import { Input } from '@/fronted/components/ui/input';
-import { Textarea } from '@/fronted/components/ui/textarea';
+import {
+    SettingCard,
+    SettingRow,
+    SettingsLoadingSkeleton,
+} from '@/fronted/features/settings/components/form';
 import { Globe, Shield, Wifi } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
-import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
+import {
+    SETTINGS_DETAIL_SWR_OPTIONS,
+    settingsApi,
+} from '@/fronted/features/settings/settingsApi';
 import type { ProxySettingDetailVO } from '@/common/contracts/proxy-setting-vo';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { Selector } from '@astryxdesign/core/Selector';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { TextArea } from '@astryxdesign/core/TextArea';
+import { Banner } from '@astryxdesign/core/Banner';
 
+/** 网络代理表单数据结构。 */
 type ProxyFormValues = {
     mode: ProxySettingDetailVO['mode'];
     url: string;
     bypassRules: string;
 };
 
+/**
+ * 规范化模式字符串为合法枚举。
+ *
+ * @param value 原始模式值。
+ * @returns 规范化的代理模式。
+ */
 const normalizeMode = (value: string | undefined): ProxyFormValues['mode'] => {
     if (value === 'custom' || value === 'none') {
         return value;
@@ -25,10 +40,19 @@ const normalizeMode = (value: string | undefined): ProxyFormValues['mode'] => {
     return 'system';
 };
 
-const ProxySetting = () => {
+/**
+ * 网络代理设置页面组件。
+ *
+ * 全面迁移至 Astryx UI 体系：
+ * - 代理模式：使用 Astryx Selector 下拉选择（兼具 combobox 语义与无障碍支持）。
+ * - 地址与绕过规则：使用 Astryx TextInput 与 TextArea。
+ * - 告警与错误：使用 Astryx Banner（指定 role="alert"）。
+ *
+ * @returns 代理设置 JSX 元素。
+ */
+const ProxySetting: React.FC = () => {
     const { t } = useI18nTranslation('settings');
 
-    // 与 EngineSelectionSetting / ShortcutSetting 等页面一致：通过 detail 接口取服务端数据。
     const { data: settings } = useSWR<ProxySettingDetailVO>(
         'settings/proxy/detail',
         () => settingsApi.getProxy(),
@@ -38,13 +62,23 @@ const ProxySetting = () => {
     const form = useForm<ProxyFormValues>();
     const { setValue } = form;
     const currentMode = normalizeMode(useWatch({ control: form.control, name: 'mode' }));
-    const [url, bypassRules] = useWatch({ control: form.control, name: ['url', 'bypassRules'] });
-    // 实际生效代理为空时显式警告：system 模式未探测到系统代理，或 custom 模式地址为空。
-    // 探测结果未下发（旧版本 detail）时不误报。
-    const effectiveNoProxy = (currentMode === 'system' && settings?.systemProxy?.detected === false)
-        || (currentMode === 'custom' && !(url ?? '').trim());
+    const [url, bypassRules] = useWatch({
+        control: form.control,
+        name: ['url', 'bypassRules'],
+    });
 
-    const { ready, status: autoSaveStatus, error: autoSaveError, initialize, flush } = useAutoSaveSettingsForm<ProxyFormValues>({
+    // 实际生效代理为空时显式警告：system 模式未探测到系统代理，或 custom 模式地址为空。
+    const effectiveNoProxy =
+        (currentMode === 'system' && settings?.systemProxy?.detected === false) ||
+        (currentMode === 'custom' && !(url ?? '').trim());
+
+    const {
+        ready,
+        status: autoSaveStatus,
+        error: autoSaveError,
+        initialize,
+        flush,
+    } = useAutoSaveSettingsForm<ProxyFormValues>({
         form,
         detailKey: 'settings/proxy/detail',
         onSave: async (values) => {
@@ -56,7 +90,7 @@ const ProxySetting = () => {
         },
     });
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!settings) {
             return;
         }
@@ -76,6 +110,12 @@ const ProxySetting = () => {
         );
     }
 
+    const modeOptions = [
+        { value: 'system', label: t('proxy.modeSystem') },
+        { value: 'custom', label: t('proxy.modeCustom') },
+        { value: 'none', label: t('proxy.modeNone') },
+    ];
+
     return (
         <form
             className="w-full h-full min-h-0"
@@ -87,24 +127,21 @@ const ProxySetting = () => {
             <SettingsPageShell
                 title={t('proxy.title')}
                 description={t('proxy.description')}
-                contentClassName="space-y-6"
             >
                 {autoSaveStatus === 'error' && autoSaveError && (
-                    <div
+                    <Banner
                         role="alert"
-                        className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-                    >
-                        {autoSaveError}
-                    </div>
+                        status="error"
+                        title={autoSaveError}
+                    />
                 )}
 
                 {effectiveNoProxy && (
-                    <div
+                    <Banner
                         role="alert"
-                        className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-400"
-                    >
-                        {t('proxy.directConnectionWarning')}
-                    </div>
+                        status="warning"
+                        title={t('proxy.directConnectionWarning')}
+                    />
                 )}
 
                 <SettingCard
@@ -116,21 +153,20 @@ const ProxySetting = () => {
                         description={t('proxy.modeDescription')}
                         icon={Wifi}
                     >
-                        <Select
+                        <Selector
+                            label={t('proxy.modeTitle')}
+                            isLabelHidden
                             value={currentMode}
-                            onValueChange={(value: ProxyFormValues['mode']) => {
-                                setValue('mode', value, { shouldDirty: true, shouldTouch: true });
+                            options={modeOptions}
+                            width={192}
+                            size="sm"
+                            onChange={(value) => {
+                                setValue('mode', value as ProxyFormValues['mode'], {
+                                    shouldDirty: true,
+                                    shouldTouch: true,
+                                });
                             }}
-                        >
-                            <SelectTrigger className="w-48">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="system">{t('proxy.modeSystem')}</SelectItem>
-                                <SelectItem value="custom">{t('proxy.modeCustom')}</SelectItem>
-                                <SelectItem value="none">{t('proxy.modeNone')}</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        />
                     </SettingRow>
 
                     {currentMode === 'custom' && (
@@ -140,16 +176,19 @@ const ProxySetting = () => {
                                 description={t('proxy.urlDescription')}
                                 icon={Globe}
                             >
-                                <Input
+                                <TextInput
+                                    label={t('proxy.urlTitle')}
+                                    isLabelHidden
                                     value={url ?? ''}
                                     placeholder="http://127.0.0.1:7890"
-                                    onChange={(event) => {
-                                        setValue('url', event.target.value, {
+                                    size="sm"
+                                    width={240}
+                                    onChange={(val) => {
+                                        setValue('url', val, {
                                             shouldDirty: true,
                                             shouldTouch: true,
                                         });
                                     }}
-                                    className="w-64"
                                 />
                             </SettingRow>
                             <SettingRow
@@ -158,17 +197,20 @@ const ProxySetting = () => {
                                 icon={Shield}
                                 alignTop
                             >
-                                <Textarea
+                                <TextArea
+                                    label={t('proxy.bypassRulesTitle')}
+                                    isLabelHidden
                                     value={bypassRules ?? ''}
                                     placeholder="localhost,127.0.0.1"
                                     rows={2}
-                                    onChange={(event) => {
-                                        setValue('bypassRules', event.target.value, {
+                                    size="sm"
+                                    width={240}
+                                    onChange={(val) => {
+                                        setValue('bypassRules', val, {
                                             shouldDirty: true,
                                             shouldTouch: true,
                                         });
                                     }}
-                                    className="w-64 resize-none text-xs"
                                 />
                             </SettingRow>
                         </>

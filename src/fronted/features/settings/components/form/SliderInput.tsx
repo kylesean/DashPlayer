@@ -1,6 +1,14 @@
-import { cn } from '@/fronted/lib/utils';
+import React from 'react';
+import {
+    SegmentedControl,
+    SegmentedControlItem,
+} from '@astryxdesign/core/SegmentedControl';
+import { VStack } from '@astryxdesign/core/VStack';
+import { Text } from '@astryxdesign/core/Text';
 
-/** 分段档位选择器的入参。 */
+/**
+ * 分段档位选择器属性定义。
+ */
 export interface SliderInputProps {
     /** 可选标题。 */
     title?: string;
@@ -10,60 +18,46 @@ export interface SliderInputProps {
     defaultValue: string;
     /** 选中新档位时的回调。 */
     setValue: (value: string) => void;
-    /** 容器宽度类名。 */
-    inputWidth?: string;
+    /** 容器宽度。 */
+    inputWidth?: string | number;
     /** 档位值到展示文案的映射。 */
     valueLabelMap?: Record<string, string>;
 }
 
 /**
- * 档位切换器：直接由上层受控值驱动选中态，不在本地维护镜像状态。
+ * 档位分段切换器：基于 Astryx SegmentedControl 实现，提供符合规范的单选切换交互。
+ *
+ * @param props 组件属性。
+ * @returns 切换器 JSX 元素。
  */
-const SliderInput = ({
+const SliderInput: React.FC<SliderInputProps> = ({
+    title,
     values,
     defaultValue,
     setValue,
-    inputWidth,
     valueLabelMap,
-}: SliderInputProps) => {
+}) => {
     return (
-        <div
-            className={cn(
-                'inline-flex items-center p-1 rounded-xl bg-muted/60 dark:bg-neutral-800/80 border border-border/60 select-none',
-                inputWidth
-            )}
-        >
-            {values.map((val, idx) => {
-                const isSelected = defaultValue === val;
-                const label = valueLabelMap?.[val] ?? val;
-
-                // 视觉字号阶梯示意：A 小中大
-                const fontScaleClass = idx === 0
-                    ? 'text-xs'
-                    : idx === 1
-                    ? 'text-sm'
-                    : 'text-base';
-
-                return (
-                    <button
-                        key={val}
-                        type="button"
-                        onClick={() => {
-                            setValue(val);
-                        }}
-                        className={cn(
-                            'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer',
-                            isSelected
-                                ? 'bg-background text-foreground shadow-xs ring-1 ring-black/5 dark:ring-white/10'
-                                : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
-                        )}
-                    >
-                        <span className={cn('font-serif font-bold opacity-80', fontScaleClass)}>A</span>
-                        <span>{label}</span>
-                    </button>
-                );
-            })}
-        </div>
+        <VStack gap={1}>
+            {title && <Text type="label">{title}</Text>}
+            <SegmentedControl
+                label={title || 'Segment options'}
+                value={defaultValue}
+                onChange={setValue}
+                size="sm"
+            >
+                {values.map((val) => {
+                    const label = valueLabelMap?.[val] ?? val;
+                    return (
+                        <SegmentedControlItem
+                            key={val}
+                            value={val}
+                            label={label}
+                        />
+                    );
+                })}
+            </SegmentedControl>
+        </VStack>
     );
 };
 

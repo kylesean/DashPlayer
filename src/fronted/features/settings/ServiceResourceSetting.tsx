@@ -3,14 +3,32 @@ import { useForm, useWatch } from 'react-hook-form';
 import useSWR from 'swr';
 import toast from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import { AlertTriangle, BookA, Captions, Cloud, Eraser, HardDrive, Languages, Loader2, Settings2, Sparkles, Volume2 } from 'lucide-react';
+import {
+    AlertTriangle,
+    BookA,
+    Captions,
+    Cloud,
+    Eraser,
+    HardDrive,
+    Languages,
+    Settings2,
+    Sparkles,
+    Volume2,
+} from 'lucide-react';
+
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { Selector } from '@astryxdesign/core/Selector';
+import { Text } from '@astryxdesign/core/Text';
+import { TextArea } from '@astryxdesign/core/TextArea';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { VStack } from '@astryxdesign/core/VStack';
+
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
 import { SettingCard, SettingRow, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
-import { Button } from '@/fronted/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/fronted/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
-import { cn } from '@/fronted/lib/utils';
-import { Textarea } from '@/fronted/components/ui/textarea';
 import { ResourcePackCard } from '@/fronted/features/settings/components/ResourcePackCard';
 import { LocalLlmCard } from '@/fronted/features/settings/components/LocalLlmCard';
 import { OpenAiCredentialCard } from '@/fronted/features/settings/components/OpenAiCredentialCard';
@@ -40,26 +58,18 @@ const GPU_ACCELERATION_LABELS: Record<'metal' | 'vulkan', string> = {
 /** 卡片头右侧的能力图标。 */
 interface CapabilityIcon {
     /** 图标组件。 */
-    icon: React.ElementType;
+    icon: IconType;
     /** 能力名文案键。 */
     labelKey: string;
     /** 是否能在下方「翻译与查词偏好」里切换（决定悬停提示文案）。 */
     configurable: boolean;
 }
 
-const CAPABILITY_TRANSLATION: CapabilityIcon = { icon: Languages, labelKey: 'resources.capability.translation', configurable: true };
-const CAPABILITY_DICTIONARY: CapabilityIcon = { icon: BookA, labelKey: 'resources.capability.dictionary', configurable: true };
-const CAPABILITY_SENTENCE: CapabilityIcon = { icon: Sparkles, labelKey: 'resources.capability.sentence', configurable: true };
-const CAPABILITY_TRANSCRIPTION: CapabilityIcon = { icon: Captions, labelKey: 'resources.capability.transcription', configurable: false };
-const CAPABILITY_TTS: CapabilityIcon = { icon: Volume2, labelKey: 'resources.capability.tts', configurable: false };
-
-/** 本地增强模型的下载进度事件携带的数据。 */
-interface LocalAiDownloadProgress {
-    modelId: string;
-    downloaded: number;
-    total: number;
-    phase: LocalAiModelStatus['phase'];
-}
+const CAPABILITY_TRANSLATION: CapabilityIcon = { icon: Languages as unknown as IconType, labelKey: 'resources.capability.translation', configurable: true };
+const CAPABILITY_DICTIONARY: CapabilityIcon = { icon: BookA as unknown as IconType, labelKey: 'resources.capability.dictionary', configurable: true };
+const CAPABILITY_SENTENCE: CapabilityIcon = { icon: Sparkles as unknown as IconType, labelKey: 'resources.capability.sentence', configurable: true };
+const CAPABILITY_TRANSCRIPTION: CapabilityIcon = { icon: Captions as unknown as IconType, labelKey: 'resources.capability.transcription', configurable: false };
+const CAPABILITY_TTS: CapabilityIcon = { icon: Volume2 as unknown as IconType, labelKey: 'resources.capability.tts', configurable: false };
 
 /**
  * 拆开下拉项的值：云端选项形如 `openai:<model>`，其余选项就是引擎枚举值本身。
@@ -125,7 +135,6 @@ const ServiceResourceSetting: React.FC = () => {
         status: preferenceSaveStatus,
         error: preferenceSaveError,
         initialize: initializePreferences,
-        flush: flushPreferences,
     } = useAutoSaveSettingsForm<EngineSelectionSettingVO>({
         form: preferenceForm,
         detailKey: 'settings/engine-selection/detail',
@@ -138,11 +147,9 @@ const ServiceResourceSetting: React.FC = () => {
     const watched = useWatch({ control: preferenceForm.control });
     const subtitleEngine = watched.providers?.subtitleTranslationEngine;
     const subtitleMode = watched.openai?.subtitleTranslationMode;
-    /** 词典补充是否走本地增强资源包 / 云端模型。 */
     const dictionaryEngine = watched.providers?.dictionaryEngine;
-    /** 整句讲解是否启用。 */
     const sentenceLearningEnabled = watched.openai?.enableSentenceLearning === true;
-    /** 哪些引擎是开启的：决定缓存清理行是否展示、清理时跳过谁。 */
+
     const cacheTargets = {
         subtitle: subtitleEngine !== undefined && subtitleEngine !== 'none' && subtitleEngine !== 'invalid',
         dictionary: dictionaryEngine !== undefined && dictionaryEngine !== 'none' && dictionaryEngine !== 'invalid',
@@ -170,7 +177,6 @@ const ServiceResourceSetting: React.FC = () => {
 
     React.useEffect(() => {
         if (!engineSettings) return;
-        // 自定义风格留空时，实际生效的是默认风格；直接把默认值填进输入框，让用户看到真实生效的内容
         initializePreferences({
             ...engineSettings,
             openai: {
@@ -181,19 +187,11 @@ const ServiceResourceSetting: React.FC = () => {
         });
     }, [engineSettings, initializePreferences]);
 
-    /** 云端模型列表；字幕翻译、词典与整句讲解共用。 */
     const availableModels = React.useMemo(
         () => settings?.openai.models ?? [],
         [settings],
     );
 
-    /**
-     * 按模型现算的功能占用，驱动云端模型表的「使用中」角标与删除拦截。
-     *
-     * 输入是功能设置区（引擎选择/整句讲解开关）的当前表单值：在下面把某功能
-     * 切到某个云端模型，上面的角标立刻跟着变，不等自动保存与详情刷新；规则
-     * 与后端删除拦截共用 computeCloudModelUsage。
-     */
     const usageByModel = React.useMemo(() => {
         const usage = computeCloudModelUsage({
             sentenceLearningEnabled: watched.openai?.enableSentenceLearning === true,
@@ -216,9 +214,6 @@ const ServiceResourceSetting: React.FC = () => {
         return map;
     }, [watched]);
 
-    /**
-     * 本地增强模型的下载进度：只改动聚合快照里对应那一行，结束后重新拉取完整状态。
-     */
     React.useEffect(() => {
         const unsubscribe = subscribeLocalAiDownloadProgress((progress) => {
             void refreshResourceStatus((current) => current ? {
@@ -235,7 +230,6 @@ const ServiceResourceSetting: React.FC = () => {
         return unsubscribe;
     }, [refreshResourceStatus]);
 
-    /** 切换字幕识别方式并刷新聚合状态。 */
     const changeTranscriptionEngine = async (engine: TranscriptionEngine) => {
         try {
             await settingsApi.saveTranscriptionEngine(engine);
@@ -245,12 +239,6 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /**
-     * 清除当前配置产生的字幕翻译与查词缓存。
-     *
-     * 只清已启用的引擎：关闭的档位没有缓存，对应接口会直接报"未启用"，
-     * 与旧页面按引擎分别渲染按钮的行为一致。
-     */
     const clearCaches = async () => {
         setClearingCache(true);
         try {
@@ -268,11 +256,9 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /** 内置模型在提示里统一显示为「内置模型」，自定义模型显示用户自己的文件名。 */
     const localAiDisplayName = (model: LocalAiModelStatus): string =>
         model.custom ? model.name : t('serviceCredentials.localAi.builtinModelName');
 
-    /** 对指定本地增强模型执行操作并提示结果。 */
     const runLocalAiAction = async (model: LocalAiModelStatus, action: () => Promise<unknown>, successMessage: string) => {
         setLocalAiBusy(true);
         try {
@@ -286,7 +272,6 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /** 下载指定本地增强模型。 */
     const downloadLocalAi = async (modelId: string) => {
         const model = localAiStatus?.models.find((item) => item.modelId === modelId);
         void refreshResourceStatus((current) => current ? {
@@ -300,7 +285,6 @@ const ServiceResourceSetting: React.FC = () => {
             await settingsApi.downloadLocalAi(modelId);
             toast.success(t('common.downloadDone'));
         } catch (error) {
-            // 状态未加载完时找不到模型名，也要把失败显式露出来，不能静默吞掉。
             const prefix = model ? `${localAiDisplayName(model)}: ` : '';
             toast.error(`${prefix}${error instanceof Error ? error.message : String(error)}`);
         } finally {
@@ -308,7 +292,6 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /** 对本地增强模型测速。 */
     const testLocalAiModel = async (modelId: string) => {
         setTestingModelId(modelId);
         try {
@@ -337,7 +320,6 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /** 复制文本到剪贴板。 */
     const copyText = async (value: string) => {
         try {
             await navigator.clipboard.writeText(value);
@@ -347,7 +329,6 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /** 在系统浏览器中打开地址。 */
     const openUrl = async (url: string) => {
         try {
             await settingsApi.openUrl(url);
@@ -356,7 +337,6 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /** 打开文件所在文件夹。 */
     const openFolder = async (path?: string) => {
         if (!path) return;
         try {
@@ -366,11 +346,6 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /**
-     * 测试指定云端模型的连通性。
-     *
-     * 测试前先保存当前表单，保证测的是刚填的密钥与接口地址。
-     */
     const testOpenAiModel = async (model: string) => {
         try {
             await flushCredentials();
@@ -394,18 +369,6 @@ const ServiceResourceSetting: React.FC = () => {
         }
     };
 
-    /**
-     * 写回字幕翻译或词典的引擎选择，并同步该功能记着的云端模型。
-     *
-     * 说明：下拉项里云端选项形如 `openai:<model>`，本地与关闭选项就是枚举值本身；
-     * 槽位是「上次选的模型」备忘，只在引擎落在云端时有意义，切到本地/关闭时
-     * 一并清空，保持备忘与现状一致。占用判定由后端按引擎配置现算，不依赖
-     * 这里是否清理。
-     *
-     * @param value 下拉项的值，`openai:<model>` 或引擎名。
-     * @param engineKey 要写入的引擎设置键。
-     * @param modelField 与该引擎配套的云端模型槽位。
-     */
     const applyEngineValue = (
         value: string,
         engineKey: 'providers.subtitleTranslationEngine' | 'providers.dictionaryEngine',
@@ -416,43 +379,22 @@ const ServiceResourceSetting: React.FC = () => {
         setValue(modelField, model ?? '', { shouldDirty: true });
     };
 
-    /** 把引擎与云端模型拼成下拉项的值。 */
     const composeEngineValue = (engine: string | undefined, model: string | undefined): string | undefined => {
         if (!engine) return undefined;
         return engine === 'openai' ? `openai:${model ?? ''}` : engine;
     };
 
-    /** 整句讲解当前选中的云端模型；未启用或没配云端时为空。 */
     const sentenceLearningModel = watched.openai?.featureModels?.sentenceLearning ?? '';
-    /**
-     * 整句讲解下拉的选中值。
-     *
-     * 只有云端能提供讲解，因此没配置云端模型时一律显示为禁用，不展示一个无法生效的选中项。
-     */
     const sentenceLearningValue = availableModels.length > 0 && watched.openai?.enableSentenceLearning
         ? `openai:${sentenceLearningModel}`
         : 'none';
 
-    /**
-     * 写回整句讲解的选择：禁用时关掉开关，选中云端模型时同时开开关并记住模型。
-     *
-     * 说明：禁用时一并清空模型槽位，保持「上次选的模型」备忘与现状一致
-     * （同 applyEngineValue；占用判定由后端现算，不依赖这里是否清理）。
-     *
-     * @param value 下拉项值，`none` 或 `openai:<model>`。
-     */
     const applySentenceLearningValue = (value: string) => {
         const { model } = parseEngineValue(value);
         setValue('openai.enableSentenceLearning', model !== null, { shouldDirty: true });
         setValue('openai.featureModels.sentenceLearning', model ?? '', { shouldDirty: true });
     };
 
-    /** 渲染云端模型选项；各下拉共用，展平不分组。 */
-    const renderCloudModels = (prefix: string) => availableModels.map((model) => (
-        <SelectItem key={`${prefix}-${model}`} value={`openai:${model}`}>{model}</SelectItem>
-    ));
-
-    /** 本地增强资源包的硬件条件提示；硬件信息未就绪时为 undefined。 */
     const enhanceHardwareHint = React.useMemo(() => {
         if (!hardware) return undefined;
         const params = { memory: hardware.totalMemoryGb, cores: hardware.cpuCount };
@@ -468,62 +410,72 @@ const ServiceResourceSetting: React.FC = () => {
         });
     }, [hardware, t]);
 
-    /** 云端是否处于回退中（字幕翻译或词典已落到基础资源）。 */
     const cloudFallback = Boolean(fallbackState?.subtitleTranslation || fallbackState?.dictionary);
 
-    /**
-     * 卡片头右侧的能力小图标：标明这一档资源能顶哪些功能。
-     *
-     * 当前由这一档承担的能力会点亮，其余保持喑淡；悬停弹出说明。
-     *
-     * @param items 该卡片覆盖的能力及其是否在用。
-     * @param showFallback 是否附带回退警告（仅云端卡片传 true）。
-     */
     const renderCapabilityIcons = (
         items: { cap: CapabilityIcon; active: boolean }[],
         showFallback = false,
     ) => (
-        <TooltipProvider delayDuration={150}>
-            <div className="flex items-center gap-1.5">
-                {items.map(({ cap, active }) => {
-                    const Icon = cap.icon;
-                    const name = t(cap.labelKey);
-                    return (
-                        <Tooltip key={cap.labelKey}>
-                            <TooltipTrigger asChild>
-                                <span className="inline-flex cursor-default items-center p-0.5">
-                                    <Icon className={cn(
-                                        'h-3.5 w-3.5 transition-colors',
-                                        active ? 'text-primary' : 'text-muted-foreground/40',
-                                    )} />
-                                </span>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                {cap.configurable
-                                    ? t('resources.capability.configurableHint', {
-                                        name,
-                                        card: t('resources.preference.title'),
-                                    })
-                                    : name}
-                            </TooltipContent>
-                        </Tooltip>
-                    );
-                })}
-                {showFallback && cloudFallback && (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <span className="inline-flex cursor-default items-center p-0.5">
-                                <AlertTriangle className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-                            </span>
-                        </TooltipTrigger>
-                        <TooltipContent>{t('resources.capability.fallbackHint')}</TooltipContent>
+        <HStack gap={1.5} vAlign="center">
+            {items.map(({ cap, active }) => {
+                const name = t(cap.labelKey);
+                const tooltipText = cap.configurable
+                    ? t('resources.capability.configurableHint', {
+                        name,
+                        card: t('resources.preference.title'),
+                    })
+                    : name;
+                return (
+                    <Tooltip key={cap.labelKey} content={tooltipText}>
+                        <Icon
+                            icon={cap.icon}
+                            size="xsm"
+                            color={active ? 'primary' : 'disabled'}
+                        />
                     </Tooltip>
-                )}
-            </div>
-        </TooltipProvider>
+                );
+            })}
+            {showFallback && cloudFallback && (
+                <Tooltip content={t('resources.capability.fallbackHint')}>
+                    <Icon
+                        icon={AlertTriangle as unknown as IconType}
+                        size="xsm"
+                    />
+                </Tooltip>
+            )}
+        </HStack>
     );
 
-    // 资源状态聚合未加载完成时整页骨架：避免识别引擎等字段在无数据时猜默认值。
+    // 下拉选项定义
+    const subtitleOptions = React.useMemo(() => [
+        ...availableModels.map((m) => ({ value: `openai:${m}`, label: m })),
+        ...(subtitleEngine === 'openai' && !!watched.openai?.featureModels?.subtitleTranslation && !availableModels.includes(watched.openai.featureModels.subtitleTranslation)
+            ? [{ value: `openai:${watched.openai.featureModels.subtitleTranslation}`, label: watched.openai.featureModels.subtitleTranslation, disabled: true }]
+            : []),
+        { value: 'local', label: t('resources.preference.engineLocalAi') },
+        { value: 'none', label: t('resources.preference.engineNone') },
+    ], [availableModels, subtitleEngine, watched.openai?.featureModels?.subtitleTranslation, t]);
+
+    const styleOptions = React.useMemo(() => [
+        { value: 'zh', label: t('resources.preference.styleZh') },
+        { value: 'simple_en', label: t('resources.preference.styleSimpleEn') },
+        { value: 'custom', label: t('resources.preference.styleCustom') },
+    ], [t]);
+
+    const dictionaryOptions = React.useMemo(() => [
+        ...availableModels.map((m) => ({ value: `openai:${m}`, label: m })),
+        ...(watched.providers?.dictionaryEngine === 'openai' && !!watched.openai?.featureModels?.dictionary && !availableModels.includes(watched.openai.featureModels.dictionary)
+            ? [{ value: `openai:${watched.openai.featureModels.dictionary}`, label: watched.openai.featureModels.dictionary, disabled: true }]
+            : []),
+        { value: 'local', label: t('resources.preference.engineLocalAi') },
+        { value: 'none', label: t('resources.preference.engineNoSupplement') },
+    ], [availableModels, watched.providers?.dictionaryEngine, watched.openai?.featureModels?.dictionary, t]);
+
+    const sentenceOptions = React.useMemo(() => [
+        { value: 'none', label: t('resources.preference.engineDisabled') },
+        ...availableModels.map((m) => ({ value: `openai:${m}`, label: m })),
+    ], [availableModels, t]);
+
     if (!credentialReady || !preferenceReady || !resourceStatus) {
         return (
             <SettingsLoadingSkeleton
@@ -534,40 +486,29 @@ const ServiceResourceSetting: React.FC = () => {
     }
 
     return (
-        <form
-            className="w-full h-full min-h-0"
-            onSubmit={(event) => {
-                event.preventDefault();
-                Promise.all([flushCredentials(), flushPreferences()]).catch(() => null);
-            }}
+        <SettingsPageShell
+            title={t('resources.title')}
+            description={t('resources.description')}
         >
-            <SettingsPageShell
-                title={t('resources.title')}
-                description={t('resources.description')}
-                contentClassName="space-y-6"
-            >
+            <VStack gap={6} maxWidth={768}>
                 {credentialSaveStatus === 'error' && credentialSaveError && (
-                    <div
-                        className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-                        role="alert"
-                    >
-                        {credentialSaveError}
-                    </div>
+                    <Banner
+                        status="error"
+                        title={credentialSaveError}
+                    />
                 )}
                 {preferenceSaveStatus === 'error' && preferenceSaveError && (
-                    <div
-                        className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-                        role="alert"
-                    >
-                        {preferenceSaveError}
-                    </div>
+                    <Banner
+                        status="error"
+                        title={preferenceSaveError}
+                    />
                 )}
 
-                {/* ① 本地基础资源包：发音 + 字幕识别 + 轻量翻译 */}
+                {/* ① 本地基础资源包 */}
                 <SettingCard
                     title={t('resources.pack.title')}
                     description={t('resources.pack.description')}
-                    icon={HardDrive}
+                    icon={HardDrive as unknown as IconType}
                     headerAction={renderCapabilityIcons([
                         { cap: CAPABILITY_TTS, active: true },
                         { cap: CAPABILITY_TRANSCRIPTION, active: true },
@@ -582,11 +523,11 @@ const ServiceResourceSetting: React.FC = () => {
                     />
                 </SettingCard>
 
-                {/* ② 本地增强资源包：可选的本地大模型，文案强调“在资源包基础上再提升” */}
+                {/* ② 本地增强资源包 */}
                 <SettingCard
                     title={t('resources.enhance.title')}
                     description={t('resources.enhance.description')}
-                    icon={Sparkles}
+                    icon={Sparkles as unknown as IconType}
                     headerAction={renderCapabilityIcons([
                         { cap: CAPABILITY_TRANSLATION, active: subtitleEngine === 'local' },
                         { cap: CAPABILITY_DICTIONARY, active: dictionaryEngine === 'local' },
@@ -635,11 +576,11 @@ const ServiceResourceSetting: React.FC = () => {
                     />
                 </SettingCard>
 
-                {/* ③ 云端服务：可选的云端模型与密钥 */}
+                {/* ③ 云端服务 */}
                 <SettingCard
                     title={t('resources.cloud.title')}
                     description={t('resources.cloud.description')}
-                    icon={Cloud}
+                    icon={Cloud as unknown as IconType}
                     headerAction={renderCapabilityIcons([
                         { cap: CAPABILITY_TRANSLATION, active: subtitleEngine === 'openai' },
                         { cap: CAPABILITY_DICTIONARY, active: dictionaryEngine === 'openai' },
@@ -667,153 +608,131 @@ const ServiceResourceSetting: React.FC = () => {
                 <SettingCard
                     title={t('resources.preference.title')}
                     description={t('resources.preference.description')}
-                    icon={Languages}
+                    icon={Languages as unknown as IconType}
                 >
                     <SettingRow
                         title={t('resources.preference.subtitleLabel')}
                         description={t('resources.preference.subtitleDesc')}
-                        icon={Languages}
+                        icon={Languages as unknown as IconType}
                     >
-                        <div className="flex flex-col items-end gap-1.5">
-                            <Select
+                        <VStack gap={1} hAlign="end">
+                            <Selector
+                                label={t('resources.preference.subtitleLabel')}
+                                isLabelHidden
                                 value={composeEngineValue(subtitleEngine, watched.openai?.featureModels?.subtitleTranslation)}
-                                onValueChange={(value) => applyEngineValue(
-                                    value,
+                                onChange={(val) => applyEngineValue(
+                                    val,
                                     'providers.subtitleTranslationEngine',
                                     'openai.featureModels.subtitleTranslation',
                                 )}
-                            >
-                                <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {renderCloudModels('subtitle')}
-                                    {/* 存储里指向的云端模型已不在可用列表时补一个禁用项，避免下拉显示为空 */}
-                                    {subtitleEngine === 'openai'
-                                        && !!watched.openai?.featureModels?.subtitleTranslation
-                                        && !availableModels.includes(watched.openai.featureModels.subtitleTranslation) && (
-                                        <SelectItem value={`openai:${watched.openai.featureModels.subtitleTranslation}`} disabled>
-                                            {watched.openai.featureModels.subtitleTranslation}
-                                        </SelectItem>
-                                    )}
-                                    <SelectItem value="local">{t('resources.preference.engineLocalAi')}</SelectItem>
-                                    <SelectItem value="none">{t('resources.preference.engineNone')}</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                options={subtitleOptions}
+                                size="sm"
+                                width={224}
+                            />
                             {subtitleEngine === 'local' && !(localAiStatus?.models.some((model) => model.ready) ?? false) && (
-                                <div className="text-xs text-destructive">{t('resources.preference.notReadyHint')}</div>
+                                <Text size="2xs" color="disabled">{t('resources.preference.notReadyHint')}</Text>
                             )}
-                        </div>
+                        </VStack>
                     </SettingRow>
 
-                    {/* 翻译风格：下拉与其它行一样靠右，自定义提示词单独占满整行 */}
-                    <div className="space-y-3 p-4 transition-colors hover:bg-muted/10">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                                <Settings2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                                <span>{t('resources.preference.styleLabel')}</span>
-                            </div>
-                            <Select
-                                value={watched.openai?.subtitleTranslationMode}
-                                onValueChange={(value: 'zh' | 'simple_en' | 'custom') => {
-                                    setValue('openai.subtitleTranslationMode', value, { shouldDirty: true });
+                    {/* 翻译风格 */}
+                    <Card variant="transparent" padding={4}>
+                        <VStack gap={3}>
+                            <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
+                                <HStack gap={2} vAlign="center">
+                                    <Icon icon={Settings2 as unknown as IconType} size="sm" />
+                                    <Text size="sm" weight="medium">{t('resources.preference.styleLabel')}</Text>
+                                </HStack>
+                                <Selector
+                                    label={t('resources.preference.styleLabel')}
+                                    isLabelHidden
+                                    value={watched.openai?.subtitleTranslationMode}
+                                    onChange={(val) => {
+                                        setValue('openai.subtitleTranslationMode', val as 'zh' | 'simple_en' | 'custom', { shouldDirty: true });
+                                    }}
+                                    options={styleOptions}
+                                    size="sm"
+                                    width={224}
+                                />
+                            </HStack>
+
+                            <TextArea
+                                label={t('resources.preference.styleLabel')}
+                                isLabelHidden
+                                value={subtitleMode === 'custom'
+                                    ? (watched.openai?.subtitleCustomStyle ?? '')
+                                    : (OPENAI_SUBTITLE_DEFAULT_STYLES[subtitleMode === 'simple_en' ? 'simple_en' : 'zh'] ?? '')}
+                                onChange={(val) => {
+                                    setValue('openai.subtitleCustomStyle', val, { shouldDirty: true });
                                 }}
-                            >
-                                <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="zh">{t('resources.preference.styleZh')}</SelectItem>
-                                    <SelectItem value="simple_en">{t('resources.preference.styleSimpleEn')}</SelectItem>
-                                    <SelectItem value="custom">{t('resources.preference.styleCustom')}</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <Textarea
-                            value={subtitleMode === 'custom'
-                                ? watched.openai?.subtitleCustomStyle
-                                : OPENAI_SUBTITLE_DEFAULT_STYLES[subtitleMode === 'simple_en' ? 'simple_en' : 'zh']}
-                            onChange={(event) => {
-                                setValue('openai.subtitleCustomStyle', event.target.value, { shouldDirty: true });
-                            }}
-                            readOnly={subtitleMode !== 'custom'}
-                            placeholder={t('resources.preference.stylePlaceholder')}
-                            className={cn(
-                                'min-h-[100px] w-full resize-none text-xs',
-                                subtitleMode !== 'custom' && 'cursor-default bg-muted/40 text-muted-foreground',
-                            )}
-                        />
-                    </div>
+                                isReadOnly={subtitleMode !== 'custom'}
+                                placeholder={t('resources.preference.stylePlaceholder')}
+                                rows={4}
+                            />
+                        </VStack>
+                    </Card>
 
                     <SettingRow
                         title={t('resources.preference.dictionaryLabel')}
                         description={t('resources.preference.dictionaryDesc')}
-                        icon={Languages}
+                        icon={Languages as unknown as IconType}
                     >
-                        <div className="flex flex-col items-end gap-1.5">
-                            <Select
+                        <VStack gap={1} hAlign="end">
+                            <Selector
+                                label={t('resources.preference.dictionaryLabel')}
+                                isLabelHidden
                                 value={composeEngineValue(watched.providers?.dictionaryEngine, watched.openai?.featureModels?.dictionary)}
-                                onValueChange={(value) => applyEngineValue(
-                                    value,
+                                onChange={(val) => applyEngineValue(
+                                    val,
                                     'providers.dictionaryEngine',
                                     'openai.featureModels.dictionary',
                                 )}
-                            >
-                                <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    {renderCloudModels('dictionary')}
-                                    {/* 存储里指向的云端模型已不在可用列表时补一个禁用项，避免下拉显示为空 */}
-                                    {watched.providers?.dictionaryEngine === 'openai'
-                                        && !!watched.openai?.featureModels?.dictionary
-                                        && !availableModels.includes(watched.openai.featureModels.dictionary) && (
-                                        <SelectItem value={`openai:${watched.openai.featureModels.dictionary}`} disabled>
-                                            {watched.openai.featureModels.dictionary}
-                                        </SelectItem>
-                                    )}
-                                    <SelectItem value="local">{t('resources.preference.engineLocalAi')}</SelectItem>
-                                    <SelectItem value="none">{t('resources.preference.engineNoSupplement')}</SelectItem>
-                                </SelectContent>
-                            </Select>
+                                options={dictionaryOptions}
+                                size="sm"
+                                width={224}
+                            />
                             {watched.providers?.dictionaryEngine === 'local'
                                 && !(localAiStatus?.models.some((model) => model.ready) ?? false) && (
-                                <div className="text-xs text-destructive">{t('resources.preference.notReadyHint')}</div>
+                                <Text size="2xs" color="disabled">{t('resources.preference.notReadyHint')}</Text>
                             )}
-                        </div>
+                        </VStack>
                     </SettingRow>
 
                     <SettingRow
                         title={t('resources.preference.sentenceLabel')}
                         description={t('resources.preference.sentenceDesc')}
-                        icon={Settings2}
+                        icon={Settings2 as unknown as IconType}
                     >
-                        <Select value={sentenceLearningValue} onValueChange={applySentenceLearningValue}>
-                            <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">{t('resources.preference.engineDisabled')}</SelectItem>
-                                {renderCloudModels('learn')}
-                            </SelectContent>
-                        </Select>
+                        <Selector
+                            label={t('resources.preference.sentenceLabel')}
+                            isLabelHidden
+                            value={sentenceLearningValue}
+                            onChange={applySentenceLearningValue}
+                            options={sentenceOptions}
+                            size="sm"
+                            width={224}
+                        />
                     </SettingRow>
 
                     {(cacheTargets.subtitle || cacheTargets.dictionary) && (
                         <SettingRow
                             title={t('resources.preference.cacheLabel')}
                             description={t('resources.preference.cacheDesc')}
-                            icon={Eraser}
+                            icon={Eraser as unknown as IconType}
                         >
                             <Button
-                                type="button"
-                                variant="outline"
+                                label={t('resources.preference.clearCache')}
                                 size="sm"
-                                disabled={clearingCache}
+                                variant="secondary"
+                                isLoading={clearingCache}
+                                icon={<Icon icon={Eraser as unknown as IconType} size="sm" />}
                                 onClick={() => { void clearCaches(); }}
-                            >
-                                {clearingCache
-                                    ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                                    : <Eraser className="mr-1.5 h-3.5 w-3.5" />}
-                                {t('resources.preference.clearCache')}
-                            </Button>
+                            />
                         </SettingRow>
                     )}
                 </SettingCard>
-            </SettingsPageShell>
-        </form>
+            </VStack>
+        </SettingsPageShell>
     );
 };
 

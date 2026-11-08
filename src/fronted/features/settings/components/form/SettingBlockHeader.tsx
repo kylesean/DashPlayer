@@ -1,9 +1,19 @@
 import React from 'react';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
 
+/**
+ * 分组卡片内的子区块标题行属性定义。
+ */
 export interface SettingBlockHeaderProps {
+    /** 标题内容。 */
     title: React.ReactNode;
+    /** 辅助解释描述。 */
     description?: React.ReactNode;
-    icon?: React.ElementType;
+    /** 标题图标。 */
+    icon?: IconType;
     /** 右侧动作区，如"打开文件夹"按钮。 */
     action?: React.ReactNode;
 }
@@ -11,26 +21,37 @@ export interface SettingBlockHeaderProps {
 /**
  * 分组卡片内的子区块标题行：左侧标题 + 说明，右侧动作。
  *
- * 只负责标题行本身，不带内边距，由调用方决定整个区块的留白。
+ * @param props 组件属性。
+ * @returns 标题行 JSX 元素。
  */
-export const SettingBlockHeader = ({
+export const SettingBlockHeader: React.FC<SettingBlockHeaderProps> = ({
     title,
     description,
-    icon: Icon,
+    icon: IconComp,
     action,
-}: SettingBlockHeaderProps) => (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="space-y-0.5 min-w-0">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                {Icon && <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />}
-                {title}
-            </div>
+}) => (
+    <HStack justify="between" align="center" wrap="wrap" gap={2} width="100%">
+        <VStack gap={0.5}>
+            <HStack gap={2} align="center">
+                {IconComp && <Icon icon={IconComp} size="sm" color="secondary" />}
+                {typeof title === 'string' ? (
+                    <Text type="label">{title}</Text>
+                ) : (
+                    title
+                )}
+            </HStack>
             {description && (
-                <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
+                typeof description === 'string' ? (
+                    <Text type="supporting" color="secondary">
+                        {description}
+                    </Text>
+                ) : (
+                    description
+                )
             )}
-        </div>
-        {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
-    </div>
+        </VStack>
+        {action && <HStack align="center" gap={2}>{action}</HStack>}
+    </HStack>
 );
 
 export default SettingBlockHeader;

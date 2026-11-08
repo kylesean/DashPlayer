@@ -1,5 +1,6 @@
 import React from 'react';
-import { VStack, HStack } from '@astryxdesign/core/VStack';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { Divider } from '@astryxdesign/core/Divider';

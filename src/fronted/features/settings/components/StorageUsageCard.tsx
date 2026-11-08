@@ -2,31 +2,42 @@ import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Cell, Pie, PieChart } from 'recharts';
 import { ChartPie, RefreshCw, HardDriveDownload } from 'lucide-react';
-import { Button } from '@/fronted/components/ui/button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Skeleton } from '@astryxdesign/core/Skeleton';
 import {
     type ChartConfig,
     ChartContainer,
     ChartTooltip,
     ChartTooltipContent,
 } from '@/fronted/components/ui/chart';
-import { Skeleton } from '@/fronted/components/ui/skeleton';
-import { cn } from '@/fronted/lib/utils';
 import { SettingCard } from '@/fronted/features/settings/components/form';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon } from '@astryxdesign/core/Icon';
+import { Token } from '@astryxdesign/core/Token';
 import type {
     StorageUsageCategory,
     StorageUsageVO,
 } from '@/common/contracts/storage-usage-vo';
 
-/**
- * 各用量分类在图表中的固定配色；同时用于图例色块。
- */
+/** 各用量分类在图表中的 Astryx token 色值映射。 */
 const USAGE_CHART_COLORS: Record<StorageUsageCategory, string> = {
-    videos: '#3b82f6',
-    favorite_clips: '#f97316',
-    word_clips: '#10b981',
-    models: '#8b5cf6',
-    temp: '#64748b',
-    other: '#ec4899',
+    videos: 'var(--color-border-blue)',
+    favorite_clips: 'var(--color-border-orange)',
+    word_clips: 'var(--color-border-green)',
+    models: 'var(--color-border-purple)',
+    temp: 'var(--color-border-gray)',
+    other: 'var(--color-border-pink)',
+};
+
+const CATEGORY_TOKEN_COLOR: Record<StorageUsageCategory, 'blue' | 'orange' | 'green' | 'purple' | 'gray' | 'pink'> = {
+    videos: 'blue',
+    favorite_clips: 'orange',
+    word_clips: 'green',
+    models: 'purple',
+    temp: 'gray',
+    other: 'pink',
 };
 
 const CATEGORY_ORDER: StorageUsageCategory[] = [
@@ -40,8 +51,9 @@ const CATEGORY_ORDER: StorageUsageCategory[] = [
 
 /**
  * 将字节数格式化为带单位的可读大小。
+ *
  * @param bytes 文件大小，单位字节。
- * @returns 带单位的文件大小；不足 1 KB 时保留整数。
+ * @returns 带单位的文件大小。
  */
 function formatBytes(bytes: number): string {
     const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
@@ -56,8 +68,9 @@ function formatBytes(bytes: number): string {
         : `${size.toFixed(2)} ${units[unitIndex]}`;
 }
 
+/** 存储用量卡片属性定义。 */
 export interface StorageUsageCardProps {
-    /** 用量明细；`null` 表示尚未加载完成或存储目录不可用。 */
+    /** 用量明细；null 表示尚未加载完成或存储目录不可用。 */
     usage: StorageUsageVO | null;
     /** 是否正在加载用量明细。 */
     loading: boolean;
@@ -67,47 +80,43 @@ export interface StorageUsageCardProps {
 
 /**
  * 存储用量卡片的加载骨架屏。
+ *
  * 保持与加载后完全一致的尺寸和布局（环形图 + 6行明细），避免布局跳变。
  */
-const StorageUsageSkeleton = () => {
+const StorageUsageSkeleton: React.FC = () => {
     return (
-        <div
-            data-testid="storage-usage-skeleton"
-            className="flex flex-col items-center gap-6 p-4 sm:flex-row sm:gap-8"
-        >
-            {/* 环形图骨架 */}
-            <div className="mx-auto flex aspect-square h-44 w-44 shrink-0 items-center justify-center">
-                <div className="relative flex h-40 w-40 items-center justify-center">
-                    <Skeleton className="h-40 w-40 rounded-full" />
-                    <div className="absolute h-24 w-24 rounded-full bg-card" />
-                </div>
-            </div>
+        <VStack data-testid="storage-usage-skeleton" width="100%">
+            <HStack gap={6} padding={4} align="center" wrap="wrap" width="100%">
+                <VStack align="center" justify="center" width={176} height={176}>
+                    <Skeleton width={160} height={160} radius="rounded" />
+                </VStack>
 
-            {/* 明细列表骨架：高度与真实条目完全 1:1 对齐 */}
-            <div className="w-full min-w-0 flex-1 space-y-2">
-                {CATEGORY_ORDER.map((key) => (
-                    <div
-                        key={key}
-                        className="flex items-center gap-3 rounded-md px-2 py-1 text-xs"
-                    >
-                        <Skeleton className="h-2.5 w-2.5 shrink-0 rounded-[2px]" />
-                        <Skeleton className="h-4 w-24 shrink-0" />
-                        <div className="relative mx-1 hidden h-1.5 flex-1 overflow-hidden rounded-full sm:block">
-                            <Skeleton className="h-full w-full rounded-full" />
-                        </div>
-                        <Skeleton className="ml-auto h-4 w-16" />
-                        <Skeleton className="h-4 w-12 shrink-0" />
-                    </div>
-                ))}
-            </div>
-        </div>
+                <VStack gap={2} width="100%">
+                    {CATEGORY_ORDER.map((key) => (
+                        <HStack key={key} gap={3} align="center" padding={1} width="100%">
+                            <Skeleton width={12} height={12} radius={1} />
+                            <Skeleton width={96} height={14} radius={2} />
+                            <Skeleton width={80} height={14} radius={2} />
+                            <Skeleton width={48} height={14} radius={2} />
+                        </HStack>
+                    ))}
+                </VStack>
+            </HStack>
+        </VStack>
     );
 };
 
 /**
  * 存储用量卡片：以环形图加明细列表展示媒体库各分类的占用大小。
+ *
+ * @param props 组件属性。
+ * @returns 用量卡片 JSX 元素。
  */
-const StorageUsageCard = ({ usage, loading, onRefresh }: StorageUsageCardProps) => {
+const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
+    usage,
+    loading,
+    onRefresh,
+}) => {
     const { t } = useTranslation('settings');
 
     const chartConfig = React.useMemo<ChartConfig>(() => {
@@ -122,27 +131,21 @@ const StorageUsageCard = ({ usage, loading, onRefresh }: StorageUsageCardProps) 
     }, [t]);
 
     const chartData = React.useMemo(
-        () => (usage?.items ?? []).map((item) => ({
-            category: item.category,
-            bytes: item.bytes,
-            fill: `var(--color-${item.category})`,
-        })),
+        () =>
+            (usage?.items ?? []).map((item) => ({
+                category: item.category,
+                bytes: item.bytes,
+                fill: `var(--color-${item.category})`,
+            })),
         [usage],
     );
 
     const totalBytes = usage?.totalBytes ?? 0;
-
-    /**
-     * 当处于加载态且尚未获取到用量数据时展示骨架屏。
-     */
     const showSkeleton = loading && !usage;
-
-    /**
-     * 异常或空数据提示。
-     */
-    const emptyOrUnavailableMessage = !loading && usage === null
-        ? t('storage.usage.unavailable')
-        : !loading && totalBytes === 0
+    const emptyOrUnavailableMessage =
+        !loading && usage === null
+            ? t('storage.usage.unavailable')
+            : !loading && totalBytes === 0
             ? t('storage.usage.empty')
             : null;
 
@@ -150,40 +153,42 @@ const StorageUsageCard = ({ usage, loading, onRefresh }: StorageUsageCardProps) 
         <SettingCard
             title={t('storage.usage.title')}
             icon={ChartPie}
-            headerAction={(
-                <div className="flex items-center gap-2">
-                    <div className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                        <span>{t('storage.usage.totalLabel')}</span>
+            headerAction={
+                <HStack align="center" gap={2}>
+                    <HStack align="center" gap={1.5}>
+                        <Text type="supporting" color="secondary">
+                            {t('storage.usage.totalLabel')}
+                        </Text>
                         {showSkeleton ? (
-                            <Skeleton className="h-5 w-16 rounded" />
+                            <Skeleton width={64} height={20} radius={2} />
                         ) : (
-                            <span className="font-mono font-semibold text-foreground px-2 py-0.5 rounded bg-muted/80 tabular-nums">
+                            <Text type="label" weight="semibold" hasTabularNumbers>
                                 {usage ? formatBytes(totalBytes) : '--'}
-                            </span>
+                            </Text>
                         )}
-                    </div>
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
-                        type="button"
+                    </HStack>
+                    <IconButton
+                        label={t('storage.usage.title')}
+                        icon={<Icon icon={RefreshCw} size="sm" />}
+                        variant="secondary"
+                        size="sm"
+                        isLoading={loading}
                         onClick={onRefresh}
-                        disabled={loading}
-                    >
-                        <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
-                    </Button>
-                </div>
-            )}
+                    />
+                </HStack>
+            }
         >
             {showSkeleton ? (
                 <StorageUsageSkeleton />
             ) : emptyOrUnavailableMessage ? (
-                <div className="flex flex-col items-center justify-center gap-2 p-8 text-center text-sm text-muted-foreground">
-                    <HardDriveDownload className="h-8 w-8 stroke-1 text-muted-foreground/50" />
-                    <p>{emptyOrUnavailableMessage}</p>
-                </div>
+                <VStack align="center" justify="center" gap={2} padding={8} width="100%">
+                    <Icon icon={HardDriveDownload} size="lg" color="secondary" />
+                    <Text type="supporting" color="secondary">
+                        {emptyOrUnavailableMessage}
+                    </Text>
+                </VStack>
             ) : (
-                <div className="flex flex-col items-center gap-6 p-4 sm:flex-row sm:gap-8">
+                <HStack gap={6} padding={4} align="center" wrap="wrap" width="100%">
                     <ChartContainer
                         config={chartConfig}
                         className="mx-auto aspect-square h-44 w-44 shrink-0"
@@ -191,7 +196,7 @@ const StorageUsageCard = ({ usage, loading, onRefresh }: StorageUsageCardProps) 
                         <PieChart>
                             <ChartTooltip
                                 cursor={false}
-                                content={(
+                                content={
                                     <ChartTooltipContent
                                         hideLabel
                                         formatter={(value, name) => (
@@ -210,7 +215,7 @@ const StorageUsageCard = ({ usage, loading, onRefresh }: StorageUsageCardProps) 
                                             </div>
                                         )}
                                     />
-                                )}
+                                }
                             />
                             <Pie
                                 data={chartData}
@@ -227,50 +232,42 @@ const StorageUsageCard = ({ usage, loading, onRefresh }: StorageUsageCardProps) 
                             </Pie>
                         </PieChart>
                     </ChartContainer>
-                    <div className="w-full min-w-0 flex-1 space-y-2">
+
+                    <VStack gap={2} width="100%">
                         {(usage?.items ?? []).map((item) => {
                             const ratio = totalBytes > 0 ? item.bytes / totalBytes : 0;
                             const percentage = (ratio * 100).toFixed(1);
-                            const isZero = item.bytes === 0;
 
                             return (
-                                <div
+                                <HStack
                                     key={item.category}
-                                    className={cn(
-                                        'group relative flex items-center gap-3 rounded-md px-2 py-1 transition-colors hover:bg-muted/40 text-xs',
-                                        isZero && 'opacity-60 hover:opacity-100'
-                                    )}
+                                    gap={3}
+                                    align="center"
+                                    padding={1}
+                                    justify="between"
+                                    width="100%"
                                 >
-                                    <span
-                                        className="h-2.5 w-2.5 shrink-0 rounded-[2px] shadow-xs"
-                                        style={{ backgroundColor: USAGE_CHART_COLORS[item.category] }}
-                                    />
-                                    <span className="text-muted-foreground truncate w-24 shrink-0 font-medium">
-                                        {t(`storage.usage.categories.${item.category}`)}
-                                    </span>
-
-                                    {/* 细长进度条槽位 */}
-                                    <div className="relative mx-1 hidden h-1.5 flex-1 overflow-hidden rounded-full bg-muted/60 sm:block">
-                                        <div
-                                            className="h-full rounded-full transition-all duration-300"
-                                            style={{
-                                                width: `${Math.max(ratio * 100, item.bytes > 0 ? 1 : 0)}%`,
-                                                backgroundColor: USAGE_CHART_COLORS[item.category],
-                                            }}
+                                    <HStack gap={2} align="center">
+                                        <Token
+                                            size="sm"
+                                            color={CATEGORY_TOKEN_COLOR[item.category]}
+                                            label={t(`storage.usage.categories.${item.category}`)}
                                         />
-                                    </div>
+                                    </HStack>
 
-                                    <span className="ml-auto font-mono font-medium tabular-nums text-foreground">
-                                        {formatBytes(item.bytes)}
-                                    </span>
-                                    <span className="w-12 shrink-0 text-right font-mono tabular-nums text-muted-foreground">
-                                        {percentage}%
-                                    </span>
-                                </div>
+                                    <HStack gap={3} align="center">
+                                        <Text type="body" weight="medium" hasTabularNumbers>
+                                            {formatBytes(item.bytes)}
+                                        </Text>
+                                        <Text type="supporting" color="secondary" hasTabularNumbers>
+                                            {percentage}%
+                                        </Text>
+                                    </HStack>
+                                </HStack>
                             );
                         })}
-                    </div>
-                </div>
+                    </VStack>
+                </HStack>
             )}
         </SettingCard>
     );

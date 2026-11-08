@@ -8,24 +8,22 @@ import {
     ExternalLink,
     FolderOpen,
     Gauge,
-    Loader2,
     Square,
     Trash2,
     XCircle,
 } from 'lucide-react';
-import { Button } from '@/fronted/components/ui/button';
-import { Progress } from '@/fronted/components/ui/progress';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/fronted/components/ui/alert-dialog';
+
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
+import { Text } from '@astryxdesign/core/Text';
+import { Token } from '@astryxdesign/core/Token';
+import { VStack } from '@astryxdesign/core/VStack';
+
 import { ManualDownloadGuide } from '@/fronted/components/shared/ManualDownloadGuide';
 import type { LocalAiStatus } from '@/common/contracts/local-ai';
 
@@ -80,282 +78,299 @@ export const LocalLlmCard: React.FC<LocalLlmCardProps> = ({
     onOpenUrl,
 }) => {
     const { t } = useTranslation('settings');
+    const [modelToDelete, setModelToDelete] = React.useState<string | null>(null);
 
     /** 官方目录中的内置模型；手动下载教程以它为示例。 */
     const builtinModel = status?.models.find((model) => !model.custom);
 
     return (
-        <div className="p-4 space-y-4">
+        <VStack gap={4} padding={4}>
             {/* 硬件条件提示：本地增强模型对内存与算力有一定要求 */}
             {hardwareHint && (
-                <div className="flex items-start gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                    <Cpu className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    <span>{hardwareHint}</span>
-                </div>
+                <Card variant="muted" padding={2}>
+                    <HStack gap={2} vAlign="start">
+                        <Icon icon={Cpu as unknown as IconType} size="sm" />
+                        <Text size="xsm" color="secondary">{hardwareHint}</Text>
+                    </HStack>
+                </Card>
             )}
 
             {/* 模型列表 */}
-            <div className="space-y-3">
+            <VStack gap={3}>
                 {status?.models.map((model) => {
                     const anyDownloading = status?.models.some((item) => item.phase !== 'idle') ?? false;
                     const isActive = model.ready && model.modelId === status.activeModelId;
                     const isTestingThisModel = testingModelId === model.modelId;
                     const testResult = testResultsMap[model.modelId];
 
+                    const downloadPercent = Math.min(100, Math.floor((model.downloaded / (model.total || 1)) * 100));
+
                     return (
-                        <div key={model.modelId} className="space-y-2">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                <div className="flex flex-1 items-center gap-2 min-w-0">
-                                    {/* 模型名对用户判断“跑的是哪个模型”很重要，内置模型也一并展示 */}
-                                    <span className="text-sm font-medium text-foreground truncate">{model.name}</span>
-                                    {isActive ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                                            <CheckCircle2 className="h-3 w-3" />
-                                            {t('serviceCredentials.localAi.inUse')}
-                                        </span>
-                                    ) : model.ready ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-0.5 text-xs text-muted-foreground">
-                                            {t('serviceCredentials.localAi.readyNotInUse')}
-                                        </span>
-                                    ) : model.phase !== 'idle' ? (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                            {model.phase === 'verifying'
-                                                ? t('serviceCredentials.localAi.phaseVerifying')
-                                                : t('serviceCredentials.localAi.phaseDownloading')}
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-0.5 text-xs text-muted-foreground">
-                                            {t('common.notDownloaded')}
-                                        </span>
-                                    )}
+                        <Card key={model.modelId} variant="default" padding={3}>
+                            <VStack gap={2}>
+                                <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
+                                    <HStack gap={2} vAlign="center" wrap="wrap">
+                                        <Text weight="medium" size="sm">{model.name}</Text>
 
-                                    {/* 模型体积：内置模型也一并展示，让用户知道要占多少空间 */}
-                                    <span className="shrink-0 text-xs text-muted-foreground">
-                                        {t('serviceCredentials.localAi.aboutSize', { size: model.sizeLabel })}
-                                    </span>
-
-                                    {/* 测速结果内联展示，不新增行高，避免卡片内元素跳动 */}
-                                    {testResult && (
-                                        testResult.success ? (
-                                            <span className="flex items-center gap-3 min-w-0 truncate text-xs text-muted-foreground">
-                                                <span className="flex items-center gap-1">
-                                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600 dark:text-green-400" />
-                                                    {t('serviceCredentials.localAi.speedWarm')}
-                                                    <span className="font-mono font-medium text-foreground">{testResult.warmSec}s</span>
-                                                </span>
-                                                <span className="flex items-center gap-1">
-                                                    {t('serviceCredentials.localAi.speedTps')}
-                                                    <span className="font-mono font-semibold text-primary">{testResult.tps} {t('serviceCredentials.localAi.speedTpsUnit')}</span>
-                                                </span>
-                                            </span>
+                                        {isActive ? (
+                                            <Token
+                                                label={t('serviceCredentials.localAi.inUse')}
+                                                size="sm"
+                                                color="green"
+                                                icon={<Icon icon={CheckCircle2 as unknown as IconType} size="xsm" />}
+                                            />
+                                        ) : model.ready ? (
+                                            <Token
+                                                label={t('serviceCredentials.localAi.readyNotInUse')}
+                                                size="sm"
+                                                color="gray"
+                                            />
+                                        ) : model.phase !== 'idle' ? (
+                                            <Token
+                                                label={model.phase === 'verifying'
+                                                    ? t('serviceCredentials.localAi.phaseVerifying')
+                                                    : t('serviceCredentials.localAi.phaseDownloading')}
+                                                size="sm"
+                                                color="blue"
+                                            />
                                         ) : (
-                                            <span
-                                                className="flex items-center gap-1 min-w-0 truncate text-xs text-destructive"
-                                                title={testResult.errorMessage || t('common.testFailed')}
-                                            >
-                                                <XCircle className="h-3.5 w-3.5 shrink-0" />
-                                                <span className="truncate">{testResult.errorMessage || t('common.testFailed')}</span>
-                                            </span>
-                                        )
-                                    )}
-                                </div>
+                                            <Token
+                                                label={t('common.notDownloaded')}
+                                                size="sm"
+                                                color="gray"
+                                            />
+                                        )}
 
-                                <div className="flex items-center gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
-                                    {!model.ready && model.phase === 'idle' && (
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            disabled={busy || anyDownloading}
-                                            onClick={() => onDownloadModel(model.modelId)}
-                                        >
-                                            <Download className="mr-1.5 h-3.5 w-3.5" />
-                                            {t('common.download')}
-                                        </Button>
-                                    )}
-                                    {!model.ready && model.phase !== 'idle' && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={busy}
-                                            onClick={onCancelDownload}
-                                        >
-                                            <Square className="mr-1.5 h-3.5 w-3.5 text-destructive" />
-                                            {t('serviceCredentials.localAi.cancelDownload')}
-                                        </Button>
-                                    )}
-                                    {model.ready && !isActive && (
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            disabled={busy || testingModelId !== null}
-                                            onClick={() => onUseModel(model.modelId)}
-                                        >
-                                            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                                            {t('serviceCredentials.localAi.use')}
-                                        </Button>
-                                    )}
-                                    {model.ready && (
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="min-w-24 justify-center whitespace-nowrap"
-                                            disabled={busy || testingModelId !== null}
-                                            onClick={() => onTestModel(model.modelId)}
-                                        >
-                                            {isTestingThisModel ? (
-                                                <>
-                                                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-primary" />
-                                                    {t('serviceCredentials.localAi.testing')}
-                                                </>
+                                        <Text size="xsm" color="secondary">
+                                            {t('serviceCredentials.localAi.aboutSize', { size: model.sizeLabel })}
+                                        </Text>
+
+                                        {testResult && (
+                                            testResult.success ? (
+                                                <HStack gap={2} vAlign="center">
+                                                    <Icon icon={CheckCircle2 as unknown as IconType} size="xsm" />
+                                                    <Text size="xsm" color="secondary" hasTabularNumbers>
+                                                        {testResult.warmSec}s · {testResult.tps} {t('serviceCredentials.localAi.speedTpsUnit')}
+                                                    </Text>
+                                                </HStack>
                                             ) : (
-                                                <>
-                                                    <Gauge className="mr-1.5 h-3.5 w-3.5" />
-                                                    {t('serviceCredentials.localAi.test')}
-                                                </>
-                                            )}
-                                        </Button>
-                                    )}
-                                    {model.ready && (
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="text-muted-foreground hover:text-destructive"
-                                                    disabled={busy || testingModelId !== null}
-                                                >
-                                                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                                                    {deleteLabel ?? t('serviceCredentials.localModel.deleteModel')}
-                                                </Button>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>{deleteConfirmTitle ?? t('serviceCredentials.localAi.deleteConfirmTitle')}</AlertDialogTitle>
-                                                    <AlertDialogDescription>{t('serviceCredentials.localAi.deleteConfirmDescription')}</AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>{t('serviceCredentials.localAi.cancelDelete')}</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => onDeleteModel(model.modelId)}>
-                                                        {t('serviceCredentials.localAi.confirmDelete')}
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    )}
-                                </div>
-                            </div>
+                                                <HStack gap={1} vAlign="center">
+                                                    <Icon icon={XCircle as unknown as IconType} size="xsm" />
+                                                    <Text size="xsm" color="disabled">
+                                                        {testResult.errorMessage || t('common.testFailed')}
+                                                    </Text>
+                                                </HStack>
+                                            )
+                                        )}
+                                    </HStack>
 
-                            {/* 下载/校验进度条 */}
-                            {!model.ready && model.phase !== 'idle' && (
-                                <div className="mt-3 space-y-1.5 rounded-lg border border-border/40 bg-muted/30 p-2.5">
-                                    <div className="flex justify-between text-xs font-medium text-muted-foreground">
-                                        <span>{model.phase === 'verifying' ? t('serviceCredentials.localAi.phaseVerifying') : t('serviceCredentials.localAi.phaseDownloading')}</span>
-                                        <span>{Math.min(100, Math.floor(model.downloaded / (model.total || 1) * 100))}%</span>
-                                    </div>
-                                    <Progress value={(model.downloaded / (model.total || 1)) * 100} className="h-1.5" />
-                                </div>
-                            )}
+                                    <HStack gap={1.5} vAlign="center" wrap="wrap">
+                                        {!model.ready && model.phase === 'idle' && (
+                                            <Button
+                                                label={t('common.download')}
+                                                size="sm"
+                                                variant="primary"
+                                                isDisabled={busy || anyDownloading}
+                                                icon={<Icon icon={Download as unknown as IconType} size="sm" />}
+                                                onClick={() => onDownloadModel(model.modelId)}
+                                            />
+                                        )}
+                                        {!model.ready && model.phase !== 'idle' && (
+                                            <Button
+                                                label={t('serviceCredentials.localAi.cancelDownload')}
+                                                size="sm"
+                                                variant="secondary"
+                                                isDisabled={busy}
+                                                icon={<Icon icon={Square as unknown as IconType} size="sm" />}
+                                                onClick={onCancelDownload}
+                                            />
+                                        )}
+                                        {model.ready && !isActive && (
+                                            <Button
+                                                label={t('serviceCredentials.localAi.use')}
+                                                size="sm"
+                                                variant="primary"
+                                                isDisabled={busy || testingModelId !== null}
+                                                icon={<Icon icon={CheckCircle2 as unknown as IconType} size="sm" />}
+                                                onClick={() => onUseModel(model.modelId)}
+                                            />
+                                        )}
+                                        {model.ready && (
+                                            <Button
+                                                label={isTestingThisModel ? t('serviceCredentials.localAi.testing') : t('serviceCredentials.localAi.test')}
+                                                size="sm"
+                                                variant="secondary"
+                                                isLoading={isTestingThisModel}
+                                                isDisabled={busy || testingModelId !== null}
+                                                icon={<Icon icon={Gauge as unknown as IconType} size="sm" />}
+                                                onClick={() => onTestModel(model.modelId)}
+                                            />
+                                        )}
+                                        {model.ready && (
+                                            <Button
+                                                label={deleteLabel ?? t('serviceCredentials.localModel.deleteModel')}
+                                                size="sm"
+                                                variant="ghost"
+                                                isDisabled={busy || testingModelId !== null}
+                                                icon={<Icon icon={Trash2 as unknown as IconType} size="sm" />}
+                                                onClick={() => setModelToDelete(model.modelId)}
+                                            />
+                                        )}
+                                    </HStack>
+                                </HStack>
 
-                            {model.error && (
-                                <div className="mt-2 text-xs text-destructive">{model.error}</div>
-                            )}
-                        </div>
+                                {/* 下载/校验进度条 */}
+                                {!model.ready && model.phase !== 'idle' && (
+                                    <VStack gap={1.5}>
+                                        <HStack justify="between" vAlign="center">
+                                            <Text size="xsm" color="secondary">
+                                                {model.phase === 'verifying' ? t('serviceCredentials.localAi.phaseVerifying') : t('serviceCredentials.localAi.phaseDownloading')}
+                                            </Text>
+                                            <Text size="xsm" color="secondary" hasTabularNumbers>
+                                                {downloadPercent}%
+                                            </Text>
+                                        </HStack>
+                                        <ProgressBar
+                                            label="Model Download Progress"
+                                            value={downloadPercent}
+                                            max={100}
+                                            isLabelHidden
+                                        />
+                                    </VStack>
+                                )}
+
+                                {model.error && (
+                                    <Banner
+                                        status="error"
+                                        title={model.error}
+                                    />
+                                )}
+                            </VStack>
+                        </Card>
                     );
                 })}
-            </div>
+            </VStack>
 
-            {/* 手动下载与导入教程：仅内置模型未就绪时出现，技术细节只在这里 */}
+            {/* 删除确认弹窗 */}
+            <AlertDialog
+                isOpen={modelToDelete !== null}
+                onOpenChange={(open) => {
+                    if (!open) setModelToDelete(null);
+                }}
+                title={deleteConfirmTitle ?? t('serviceCredentials.localAi.deleteConfirmTitle')}
+                description={t('serviceCredentials.localAi.deleteConfirmDescription')}
+                actionLabel={t('serviceCredentials.localAi.confirmDelete')}
+                cancelLabel={t('serviceCredentials.localAi.cancelDelete')}
+                actionVariant="destructive"
+                onAction={() => {
+                    if (modelToDelete) {
+                        onDeleteModel(modelToDelete);
+                        setModelToDelete(null);
+                    }
+                }}
+            />
+
+            {/* 手动下载与导入教程：仅内置模型未就绪时出现 */}
             {builtinModel && !builtinModel.ready && (
                 <ManualDownloadGuide title={t('serviceCredentials.localAi.customGuideTitle')}>
-                    <div className="space-y-1.5">
-                        <div className="font-semibold text-foreground">{t('serviceCredentials.localModel.step1Title')}</div>
+                    <VStack gap={1.5}>
+                        <Text weight="semibold" size="sm">{t('serviceCredentials.localModel.step1Title')}</Text>
                         {builtinModel.downloadUrls.length > 0 ? (
                             <>
-                                <div className="text-muted-foreground/90">
+                                <Text size="xsm" color="secondary">
                                     {t('serviceCredentials.localModel.modelToDownload', {
                                         model: `${builtinModel.name}（${t('serviceCredentials.localAi.aboutSize', { size: builtinModel.sizeLabel })}）`,
                                     })}
-                                </div>
-                                <div className="bg-background/80 rounded border border-border/60 p-2 space-y-2 font-mono text-[11px] break-all select-text">
-                                    {/* 首个为官方地址，其余为备用镜像；网络受限时可改用镜像地址手动下载 */}
-                                    {builtinModel.downloadUrls.map((url, index) => (
-                                        <div key={url} className="space-y-1">
-                                            <div className="flex items-start gap-1.5">
-                                                {index > 0 && (
-                                                    <span className="shrink-0 mt-0.5 rounded bg-amber-500/10 px-1.5 py-0.5 font-sans text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                                                        {t('serviceCredentials.localModel.backupSource')}
-                                                    </span>
-                                                )}
-                                                <span className="text-muted-foreground/70 break-all">{url}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1 font-sans">
-                                                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => onCopy(url)}>
-                                                    <Copy className="w-3 h-3 mr-1" />
-                                                    {t('serviceCredentials.localModel.copyDownloadUrl')}
-                                                </Button>
-                                                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => onOpenUrl(url)}>
-                                                    <ExternalLink className="w-3 h-3 mr-1" />
-                                                    {t('serviceCredentials.localModel.openInBrowser')}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                </Text>
+                                <Card variant="default" padding={2}>
+                                    <VStack gap={2}>
+                                        {builtinModel.downloadUrls.map((url, index) => (
+                                            <VStack key={url} gap={1}>
+                                                <HStack gap={1.5} vAlign="start">
+                                                    {index > 0 && (
+                                                        <Token
+                                                            label={t('serviceCredentials.localModel.backupSource')}
+                                                            size="sm"
+                                                            color="orange"
+                                                        />
+                                                    )}
+                                                    <Text size="2xs" color="secondary" wordBreak="break-all" hasTabularNumbers>
+                                                        {url}
+                                                    </Text>
+                                                </HStack>
+                                                <HStack gap={1}>
+                                                    <Button
+                                                        label={t('serviceCredentials.localModel.copyDownloadUrl')}
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon={<Icon icon={Copy as unknown as IconType} size="xsm" />}
+                                                        onClick={() => onCopy(url)}
+                                                    />
+                                                    <Button
+                                                        label={t('serviceCredentials.localModel.openInBrowser')}
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        icon={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
+                                                        onClick={() => onOpenUrl(url)}
+                                                    />
+                                                </HStack>
+                                            </VStack>
+                                        ))}
+                                    </VStack>
+                                </Card>
                             </>
                         ) : (
-                            <p className="leading-relaxed">{t('serviceCredentials.localAi.customGuideStep1')}</p>
+                            <Text size="xsm" color="secondary">
+                                {t('serviceCredentials.localAi.customGuideStep1')}
+                            </Text>
                         )}
-                    </div>
+                    </VStack>
 
-                    <div className="space-y-1.5">
-                        <div className="font-semibold text-foreground">{t('serviceCredentials.localModel.step2Title')}</div>
-                        <div className="bg-background/80 rounded border border-border/60 p-2.5 space-y-2 font-mono text-[11px] break-all select-text">
-                            <div className="text-muted-foreground/70">{status?.modelsDirectory ?? ''}</div>
-                            <div className="flex items-center gap-2 pt-1 font-sans">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    disabled={!status}
-                                    onClick={() => status && onCopy(status.modelsDirectory)}
-                                >
-                                    <Copy className="w-3 h-3 mr-1" />
-                                    {t('serviceCredentials.localAi.copyPath')}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 text-xs"
-                                    disabled={!status}
-                                    onClick={() => status && onOpenFolder(status.modelsDirectory)}
-                                >
-                                    <FolderOpen className="w-3 h-3 mr-1" />
-                                    {t('common.openFolder')}
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
+                    <VStack gap={1.5}>
+                        <Text weight="semibold" size="sm">{t('serviceCredentials.localModel.step2Title')}</Text>
+                        <Card variant="default" padding={3}>
+                            <VStack gap={2}>
+                                <Text size="2xs" color="secondary" wordBreak="break-all" hasTabularNumbers>
+                                    {status?.modelsDirectory ?? ''}
+                                </Text>
+                                <HStack gap={2}>
+                                    <Button
+                                        label={t('serviceCredentials.localAi.copyPath')}
+                                        size="sm"
+                                        variant="secondary"
+                                        isDisabled={!status}
+                                        icon={<Icon icon={Copy as unknown as IconType} size="xsm" />}
+                                        onClick={() => status && onCopy(status.modelsDirectory)}
+                                    />
+                                    <Button
+                                        label={t('common.openFolder')}
+                                        size="sm"
+                                        variant="secondary"
+                                        isDisabled={!status}
+                                        icon={<Icon icon={FolderOpen as unknown as IconType} size="xsm" />}
+                                        onClick={() => status && onOpenFolder(status.modelsDirectory)}
+                                    />
+                                </HStack>
+                            </VStack>
+                        </Card>
+                    </VStack>
 
-                    <div className="space-y-0.5 text-muted-foreground/90 bg-muted/30 p-2 rounded">
-                        <div className="font-semibold text-foreground">{t('serviceCredentials.localModel.step3Title')}</div>
-                        <div>{t('serviceCredentials.localAi.customGuideStep3')}</div>
-                    </div>
+                    <Card variant="muted" padding={2}>
+                        <VStack gap={1}>
+                            <Text weight="semibold" size="sm">{t('serviceCredentials.localModel.step3Title')}</Text>
+                            <Text size="xsm" color="secondary">{t('serviceCredentials.localAi.customGuideStep3')}</Text>
+                        </VStack>
+                    </Card>
                 </ManualDownloadGuide>
             )}
 
             {/* 运行时不可用时的显式提示 */}
             {status && !status.runtimeReady && (
-                <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
-                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500" />
-                    <span>{t('serviceCredentials.localAi.runtimeMissing')}</span>
-                </div>
+                <Banner
+                    status="warning"
+                    title={t('serviceCredentials.localAi.runtimeMissing')}
+                />
             )}
-        </div>
+        </VStack>
     );
 };

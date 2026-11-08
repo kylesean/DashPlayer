@@ -5,16 +5,24 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Copy, ExternalLink, Link2, Smartphone, Wifi } from 'lucide-react';
 
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { NumberInput } from '@astryxdesign/core/NumberInput';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Switch } from '@astryxdesign/core/Switch';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
+import { Banner } from '@astryxdesign/core/Banner';
+
 import {
     SettingCard,
     SettingRow,
     SettingsLoadingSkeleton,
 } from '@/fronted/features/settings/components/form';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
-import { Button } from '@/fronted/components/ui/button';
-import { Input } from '@/fronted/components/ui/input';
-import { Switch } from '@/fronted/components/ui/switch';
-import { cn } from '@/fronted/lib/utils';
 import {
     SETTINGS_DETAIL_SWR_OPTIONS,
     settingsApi,
@@ -29,29 +37,11 @@ const MIN_PORT = 1;
 const MAX_PORT = 65535;
 
 /**
- * 校验端口文本。
- *
- * @param text 用户输入的端口文本。
- * @returns 合法时返回数字，否则返回 null。
- */
-const parsePort = (text: string): number | null => {
-    if (!/^\d+$/.test(text)) {
-        return null;
-    }
-    const value = Number.parseInt(text, 10);
-    if (!Number.isInteger(value) || value < MIN_PORT || value > MAX_PORT) {
-        return null;
-    }
-    return value;
-};
-
-/**
  * 手机访问设置页。
  *
- * 保存端口会真正重启监听服务，因此端口输入采用「失焦后提交」：输入过程中只改本地
- * 文本，避免每敲一位都触发一次重启和一次失败提示。开关仍然沿用设置页的自动保存。
+ * 管理局域网移动端访问服务的开启状态与监听端口，提供局域网访问地址展示与快速复制。
  */
-const MobileAccessSetting = () => {
+const MobileAccessSetting: React.FC = () => {
     const { t } = useI18nTranslation('settings');
     const { data: detail, error: loadError, mutate } = useSWR(
         'settings/mobile-access/detail',
@@ -74,10 +64,6 @@ const MobileAccessSetting = () => {
         },
     });
 
-    const [portText, setPortText] = React.useState('');
-    const [portError, setPortError] = React.useState<string | null>(null);
-    const portFocusedRef = React.useRef(false);
-
     React.useEffect(() => {
         if (!detail) {
             return;
@@ -88,14 +74,6 @@ const MobileAccessSetting = () => {
         });
     }, [detail, initialize]);
 
-    React.useEffect(() => {
-        if (portFocusedRef.current) {
-            return;
-        }
-        setPortText(port === undefined ? '' : String(port));
-        setPortError(null);
-    }, [port]);
-
     /**
      * 复制地址到剪贴板。
      *
@@ -105,8 +83,8 @@ const MobileAccessSetting = () => {
         try {
             await navigator.clipboard.writeText(value);
             toast.success(t('mobile.copied'));
-        } catch (copyError) {
-            toast.error(copyError instanceof Error ? copyError.message : String(copyError));
+        } catch (copyErr) {
+            toast.error(copyErr instanceof Error ? copyErr.message : String(copyErr));
         }
     };
 
@@ -118,20 +96,18 @@ const MobileAccessSetting = () => {
     const openUrl = async (url: string): Promise<void> => {
         try {
             await settingsApi.openUrl(url);
-        } catch (openError) {
-            toast.error(openError instanceof Error ? openError.message : String(openError));
+        } catch (openErr) {
+            toast.error(openErr instanceof Error ? openErr.message : String(openErr));
         }
     };
 
     if (loadError && !detail) {
         return (
             <SettingsPageShell title={t('mobile.title')} description={t('mobile.description')}>
-                <div
-                    role="alert"
-                    className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-                >
-                    {loadError instanceof Error ? loadError.message : String(loadError)}
-                </div>
+                <Banner
+                    status="error"
+                    title={loadError instanceof Error ? loadError.message : String(loadError)}
+                />
             </SettingsPageShell>
         );
     }
@@ -154,101 +130,40 @@ const MobileAccessSetting = () => {
                 ? t('mobile.statusNotRunning')
                 : t('mobile.statusStopped');
 
-    /**
-     * 端口输入失焦时提交。
-     */
-    const commitPort = (): void => {
-        portFocusedRef.current = false;
-        const nextPort = parsePort(portText);
-        if (nextPort === null) {
-            setPortError(t('mobile.portInvalid'));
-            return;
-        }
-        setPortError(null);
-        setPortText(String(nextPort));
-        if (nextPort !== port) {
-            setValue('port', nextPort, { shouldDirty: true, shouldTouch: true });
-        }
-    };
-
-    /**
-     * 渲染一行可复制、可打开的地址。
-     *
-     * @param url 访问地址。
-     */
-    const renderUrl = (url: string) => (
-        <div
-            key={url}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/70 px-3 py-2"
-        >
-            <span className="min-w-0 select-text break-all font-mono text-xs text-foreground/90">
-                {url}
-            </span>
-            <div className="flex shrink-0 items-center gap-1">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    title={t('mobile.copy')}
-                    aria-label={t('mobile.copy')}
-                    onClick={() => {
-                        copyText(url).catch(() => undefined);
-                    }}
-                >
-                    <Copy className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    title={t('mobile.open')}
-                    aria-label={t('mobile.open')}
-                    onClick={() => {
-                        openUrl(url).catch(() => undefined);
-                    }}
-                >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                </Button>
-            </div>
-        </div>
-    );
+    const statusDotVariant = detail.running
+        ? 'success'
+        : detail.enabled
+            ? 'warning'
+            : 'neutral';
 
     return (
-        <form
-            className="w-full h-full min-h-0"
-            onSubmit={(event) => {
-                event.preventDefault();
-            }}
+        <SettingsPageShell
+            title={t('mobile.title')}
+            description={t('mobile.description')}
         >
-            <SettingsPageShell
-                title={t('mobile.title')}
-                description={t('mobile.description')}
-                contentClassName="space-y-6"
-            >
+            <VStack gap={6} maxWidth={768}>
                 {errorText && (
-                    <div
-                        role="alert"
-                        className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-                    >
-                        {errorText}
-                    </div>
+                    <Banner
+                        status="error"
+                        title={errorText}
+                    />
                 )}
 
                 <SettingCard
                     title={t('mobile.cardTitle')}
                     description={t('mobile.cardDescription')}
-                    icon={Smartphone}
+                    icon={Smartphone as unknown as IconType}
                 >
                     <SettingRow
                         title={t('mobile.enabledTitle')}
                         description={t('mobile.enabledDescription')}
-                        icon={Wifi}
+                        icon={Wifi as unknown as IconType}
                     >
                         <Switch
-                            checked={enabled}
-                            onCheckedChange={(checked) => {
+                            label={t('mobile.enabledTitle')}
+                            isLabelHidden
+                            value={Boolean(enabled)}
+                            onChange={(checked) => {
                                 setValue('enabled', checked, {
                                     shouldDirty: true,
                                     shouldTouch: true,
@@ -260,100 +175,117 @@ const MobileAccessSetting = () => {
                     <SettingRow
                         title={t('mobile.portTitle')}
                         description={t('mobile.portDescription')}
-                        icon={Wifi}
+                        icon={Wifi as unknown as IconType}
                     >
-                        <div className="flex flex-col items-end gap-1">
-                            <Input
-                                value={portText}
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                className="w-28 text-right font-mono"
-                                onFocus={(event) => {
-                                    portFocusedRef.current = true;
-                                    setPortError(null);
-                                    event.currentTarget.select();
-                                }}
-                                onChange={(event) => {
-                                    const next = event.target.value.replace(/\D/g, '');
-                                    setPortText(next);
-                                }}
-                                onBlur={commitPort}
-                                onKeyDown={(event) => {
-                                    if (event.key === 'Enter') {
-                                        event.currentTarget.blur();
-                                    }
-                                }}
-                            />
-                            {portError && (
-                                <span className="text-[11px] text-destructive">{portError}</span>
-                            )}
-                        </div>
+                        <NumberInput
+                            label={t('mobile.portTitle')}
+                            isLabelHidden
+                            size="sm"
+                            width={112}
+                            min={MIN_PORT}
+                            max={MAX_PORT}
+                            isIntegerOnly
+                            value={port}
+                            onChange={(nextPort) => {
+                                if (nextPort !== port && nextPort >= MIN_PORT && nextPort <= MAX_PORT) {
+                                    setValue('port', nextPort, {
+                                        shouldDirty: true,
+                                        shouldTouch: true,
+                                    });
+                                }
+                            }}
+                        />
                     </SettingRow>
                 </SettingCard>
 
-                <SettingCard title={t('mobile.addressTitle')} icon={Link2}>
-                    <div className="space-y-4 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                                <span
-                                    className={cn(
-                                        'h-2 w-2 rounded-full',
-                                        detail.running
-                                            ? 'bg-emerald-500'
-                                            : detail.enabled
-                                                ? 'bg-amber-500'
-                                                : 'bg-muted-foreground/40',
-                                    )}
+                <SettingCard
+                    title={t('mobile.addressTitle')}
+                    icon={Link2 as unknown as IconType}
+                >
+                    <VStack gap={4} padding={4}>
+                        <HStack vAlign="center" justify="between" gap={3}>
+                            <HStack vAlign="center" gap={2}>
+                                <StatusDot
+                                    variant={statusDotVariant}
+                                    label={statusText}
+                                    isPulsing={detail.running}
                                 />
-                                <span>{statusText}</span>
-                            </div>
+                                <Text weight="medium" size="sm">
+                                    {statusText}
+                                </Text>
+                            </HStack>
                             <Button
-                                type="button"
+                                label={t('mobile.refresh')}
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 px-2 text-xs text-muted-foreground"
                                 onClick={() => {
                                     mutate().catch(() => undefined);
                                 }}
-                            >
-                                {t('mobile.refresh')}
-                            </Button>
-                        </div>
+                            />
+                        </HStack>
 
                         {detail.running ? (
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <div className="text-xs font-medium text-muted-foreground">
-                                        {t('mobile.lanLabel')}
-                                    </div>
-                                    {detail.lanUrls.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {detail.lanUrls.map(renderUrl)}
-                                        </div>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground">
-                                            {t('mobile.lanEmpty')}
-                                        </p>
-                                    )}
-                                </div>
-                            </div>
+                            <VStack gap={2}>
+                                <Text size="sm" weight="medium" color="secondary">
+                                    {t('mobile.lanLabel')}
+                                </Text>
+                                {detail.lanUrls.length > 0 ? (
+                                    <VStack gap={2}>
+                                        {detail.lanUrls.map((url) => (
+                                            <Card key={url} variant="default" padding={2}>
+                                                <HStack vAlign="center" justify="between" gap={3}>
+                                                    <Text size="xsm" hasTabularNumbers wordBreak="break-all">
+                                                        {url}
+                                                    </Text>
+                                                    <HStack vAlign="center" gap={1}>
+                                                        <IconButton
+                                                            label={t('mobile.copy')}
+                                                            tooltip={t('mobile.copy')}
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            icon={<Icon icon={Copy as unknown as IconType} size="sm" />}
+                                                            onClick={() => {
+                                                                copyText(url).catch(() => undefined);
+                                                            }}
+                                                        />
+                                                        <IconButton
+                                                            label={t('mobile.open')}
+                                                            tooltip={t('mobile.open')}
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            icon={<Icon icon={ExternalLink as unknown as IconType} size="sm" />}
+                                                            onClick={() => {
+                                                                openUrl(url).catch(() => undefined);
+                                                            }}
+                                                        />
+                                                    </HStack>
+                                                </HStack>
+                                            </Card>
+                                        ))}
+                                    </VStack>
+                                ) : (
+                                    <Text size="xsm" color="secondary">
+                                        {t('mobile.lanEmpty')}
+                                    </Text>
+                                )}
+                            </VStack>
                         ) : (
-                            <p className="text-xs text-muted-foreground">
+                            <Text size="xsm" color="secondary">
                                 {t('mobile.addressEmpty')}
-                            </p>
+                            </Text>
                         )}
 
-                        <p className="text-xs leading-relaxed text-muted-foreground">
+                        <Text size="xsm" color="secondary">
                             {t('mobile.remoteHint')}
-                        </p>
+                        </Text>
 
-                        <p className="text-xs leading-relaxed text-muted-foreground">
+                        <Text size="xsm" color="secondary">
                             {t('mobile.securityHint')}
-                        </p>
-                    </div>
+                        </Text>
+                    </VStack>
                 </SettingCard>
-            </SettingsPageShell>
-        </form>
+            </VStack>
+        </SettingsPageShell>
     );
 };
 

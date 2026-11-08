@@ -99,7 +99,8 @@ describe('OpenAiCredentialCard', () => {
         const anthropicIndex = CLOUD_AI_PROVIDER_PRESETS.findIndex((preset) => preset.id === 'anthropic');
         await user.click(useButtons[anthropicIndex]);
 
-        expect(await screen.findByText('Anthropic 兼容')).toBeInTheDocument();
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+        expect(screen.getByRole('combobox')).toHaveTextContent('Anthropic 兼容');
         expect(screen.getByDisplayValue('https://api.anthropic.com/v1')).toBeInTheDocument();
     });
 });

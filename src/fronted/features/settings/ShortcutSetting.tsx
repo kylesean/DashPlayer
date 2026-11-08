@@ -1,52 +1,50 @@
 import * as React from 'react';
-import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
-import { SettingCard, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
-import { Button } from '@/fronted/components/ui/button';
+import useSWR from 'swr';
+import { useForm, Controller } from 'react-hook-form';
 import { useRecordHotkeys } from 'react-hotkeys-hook';
+import { useTranslation as useI18nTranslation } from 'react-i18next';
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/fronted/components/ui/dialog';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableRow,
-} from '@/fronted/components/ui/table';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/fronted/components/ui/tooltip';
-import {
+    Clock,
     Pencil,
+    PlayCircle,
     Plus,
     RotateCcw,
     Search,
-    X,
-    PlayCircle,
-    Subtitles,
-    Clock,
     Sparkles,
-    Radio,
+    Subtitles,
 } from 'lucide-react';
+
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Kbd } from '@astryxdesign/core/Kbd';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Table, TableBody, TableCell, TableRow } from '@astryxdesign/core/Table';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Token } from '@astryxdesign/core/Token';
+import { VStack } from '@astryxdesign/core/VStack';
+
 import { SettingKeyObj } from '@/common/types/store_schema';
-import { useForm, Controller } from 'react-hook-form';
-import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
-import { useTranslation as useI18nTranslation } from 'react-i18next';
-import { Input } from '@/fronted/components/ui/input';
-import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
-import useSWR from 'swr';
 import type { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
+import { SettingCard, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
+import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
+import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
+import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
+
+type ShortcutKey = keyof ShortcutSettingSaveVO;
+type ShortcutStoreKey = `shortcut.${ShortcutKey}`;
+type ShortcutFormValues = ShortcutSettingSaveVO;
 
 /**
  * 格式化单个按键为标准符号或名称。
+ *
+ * @param key 按键标识字符串。
+ * @returns 格式化后的按键符号。
  */
 const formatKeySymbol = (key: string): string => {
     const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.platform);
@@ -96,45 +94,29 @@ const formatKeySymbol = (key: string): string => {
 };
 
 /**
- * 现代拟物键帽组件
- */
-const KeyCap = ({ label, className = '' }: { label: string; className?: string }) => (
-    <kbd
-        className={`inline-flex items-center justify-center min-w-[24px] h-6 px-1.5 text-xs font-mono font-medium rounded-md border border-border/80 bg-gradient-to-b from-background to-muted/80 text-foreground shadow-[0_1.5px_0_rgba(0,0,0,0.15),0_1px_2px_rgba(0,0,0,0.06)] dark:shadow-[0_1.5px_0_rgba(255,255,255,0.1)] select-none ${className}`}
-    >
-        {formatKeySymbol(label)}
-    </kbd>
-);
-
-/**
  * 快捷键组合展示组件
+ *
+ * 将逗号分隔的快捷键解析为 Astryx Kbd 徽章组合。
  */
-const KeyBadge = ({ keys }: { keys: string }) => {
+const KeyBadge: React.FC<{ keys: string }> = ({ keys }) => {
     if (!keys || keys.trim() === '') {
-        return <span className="text-muted-foreground/60 text-xs italic">—</span>;
+        return <Text size="xsm" color="secondary">—</Text>;
     }
     const list = keys.split(',').map((k) => k.trim()).filter(Boolean);
     return (
-        <div className="flex flex-wrap gap-2 items-center">
+        <HStack gap={2} vAlign="center" wrap="wrap">
             {list.map((shortcut) => (
-                <div
-                    key={shortcut}
-                    className="inline-flex items-center gap-1 bg-muted/40 hover:bg-muted/70 px-1.5 py-1 rounded-md border border-border/50 transition-colors"
-                >
-                    {shortcut.split('+').map((k, idx) => (
-                        <React.Fragment key={idx}>
-                            {idx > 0 && <span className="text-[10px] text-muted-foreground/60 font-semibold">+</span>}
-                            <KeyCap label={k} />
-                        </React.Fragment>
-                    ))}
-                </div>
+                <Kbd key={shortcut} keys={shortcut.toLowerCase()} />
             ))}
-        </div>
+        </HStack>
     );
 };
 
 /**
  * 解析快捷键字符串，规范化并去重。
+ *
+ * @param value 逗号分隔的快捷键字符串。
+ * @returns 规范化后的按键组合数组。
  */
 const parseShortcutList = (value: string): string[] => Array.from(new Set(
     value
@@ -145,11 +127,17 @@ const parseShortcutList = (value: string): string[] => Array.from(new Set(
 
 /**
  * 将快捷键数组转为配置存储的逗号分隔字符串。
+ *
+ * @param shortcuts 快捷键组合列表。
+ * @returns 逗号拼接的字符串。
  */
 const stringifyShortcutList = (shortcuts: string[]): string => shortcuts.join(',');
 
 /**
  * 将快捷键字段名转换为配置仓库里的 `shortcut.xxx` 键名。
+ *
+ * @param key 快捷键动作键名。
+ * @returns 完整运行时存储键。
  */
 const toShortcutStoreKey = (key: ShortcutKey): ShortcutStoreKey => `shortcut.${key}`;
 
@@ -173,9 +161,9 @@ interface RecordDialogBodyProps {
 }
 
 /**
- * 录制弹窗正文：只在弹窗打开时挂载，用初始值建立本地草稿状态，不在副作用内同步重置状态。
+ * 录制弹窗正文：管理按键捕获状态与临时草稿。
  */
-const RecordDialogBody = ({
+const RecordDialogBody: React.FC<RecordDialogBodyProps> = ({
     title,
     initialShortcuts,
     defaultValue,
@@ -191,7 +179,7 @@ const RecordDialogBody = ({
     clearAllLabel,
     onSubmit,
     onClose,
-}: RecordDialogBodyProps) => {
+}) => {
     const { t } = useI18nTranslation('settings');
     const [keys, { start, stop }] = useRecordHotkeys();
     const [shortcuts, setShortcuts] = React.useState<string[]>(initialShortcuts);
@@ -210,7 +198,6 @@ const RecordDialogBody = ({
             return;
         }
         setShortcuts((previous) => Array.from(new Set([...previous, recordedShortcut])));
-        // 重新启动录制监听，清除上一轮按键
         stop();
         setTimeout(() => {
             start();
@@ -272,24 +259,18 @@ const RecordDialogBody = ({
     }, [start, stop]);
 
     return (
-        <DialogContent className="sm:max-w-[480px]">
-            <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                    <span>{dialogTitle}</span>
-                    <span className="text-sm font-normal text-muted-foreground">({title})</span>
-                </DialogTitle>
-                <DialogDescription>{dialogDescription}</DialogDescription>
-            </DialogHeader>
+        <VStack gap={4} padding={4}>
+            <DialogHeader
+                title={dialogTitle}
+                subtitle={`${title} · ${dialogDescription}`}
+                onOpenChange={(open) => {
+                    if (!open) onClose();
+                }}
+            />
 
-            <div className="space-y-4 py-2">
-                {/* 录制捕获面板 */}
-                <div
-                    className={`relative group rounded-xl border-2 p-5 flex flex-col items-center justify-center gap-3 transition-all ${
-                        isListening
-                            ? 'border-primary/60 bg-primary/5 shadow-inner'
-                            : 'border-dashed border-border/80 hover:border-primary/40 bg-muted/20'
-                    }`}
-                >
+            {/* 录制捕获面板 */}
+            <Card variant={isListening ? 'muted' : 'default'} padding={4}>
+                <VStack gap={3} hAlign="center" vAlign="center">
                     <button
                         ref={recordContainerRef}
                         type="button"
@@ -302,205 +283,113 @@ const RecordDialogBody = ({
                             stop();
                         }}
                         onClick={() => recordContainerRef.current?.focus()}
-                        className="flex w-full flex-col items-center justify-center gap-3 cursor-pointer outline-none"
+                        className="w-full bg-transparent border-0 p-0 cursor-pointer outline-none"
                     >
-                        <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                            {isListening ? (
-                                <span className="flex items-center gap-1.5 text-primary animate-pulse">
-                                    <Radio className="w-3.5 h-3.5" />
-                                    {listeningPrompt}
-                                </span>
-                            ) : (
-                                <span>{t('shortcut.clickToListen')}</span>
-                            )}
-                        </span>
+                        <VStack gap={2} hAlign="center" vAlign="center">
+                            <HStack gap={2} vAlign="center">
+                                <StatusDot
+                                    variant={isListening ? 'accent' : 'neutral'}
+                                    label={isListening ? listeningPrompt : t('shortcut.clickToListen')}
+                                    isPulsing={isListening}
+                                />
+                                <Text size="sm" weight="medium" color={isListening ? 'accent' : 'secondary'}>
+                                    {isListening ? listeningPrompt : t('shortcut.clickToListen')}
+                                </Text>
+                            </HStack>
 
-                        {/* 录制实时展示 */}
-                        <span className="min-h-[36px] flex items-center justify-center">
-                            {recordedShortcut ? (
-                                <span className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100">
-                                    {recordedShortcut.split('+').map((k, idx) => (
-                                        <React.Fragment key={idx}>
-                                            {idx > 0 && <span className="text-xs text-muted-foreground font-semibold">+</span>}
-                                            <KeyCap label={k} className="h-8 min-w-[32px] px-2 text-sm shadow-md" />
-                                        </React.Fragment>
-                                    ))}
-                                </span>
-                            ) : (
-                                <span className="text-xs text-muted-foreground/60 italic select-none">
-                                    {t('shortcut.listeningPromptHint')}
-                                </span>
-                            )}
-                        </span>
+                            <HStack vAlign="center" justify="center" minHeight={40}>
+                                {recordedShortcut ? (
+                                    <Kbd keys={recordedShortcut.toLowerCase()} />
+                                ) : (
+                                    <Text size="xsm" color="secondary">
+                                        {t('shortcut.listeningPromptHint')}
+                                    </Text>
+                                )}
+                            </HStack>
+                        </VStack>
                     </button>
 
                     {recordedShortcut && (
-                        <div className="flex items-center gap-2 mt-1">
+                        <HStack gap={2} vAlign="center">
                             <Button
-                                type="button"
+                                label={t('shortcut.rerecord')}
                                 size="sm"
-                                variant="outline"
+                                variant="secondary"
+                                icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
                                 onClick={handleRerecord}
-                                className="h-7 text-xs gap-1"
-                            >
-                                <RotateCcw className="w-3 h-3" />
-                                {t('shortcut.rerecord')}
-                            </Button>
+                            />
                             <Button
-                                type="button"
+                                label={addRecordedLabel}
                                 size="sm"
-                                variant="default"
+                                variant="primary"
+                                icon={<Icon icon={Plus as unknown as IconType} size="sm" />}
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     appendRecordedShortcut();
                                 }}
-                                className="h-7 text-xs gap-1 shadow-sm"
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                {addRecordedLabel}
-                            </Button>
-                        </div>
+                            />
+                        </HStack>
                     )}
-                </div>
+                </VStack>
+            </Card>
 
-                {/* 当前绑定的快捷键列表 */}
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-foreground">{currentShortcutsLabel}</span>
-                        <div className="flex items-center gap-1">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-[11px] text-muted-foreground hover:text-foreground px-1.5"
-                                onClick={clearAll}
-                            >
-                                {clearAllLabel}
-                            </Button>
-                            <span className="text-border">|</span>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 text-[11px] text-muted-foreground hover:text-foreground px-1.5 gap-1"
-                                onClick={resetToDefault}
-                            >
-                                <RotateCcw className="w-3 h-3" />
-                                {resetDefaultLabel}
-                            </Button>
-                        </div>
-                    </div>
+            {/* 当前绑定的快捷键列表 */}
+            <VStack gap={2}>
+                <HStack justify="between" vAlign="center">
+                    <Text size="sm" weight="semibold">{currentShortcutsLabel}</Text>
+                    <HStack gap={1} vAlign="center">
+                        <Button
+                            label={clearAllLabel}
+                            size="sm"
+                            variant="ghost"
+                            onClick={clearAll}
+                        />
+                        <Button
+                            label={resetDefaultLabel}
+                            size="sm"
+                            variant="ghost"
+                            icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
+                            onClick={resetToDefault}
+                        />
+                    </HStack>
+                </HStack>
 
-                    <div className="rounded-lg border border-border/70 bg-muted/20 p-3 min-h-[72px] flex flex-wrap gap-2 items-center content-start">
+                <Card variant="default" padding={3}>
+                    <HStack gap={2} wrap="wrap" vAlign="center">
                         {shortcuts.length === 0 ? (
-                            <div className="w-full text-center text-xs text-muted-foreground/60 py-2">
+                            <Text size="xsm" color="secondary">
                                 {emptyShortcutsLabel}
-                            </div>
+                            </Text>
                         ) : (
                             shortcuts.map((shortcut) => (
-                                <div
+                                <Token
                                     key={shortcut}
-                                    className="inline-flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-md border border-border/70 bg-background shadow-xs text-xs font-mono"
-                                >
-                                    <div className="flex items-center gap-1">
-                                        {shortcut.split('+').map((k, idx) => (
-                                            <React.Fragment key={idx}>
-                                                {idx > 0 && <span className="text-[10px] text-muted-foreground">+</span>}
-                                                <span className="font-semibold text-foreground">{formatKeySymbol(k)}</span>
-                                            </React.Fragment>
-                                        ))}
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="ml-1 rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                        title={removeShortcutLabel}
-                                        onClick={() => removeShortcut(shortcut)}
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </div>
+                                    label={shortcut.split('+').map(formatKeySymbol).join('+')}
+                                    description={`${removeShortcutLabel}: ${shortcut}`}
+                                    size="md"
+                                    color="default"
+                                    onRemove={() => removeShortcut(shortcut)}
+                                />
                             ))
                         )}
-                    </div>
-                </div>
-            </div>
+                    </HStack>
+                </Card>
+            </VStack>
 
-            <DialogFooter className="gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={onClose}>
-                    {t('shortcut.cancel')}
-                </Button>
-                <Button type="button" onClick={submitChanges}>
-                    {saveChangesLabel}
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-    );
-};
-
-/**
- * 录制快捷键弹窗：提供一键录制、按键实体展示与多快捷键管理。
- */
-const RecordDialog = ({
-    title,
-    value,
-    defaultValue,
-    onChange,
-    triggerRef,
-    dialogTitle,
-    dialogDescription,
-    saveChangesLabel,
-    currentShortcutsLabel,
-    emptyShortcutsLabel,
-    addRecordedLabel,
-    removeShortcutLabel,
-    resetDefaultLabel,
-    listeningPrompt,
-    clearAllLabel,
-}: {
-    title: string;
-    value: string;
-    defaultValue: string;
-    onChange: (value: string) => void;
-    triggerRef: React.RefObject<HTMLButtonElement>;
-    dialogTitle: string;
-    dialogDescription: string;
-    saveChangesLabel: string;
-    currentShortcutsLabel: string;
-    emptyShortcutsLabel: string;
-    addRecordedLabel: string;
-    removeShortcutLabel: string;
-    resetDefaultLabel: string;
-    listeningPrompt: string;
-    clearAllLabel: string;
-}) => {
-    const [open, setOpen] = React.useState(false);
-
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button ref={triggerRef} className="hidden" aria-hidden="true" tabIndex={-1}>Open</Button>
-            </DialogTrigger>
-            {open ? (
-                <RecordDialogBody
-                    key={value}
-                    title={title}
-                    initialShortcuts={parseShortcutList(value)}
-                    defaultValue={defaultValue}
-                    dialogTitle={dialogTitle}
-                    dialogDescription={dialogDescription}
-                    saveChangesLabel={saveChangesLabel}
-                    currentShortcutsLabel={currentShortcutsLabel}
-                    emptyShortcutsLabel={emptyShortcutsLabel}
-                    addRecordedLabel={addRecordedLabel}
-                    removeShortcutLabel={removeShortcutLabel}
-                    resetDefaultLabel={resetDefaultLabel}
-                    listeningPrompt={listeningPrompt}
-                    clearAllLabel={clearAllLabel}
-                    onSubmit={onChange}
-                    onClose={() => setOpen(false)}
+            {/* 弹窗底部操作 */}
+            <HStack justify="end" gap={2} paddingBlockStart={2}>
+                <Button
+                    label={t('shortcut.cancel')}
+                    variant="secondary"
+                    onClick={onClose}
                 />
-            ) : null}
-        </Dialog>
+                <Button
+                    label={saveChangesLabel}
+                    variant="primary"
+                    onClick={submitChanges}
+                />
+            </HStack>
+        </VStack>
     );
 };
 
@@ -514,14 +403,14 @@ interface ShortcutGroupConfig {
     id: string;
     title: string;
     description: string;
-    icon: React.ComponentType<{ className?: string }>;
+    icon: IconType;
     items: ShortcutItemConfig[];
 }
 
 /**
  * 快捷键设置页面：展示全部动作并支持自动保存。
  */
-const ShortcutSetting = () => {
+const ShortcutSetting: React.FC = () => {
     const { t } = useI18nTranslation('settings');
     const [searchQuery, setSearchQuery] = React.useState('');
 
@@ -532,7 +421,6 @@ const ShortcutSetting = () => {
     );
 
     const form = useForm<ShortcutFormValues>();
-
     const { control } = form;
     const { ready, status: autoSaveStatus, error: autoSaveError, initialize, flush } = useAutoSaveSettingsForm<ShortcutFormValues>({
         form,
@@ -555,7 +443,7 @@ const ShortcutSetting = () => {
             id: 'playback',
             title: t('shortcut.groups.playback'),
             description: t('shortcut.groups.playbackDesc'),
-            icon: PlayCircle,
+            icon: PlayCircle as unknown as IconType,
             items: [
                 { key: 'playPause', title: t('shortcut.items.playPause.title'), description: t('shortcut.items.playPause.description') },
                 { key: 'previousSentence', title: t('shortcut.items.previousSentence.title'), description: t('shortcut.items.previousSentence.description') },
@@ -574,7 +462,7 @@ const ShortcutSetting = () => {
             id: 'subtitles',
             title: t('shortcut.groups.subtitles'),
             description: t('shortcut.groups.subtitlesDesc'),
-            icon: Subtitles,
+            icon: Subtitles as unknown as IconType,
             items: [
                 { key: 'toggleEnglishDisplay', title: t('shortcut.items.toggleEnglishDisplay.title'), description: t('shortcut.items.toggleEnglishDisplay.description') },
                 { key: 'toggleChineseDisplay', title: t('shortcut.items.toggleChineseDisplay.title'), description: t('shortcut.items.toggleChineseDisplay.description') },
@@ -586,7 +474,7 @@ const ShortcutSetting = () => {
             id: 'timing',
             title: t('shortcut.groups.timing'),
             description: t('shortcut.groups.timingDesc'),
-            icon: Clock,
+            icon: Clock as unknown as IconType,
             items: [
                 { key: 'adjustBeginMinus', title: t('shortcut.items.adjustBeginMinus.title'), description: t('shortcut.items.adjustBeginMinus.description') },
                 { key: 'adjustBeginPlus', title: t('shortcut.items.adjustBeginPlus.title'), description: t('shortcut.items.adjustBeginPlus.description') },
@@ -599,7 +487,7 @@ const ShortcutSetting = () => {
             id: 'tools',
             title: t('shortcut.groups.tools'),
             description: t('shortcut.groups.toolsDesc'),
-            icon: Sparkles,
+            icon: Sparkles as unknown as IconType,
             items: [
                 { key: 'aiChat', title: t('shortcut.items.aiChat.title'), description: t('shortcut.items.aiChat.description') },
                 { key: 'openControlPanel', title: t('shortcut.items.openControlPanel.title'), description: t('shortcut.items.openControlPanel.description') },
@@ -639,125 +527,91 @@ const ShortcutSetting = () => {
     }
 
     return (
-        <form
-            className="w-full h-full min-h-0"
-            onSubmit={(event) => {
-                event.preventDefault();
-                flush().catch(() => null);
-            }}
+        <SettingsPageShell
+            title={t('shortcut.title')}
+            description={t('shortcut.description')}
         >
-            <SettingsPageShell
-                title={t('shortcut.title')}
-                description={t('shortcut.description')}
-                contentClassName="space-y-6"
-            >
+            <VStack gap={6} maxWidth={768}>
                 {autoSaveStatus === 'error' && autoSaveError && (
-                    <div
-                        role="alert"
-                        className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-                    >
-                        {autoSaveError}
-                    </div>
+                    <Banner
+                        status="error"
+                        title={autoSaveError}
+                    />
                 )}
 
                 {/* 搜索过滤条 */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder={t('shortcut.searchPlaceholder')}
-                        className="pl-9 bg-background/80 pr-8"
-                    />
-                    {searchQuery && (
-                        <button
-                            type="button"
-                            onClick={() => setSearchQuery('')}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    )}
-                </div>
+                <TextInput
+                    label={t('shortcut.searchPlaceholder')}
+                    isLabelHidden
+                    type="search"
+                    value={searchQuery}
+                    onChange={(val) => setSearchQuery(val)}
+                    hasClear
+                    placeholder={t('shortcut.searchPlaceholder')}
+                    startIcon={<Icon icon={Search as unknown as IconType} size="sm" />}
+                />
 
                 {filteredGroups.length === 0 ? (
-                    <div className="text-center py-12 text-muted-foreground text-sm">
-                        {t('shortcut.noMatches')}
-                    </div>
+                    <HStack justify="center" paddingBlock={8}>
+                        <Text size="sm" color="secondary">
+                            {t('shortcut.noMatches')}
+                        </Text>
+                    </HStack>
                 ) : (
-                    <TooltipProvider delayDuration={200}>
-                        {filteredGroups.map((group) => (
-                            <SettingCard
-                                key={group.id}
-                                title={group.title}
-                                description={group.description}
-                                icon={group.icon}
-                            >
-                                <div className="divide-y divide-border/60">
-                                    <Table>
-                                        <TableBody>
-                                            {group.items.map((item) => (
-                                                <Controller
-                                                    key={item.key}
-                                                    name={item.key}
-                                                    control={control}
-                                                    render={({ field }) => (
-                                                        <ShortcutRow
-                                                            title={item.title}
-                                                            description={item.description}
-                                                            value={field.value ?? ''}
-                                                            defaultValue={SettingKeyObj[toShortcutStoreKey(item.key)]}
-                                                            onChange={field.onChange}
-                                                            editLabel={t('shortcut.edit')}
-                                                            resetDefaultLabel={t('shortcut.resetDefault')}
-                                                            dialogTitle={t('shortcut.dialogTitle')}
-                                                            dialogDescription={t('shortcut.dialogDescription')}
-                                                            saveChangesLabel={t('shortcut.saveChanges')}
-                                                            currentShortcutsLabel={t('shortcut.dialogCurrentShortcuts')}
-                                                            emptyShortcutsLabel={t('shortcut.dialogNoShortcuts')}
-                                                            addRecordedLabel={t('shortcut.dialogAddRecorded')}
-                                                            removeShortcutLabel={t('shortcut.dialogRemoveShortcut')}
-                                                            dialogResetDefaultLabel={t('shortcut.dialogResetDefault')}
-                                                            listeningPrompt={t('shortcut.listeningPrompt')}
-                                                            clearAllLabel={t('shortcut.clearAll')}
-                                                        />
-                                                    )}
+                    filteredGroups.map((group) => (
+                        <SettingCard
+                            key={group.id}
+                            title={group.title}
+                            description={group.description}
+                            icon={group.icon}
+                        >
+                            <Table density="compact" dividers="rows">
+                                <TableBody>
+                                    {group.items.map((item) => (
+                                        <Controller
+                                            key={item.key}
+                                            name={item.key}
+                                            control={control}
+                                            render={({ field }) => (
+                                                <ShortcutRow
+                                                    title={item.title}
+                                                    description={item.description}
+                                                    value={field.value ?? ''}
+                                                    defaultValue={SettingKeyObj[toShortcutStoreKey(item.key)]}
+                                                    onChange={(val) => {
+                                                        field.onChange(val);
+                                                        flush().catch(() => null);
+                                                    }}
+                                                    editLabel={t('shortcut.edit')}
+                                                    resetDefaultLabel={t('shortcut.resetDefault')}
+                                                    dialogTitle={t('shortcut.dialogTitle')}
+                                                    dialogDescription={t('shortcut.dialogDescription')}
+                                                    saveChangesLabel={t('shortcut.saveChanges')}
+                                                    currentShortcutsLabel={t('shortcut.dialogCurrentShortcuts')}
+                                                    emptyShortcutsLabel={t('shortcut.dialogNoShortcuts')}
+                                                    addRecordedLabel={t('shortcut.dialogAddRecorded')}
+                                                    removeShortcutLabel={t('shortcut.dialogRemoveShortcut')}
+                                                    dialogResetDefaultLabel={t('shortcut.dialogResetDefault')}
+                                                    listeningPrompt={t('shortcut.listeningPrompt')}
+                                                    clearAllLabel={t('shortcut.clearAll')}
                                                 />
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </SettingCard>
-                        ))}
-                    </TooltipProvider>
+                                            )}
+                                        />
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </SettingCard>
+                    ))
                 )}
-            </SettingsPageShell>
-        </form>
+            </VStack>
+        </SettingsPageShell>
     );
 };
 
 /**
  * 单行快捷键配置项：提供编辑弹窗入口与恢复默认值操作。
  */
-const ShortcutRow = ({
-    title,
-    description,
-    value,
-    defaultValue,
-    onChange,
-    editLabel,
-    resetDefaultLabel,
-    dialogTitle,
-    dialogDescription,
-    saveChangesLabel,
-    currentShortcutsLabel,
-    emptyShortcutsLabel,
-    addRecordedLabel,
-    removeShortcutLabel,
-    dialogResetDefaultLabel,
-    listeningPrompt,
-    clearAllLabel,
-}: {
+const ShortcutRow: React.FC<{
     title: string;
     description: string;
     value: string;
@@ -775,82 +629,87 @@ const ShortcutRow = ({
     dialogResetDefaultLabel: string;
     listeningPrompt: string;
     clearAllLabel: string;
+}> = ({
+    title,
+    description,
+    value,
+    defaultValue,
+    onChange,
+    editLabel,
+    resetDefaultLabel,
+    dialogTitle,
+    dialogDescription,
+    saveChangesLabel,
+    currentShortcutsLabel,
+    emptyShortcutsLabel,
+    addRecordedLabel,
+    removeShortcutLabel,
+    dialogResetDefaultLabel,
+    listeningPrompt,
+    clearAllLabel,
 }) => {
-    const triggerRef = React.useRef<HTMLButtonElement>(null!);
+    const [isDialogOpen, setIsDialogOpen] = React.useState(false);
     const isDefault = value === defaultValue;
 
     return (
-        <TableRow className="group/row hover:bg-muted/40 transition-colors">
-            <TableCell className="py-2.5 w-[38%]">
-                <div className="space-y-0.5">
-                    <div className="text-sm font-medium text-foreground">{title}</div>
-                    <div className="text-xs text-muted-foreground line-clamp-1">{description}</div>
-                </div>
+        <TableRow>
+            <TableCell>
+                <VStack gap={0.5} width={260}>
+                    <Text size="sm" weight="medium">{title}</Text>
+                    <Text size="xsm" color="secondary" maxLines={1}>{description}</Text>
+                </VStack>
             </TableCell>
-            <TableCell className="py-2.5">
+
+            <TableCell>
                 <KeyBadge keys={value} />
             </TableCell>
-            <TableCell className="py-2.5 w-24 text-right">
-                <div className="flex items-center justify-end gap-1">
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                onClick={() => triggerRef.current?.click()}
-                            >
-                                <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top"><p>{editLabel}</p></TooltipContent>
-                    </Tooltip>
 
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className={`h-7 w-7 transition-opacity ${
-                                    isDefault
-                                        ? 'text-muted-foreground/30 hover:text-muted-foreground/60 cursor-default'
-                                        : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                                disabled={isDefault}
-                                onClick={() => onChange(defaultValue)}
-                            >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top"><p>{resetDefaultLabel}</p></TooltipContent>
-                    </Tooltip>
-                </div>
-                <RecordDialog
-                    title={title}
-                    value={value}
-                    defaultValue={defaultValue}
-                    onChange={onChange}
-                    triggerRef={triggerRef}
-                    dialogTitle={dialogTitle}
-                    dialogDescription={dialogDescription}
-                    saveChangesLabel={saveChangesLabel}
-                    currentShortcutsLabel={currentShortcutsLabel}
-                    emptyShortcutsLabel={emptyShortcutsLabel}
-                    addRecordedLabel={addRecordedLabel}
-                    removeShortcutLabel={removeShortcutLabel}
-                    resetDefaultLabel={dialogResetDefaultLabel}
-                    listeningPrompt={listeningPrompt}
-                    clearAllLabel={clearAllLabel}
-                />
+            <TableCell>
+                <HStack justify="end" vAlign="center" gap={1}>
+                    <IconButton
+                        label={editLabel}
+                        tooltip={editLabel}
+                        size="sm"
+                        variant="ghost"
+                        icon={<Icon icon={Pencil as unknown as IconType} size="sm" />}
+                        onClick={() => setIsDialogOpen(true)}
+                    />
+
+                    <IconButton
+                        label={resetDefaultLabel}
+                        tooltip={resetDefaultLabel}
+                        size="sm"
+                        variant="ghost"
+                        isDisabled={isDefault}
+                        icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
+                        onClick={() => onChange(defaultValue)}
+                    />
+                </HStack>
+
+                <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} width={500}>
+                    {isDialogOpen && (
+                        <RecordDialogBody
+                            title={title}
+                            initialShortcuts={parseShortcutList(value)}
+                            defaultValue={defaultValue}
+                            dialogTitle={dialogTitle}
+                            dialogDescription={dialogDescription}
+                            saveChangesLabel={saveChangesLabel}
+                            currentShortcutsLabel={currentShortcutsLabel}
+                            emptyShortcutsLabel={emptyShortcutsLabel}
+                            addRecordedLabel={addRecordedLabel}
+                            removeShortcutLabel={removeShortcutLabel}
+                            resetDefaultLabel={dialogResetDefaultLabel}
+                            listeningPrompt={listeningPrompt}
+                            clearAllLabel={clearAllLabel}
+                            onSubmit={onChange}
+                            onClose={() => setIsDialogOpen(false)}
+                        />
+                    )}
+                </Dialog>
             </TableCell>
         </TableRow>
     );
 };
 
 export default ShortcutSetting;
-type ShortcutKey = keyof ShortcutSettingSaveVO;
-type ShortcutStoreKey = `shortcut.${ShortcutKey}`;
-
-type ShortcutFormValues = ShortcutSettingSaveVO;

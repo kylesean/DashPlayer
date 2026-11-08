@@ -1,21 +1,40 @@
-import {cn} from "@/fronted/lib/utils";
-import {Input} from "@/fronted/components/ui/input";
-import {Label} from "@/fronted/components/ui/label";
-import * as React from "react";
+import React from 'react';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
 
+/**
+ * 设置输入项属性定义。
+ */
 export interface SettingInputProps {
+    /** 输入框标题/标签。 */
     title: string;
+    /** 输入占位提示。 */
     placeHolder?: string;
+    /** 当前受控值。 */
     value: string;
+    /** 值更新回调。 */
     setValue: (value: string) => void;
-    type?: string;
-    inputWidth?: string;
+    /** 输入框类型（text, password, email 等）。 */
+    type?: 'text' | 'password' | 'email' | 'search' | 'tel' | 'url';
+    /** 控件宽度。 */
+    inputWidth?: string | number;
+    /** 辅助解释描述。 */
     description?: string;
+    /** 附加类名。 */
     className?: string;
+    /** 失焦回调。 */
     onBlur?: () => void;
 }
 
-const SettingInput = React.forwardRef<HTMLInputElement, SettingInputProps>(
+/**
+ * 设置单项文本输入控件封装。
+ *
+ * 底层基于 Astryx TextInput 实现，内置无障碍标签与规范尺寸。
+ *
+ * @param props 组件属性。
+ * @returns 输入框 JSX 元素。
+ */
+export const SettingInput = React.forwardRef<HTMLInputElement, SettingInputProps>(
     (
         {
             title,
@@ -24,28 +43,27 @@ const SettingInput = React.forwardRef<HTMLInputElement, SettingInputProps>(
             value,
             setValue,
             type = 'text',
-            inputWidth = 'w-96',
-            className = '',
+            inputWidth,
+            className,
             onBlur,
         },
         ref,
     ) => {
         return (
-            <div className={cn('grid w-full items-center gap-1.5 pl-2', className)}>
-                <Label>{title}</Label>
-                <Input
+            <VStack gap={1} width="100%" className={className}>
+                <TextInput
                     ref={ref}
-                    className={inputWidth}
-                    type={type}
-                    value={value}
-                    onChange={(event) => setValue(event.target.value)}
-                    onBlur={onBlur}
+                    label={title}
+                    description={description}
                     placeholder={placeHolder}
+                    value={value}
+                    onChange={(val) => setValue(val)}
+                    onBlur={onBlur}
+                    type={type}
+                    size="sm"
+                    width={inputWidth || '100%'}
                 />
-                <p className={cn('text-sm text-muted-foreground')}>
-                    {description}
-                </p>
-            </div>
+            </VStack>
         );
     }
 );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     SliderInput,
     SettingCard,
@@ -6,25 +6,43 @@ import {
     SettingsLoadingSkeleton,
 } from '@/fronted/features/settings/components/form';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
-import { cn } from '@/fronted/lib/utils';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { useForm, useWatch } from 'react-hook-form';
 import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/fronted/components/ui/select';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { applyLanguageSetting } from '@/fronted/i18n';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 import useSWR from 'swr';
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
-import { Globe, Palette, Sliders, Type, Moon, Sun, Laptop } from 'lucide-react';
+import { Globe, Palette, Type, Moon, Sun, Laptop } from 'lucide-react';
+import { SelectableCard } from '@astryxdesign/core/SelectableCard';
+import { Grid } from '@astryxdesign/core/Grid';
+import { Selector } from '@astryxdesign/core/Selector';
+import {
+    SegmentedControl,
+    SegmentedControlItem,
+} from '@astryxdesign/core/SegmentedControl';
+import { Card } from '@astryxdesign/core/Card';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Text } from '@astryxdesign/core/Text';
+import { Icon } from '@astryxdesign/core/Icon';
 
 const logger = getRendererLogger('AppearanceSetting');
 type AppearanceFormValues = AppearanceSettingVO;
 
 /**
- * 外观设置页：通过 detail 接口加载，自动保存到 save 接口。
+ * 外观偏好设置组件。
+ *
+ * 全面迁移至 Astryx UI 体系：
+ * - 主题选择：采用 SelectableCard 网格单选卡片。
+ * - 界面语言：采用 Selector 下拉单选组件。
+ * - 字号档位与预览模式：采用 SegmentedControl 分段切换。
+ * - 预览容器与布局：采用 Card、VStack、HStack、Text 等 Astryx 原语。
+ *
+ * @returns 外观设置 JSX 元素。
  */
-const AppearanceSetting = () => {
+const AppearanceSetting: React.FC = () => {
     const { t } = useI18nTranslation('settings');
 
     const { data: settings } = useSWR<AppearanceSettingVO>(
@@ -49,9 +67,9 @@ const AppearanceSetting = () => {
         },
     });
 
-    const [previewMode, setPreviewMode] = React.useState<'main' | 'side'>('main');
+    const [previewMode, setPreviewMode] = useState<string>('main');
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!settings) {
             return;
         }
@@ -77,19 +95,43 @@ const AppearanceSetting = () => {
         fontSizeLarge: t('appearance.fontSizeLarge'),
     };
 
+    const themeOptions = [
+        {
+            value: 'system' as const,
+            label: t('appearance.themeSystem'),
+            icon: Laptop,
+        },
+        {
+            value: 'dark' as const,
+            label: t('appearance.themeDark'),
+            icon: Moon,
+        },
+        {
+            value: 'light' as const,
+            label: t('appearance.themeLight'),
+            icon: Sun,
+        },
+    ];
+
+    const languageOptions = [
+        { value: 'system', label: t('appearance.languageSystem') },
+        { value: 'zh-CN', label: t('appearance.languageZhCN') },
+        { value: 'en-US', label: t('appearance.languageEnUS') },
+    ];
+
     return (
-        <form className="w-full h-full min-h-0" onSubmit={(event) => {
-            event.preventDefault();
-            flush().catch((error) => {
-                logger.error('flush appearance settings failed', { error });
-            });
-        }}>
+        <form
+            onSubmit={(event) => {
+                event.preventDefault();
+                flush().catch((error) => {
+                    logger.error('flush appearance settings failed', { error });
+                });
+            }}
+        >
             <SettingsPageShell
                 title={t('appearance.title')}
                 description={t('appearance.description')}
-                contentClassName="space-y-6"
             >
-                {/* 统一的外观偏好卡片 */}
                 <SettingCard
                     title={t('appearance.cardTitle')}
                     description={t('appearance.cardDescription')}
@@ -101,49 +143,42 @@ const AppearanceSetting = () => {
                         description={t('appearance.themeDescription')}
                         icon={Palette}
                     >
-                        <div className="flex items-center gap-2">
-                            {[
-                                {
-                                    value: 'system' as const,
-                                    label: t('appearance.themeSystem'),
-                                    icon: Laptop,
-                                },
-                                {
-                                    value: 'dark' as const,
-                                    label: t('appearance.themeDark'),
-                                    icon: Moon,
-                                },
-                                {
-                                    value: 'light' as const,
-                                    label: t('appearance.themeLight'),
-                                    icon: Sun,
-                                },
-                            ].map((option) => {
-                                const isSelected = currentTheme === option.value;
-                                const IconComponent = option.icon;
+                        <Grid
+                            columns={{ minWidth: 96, max: 3 }}
+                            gap={2}
+                            maxWidth={360}
+                        >
+                            {themeOptions.map((opt) => {
+                                const isSelected = currentTheme === opt.value;
                                 return (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        onClick={() => {
-                                            setValue('theme', option.value, {
-                                                shouldDirty: true,
-                                                shouldTouch: true,
-                                            });
+                                    <SelectableCard
+                                        key={opt.value}
+                                        label={opt.label}
+                                        isSelected={isSelected}
+                                        padding={2}
+                                        onChange={() => {
+                                            if (!isSelected) {
+                                                setValue('theme', opt.value, {
+                                                    shouldDirty: true,
+                                                    shouldTouch: true,
+                                                });
+                                            }
                                         }}
-                                        className={cn(
-                                            'inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150 cursor-pointer select-none',
-                                            isSelected
-                                                ? 'border-primary/80 bg-primary/10 text-primary shadow-xs ring-1 ring-primary/20'
-                                                : 'border-border/70 bg-card hover:bg-muted/50 hover:border-border text-muted-foreground hover:text-foreground'
-                                        )}
                                     >
-                                        <IconComponent className={cn('h-3.5 w-3.5 shrink-0', isSelected ? 'text-primary' : 'text-muted-foreground')} />
-                                        <span>{option.label}</span>
-                                    </button>
+                                        <VStack gap={1.5} align="center" justify="center">
+                                            <Icon icon={opt.icon} size="sm" color={isSelected ? 'accent' : 'secondary'} />
+                                            <Text
+                                                type="supporting"
+                                                weight={isSelected ? 'semibold' : undefined}
+                                                color={isSelected ? 'primary' : 'secondary'}
+                                            >
+                                                {opt.label}
+                                            </Text>
+                                        </VStack>
+                                    </SelectableCard>
                                 );
                             })}
-                        </div>
+                        </Grid>
                     </SettingRow>
 
                     {/* 界面语言行 */}
@@ -152,25 +187,21 @@ const AppearanceSetting = () => {
                         description={t('appearance.languageDescription')}
                         icon={Globe}
                     >
-                        <Select
+                        <Selector
+                            label={t('appearance.languageTitle')}
+                            isLabelHidden
                             value={currentLanguage}
-                            onValueChange={(value) => {
-                                setValue('language', value as AppearanceFormValues['language'], {
+                            options={languageOptions}
+                            width={192}
+                            size="sm"
+                            onChange={(val) => {
+                                setValue('language', val as AppearanceFormValues['language'], {
                                     shouldDirty: true,
                                     shouldTouch: true,
                                 });
-                                applyLanguageSetting(value).catch(() => undefined);
+                                applyLanguageSetting(val).catch(() => undefined);
                             }}
-                        >
-                            <SelectTrigger className="w-44">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="system">{t('appearance.languageSystem')}</SelectItem>
-                                <SelectItem value="zh-CN">{t('appearance.languageZhCN')}</SelectItem>
-                                <SelectItem value="en-US">{t('appearance.languageEnUS')}</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        />
                     </SettingRow>
 
                     {/* 字幕字号行 */}
@@ -183,7 +214,6 @@ const AppearanceSetting = () => {
                             values={['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge']}
                             valueLabelMap={fontSizeOptions}
                             defaultValue={currentFontSize}
-                            inputWidth="w-56"
                             setValue={(v) => {
                                 if (v === 'fontSizeSmall' || v === 'fontSizeMedium' || v === 'fontSizeLarge') {
                                     setValue('fontSize', v, { shouldDirty: true, shouldTouch: true });
@@ -192,90 +222,81 @@ const AppearanceSetting = () => {
                         />
                     </SettingRow>
 
-                    {/* 实时字幕预览区域：清晰标注为“效果预览” */}
-                    <div className="p-5 bg-muted/20 border-t border-border/50 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-semibold text-muted-foreground tracking-wider uppercase">
+                    {/* 实时字幕预览区域 */}
+                    <VStack padding={4} gap={3} width="100%">
+                        <HStack justify="between" align="center" width="100%">
+                            <VStack gap={0.5}>
+                                <Text type="supporting" weight="semibold" color="secondary">
                                     {t('appearance.subtitlePreviewTitle')}
-                                </span>
-                                <span className="text-[11px] text-muted-foreground/60">
+                                </Text>
+                                <Text type="supporting" color="secondary">
                                     {t('appearance.subtitlePreviewHint')}
-                                </span>
-                            </div>
+                                </Text>
+                            </VStack>
 
-                            <div className="flex items-center gap-1.5 p-0.5 rounded-lg bg-muted/60 dark:bg-neutral-800/80 border border-border/60">
-                                <button
-                                    type="button"
-                                    onClick={() => setPreviewMode('main')}
-                                    className={cn(
-                                        'px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 cursor-pointer',
-                                        previewMode === 'main'
-                                            ? 'bg-background text-foreground shadow-2xs'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                    )}
-                                >
-                                    {t('appearance.subtitlePreviewMain')}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setPreviewMode('side')}
-                                    className={cn(
-                                        'px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 cursor-pointer',
-                                        previewMode === 'side'
-                                            ? 'bg-background text-foreground shadow-2xs'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                    )}
-                                >
-                                    {t('appearance.subtitlePreviewSide')}
-                                </button>
-                            </div>
-                        </div>
+                            <SegmentedControl
+                                label={t('appearance.subtitlePreviewTitle')}
+                                value={previewMode}
+                                onChange={setPreviewMode}
+                                size="sm"
+                            >
+                                <SegmentedControlItem
+                                    value="main"
+                                    label={t('appearance.subtitlePreviewMain')}
+                                />
+                                <SegmentedControlItem
+                                    value="side"
+                                    label={t('appearance.subtitlePreviewSide')}
+                                />
+                            </SegmentedControl>
+                        </HStack>
 
-                        {previewMode === 'main' ? (
-                            /* 主字幕全宽视口 */
-                            <div className="w-full rounded-2xl border border-border/70 bg-gradient-to-b from-background/90 to-background/50 p-6 shadow-xs flex flex-col items-center justify-center text-center gap-3 transition-all duration-200">
-                                <div className={cn(
-                                    'font-medium tracking-normal text-stone-800 dark:text-neutral-200 transition-all duration-150 leading-snug',
-                                    currentFontSize === 'fontSizeSmall' && 'text-xl',
-                                    (!currentFontSize || currentFontSize === 'fontSizeMedium') && 'text-2xl',
-                                    currentFontSize === 'fontSizeLarge' && 'text-3xl'
-                                )}>
-                                    Every <span className="text-emerald-700 dark:text-emerald-400 font-medium underline decoration-emerald-500/50 decoration-[1.5px] underline-offset-[0.22em] rounded px-0.5">journey</span> begins with a single bold step.
-                                </div>
-                                <div className={cn(
-                                    'font-normal tracking-wide text-stone-500 dark:text-neutral-400 transition-all duration-150 leading-relaxed',
-                                    currentFontSize === 'fontSizeSmall' && 'text-lg',
-                                    (!currentFontSize || currentFontSize === 'fontSizeMedium') && 'text-xl',
-                                    currentFontSize === 'fontSizeLarge' && 'text-2xl'
-                                )}>
-                                    每一个伟大的旅程，都始于勇敢迈出的第一步。
-                                </div>
-                            </div>
-                        ) : (
-                            /* 侧边字幕卡片视口：模拟播放器右侧栏真实卡片体验 */
-                            <div className="w-full rounded-2xl border border-border/70 bg-stone-200/40 dark:bg-neutral-900/40 p-6 shadow-xs flex flex-col items-center justify-center transition-all duration-200">
-                                <div className="w-full max-w-md rounded-xl border border-stone-200/80 dark:border-neutral-700/80 bg-stone-50 dark:bg-neutral-800 p-4 shadow-xs text-center">
-                                    <div className={cn(
-                                        'font-normal tracking-normal text-stone-950 dark:text-white transition-all duration-150 leading-snug',
-                                        currentFontSize === 'fontSizeSmall' && 'text-[14.5px]',
-                                        (!currentFontSize || currentFontSize === 'fontSizeMedium') && 'text-[16px]',
-                                        currentFontSize === 'fontSizeLarge' && 'text-[18px]'
-                                    )}>
-                                        Every <span className="text-emerald-700 dark:text-emerald-400 font-medium underline decoration-emerald-500/50 decoration-[1.5px] underline-offset-[0.22em] rounded px-0.5">journey</span> begins with a single bold step.
-                                    </div>
-                                    <div className={cn(
-                                        'mt-2 font-normal text-stone-600 dark:text-neutral-300 transition-all duration-150 leading-normal',
-                                        currentFontSize === 'fontSizeSmall' && 'text-[12.5px]',
-                                        (!currentFontSize || currentFontSize === 'fontSizeMedium') && 'text-[14px]',
-                                        currentFontSize === 'fontSizeLarge' && 'text-[15.5px]'
-                                    )}>
+                        <Card variant="default" padding={4} width="100%">
+                            {previewMode === 'main' ? (
+                                <VStack gap={2} align="center" justify="center" padding={2}>
+                                    <Text
+                                        type="large"
+                                        size={currentFontSize === 'fontSizeSmall' ? 'base' : currentFontSize === 'fontSizeLarge' ? '2xl' : 'lg'}
+                                        weight="medium"
+                                        justify="center"
+                                    >
+                                        Every journey begins with a single bold step.
+                                    </Text>
+                                    <Text
+                                        type="body"
+                                        color="secondary"
+                                        size={currentFontSize === 'fontSizeSmall' ? 'sm' : currentFontSize === 'fontSizeLarge' ? 'xl' : 'base'}
+                                        justify="center"
+                                    >
                                         每一个伟大的旅程，都始于勇敢迈出的第一步。
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                                    </Text>
+                                </VStack>
+                            ) : (
+                                <VStack gap={2} align="center" justify="center" padding={2}>
+                                    <Card variant="muted" padding={3} maxWidth={420} width="100%">
+                                        <VStack gap={1} align="center">
+                                            <Text
+                                                type="body"
+                                                weight="medium"
+                                                size={currentFontSize === 'fontSizeSmall' ? 'xsm' : currentFontSize === 'fontSizeLarge' ? 'base' : 'sm'}
+                                                justify="center"
+                                            >
+                                                Every journey begins with a single bold step.
+                                            </Text>
+                                            <Text
+                                                type="supporting"
+                                                color="secondary"
+                                                size={currentFontSize === 'fontSizeSmall' ? '4xs' : currentFontSize === 'fontSizeLarge' ? 'sm' : 'xsm'}
+                                                justify="center"
+                                            >
+                                                每一个伟大的旅程，都始于勇敢迈出的第一步。
+                                            </Text>
+                                        </VStack>
+                                    </Card>
+                                </VStack>
+                            )}
+                        </Card>
+                    </VStack>
                 </SettingCard>
             </SettingsPageShell>
         </form>

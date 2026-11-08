@@ -1,26 +1,27 @@
 import * as React from 'react';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
-import { SettingCard, SettingRow, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
-import StorageUsageCard from '@/fronted/features/settings/components/StorageUsageCard';
-import { Button } from '@/fronted/components/ui/button';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/fronted/components/ui/alert-dialog';
+    SettingCard,
+    SettingRow,
+    SettingsLoadingSkeleton,
+} from '@/fronted/features/settings/components/form';
+import StorageUsageCard from '@/fronted/features/settings/components/StorageUsageCard';
+import { Button } from '@astryxdesign/core/Button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Banner } from '@astryxdesign/core/Banner';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon } from '@astryxdesign/core/Icon';
 import { FolderOpen, HardDrive, RefreshCw, Trash2, FolderSync } from 'lucide-react';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
-import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
-import { Input } from '@/fronted/components/ui/input';
-import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
+import {
+    SETTINGS_DETAIL_SWR_OPTIONS,
+    settingsApi,
+} from '@/fronted/features/settings/settingsApi';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 import useSWR from 'swr';
@@ -31,14 +32,22 @@ import type { StorageUsageVO } from '@/common/contracts/storage-usage-vo';
 type StorageFormValues = StorageSettingVO;
 
 /**
- * 存储设置页：通过 detail 接口加载媒体库路径，自动保存到 save 接口。
+ * 存储偏好设置页面组件。
+ *
+ * 全面迁移至 Astryx UI 体系：
+ * - 危险操作重置：采用 Astryx AlertDialog 模态确认。
+ * - 路径输入与文件夹选择：采用 TextInput 与 IconButton。
+ * - 按钮与用量卡片：统一使用 Astryx 规范组件。
+ *
+ * @returns 存储设置 JSX 元素。
  */
-const StorageSetting = () => {
+const StorageSetting: React.FC = () => {
     const { t } = useI18nTranslation('settings');
     const [storageStatus, setStorageStatus] = React.useState<StorageStatusVO | null>(null);
     const [usage, setUsage] = React.useState<StorageUsageVO | null>(null);
-    // 初始即为待加载状态，避免首次查询完成前误显示“目录不可用”。
     const [usageLoading, setUsageLoading] = React.useState(true);
+    const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
+    const [isResetting, setIsResetting] = React.useState(false);
 
     const { data: detail } = useSWR<StorageSettingVO>(
         'settings/storage/detail',
@@ -49,9 +58,6 @@ const StorageSetting = () => {
     const form = useForm<StorageFormValues>();
     const { control, formState, setValue } = form;
 
-    /**
-     * 查询媒体库目录状态与存储用量明细。
-     */
     const loadStorageStatus = React.useCallback(async (configuredPath: string) => {
         try {
             const nextStatus = await settingsApi.getStorageStatus();
@@ -85,14 +91,15 @@ const StorageSetting = () => {
         }
     }, []);
 
-    const { status: autoSaveStatus, error: autoSaveError, initialize, flush } = useAutoSaveSettingsForm<StorageFormValues>({
-        form,
-        detailKey: 'settings/storage/detail',
-        onSave: async (values) => {
-            await settingsApi.saveStorage(values.path);
-            await loadStorageStatus(values.path);
-        },
-    });
+    const { status: autoSaveStatus, error: autoSaveError, initialize, flush } =
+        useAutoSaveSettingsForm<StorageFormValues>({
+            form,
+            detailKey: 'settings/storage/detail',
+            onSave: async (values) => {
+                await settingsApi.saveStorage(values.path);
+                await loadStorageStatus(values.path);
+            },
+        });
 
     React.useEffect(() => {
         if (!detail) {
@@ -127,11 +134,15 @@ const StorageSetting = () => {
 
     const handleClear = async () => {
         try {
+            setIsResetting(true);
             await settingsApi.resetDatabase();
+            setIsResetDialogOpen(false);
             toast.success(t('storage.resetSuccess'));
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             toast.error(`${t('storage.resetFailed')}\n${message}`);
+        } finally {
+            setIsResetting(false);
         }
     };
 
@@ -144,9 +155,6 @@ const StorageSetting = () => {
         }
     };
 
-    /**
-     * 手动刷新存储状态与用量明细。
-     */
     const handleRefreshUsage = React.useCallback(() => {
         if (!detail) {
             return;
@@ -168,69 +176,48 @@ const StorageSetting = () => {
     }
 
     return (
-        <div className="w-full h-full min-h-0">
+        <VStack width="100%" height="fill">
             <SettingsPageShell
                 title={t('storage.title')}
-                description={
-                    <span>
-                        {t('storage.descriptionLine1')}
-                        <br />
-                        {t('storage.descriptionLine2')}
-                    </span>
-                }
-                contentClassName="space-y-6"
-                actions={(
-                    <div className="flex gap-2">
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    type="button"
-                                >
-                                    <Trash2 className="h-4 w-4 mr-1.5" />
-                                    {t('storage.resetDatabase')}
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>{t('storage.resetConfirmTitle')}</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        {t('storage.resetConfirmDescription')}
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>{t('storage.resetConfirmCancel')}</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        onClick={() => handleClear().catch(() => undefined)}
-                                    >
-                                        {t('storage.resetConfirmOk')}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                description={`${t('storage.descriptionLine1')} ${t('storage.descriptionLine2')}`}
+                actions={
+                    <HStack gap={2}>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            label={t('storage.resetDatabase')}
+                            icon={<Icon icon={Trash2} size="sm" />}
+                            onClick={() => setIsResetDialogOpen(true)}
+                        />
                         <Button
                             onClick={handleOpen}
-                            variant="outline"
+                            variant="secondary"
                             size="sm"
-                            type="button"
-                            disabled={!canOpenLibrary}
-                        >
-                            <FolderOpen className="h-4 w-4 mr-1.5" />
-                            {t('storage.openLibraryFolder')}
-                        </Button>
-                    </div>
-                )}
+                            label={t('storage.openLibraryFolder')}
+                            icon={<Icon icon={FolderOpen} size="sm" />}
+                            isDisabled={!canOpenLibrary}
+                        />
+                    </HStack>
+                }
             >
-                {/* 路径不可用时后端会拒绝写入；必须把原因显式露出来，否则用户会以为已经保存 */}
+                <AlertDialog
+                    isOpen={isResetDialogOpen}
+                    onOpenChange={setIsResetDialogOpen}
+                    title={t('storage.resetConfirmTitle')}
+                    description={t('storage.resetConfirmDescription')}
+                    actionLabel={t('storage.resetConfirmOk')}
+                    cancelLabel={t('storage.resetConfirmCancel')}
+                    actionVariant="destructive"
+                    isActionLoading={isResetting}
+                    onAction={() => handleClear()}
+                />
+
                 {autoSaveStatus === 'error' && autoSaveError && (
-                    <div
+                    <Banner
                         role="alert"
-                        className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
-                    >
-                        {autoSaveError}
-                    </div>
+                        status="error"
+                        title={autoSaveError}
+                    />
                 )}
 
                 {/* 媒体库路径卡片 */}
@@ -243,35 +230,41 @@ const StorageSetting = () => {
                         description={t('storage.libraryPathDescription')}
                         icon={FolderOpen}
                     >
-                        <div className="flex gap-2 items-center">
+                        <HStack gap={2} align="center">
                             <Controller
                                 name="path"
                                 control={control}
                                 render={({ field }) => (
-                                    <Input
-                                        className="w-72 font-mono text-xs"
+                                    <TextInput
+                                        label={t('storage.libraryPathTitle')}
+                                        isLabelHidden
                                         placeholder="Documents/DashPlayer"
                                         value={field.value ?? ''}
-                                        onChange={(e) => field.onChange(e.target.value)}
+                                        onChange={(val) => field.onChange(val)}
                                         onBlur={field.onBlur}
+                                        size="sm"
+                                        width={280}
                                     />
                                 )}
                             />
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                type="button"
+                            <IconButton
+                                label={t('storage.openLibraryFolder')}
+                                icon={<Icon icon={FolderOpen} size="sm" />}
+                                variant="secondary"
+                                size="sm"
                                 onClick={async () => {
-                                    const folder: string[] = await settingsApi.selectStorageFolder({ createDirectory: true });
+                                    const folder: string[] = await settingsApi.selectStorageFolder({
+                                        createDirectory: true,
+                                    });
                                     if (folder.length > 0) {
-                                        const f = `${folder[0]}`;
-                                        setValue('path', f, { shouldDirty: true, shouldTouch: true });
+                                        setValue('path', String(folder[0]), {
+                                            shouldDirty: true,
+                                            shouldTouch: true,
+                                        });
                                     }
                                 }}
-                            >
-                                <FolderOpen className="h-4 w-4" />
-                            </Button>
-                        </div>
+                            />
+                        </HStack>
                     </SettingRow>
                 </SettingCard>
 
@@ -293,19 +286,17 @@ const StorageSetting = () => {
                         icon={RefreshCw}
                     >
                         <Button
-                            disabled={!canSyncCollections}
+                            isDisabled={!canSyncCollections}
                             onClick={reloadWordLearningClips}
-                            variant="outline"
+                            variant="secondary"
                             size="sm"
-                            type="button"
-                        >
-                            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                            {t('storage.wordClipsSync.button')}
-                        </Button>
+                            label={t('storage.wordClipsSync.button')}
+                            icon={<Icon icon={RefreshCw} size="sm" />}
+                        />
                     </SettingRow>
                 </SettingCard>
             </SettingsPageShell>
-        </div>
+        </VStack>
     );
 };
 

@@ -1,32 +1,31 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    CheckCircle2,
     ChevronDown,
     ChevronRight,
     Copy,
     Download,
     ExternalLink,
     FolderOpen,
-    Loader2,
     Square,
     Trash2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Button } from '@/fronted/components/ui/button';
-import { Progress } from '@/fronted/components/ui/progress';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/fronted/components/ui/select';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/fronted/components/ui/alert-dialog';
+
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Divider } from '@astryxdesign/core/Divider';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
+import { Selector } from '@astryxdesign/core/Selector';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Text } from '@astryxdesign/core/Text';
+import { Token } from '@astryxdesign/core/Token';
+import { VStack } from '@astryxdesign/core/VStack';
+
 import { ManualDownloadGuide } from '@/fronted/components/shared/ManualDownloadGuide';
 import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
@@ -106,6 +105,7 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
     const [expanded, setExpanded] = React.useState(false);
     const [downloading, setDownloading] = React.useState(false);
     const [deleting, setDeleting] = React.useState(false);
+    const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
     const [activePhase, setActivePhase] = React.useState<ModelDownloadPhase | null>(null);
     /** 正在下载的项；取消时用它决定中断哪一项。 */
     const [activeItemKey, setActiveItemKey] = React.useState<PackItemKey | null>(null);
@@ -159,7 +159,6 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
         return unsubscribe;
     }, [onRefresh, trackProgress]);
 
-
     /** 复制文本到剪贴板。 */
     const copyText = async (value: string) => {
         try {
@@ -188,7 +187,7 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
         }
     };
 
-    /** 资源包内的三项资源；顺序即下载顺序。 */
+    /** 资源包内的各项资源；顺序即下载顺序。 */
     const items: PackItem[] = [
         {
             key: 'tts',
@@ -235,18 +234,20 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             },
         },
     ];
+
     const pendingItems = items.filter((item) => !item.ready);
     const allReady = pendingItems.length === 0;
     const readyCount = items.length - pendingItems.length;
+
     /** 整体进度百分比：已完成项按整项计入，当前项按其自身进度折算。 */
     const overallPercent = packProgress.count > 0
         ? Math.min(100, Math.floor(((packProgress.completed + live.percent / 100) / packProgress.count) * 100))
         : 0;
+
     /** 当前这一项的剩余时间文案；网速未知时为 null。 */
     const remainingLabel = (() => {
         if (live.speed <= 0 || live.total <= live.downloaded) return null;
         const seconds = (live.total - live.downloaded) / live.speed;
-        // 低速下按秒数推算会得到毫无意义的大数，超过一小时只给个模糊说法
         if (seconds >= 3600) return t('resources.pack.etaLong');
         return seconds >= 60
             ? t('resources.pack.etaMinutes', {
@@ -255,6 +256,7 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             })
             : t('resources.pack.etaSeconds', { seconds: Math.max(1, Math.round(seconds)) });
     })();
+
     /** 下载中的阶段文案：优先收尾阶段，其次统一的"正在下载所需资源"。 */
     const progressLabel = activePhase && PHASE_LABEL_KEYS[activePhase]
         ? t(PHASE_LABEL_KEYS[activePhase] as string)
@@ -262,9 +264,6 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
 
     /**
      * 依次下载资源包里尚未完成的项。
-     *
-     * 串行而非并发：同时下载会互相抢带宽，进度也难以理解。
-     * 任一项失败即停下（原因展示在进度条下方），已完成的部分保留。
      */
     const downloadPack = async () => {
         cancelRequestedRef.current = false;
@@ -325,26 +324,29 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             toast.error(err instanceof Error ? err.message : String(err));
         } finally {
             setDeleting(false);
+            setDeleteAlertOpen(false);
             onRefresh();
         }
     };
 
+    const engineOptions = [
+        { value: 'whisper-cpp', label: t('resources.pack.engineHardware') },
+        { value: 'sherpa-onnx', label: t('resources.pack.engineCompat') },
+    ];
+
     return (
-        <div className="p-4 space-y-4">
-            {/* 状态行：一个徽标 + 一个主按钮（就绪后换成删除） */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 min-w-0">
-                    {allReady ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {t('resources.pack.ready')}
-                        </span>
-                    ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                            {t('resources.pack.notReady')}
-                        </span>
-                    )}
-                    <span className="text-xs text-muted-foreground truncate">
+        <VStack gap={4} padding={4}>
+            {/* 状态行：徽标 + 主操作 */}
+            <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
+                <HStack gap={2} vAlign="center">
+                    <StatusDot
+                        variant={allReady ? 'success' : 'neutral'}
+                        label={allReady ? t('resources.pack.ready') : t('resources.pack.notReady')}
+                    />
+                    <Text weight="medium" size="sm">
+                        {allReady ? t('resources.pack.ready') : t('resources.pack.notReady')}
+                    </Text>
+                    <Text size="xsm" color="secondary">
                         {allReady
                             ? t('resources.pack.sizeHint')
                             : t('resources.pack.progressHint', {
@@ -352,195 +354,211 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                                 done: readyCount,
                                 total: items.length,
                             })}
-                    </span>
-                </div>
+                    </Text>
+                </HStack>
 
-                <div className="flex shrink-0 items-center gap-2">
+                <HStack gap={2} vAlign="center">
                     {allReady ? (
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button type="button" variant="outline" size="sm" disabled={deleting}>
-                                    {deleting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
-                                    {t('resources.pack.delete')}
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>{t('resources.pack.deleteConfirmTitle')}</AlertDialogTitle>
-                                    <AlertDialogDescription>{t('resources.pack.deleteConfirmDescription')}</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>{t('resources.pack.cancelDelete')}</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => deletePack().catch(() => null)}>
-                                        {t('resources.pack.confirmDelete')}
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                        <>
+                            <Button
+                                label={t('resources.pack.delete')}
+                                size="sm"
+                                variant="secondary"
+                                isLoading={deleting}
+                                icon={<Icon icon={Trash2 as unknown as IconType} size="sm" />}
+                                onClick={() => setDeleteAlertOpen(true)}
+                            />
+                            <AlertDialog
+                                isOpen={deleteAlertOpen}
+                                onOpenChange={setDeleteAlertOpen}
+                                title={t('resources.pack.deleteConfirmTitle')}
+                                description={t('resources.pack.deleteConfirmDescription')}
+                                actionLabel={t('resources.pack.confirmDelete')}
+                                cancelLabel={t('resources.pack.cancelDelete')}
+                                onAction={() => void deletePack()}
+                                actionVariant="destructive"
+                                isActionLoading={deleting}
+                            />
+                        </>
                     ) : (
                         <Button
-                            type="button"
+                            label={downloading ? t('resources.pack.cancel') : t('resources.pack.download')}
                             size="sm"
+                            variant={downloading ? 'secondary' : 'primary'}
+                            icon={<Icon icon={(downloading ? Square : Download) as unknown as IconType} size="sm" />}
                             onClick={() => (downloading ? cancelDownload() : downloadPack()).catch(() => null)}
-                        >
-                            {downloading ? (
-                                <><Square className="mr-1.5 h-3.5 w-3.5" />{t('resources.pack.cancel')}</>
-                            ) : (
-                                <><Download className="mr-1.5 h-3.5 w-3.5" />{t('resources.pack.download')}</>
-                            )}
-                        </Button>
+                        />
                     )}
-                </div>
-            </div>
+                </HStack>
+            </HStack>
 
             {downloading && (
-                <div className="space-y-2">
-                    <Progress value={overallPercent} />
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{progressLabel}</span>
-                        <span>
+                <VStack gap={2}>
+                    <ProgressBar
+                        label="Download Progress"
+                        value={overallPercent}
+                        max={100}
+                        isLabelHidden
+                    />
+                    <HStack justify="between" vAlign="center">
+                        <Text size="xsm" color="secondary">{progressLabel}</Text>
+                        <Text size="xsm" color="secondary" hasTabularNumbers>
                             {overallPercent}%
                             {live.speed > 0 ? ` · ${formatSpeed(live.speed)}` : ''}
                             {remainingLabel ? ` · ${remainingLabel}` : ''}
-                        </span>
-                    </div>
-                </div>
+                        </Text>
+                    </HStack>
+                </VStack>
             )}
 
             {error && (
-                <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-                    {t('resources.pack.failed', { message: error })}
-                </div>
+                <Banner
+                    status="error"
+                    title={t('resources.pack.failed', { message: error })}
+                />
             )}
 
-            {/* 技术细节：识别方式、单项状态、手动下载教程 */}
-            <button
-                type="button"
-                onClick={() => setExpanded((value) => !value)}
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-            >
-                {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                {expanded ? t('resources.pack.hideDetails') : t('resources.pack.showDetails')}
-            </button>
+            {/* 技术细节折叠切换 */}
+            <HStack vAlign="center">
+                <Button
+                    label={expanded ? t('resources.pack.hideDetails') : t('resources.pack.showDetails')}
+                    size="sm"
+                    variant="ghost"
+                    icon={<Icon icon={(expanded ? ChevronDown : ChevronRight) as unknown as IconType} size="sm" />}
+                    onClick={() => setExpanded((prev) => !prev)}
+                />
+            </HStack>
 
             {expanded && (
-                <div className="space-y-4 border-t border-border/50 pt-3">
+                <VStack gap={4}>
+                    <Divider />
                     {items.map((item) => (
-                        <div key={item.key} className="space-y-2">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="min-w-0 space-y-0.5">
-                                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                                        {item.title}
-                                        {item.ready ? (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 dark:text-green-400">
-                                                <CheckCircle2 className="h-3 w-3" />
-                                                {t('resources.pack.itemReady')}
-                                            </span>
-                                        ) : (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                                                {t('resources.pack.itemMissing')}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">{item.description}</p>
-                                </div>
+                        <VStack key={item.key} gap={3}>
+                            <HStack justify="between" vAlign="center" wrap="wrap" gap={2}>
+                                <VStack gap={1}>
+                                    <HStack gap={2} vAlign="center">
+                                        <Text weight="medium" size="sm">{item.title}</Text>
+                                        <Token
+                                            label={item.ready ? t('resources.pack.itemReady') : t('resources.pack.itemMissing')}
+                                            size="sm"
+                                            color={item.ready ? 'green' : 'gray'}
+                                        />
+                                    </HStack>
+                                    <Text size="xsm" color="secondary">{item.description}</Text>
+                                </VStack>
                                 {item.ready && (
                                     <Button
-                                        type="button"
-                                        variant="outline"
+                                        label={t('common.openFolder')}
                                         size="sm"
-                                        className="shrink-0"
+                                        variant="secondary"
+                                        icon={<Icon icon={FolderOpen as unknown as IconType} size="sm" />}
                                         onClick={() => openFolder(item.targetPath).catch(() => null)}
-                                    >
-                                        <FolderOpen className="mr-1.5 h-3.5 w-3.5" />
-                                        {t('common.openFolder')}
-                                    </Button>
+                                    />
                                 )}
-                            </div>
+                            </HStack>
 
                             {item.key === 'transcription' && (
-                                <div className="flex items-center gap-2">
-                                    <span className="text-xs text-muted-foreground">{t('resources.pack.engineLabel')}</span>
-                                    <Select
+                                <HStack gap={2} vAlign="center">
+                                    <Text size="xsm" color="secondary">{t('resources.pack.engineLabel')}</Text>
+                                    <Selector
+                                        label={t('resources.pack.engineLabel')}
+                                        isLabelHidden
                                         value={transcriptionEngine}
-                                        onValueChange={(value) => onChangeEngine(value as TranscriptionEngine)}
-                                    >
-                                        <SelectTrigger className="h-8 w-48 text-xs"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="whisper-cpp">{t('resources.pack.engineHardware')}</SelectItem>
-                                            <SelectItem value="sherpa-onnx">{t('resources.pack.engineCompat')}</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
+                                        onChange={(val) => onChangeEngine(val as TranscriptionEngine)}
+                                        options={engineOptions}
+                                        size="sm"
+                                        width={200}
+                                    />
+                                </HStack>
                             )}
 
                             {!item.ready && (
                                 <ManualDownloadGuide variant="plain" title={t('resources.pack.manualTitle')}>
-                                    {/* 第 1 步：要下什么 */}
-                                    <div className="space-y-1.5">
-                                        <div className="font-semibold text-foreground">{t('resources.pack.step1Title')}</div>
-                                        <div className="text-muted-foreground/90">
+                                    <VStack gap={1.5}>
+                                        <Text weight="semibold" size="sm">{t('resources.pack.step1Title')}</Text>
+                                        <Text size="xsm" color="secondary">
                                             {t('resources.pack.manualModel', { model: item.modelLabel })}
-                                        </div>
+                                        </Text>
                                         {item.urls.length > 0 && (
-                                            <div className="space-y-2 rounded border border-border/60 bg-background/80 p-2 font-mono text-[11px] select-text">
-                                                {/* 首个为主源，其余为备用镜像；网络受限时可改用镜像地址手动下载 */}
-                                                {item.urls.map((url, index) => (
-                                                    <div key={url} className="space-y-1">
-                                                        <div className="flex items-start gap-1.5">
-                                                            {index > 0 && (
-                                                                <span className="mt-0.5 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 font-sans text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                                                                    {t('resources.pack.backupSource')}
-                                                                </span>
-                                                            )}
-                                                            <span className="break-all text-muted-foreground/70">{url}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 font-sans">
-                                                            <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => copyText(url).catch(() => null)}>
-                                                                <Copy className="mr-1 h-3 w-3" />
-                                                                {t('resources.pack.copyUrl')}
-                                                            </Button>
-                                                            <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => openUrl(url).catch(() => null)}>
-                                                                <ExternalLink className="mr-1 h-3 w-3" />
-                                                                {t('resources.pack.openInBrowser')}
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            <Card variant="default" padding={2}>
+                                                <VStack gap={2}>
+                                                    {item.urls.map((url, index) => (
+                                                        <VStack key={url} gap={1}>
+                                                            <HStack gap={1.5} vAlign="start">
+                                                                {index > 0 && (
+                                                                    <Token
+                                                                        label={t('resources.pack.backupSource')}
+                                                                        size="sm"
+                                                                        color="orange"
+                                                                    />
+                                                                )}
+                                                                <Text size="2xs" color="secondary" wordBreak="break-all" hasTabularNumbers>
+                                                                    {url}
+                                                                </Text>
+                                                            </HStack>
+                                                            <HStack gap={1}>
+                                                                <Button
+                                                                    label={t('resources.pack.copyUrl')}
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    icon={<Icon icon={Copy as unknown as IconType} size="xsm" />}
+                                                                    onClick={() => copyText(url).catch(() => null)}
+                                                                />
+                                                                <Button
+                                                                    label={t('resources.pack.openInBrowser')}
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    icon={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
+                                                                    onClick={() => openUrl(url).catch(() => null)}
+                                                                />
+                                                            </HStack>
+                                                        </VStack>
+                                                    ))}
+                                                </VStack>
+                                            </Card>
                                         )}
-                                    </div>
+                                    </VStack>
 
-                                    {/* 第 2 步：放哪里 */}
-                                    <div className="space-y-1.5">
-                                        <div className="font-semibold text-foreground">{t('resources.pack.step2Title')}</div>
-                                        <div className="space-y-2 rounded border border-border/60 bg-background/80 p-2.5 font-mono text-[11px] select-text">
-                                            <div className="break-all text-muted-foreground/70">{item.targetPath}</div>
-                                            <div className="flex items-center gap-2 pt-1 font-sans">
-                                                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => copyText(item.targetPath).catch(() => null)}>
-                                                    <Copy className="mr-1 h-3 w-3" />
-                                                    {t('resources.pack.copyPath')}
-                                                </Button>
-                                                <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => openFolder(item.targetPath).catch(() => null)}>
-                                                    <FolderOpen className="mr-1 h-3 w-3" />
-                                                    {t('common.openFolder')}
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <VStack gap={1.5}>
+                                        <Text weight="semibold" size="sm">{t('resources.pack.step2Title')}</Text>
+                                        <Card variant="default" padding={3}>
+                                            <VStack gap={2}>
+                                                <Text size="2xs" color="secondary" wordBreak="break-all" hasTabularNumbers>
+                                                    {item.targetPath}
+                                                </Text>
+                                                <HStack gap={2}>
+                                                    <Button
+                                                        label={t('resources.pack.copyPath')}
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        icon={<Icon icon={Copy as unknown as IconType} size="xsm" />}
+                                                        onClick={() => copyText(item.targetPath).catch(() => null)}
+                                                    />
+                                                    <Button
+                                                        label={t('common.openFolder')}
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        icon={<Icon icon={FolderOpen as unknown as IconType} size="xsm" />}
+                                                        onClick={() => openFolder(item.targetPath).catch(() => null)}
+                                                    />
+                                                </HStack>
+                                            </VStack>
+                                        </Card>
+                                    </VStack>
 
-                                    {/* 第 3 步：装 */}
-                                    <div className="space-y-0.5 rounded bg-muted/30 p-2 text-muted-foreground/90">
-                                        <div className="font-semibold text-foreground">{t('resources.pack.step3Title')}</div>
-                                        <div>{t('resources.pack.step3Hint')}</div>
-                                    </div>
+                                    <Card variant="muted" padding={2}>
+                                        <VStack gap={1}>
+                                            <Text weight="semibold" size="sm">{t('resources.pack.step3Title')}</Text>
+                                            <Text size="xsm" color="secondary">{t('resources.pack.step3Hint')}</Text>
+                                        </VStack>
+                                    </Card>
                                 </ManualDownloadGuide>
                             )}
-                        </div>
+                        </VStack>
                     ))}
-                </div>
+                </VStack>
             )}
-        </div>
+        </VStack>
     );
 };
 
