@@ -76,7 +76,7 @@ describe('应用启动门槛', () => {
 
         expect(await screen.findByText(/SQLITE_BUSY/)).toBeDefined();
         expect(screen.queryByText('steps.storage.heroTitle')).toBeNull();
-        expect(screen.queryByRole('status')).toBeNull();
+        expect(screen.queryByRole('status', { name: 'loading' })).toBeNull();
     });
 
     it('启动门槛尚未判定完成时展示加载指示，不留白屏', () => {
@@ -85,7 +85,7 @@ describe('应用启动门槛', () => {
 
         render(<App />);
 
-        expect(screen.getByRole('status')).toBeDefined();
+        expect(screen.getByRole('status', { name: 'loading' })).toBeDefined();
         expect(screen.getByText('loading')).toBeDefined();
     });
 });

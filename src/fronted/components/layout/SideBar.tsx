@@ -1,104 +1,107 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { cloneElement, type ReactElement } from 'react';
-import { cn } from '@/fronted/lib/utils';
+import React, { useMemo } from 'react';
+import { BookOpen, Settings, Video } from 'lucide-react';
+import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { Center } from '@astryxdesign/core/Center';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { SideNav, SideNavItem } from '@astryxdesign/core/SideNav';
+import { VStack } from '@astryxdesign/core/VStack';
 import logoLight from '../../../../assets/logo-light.png';
 import logoDark from '../../../../assets/logo-dark.png';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import YoutubeImportSidebarItem from '@/fronted/features/youtube-import/YoutubeImportSidebarItem';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import { BookOpen, Captions, Rotate3D, Settings, SquareSplitHorizontal, Star, Video } from 'lucide-react';
-import { useTranslation as useI18nTranslation } from 'react-i18next';
 
-/** 左侧主导航栏属性。 */
+/**
+ * 左侧主导航栏属性定义。
+ */
 export interface SideBarProps {
     /** 是否以紧凑图标模式展示。 */
     compact?: boolean;
 }
 
 /**
- * 桌面端主导航侧栏，提供各核心功能页面入口及当前主题标识。
+ * 桌面端主导航侧栏：提供核心功能页面入口及主题标识。
+ *
+ * 基于 Astryx SideNav 与 SideNavItem 构建，根据窗口尺寸自适应宽栏/窄栏模式。
+ *
+ * @param props 组件属性。
+ * @returns 侧栏 JSX 元素。
  */
-const SideBar = ({ compact = false }: SideBarProps) => {
+const SideBar: React.FC<SideBarProps> = ({ compact = false }) => {
     const { t } = useI18nTranslation('nav');
     const navigate = useNavigate();
     const location = useLocation();
     const videoId = usePlaybackSession((s) => s.videoId);
     const theme = useSetting((s) => s.values.get('appearance.theme'));
-    const item = (
-        text: string,
-        path: string,
-        key: string,
-        icon: ReactElement
-    ) => {
-        const isPlayer = key === 'pa-player';
-        const isActive = isPlayer
-            ? location.pathname.startsWith('/player')
-            : location.pathname.includes(key);
-        return (
-            <div
-                onMouseDown={() => navigate(path)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        navigate(path);
-                    }
-                }}
-                className={cn(
-                    'w-full px-2 flex justify-start items-center gap-2 rounded-xl h-10 transition-all',
-                    isActive
-                        ? 'bg-white dark:bg-neutral-900 shadow-[0_2px_8px_rgba(0,0,0,0.06)] dark:shadow-none text-foreground font-medium'
-                        : 'text-foreground/80 hover:bg-black/5 dark:hover:bg-white/5',
-                    compact && 'justify-center'
-                )}
-            >
-                {cloneElement(icon as ReactElement<{ className?: string }>, {
-                    className: cn('w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0')
-                })}
-                {!compact && (
-                    <div className={cn('text-base text-foreground  truncate w-0 flex-1')}>
-                        {text}
-                    </div>
-                )}
-            </div>
-        );
-    };
+
+    const isDark = useMemo(() => {
+        if (theme === 'dark') return true;
+        if (theme === 'light') return false;
+        return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+    }, [theme]);
+
+    const isPlayer = location.pathname.startsWith('/player');
+    const isVocabulary = location.pathname.startsWith('/vocabulary');
+    const isSettings = location.pathname.startsWith('/settings');
 
     return (
-        <div className={cn('w-full h-full flex flex-col text-foreground')}>
-            <div
-                className={cn(
-                    'flex-1 flex items-center justify-center min-h-fit py-10'
-                )}
-            >
-                <img
-                    className={cn(
-                        'w-24 h-24 user-drag-none',
-                        compact && 'w-14 h-14'
-                    )}
-                    src={(theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)) ? logoDark : logoLight}
-                    alt=""
-                />
-            </div>
-            <div className={cn('basis-3/4 flex flex-col p-3 gap-1')}>
-                {/* {item('Home', '/home', 'home', <HiOutlineHome />)} */}
+        <SideNav
+            collapsible={compact ? { isCollapsed: true } : false}
+            header={
+                <Center width="100%" paddingBlock={compact ? 3 : 6}>
+                    <img
+                        className="user-drag-none transition-all duration-200"
+                        style={{ width: compact ? 36 : 72, height: compact ? 36 : 72 }}
+                        src={isDark ? logoDark : logoLight}
+                        alt="DashPlayer Logo"
+                    />
+                </Center>
+            }
+        >
+            <VStack gap={1} width="100%">
                 <YoutubeImportSidebarItem compact={compact} />
-                {item(
-                    t('playbackLab'),
-                    `/player/${videoId}?sideBarAnimation=false`,
-                    'pa-player',
-                    <Video />
-                )}
-                {item(
-                    t('vocabularyStudio'),
-                    '/vocabulary',
-                    'vocabulary',
-                    <BookOpen />
-                )}
-                {item(t('settingsCenter'), '/settings', 'settings', <Settings />)}
-            </div>
-        </div>
+
+                <SideNavItem
+                    label={t('playbackLab')}
+                    icon={
+                        <Icon
+                            icon={Video as unknown as IconType}
+                            size="sm"
+                            color={isPlayer ? 'primary' : 'secondary'}
+                        />
+                    }
+                    isSelected={isPlayer}
+                    onClick={() => navigate(`/player/${videoId}?sideBarAnimation=false`)}
+                />
+
+                <SideNavItem
+                    label={t('vocabularyStudio')}
+                    icon={
+                        <Icon
+                            icon={BookOpen as unknown as IconType}
+                            size="sm"
+                            color={isVocabulary ? 'primary' : 'secondary'}
+                        />
+                    }
+                    isSelected={isVocabulary}
+                    onClick={() => navigate('/vocabulary')}
+                />
+
+                <SideNavItem
+                    label={t('settingsCenter')}
+                    icon={
+                        <Icon
+                            icon={Settings as unknown as IconType}
+                            size="sm"
+                            color={isSettings ? 'primary' : 'secondary'}
+                        />
+                    }
+                    isSelected={isSettings}
+                    onClick={() => navigate('/settings')}
+                />
+            </VStack>
+        </SideNav>
     );
 };
 

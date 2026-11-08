@@ -9,12 +9,7 @@ import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import type { WindowState } from '@/common/types/Types';
 import { Maximize2, Minimize2 } from 'lucide-react';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 
 /**
  * Windows / Linux 标题栏属性。
@@ -117,30 +112,23 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
                         title={isMaximized ? t('restore') : t('maximize')}
                     />
                     {maximizable ? (
-                        <TooltipProvider delayDuration={300}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        onClick={handleToggleFullscreen}
-                                        className={cn(
-                                            'no-drag inline-flex items-center justify-center w-3 h-3 mr-[5px] text-muted-foreground/70 hover:text-foreground transition-colors',
-                                            isFullscreen && 'text-primary',
-                                        )}
-                                        type="button"
-                                        aria-label={isFullscreen ? t('exitFullScreen') : t('enterFullScreen')}
-                                    >
-                                        {isFullscreen ? (
-                                            <Minimize2 className="w-2.5 h-2.5" />
-                                        ) : (
-                                            <Maximize2 className="w-2.5 h-2.5" />
-                                        )}
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="bottom" className="text-xs">
-                                    {isFullscreen ? t('exitFullScreen') : t('enterFullScreen')}
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        <Tooltip content={isFullscreen ? t('exitFullScreen') : t('enterFullScreen')} placement="below">
+                            <button
+                                onClick={handleToggleFullscreen}
+                                className={cn(
+                                    'no-drag inline-flex items-center justify-center w-3 h-3 mr-[5px] text-muted-foreground/70 hover:text-foreground transition-colors',
+                                    isFullscreen && 'text-primary',
+                                )}
+                                type="button"
+                                aria-label={isFullscreen ? t('exitFullScreen') : t('enterFullScreen')}
+                            >
+                                {isFullscreen ? (
+                                    <Minimize2 className="w-2.5 h-2.5" />
+                                ) : (
+                                    <Maximize2 className="w-2.5 h-2.5" />
+                                )}
+                            </button>
+                        </Tooltip>
                     ) : null}
                     <button
                         onClick={handleClose}
