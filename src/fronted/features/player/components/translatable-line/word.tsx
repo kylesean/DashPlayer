@@ -136,13 +136,14 @@ export default function Word({
 
     const hoverBg = classNames?.hover ?? (alwaysDark ? 'hover:bg-neutral-600' : theme.word.hoverBgClass);
     const vocabCls = isVocabularyWord ? (classNames?.vocab ?? theme.word.vocabHighlightClass) : undefined;
-    const setting = useSetting((state) => state.setting);
-    const dictionaryEngineRaw = setting('providers.dictionary');
+    // 订阅设置值本身而非直读 get()：setting() 引用稳定不触发重渲染，
+    // 开关切换后已挂载的 Word 会拿旧闭包值（开关拨了第一下不灵）
+    const dictionaryEngineRaw = useSetting((state) => state.values.get('providers.dictionary'));
     const dictionaryEngine =
         dictionaryEngineRaw === 'openai' || dictionaryEngineRaw === 'local'
             ? dictionaryEngineRaw
             : 'openai';
-    const pauseOnWordHover = setting('player.pauseOnWordHover') === 'true';
+    const pauseOnWordHover = useSetting((state) => state.values.get('player.pauseOnWordHover')) === 'true';
 
     // 订阅流式查词状态；当本词不是活动流时直接忽略
     const dictionaryEntry = useDictionaryStream((state) => state.getActiveEntry(original));
