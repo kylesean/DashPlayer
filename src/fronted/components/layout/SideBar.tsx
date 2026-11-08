@@ -72,7 +72,13 @@ const SideBar: React.FC<SideBarProps> = ({ compact = false }) => {
                         />
                     }
                     isSelected={isPlayer}
-                    onClick={() => navigate(`/player/${videoId}?sideBarAnimation=false`)}
+                    onClick={() => {
+                        if (videoId && videoId !== 'undefined') {
+                            navigate(`/player/${videoId}?sideBarAnimation=false`);
+                        } else {
+                            navigate('/player?sideBarAnimation=false');
+                        }
+                    }}
                 />
 
                 <SideNavItem

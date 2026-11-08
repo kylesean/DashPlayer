@@ -32,8 +32,14 @@ export const fileBrowserApi = {
      *
      * @param videoId 视频标识。
      * @returns 观看记录详情。
+     * @throws 缺少或非法的 videoId 时抛出错误，避免向上游 IPC 发送空参数。
      */
-    getWatchHistoryDetail: (videoId: string) => backendClient.call('watch-history/detail', videoId),
+    getWatchHistoryDetail: (videoId: string) => {
+        if (!videoId || videoId === 'undefined') {
+            throw new Error('缺少视频标识，无法查询观看记录详情');
+        }
+        return backendClient.call('watch-history/detail', videoId);
+    },
 
     /**
      * 创建观看记录。

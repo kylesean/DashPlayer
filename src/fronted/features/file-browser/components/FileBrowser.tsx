@@ -40,8 +40,8 @@ const FileBrowser = () => {
         return () => window.removeEventListener('resize', checkHeight);
     }, []);
     const { data } = useSWR(
-        [apiPath('watch-history/detail'), videoId],
-        ([_p, v]) => fileBrowserApi.getWatchHistoryDetail(v ?? ''),
+        videoId && videoId !== 'undefined' ? [apiPath('watch-history/detail'), videoId] : null,
+        ([_p, v]) => fileBrowserApi.getWatchHistoryDetail(v),
         {
             revalidateOnFocus: false,
             fallbackData: previousData,

@@ -191,6 +191,10 @@ export const App = () => {
                                     path="player/:videoId"
                                     element={<PlayerPage />}
                                 />
+                                <Route
+                                    path="player"
+                                    element={<PlayerPage />}
+                                />
                                 <Route path="*" element={<AppShellLayout />}>
                                     <Route
                                         path="vocabulary"
