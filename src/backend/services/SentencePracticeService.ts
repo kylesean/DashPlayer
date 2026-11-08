@@ -21,15 +21,16 @@ import type SentencePracticeRecordRepository from '@/backend/services/repositori
 /**
  * 句子跟读/听写练习业务服务。
  *
- * 跟读:MediaRecorder 录音字节 → 临时目录 → ffmpeg 转 16kHz 单声道 WAV →
+ * 跟读:MediaRecorder 录音字节 → practice 持久目录 → ffmpeg 转 16kHz 单声道 WAV →
  * 本地 ASR(whisper.cpp/sherpa-onnx,按设置路由)转写 → 与原句词级对齐评分;
+ * 录音 webm 随练习记录留存供回放,评分链路失败时清理落盘文件。
  * 听写:键入文本直接与原句对齐评分。评分共用 common 层确定性算法,不经 LLM。
  */
 export default interface SentencePracticeService {
     /**
      * 跟读评分:转写用户录音并与原句对齐,结果落库后返回。
      *
-     * @returns 分数、转写文本与逐词对齐结果。
+     * @returns 分数、转写文本、逐词对齐结果与录音回放路径。
      */
     scoreShadowing(params: SentencePracticeShadowingParams): Promise<SentencePracticeResultVO>;
 
@@ -76,48 +77,56 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     public async scoreShadowing(params: SentencePracticeShadowingParams): Promise<SentencePracticeResultVO> {
         const { fileHash, sentenceIndex, audio, expectedText } = params;
         this.validateKeys(fileHash, sentenceIndex);
-        const transcript = await this.transcribeRecording(fileHash, sentenceIndex, audio);
+        const { transcript, audioFile } = await this.transcribeRecording(fileHash, sentenceIndex, audio);
         const alignment = alignPracticeTokens(expectedText, transcript);
-        await this.persistRecord(fileHash, sentenceIndex, 'shadowing', alignment.score, transcript, alignment.words);
-        return { score: alignment.score, transcript, words: alignment.words };
+        await this.persistRecord(fileHash, sentenceIndex, 'shadowing', alignment.score, transcript, alignment.words, audioFile);
+        return { score: alignment.score, transcript, words: alignment.words, audioPath: await this.resolveAudioPath(audioFile) };
     }
 
     public async scoreDictation(params: SentencePracticeDictationParams): Promise<SentencePracticeResultVO> {
         const { fileHash, sentenceIndex, typedText, expectedText } = params;
         this.validateKeys(fileHash, sentenceIndex);
         const alignment = alignPracticeTokens(expectedText, typedText);
-        await this.persistRecord(fileHash, sentenceIndex, 'dictation', alignment.score, typedText, alignment.words);
-        return { score: alignment.score, transcript: typedText, words: alignment.words };
+        await this.persistRecord(fileHash, sentenceIndex, 'dictation', alignment.score, typedText, alignment.words, null);
+        return { score: alignment.score, transcript: typedText, words: alignment.words, audioPath: null };
     }
 
     public async listBySentence(params: { fileHash: string; sentenceIndex: number }): Promise<SentencePracticeRecordVO[]> {
         const { fileHash, sentenceIndex } = params;
         this.validateKeys(fileHash, sentenceIndex);
         const records = await this.repository.listBySentence(fileHash, sentenceIndex);
-        return records.map((record) => ({
+        return Promise.all(records.map(async (record) => ({
             id: record.id,
             fileHash: record.file_hash,
             sentenceIndex: record.sentence_index,
             mode: record.mode as SentencePracticeMode,
             score: record.score,
             transcript: record.transcript,
+            audioPath: record.audio_file ? await this.resolveAudioPath(record.audio_file) : null,
             createdAt: record.created_at,
-        }));
+        })));
     }
 
     /**
-     * 转写录音:webm 落盘临时会话目录 → 16kHz 单声道 WAV → 本地 ASR。
-     * 会话目录是纯临时产物,无论成败用完即删。
+     * 转写录音:webm 直接落盘到 practice 持久目录(评分成功即随记录留存供回放)
+     * → 同目录派生 16kHz 单声道 WAV → 本地 ASR。评分链路任何一步失败都清掉落盘文件;
+     * 成功则只保留原始 webm(派生 wav 用完即删)。
+     *
+     * @returns 转写文本与录音在 practice 目录下的相对路径。
      */
-    private async transcribeRecording(fileHash: string, sentenceIndex: number, audio: Uint8Array): Promise<string> {
-        const tempRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
-        const sessionDir = path.join(tempRoot, 'practice', `${fileHash}-${sentenceIndex}-${randomUUID()}`);
-        await this.fileSystemGateway.ensureDirectory(sessionDir);
-        const rawPath = path.join(sessionDir, 'recording.webm');
-        const wavPath = path.join(sessionDir, 'recording.wav');
+    private async transcribeRecording(
+        fileHash: string,
+        sentenceIndex: number,
+        audio: Uint8Array,
+    ): Promise<{ transcript: string; audioFile: string }> {
+        const practiceRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.PRACTICE);
+        const audioFile = `${fileHash}/${randomUUID()}.webm`;
+        const audioAbs = path.join(practiceRoot, audioFile);
+        const wavPath = `${audioAbs}.wav`;
         try {
-            await this.fileSystemGateway.writeBinaryFile(rawPath, audio);
-            await this.ffmpegService.convertToWav(rawPath, wavPath);
+            await this.fileSystemGateway.ensureDirectory(path.dirname(audioAbs));
+            await this.fileSystemGateway.writeBinaryFile(audioAbs, audio);
+            await this.ffmpegService.convertToWav(audioAbs, wavPath);
             const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
             const gateway = this.transcriptionEngineSelector.select();
             const result = await gateway.transcribe({
@@ -125,10 +134,19 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
                 modelsRoot,
                 job: `practice:${fileHash}:${sentenceIndex}`,
             });
-            return result.text.trim();
+            return { transcript: result.text.trim(), audioFile };
+        } catch (error) {
+            // 没有练习记录承载的录音没有留存价值,评分失败即清理
+            await this.fileSystemGateway.removeFileIfExists(audioAbs).catch(() => undefined);
+            throw error;
         } finally {
-            await this.fileSystemGateway.removeDirectoryIfExists(sessionDir).catch(() => undefined);
+            await this.fileSystemGateway.removeFileIfExists(wavPath).catch(() => undefined);
         }
+    }
+
+    private async resolveAudioPath(audioFile: string): Promise<string> {
+        const practiceRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.PRACTICE);
+        return path.join(practiceRoot, audioFile);
     }
 
     private async persistRecord(
@@ -138,6 +156,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         score: number,
         transcript: string,
         words: SentencePracticeResultVO['words'],
+        audioFile: string | null,
     ): Promise<void> {
         try {
             await this.repository.insertOne({
@@ -146,6 +165,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
                 mode,
                 score,
                 transcript: transcript || null,
+                audio_file: audioFile,
                 detail_json: JSON.stringify(words),
             });
         } catch (error) {

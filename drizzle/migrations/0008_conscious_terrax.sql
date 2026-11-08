@@ -1,0 +1,1 @@
+ALTER TABLE `dp_sentence_practice_record` ADD `audio_file` text;

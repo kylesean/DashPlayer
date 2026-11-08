@@ -14,7 +14,8 @@
         "processing": "评分中…",
         "empty": "没有录到声音",
         "denied": "麦克风不可用或未授权",
-        "unsupported": "当前环境不支持录音"
+        "unsupported": "当前环境不支持录音",
+        "playbackFailed": "录音回放失败"
     },
     "shadowing": {
         "hint": "点击开始，对着麦克风朗读这句；再次点击结束并评分",
@@ -28,6 +29,7 @@
     },
     "result": {
         "heard": "识别结果",
+        "playMine": "播放我的录音",
         "retry": "再试一次",
         "history": "练习记录",
         "modeShadowing": "跟读",

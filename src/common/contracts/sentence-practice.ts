@@ -39,6 +39,8 @@ export interface SentencePracticeResultVO {
     transcript: string | null;
     /** 按原句词序排列的对齐结果,extra 词追加在末尾。 */
     words: SentencePracticeWordResult[];
+    /** 本次跟读录音的绝对路径,供前端回放自己的发音;听写/无录音时为 null。 */
+    audioPath: string | null;
 }
 
 /**
@@ -54,6 +56,8 @@ export interface SentencePracticeRecordVO {
     score: number;
     /** 语音转写文本或听写输入;shadowing 转写失败时为 null。 */
     transcript: string | null;
+    /** 跟读录音的绝对路径;听写记录无音频为 null。 */
+    audioPath: string | null;
     createdAt: string;
 }
 

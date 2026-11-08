@@ -14,7 +14,8 @@
         "processing": "Scoring…",
         "empty": "No sound captured",
         "denied": "Microphone unavailable or not authorized",
-        "unsupported": "Recording is not supported in this environment"
+        "unsupported": "Recording is not supported in this environment",
+        "playbackFailed": "Failed to play recording"
     },
     "shadowing": {
         "hint": "Click to start reading this sentence aloud; click again to stop and score",
@@ -28,6 +29,7 @@
     },
     "result": {
         "heard": "Heard",
+        "playMine": "Play my recording",
         "retry": "Try again",
         "history": "Practice history",
         "modeShadowing": "Shadowing",

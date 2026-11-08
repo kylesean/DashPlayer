@@ -178,7 +178,7 @@ class FakeStorageDirectoryProvider implements StorageDirectoryProvider {
         [StorageDirectoryTarget.TEMP, '/storage/temp'],
         [StorageDirectoryTarget.BIN, '/storage/bin'],
         [StorageDirectoryTarget.MODELS, '/storage/models'],
-        [StorageDirectoryTarget.DUBBING, '/storage/dubbing'],
+        [StorageDirectoryTarget.PRACTICE, '/storage/practice'],
     ]);
 
     public async provideDirectory(target: StorageDirectoryTarget): Promise<string> {

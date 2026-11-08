@@ -46,6 +46,7 @@ const buildService = (options: {
         ensureDirectory: vi.fn(async () => undefined),
         writeBinaryFile: vi.fn(async () => undefined),
         removeDirectoryIfExists: vi.fn(async () => undefined),
+        removeFileIfExists: vi.fn(async () => undefined),
     } as unknown as FileSystemGateway;
     (service as unknown as { repository: SentencePracticeRecordRepository }).repository = {
         insertOne: vi.fn(async () => 1),
@@ -63,7 +64,7 @@ const SHADOWING_PARAMS = {
 };
 
 describe('句子练习服务:跟读与听写评分', () => {
-    it('跟读:录音经转写后与原句对齐评分并落库', async () => {
+    it('跟读:录音经转写后与原句对齐评分、落库并返回回放路径', async () => {
         const repository = { insertOne: vi.fn(async () => 1) };
         const service = buildService({ transcript: 'I like green apples', repository });
 
@@ -71,11 +72,14 @@ describe('句子练习服务:跟读与听写评分', () => {
         expect(result.score).toBe(100);
         expect(result.transcript).toBe('I like green apples');
         expect(result.words.every((w) => w.status === 'match')).toBe(true);
+        expect(result.audioPath).toContain('/tmp/practice-test-root/abc123/');
+        expect(result.audioPath?.endsWith('.webm')).toBe(true);
         expect(repository.insertOne).toHaveBeenCalledWith(expect.objectContaining({
             file_hash: 'abc123',
             sentence_index: 7,
             mode: 'shadowing',
             score: 100,
+            audio_file: expect.stringMatching(/^abc123\/[0-9a-f-]+\.webm$/),
         }));
     });
 
@@ -92,10 +96,11 @@ describe('句子练习服务:跟读与听写评分', () => {
         // 漏 green:(3/4)×100 = 75
         expect(result.score).toBe(75);
         expect(result.transcript).toBe('I like apples');
-        expect(repository.insertOne).toHaveBeenCalledWith(expect.objectContaining({ mode: 'dictation', score: 75 }));
+        expect(result.audioPath).toBeNull();
+        expect(repository.insertOne).toHaveBeenCalledWith(expect.objectContaining({ mode: 'dictation', score: 75, audio_file: null }));
     });
 
-    it('ASR 引擎抛错(如模型缺失)时错误原样上抛且不落库', async () => {
+    it('ASR 引擎抛错(如模型缺失)时错误原样上抛、清理落盘录音且不落库', async () => {
         const repository = { insertOne: vi.fn(async () => 1) };
         const service = buildService({
             transcribeError: new Error('whisper.cpp 模型文件缺失：/x.bin，请先在设置中心下载模型'),
@@ -104,6 +109,11 @@ describe('句子练习服务:跟读与听写评分', () => {
 
         await expect(service.scoreShadowing(SHADOWING_PARAMS)).rejects.toThrow('模型文件缺失');
         expect(repository.insertOne).not.toHaveBeenCalled();
+        // 没有记录承载的录音落盘文件被清理
+        const gateway = (service as unknown as { fileSystemGateway: FileSystemGateway }).fileSystemGateway;
+        expect(gateway.removeFileIfExists).toHaveBeenCalledWith(
+            expect.stringContaining('/tmp/practice-test-root/abc123/'),
+        );
     });
 
     it('非法 fileHash / sentenceIndex 直接拒绝,不触碰 ASR', async () => {
@@ -123,6 +133,7 @@ describe('句子练习服务:跟读与听写评分', () => {
                     mode: 'dictation',
                     score: 88,
                     transcript: 'I like apples',
+                    audio_file: null,
                     detail_json: null,
                     created_at: '2026-01-01 00:00:00',
                 }]),

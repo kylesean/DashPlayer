@@ -28,6 +28,10 @@ export const sentencePracticeRecord = sqliteTable('dp_sentence_practice_record',
      */
     transcript: text('transcript'),
     /**
+     * 跟读录音 webm 在 practice 目录下的相对路径;听写记录为 null
+     */
+    audio_file: text('audio_file'),
+    /**
      * 逐词对齐结果(JSON 序列化的 SentencePracticeWordResult[])
      */
     detail_json: text('detail_json'),

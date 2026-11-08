@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import useSWR from 'swr';
@@ -6,6 +6,7 @@ import { Keyboard, Loader2, Mic, Pause, Play, RotateCcw, Square, Volume2, X } fr
 import { Button } from '@/fronted/components/ui/button';
 import { Textarea } from '@/fronted/components/ui/textarea';
 import { cn } from '@/fronted/lib/utils';
+import UrlUtil from '@/common/utils/UrlUtil';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
@@ -98,6 +99,8 @@ const PracticePanel = () => {
     const [typed, setTyped] = useState('');
     const [dictationRevealed, setDictationRevealed] = useState(false);
     const [recordingSeconds, setRecordingSeconds] = useState(0);
+    // 单路回放会话:同一时刻只放一段录音(原句播放走视频轨,不在此管)
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     // 本地 ASR 是否就绪(资源状态聚合里 transcription.ready)
     const { data: resourceStatus } = useSWR('settings/resource-status/detail', () => settingsApi.getResourceStatus());
@@ -127,6 +130,17 @@ const PracticePanel = () => {
         if (!currentSentence) return;
         playerActions.gotoSentence(currentSentence);
         playerActions.play();
+    };
+
+    /** 回放自己的跟读录音:先停掉上一路,再从录音文件起播。 */
+    const playRecording = (audioPath: string): void => {
+        audioRef.current?.pause();
+        const audio = new Audio(UrlUtil.toUrl(audioPath));
+        audioRef.current = audio;
+        void audio.play().catch((error) => {
+            logger.error('跟读录音回放失败', { error });
+            toast.error(t('recorder.playbackFailed'));
+        });
     };
 
     const submitShadowing = async (audio: Uint8Array): Promise<void> => {
@@ -323,6 +337,17 @@ const PracticePanel = () => {
                                         <span className="truncate">{t('result.heard')}: {result.transcript || '—'}</span>
                                     </p>
                                 )}
+                                {result.audioPath && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 px-2 text-xs gap-1.5 w-fit"
+                                        onClick={() => playRecording(result.audioPath!)}
+                                    >
+                                        <Volume2 className="h-3.5 w-3.5" />
+                                        {t('result.playMine')}
+                                    </Button>
+                                )}
                             </div>
                         </div>
                         <WordChips words={result.words} />
@@ -356,13 +381,25 @@ const PracticePanel = () => {
                                     <span className="text-muted-foreground">
                                         {record.mode === 'shadowing' ? t('result.modeShadowing') : t('result.modeDictation')}
                                     </span>
-                                    <span className={cn(
-                                        'font-semibold tabular-nums',
-                                        record.score >= 80 ? 'text-emerald-600 dark:text-emerald-400'
-                                            : record.score >= 50 ? 'text-amber-600 dark:text-amber-400'
-                                                : 'text-red-600 dark:text-red-400',
-                                    )}>
-                                        {Math.round(record.score)}
+                                    <span className="flex items-center gap-1.5">
+                                        {record.audioPath && (
+                                            <button
+                                                type="button"
+                                                aria-label={t('result.playMine')}
+                                                onClick={() => playRecording(record.audioPath!)}
+                                                className="text-muted-foreground hover:text-foreground transition-colors"
+                                            >
+                                                <Volume2 className="h-3.5 w-3.5" />
+                                            </button>
+                                        )}
+                                        <span className={cn(
+                                            'font-semibold tabular-nums',
+                                            record.score >= 80 ? 'text-emerald-600 dark:text-emerald-400'
+                                                : record.score >= 50 ? 'text-amber-600 dark:text-amber-400'
+                                                    : 'text-red-600 dark:text-red-400',
+                                        )}>
+                                            {Math.round(record.score)}
+                                        </span>
                                     </span>
                                     <span className="text-[10px] text-muted-foreground/70">{record.createdAt.slice(5, 16)}</span>
                                 </div>
