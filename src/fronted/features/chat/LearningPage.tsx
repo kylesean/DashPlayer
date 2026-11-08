@@ -177,6 +177,7 @@ export default function LearningPage() {
                 resolveWordDetail={resolveWordDetail}
                 messages={chat.messageViews}
                 isBusy={chat.isBusy}
+                chatErrorText={chat.chatErrorText}
                 input={chat.input}
                 onInputChange={chat.setInput}
                 onSubmit={(text) => {

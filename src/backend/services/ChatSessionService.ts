@@ -176,13 +176,6 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         const session = this.chatSessionStore.get(sessionId);
         const model = this.aiProviderService.getModel('sentenceLearning');
         const messageId = this.createMessageId();
-        if (!model) {
-            this.rendererGateway.fireAndForget('chat/stream', {
-                sessionId,
-                chunk: { type: 'error', errorText: CLOUD_AI_NOT_CONFIGURED_MESSAGE },
-            });
-            return { messageId };
-        }
 
         const isFirstTurn = session.messages.length === 0;
         const contextText = isFirstTurn
@@ -192,15 +185,97 @@ export class ChatSessionServiceImpl implements ChatSessionService {
                 subtitleOverview: this.getSubtitleOverview(session.subtitleFileHash, session.anchorSentenceIndex),
             })
             : null;
-        this.chatSessionStore.appendMessage(sessionId, {
-            role: 'user',
-            content: contextText ? `${contextText}\n\n${content}` : content,
-        });
+        const userContent = contextText ? `${contextText}\n\n${content}` : content;
+
+        if (!model) {
+            // 云端未配置时本地兜底:普通问答(无字幕检索工具、无逐字流),
+            // 预置词典与整句分析已在本地,聊天不再出现"发了没反应"的死胡同。
+            const localModelId = await this.sentenceLearningService.resolveLocalModelId();
+            if (!localModelId) {
+                this.rendererGateway.fireAndForget('chat/stream', {
+                    sessionId,
+                    chunk: { type: 'error', errorText: CLOUD_AI_NOT_CONFIGURED_MESSAGE },
+                });
+                return { messageId };
+            }
+            this.chatSessionStore.appendMessage(sessionId, { role: 'user', content: userContent });
+            const enrichedMessages = ensureChatRoleMessage([...session.messages]);
+            this.startTextRunLocal(sessionId, messageId, localModelId, enrichedMessages);
+            return { messageId };
+        }
+
+        this.chatSessionStore.appendMessage(sessionId, { role: 'user', content: userContent });
 
         const enrichedMessages = ensureChatRoleMessage([...session.messages]);
         this.startTextRun(sessionId, messageId, model, enrichedMessages);
 
         return { messageId };
+    }
+
+    /**
+     * 登记可取消运行并在后台执行本地文本生成。
+     * @param sessionId 会话 ID。
+     * @param messageId assistant 消息 ID。
+     * @param modelId 本地模型标识。
+     * @param messages 本次发送给模型的消息。
+     */
+    private startTextRunLocal(
+        sessionId: string,
+        messageId: string,
+        modelId: string,
+        messages: ModelMessage[],
+    ): void {
+        const abortSignal = this.chatSessionStore.startRun(sessionId, messageId);
+        this.runTextLocal(sessionId, messageId, modelId, messages, abortSignal)
+            .catch((error) => this.handleTextError(sessionId, error))
+            .finally(() => this.chatSessionStore.finishRun(sessionId, messageId));
+    }
+
+    /**
+     * 本地大模型聊天:无字幕检索工具、无逐字流——一次性生成后按标准
+     * UIMessageChunk 协议推送,渲染层与云端流共用同一条消费路径。
+     * 上下文(会话冻结的字幕参考材料)已并入末条用户消息,提示词只做
+     * 角色人设 + 轮次转写的平铺,约束太多反而伤 4B 模型的发挥。
+     */
+    private async runTextLocal(
+        sessionId: string,
+        messageId: string,
+        modelId: string,
+        messages: ModelMessage[],
+        abortSignal: AbortSignal,
+    ): Promise<void> {
+        const { system, messages: promptMessages } = splitSystemMessages(messages);
+        const transcript = promptMessages
+            .map((message) => `${message.role === 'assistant' ? 'Assistant' : 'User'}: ${
+                typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+            }`)
+            .join('\n\n');
+        const prompt = system
+            ? `${system}\n\n${transcript}\n\nAssistant:`
+            : `${transcript}\n\nAssistant:`;
+        const startedAt = Date.now();
+        this.logger.info('chat local stream start', { sessionId, messageId, modelId });
+
+        const content = (await this.localAiService.generateText(prompt, modelId, abortSignal)).trim();
+        if (!content) {
+            throw new Error('本地模型返回了空回复');
+        }
+
+        const partId = `${messageId}-text`;
+        const emit = (chunk: UIMessageChunk) => this.rendererGateway.fireAndForget('chat/stream', { sessionId, chunk });
+        emit({ type: 'start', messageId });
+        emit({ type: 'text-start', id: partId });
+        emit({ type: 'text-delta', id: partId, delta: content });
+        emit({ type: 'text-end', id: partId });
+        emit({ type: 'finish', finishReason: 'stop' });
+
+        this.chatSessionStore.appendMessage(sessionId, { role: 'assistant', content });
+        this.logger.info('chat local stream done', {
+            sessionId,
+            messageId,
+            durationMs: Date.now() - startedAt,
+            responseLength: content.length,
+        });
     }
 
     /**

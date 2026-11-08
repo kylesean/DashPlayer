@@ -113,7 +113,7 @@ export const useSentenceLearningChat = () => {
         transport,
         throttle: 40,
     });
-    const { messages, sendMessage, setMessages, status, stop } = chat;
+    const { messages, sendMessage, setMessages, status, stop, error: chatError } = chat;
     const isBusy = status === 'submitted' || status === 'streaming';
     // 已经清到哪一代对话：只认比它更新的那一代，避免重复清空与清掉新问题
     const appliedEpochRef = useRef(conversationEpoch);
@@ -184,6 +184,8 @@ export const useSentenceLearningChat = () => {
         setInput,
         handleSubmit,
         isBusy,
+        /** 流级错误(useChat error 状态):消息列表下方红条展示,不再无声吞掉 */
+        chatErrorText: chatError ? (chatError.message || String(chatError)) : null,
     };
 };
 

@@ -58,6 +58,8 @@ export type LearningWorkspaceProps = {
     messages: LearningMessageView[];
     /** 是否正在生成回答。 */
     isBusy: boolean;
+    /** 聊天流级错误文本;为 null 表示无错误。 */
+    chatErrorText?: string | null;
     input: string;
     onInputChange: (value: string) => void;
     onSubmit: (text: string) => void;
@@ -669,6 +671,7 @@ const SearchEvidence = ({
 const ConversationPane = ({
     messages,
     isBusy,
+    chatErrorText,
     entriesReady,
     entriesDisabledHint,
     input,
@@ -683,6 +686,8 @@ const ConversationPane = ({
 }: {
     messages: LearningMessageView[];
     isBusy: boolean;
+    /** 聊天流级错误文本;为 null 表示无错误。 */
+    chatErrorText?: string | null;
     /**
      * 对话入口是否可用：会话已就绪且云端整句讲解可用。
      *
@@ -754,6 +759,14 @@ const ConversationPane = ({
                 {stage && <div className="-mx-6 mt-auto shrink-0">{stage}</div>}
 
                 <div className="mx-auto flex w-full max-w-3xl flex-col gap-5">
+                    {chatErrorText && (
+                        <div
+                            role="alert"
+                            className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs leading-relaxed text-destructive"
+                        >
+                            {chatErrorText}
+                        </div>
+                    )}
                     {messages.map((message) => (
                         <div
                             key={message.id}
@@ -926,6 +939,7 @@ export default function LearningWorkspace({
     resolveWordDetail,
     messages,
     isBusy,
+    chatErrorText,
     input,
     onInputChange,
     onSubmit,
@@ -997,6 +1011,7 @@ export default function LearningWorkspace({
                 <ConversationPane
                     messages={messages}
                     isBusy={isBusy}
+                    chatErrorText={chatErrorText}
                     entriesReady={entriesReady}
                     entriesDisabledHint={entriesDisabledHint}
                     input={input}
