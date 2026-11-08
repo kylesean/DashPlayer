@@ -10,6 +10,7 @@ import {
     buildLocalSubtitleFillGrammar,
     buildLocalSubtitleFillPrompt,
     LOCAL_TRANSLATION_TEMPERATURE,
+    LOCAL_TRANSLATION_RETRY_TEMPERATURE,
     parseLocalSubtitleFill,
 } from '@/backend/infrastructure/translate/subtitleBatchPrompt';
 import { getMainLogger } from '@/backend/infrastructure/logger';
@@ -75,24 +76,18 @@ implements LocalSubtitleBatchTranslator {
             forbidEcho: input.mode === 'zh',
         });
         const grammar = buildLocalSubtitleFillGrammar(sources, input.mode);
-        const text = await this.localAi.generateText(prompt, input.modelId, input.signal, {
-            grammar,
-            temperature: LOCAL_TRANSLATION_TEMPERATURE,
-        });
         let translations: string[];
         try {
-            translations = parseLocalSubtitleFill(text, sources, input.mode);
+            translations = await this.attemptFill(input, sources, prompt, grammar, LOCAL_TRANSLATION_TEMPERATURE);
         } catch (error) {
-            // 解析失败时把模型原始输出按行落盘留归因证据（长文本以行数组入日志，
-            // 避免单字段长度上限截掉尾部）；语法约束下该分支属于纯防御。
-            this.logger.warn('local subtitle fill parse failed', {
+            // 温度 0 的贪心解码是确定性的：原样重试必然复现同一退化
+            //（如槽内重复触顶）。升温重试一次打散采样路径，仍失败才交给调度器。
+            this.logger.warn('local subtitle batch failed, retrying with sampling temperature', {
                 model: input.modelId,
                 mode: input.mode,
-                expected: sources.length,
-                rawLines: text.trim().split('\n'),
-                error,
+                error: error instanceof Error ? error.message : String(error),
             });
-            throw error;
+            translations = await this.attemptFill(input, sources, prompt, grammar, LOCAL_TRANSLATION_RETRY_TEMPERATURE);
         }
         const items = input.targets.map((target, index) => ({
             key: target.key,
@@ -102,6 +97,44 @@ implements LocalSubtitleBatchTranslator {
             this.throwIfEchoed(input.targets, items);
         }
         return items;
+    }
+
+    /**
+     * 按给定温度执行一次填槽生成并解析校验。
+     *
+     * @param input 批次输入。
+     * @param sources 按槽序的源文，用于解析校验。
+     * @param prompt 提示词。
+     * @param grammar GBNF 填槽语法。
+     * @param temperature 采样温度。
+     * @returns 校验通过的译文数组。
+     */
+    private async attemptFill(
+        input: LocalSubtitleBatchTranslationInput,
+        sources: string[],
+        prompt: string,
+        grammar: string,
+        temperature: number,
+    ): Promise<string[]> {
+        const text = await this.localAi.generateText(prompt, input.modelId, input.signal, {
+            grammar,
+            temperature,
+        });
+        try {
+            return parseLocalSubtitleFill(text, sources, input.mode);
+        } catch (error) {
+            // 解析失败时把模型原始输出按行落盘留归因证据（长文本以行数组入日志，
+            // 避免单字段长度上限截掉尾部）；语法约束下该分支属于纯防御。
+            this.logger.warn('local subtitle fill parse failed', {
+                model: input.modelId,
+                mode: input.mode,
+                temperature,
+                expected: sources.length,
+                rawLines: text.trim().split('\n'),
+                error,
+            });
+            throw error;
+        }
     }
 
     /**

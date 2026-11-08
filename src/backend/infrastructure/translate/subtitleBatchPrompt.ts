@@ -12,6 +12,16 @@ import type { TranslationMode } from '@/common/types/TranslationResult';
 export const LOCAL_TRANSLATION_TEMPERATURE = 0;
 
 /**
+ * 批次失败后升温重试的采样温度。
+ *
+ * 温度 0 的贪心解码是确定性的：原样重试必然复现同一退化（如槽内重复触顶）。
+ * 升温打散采样路径以跳出循环；取值远低于曾引发多候选泄漏的 0.8，且仅用于
+ * 已失败批次的单次重试，质量护栏（槽上限/照抄检测/回抄校验）不变，
+ * 成功批次的缓存内容不受影响（无需进位策略版本）。
+ */
+export const LOCAL_TRANSLATION_RETRY_TEMPERATURE = 0.3;
+
+/**
  * 本地字幕翻译策略版本，编入缓存分区（storageMode）以隔离旧译文。
  *
  * 提示词、填槽语法或采样参数任一变化，都会改变同一源文的期望译文；
