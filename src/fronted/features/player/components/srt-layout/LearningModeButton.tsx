@@ -9,6 +9,7 @@ import {
     TooltipTrigger,
 } from '@/fronted/components/ui/tooltip';
 import useChatPanel from '@/fronted/features/chat/chatStore';
+import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import {
     CAPTION_CARD_BUTTON_CLASS,
@@ -36,6 +37,8 @@ export default function LearningModeButton() {
      * 开关学习页：与快捷键走同一入口，进入失败（如当前没有可学习的字幕句）直接提示原因。
      */
     const handleClick = (): void => {
+        // 两个覆盖面板共享同一块区域:打开学习页时收起练习面板
+        usePracticePanel.getState().setVisible(false);
         void useChatPanel.getState().toggleLearning().catch((error) => {
             toast.error(error instanceof Error ? error.message : String(error));
         });

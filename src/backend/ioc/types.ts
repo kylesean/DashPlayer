@@ -27,6 +27,7 @@ const TYPES = {
     FfmpegGateway: Symbol('FfmpegGateway'),
     FfmpegService: Symbol('FfmpegService'),
     DubbingService: Symbol('DubbingService'),
+    SentencePracticeService: Symbol('SentencePracticeService'),
     SplitVideoService: Symbol('SplitVideoService'),
     PlaybackRepairService: Symbol('PlaybackRepairService'),
     PlaybackCapabilityService: Symbol('PlaybackCapabilityService'),
@@ -67,6 +68,7 @@ const TYPES = {
     FavouriteClipsRepository: Symbol('FavouriteClipsRepository'),
     WordTranslatesRepository: Symbol('WordTranslatesRepository'),
     SentenceTranslatesRepository: Symbol('SentenceTranslatesRepository'),
+    SentencePracticeRecordRepository: Symbol('SentencePracticeRecordRepository'),
     SysConfRepository: Symbol('SysConfRepository'),
     SubtitleTimestampAdjustmentsRepository: Symbol('SubtitleTimestampAdjustmentsRepository'),
     // Clients

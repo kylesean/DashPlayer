@@ -50,6 +50,9 @@ import { FfmpegServiceImpl } from '@/backend/services/FfmpegService';
 import type DubbingService from '@/backend/services/DubbingService';
 import { DubbingServiceImpl } from '@/backend/services/DubbingService';
 import DubbingController from '@/backend/controllers/DubbingController';
+import type SentencePracticeService from '@/backend/services/SentencePracticeService';
+import { SentencePracticeServiceImpl } from '@/backend/services/SentencePracticeService';
+import SentencePracticeController from '@/backend/controllers/SentencePracticeController';
 import type DpTaskService from '@/backend/services/DpTaskService';
 import { DpTaskServiceImpl } from '@/backend/services/DpTaskService';
 import type ChatService from '@/backend/services/ChatService';
@@ -155,6 +158,8 @@ import type WordTranslatesRepository from '@/backend/services/repositories/WordT
 import WordTranslatesRepositoryImpl from '@/backend/infrastructure/db/repositories/WordTranslatesRepositoryImpl';
 import type SentenceTranslatesRepository from '@/backend/services/repositories/SentenceTranslatesRepository';
 import SentenceTranslatesRepositoryImpl from '@/backend/infrastructure/db/repositories/SentenceTranslatesRepositoryImpl';
+import type SentencePracticeRecordRepository from '@/backend/services/repositories/SentencePracticeRecordRepository';
+import SentencePracticeRecordRepositoryImpl from '@/backend/infrastructure/db/repositories/SentencePracticeRecordRepositoryImpl';
 import type SysConfRepository from '@/backend/services/repositories/SysConfRepository';
 import SysConfRepositoryImpl from '@/backend/infrastructure/db/repositories/SysConfRepositoryImpl';
 import type SubtitleTimestampAdjustmentsRepository from '@/backend/services/repositories/SubtitleTimestampAdjustmentsRepository';
@@ -215,6 +220,7 @@ container.bind<Controller>(TYPES.Controller).to(SherpaTtsModelController).inSing
 container.bind<Controller>(TYPES.Controller).to(VocabularyController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VideoLearningApiController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(DubbingController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(SentencePracticeController).inSingletonScope();
 // 恢复路由控制器：不绑定到 TYPES.Controller（恢复模式下不解析业务控制器），单独绑定。
 container.bind<MigrationFailureController>(TYPES.MigrationFailureController).to(MigrationFailureController).inSingletonScope();
 // Services
@@ -247,12 +253,14 @@ container.bind<WatchHistoryExtRepository>(TYPES.WatchHistoryExtRepository).to(Wa
 container.bind<FavouriteClipsRepository>(TYPES.FavouriteClipsRepository).to(FavouriteClipsRepositoryImpl).inSingletonScope();
 container.bind<WordTranslatesRepository>(TYPES.WordTranslatesRepository).to(WordTranslatesRepositoryImpl).inSingletonScope();
 container.bind<SentenceTranslatesRepository>(TYPES.SentenceTranslatesRepository).to(SentenceTranslatesRepositoryImpl).inSingletonScope();
+container.bind<SentencePracticeRecordRepository>(TYPES.SentencePracticeRecordRepository).to(SentencePracticeRecordRepositoryImpl).inSingletonScope();
 container.bind<SysConfRepository>(TYPES.SysConfRepository).to(SysConfRepositoryImpl).inSingletonScope();
 container.bind<SubtitleTimestampAdjustmentsRepository>(TYPES.SubtitleTimestampAdjustmentsRepository).to(SubtitleTimestampAdjustmentsRepositoryImpl).inSingletonScope();
 container.bind<ClipOssService>(TYPES.ClipOssService).to(ClipOssServiceImpl).inSingletonScope();
 container.bind<ClipOssService>(TYPES.VideoLearningOssService).to(VideoLearningOssServiceImpl).inSingletonScope();
 container.bind<FavouriteClipsService>(TYPES.FavouriteClips).to(FavouriteClipsServiceImpl).inSingletonScope();
 container.bind<DubbingService>(TYPES.DubbingService).to(DubbingServiceImpl).inSingletonScope();
+container.bind<SentencePracticeService>(TYPES.SentencePracticeService).to(SentencePracticeServiceImpl).inSingletonScope();
 container.bind<VideoLearningService>(TYPES.VideoLearningService).to(VideoLearningServiceImpl).inSingletonScope();
 container.bind<TagService>(TYPES.TagService).to(TagServiceImpl).inSingletonScope();
 container.bind<SrtTimeAdjustService>(TYPES.SrtTimeAdjustService).to(SrtTimeAdjustServiceImpl).inSingletonScope();

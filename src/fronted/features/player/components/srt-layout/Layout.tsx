@@ -16,6 +16,9 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import PlaybackEmptyState from './EmptyState';
 import LearningPage from '@/fronted/features/chat/LearningPage';
 import useChatPanel from '@/fronted/features/chat/chatStore';
+import PracticePanel from '@/fronted/features/practice/PracticePanel';
+import PracticeModeButton from '@/fronted/features/player/components/srt-layout/PracticeModeButton';
+import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import LearningModeButton from './LearningModeButton';
 import { CAPTION_CARD_ANCHOR_CLASS, CAPTION_CARD_CLASS } from '@/fronted/features/player/components/captionCardShell';
 
@@ -29,6 +32,7 @@ const PlaybackLayout = () => {
     const hasSource = usePlayerState((s) => !!s.src);
     const hasLearningContext = useChatPanel((s) => s.hasLearningContext);
     const learningVisible = useChatPanel((s) => s.learningVisible);
+    const practiceVisible = usePracticePanel((s) => s.visible);
     // 有会话时保持挂载，切回播放画面只做隐藏，避免回来时对话与滚动状态丢失
     const learningMounted = learningVisible || hasLearningContext;
     const [sizeOa, setSizeOa] = useLocalStorage<number>('split-size-oa', 75);
@@ -168,7 +172,7 @@ const PlaybackLayout = () => {
                         {/* 视频与主字幕：学习页打开时只隐藏不卸载，切回播放时视频元素、播放进度与滚动位置全部保留 */}
                         <ResizablePanelGroup
                             direction={'vertical'}
-                            className={cn('relative z-10', learningVisible && 'invisible')}
+                            className={cn('relative z-10', (learningVisible || practiceVisible) && 'invisible')}
                         >
                             <ResizablePanel
                                 minSize={10}
@@ -219,6 +223,18 @@ const PlaybackLayout = () => {
                         {/* 播客模式：作为顶层全屏覆盖层呈现，保留底部的 PlaybackStage 与 Panel 结构完整稳定 */}
                         {podcastMode && (
                             <PodcastViewer className="absolute inset-0 z-30" />
+                        )}
+
+                        {/* 跟读/听写练习页：占据视频与主字幕的位置，渲染在整句学习页之前（同 z 值，后开者覆盖） */}
+                        {practiceVisible && (
+                            <div className="absolute inset-0 z-20">
+                                <PracticePanel/>
+                            </div>
+                        )}
+                        {practiceVisible && (
+                            <div className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-30 pointer-events-auto', CAPTION_CARD_CLASS)}>
+                                <PracticeModeButton/>
+                            </div>
                         )}
 
                         {/* 整句学习页：占据视频与主字幕的位置，与播放器同一套外壳 */}

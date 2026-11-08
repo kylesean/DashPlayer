@@ -1,0 +1,36 @@
+{
+    "panel": {
+        "title": "Shadowing & Dictation",
+        "noSentence": "No subtitle sentence available; play a subtitled video first",
+        "playSentence": "Play sentence",
+        "replay": "Replay",
+        "stop": "Pause",
+        "tabShadowing": "Shadowing",
+        "tabDictation": "Dictation"
+    },
+    "recorder": {
+        "start": "Record",
+        "stop": "Stop",
+        "processing": "Scoring…",
+        "empty": "No sound captured",
+        "denied": "Microphone unavailable or not authorized",
+        "unsupported": "Recording is not supported in this environment"
+    },
+    "shadowing": {
+        "hint": "Click to start reading this sentence aloud; click again to stop and score",
+        "asrUnavailable": "Speech recognition model not installed; download it in Settings → Resources to use shadowing"
+    },
+    "dictation": {
+        "hiddenHint": "Dictation mode: listen to the sentence first, then type what you hear",
+        "placeholder": "Type the sentence you hear…",
+        "submit": "Submit",
+        "emptyInput": "Nothing typed yet"
+    },
+    "result": {
+        "heard": "Heard",
+        "retry": "Try again",
+        "history": "Practice history",
+        "modeShadowing": "Shadowing",
+        "modeDictation": "Dictation"
+    }
+}

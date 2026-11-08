@@ -67,6 +67,7 @@ import type { VideoInfo } from '@/common/types/video-info';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 import type { TranscriptTask } from '@/common/contracts/transcript/transcript-task';
 import type { DubbingExportStatus, DubbingLibraryEntry, DubbingManifest, DubbingTakeVO } from '@/common/contracts/dubbing';
+import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams } from '@/common/contracts/sentence-practice';
 
 /** 跨进程请求与返回值契约。 */
 interface ApiDefinition {
@@ -501,6 +502,24 @@ interface DubbingDef {
     'dubbing/export-status': { params: void, return: DubbingExportStatus | null };
 }
 
+interface PracticeDef {
+    /** 跟读评分:录音上传 → 本地 ASR 转写 → 词级对齐评分,结果同时落库。 */
+    'practice/score-shadowing': {
+        params: SentencePracticeShadowingParams,
+        return: SentencePracticeResultVO
+    };
+    /** 听写评分:键入文本与原句对齐评分,结果同时落库。 */
+    'practice/score-dictation': {
+        params: SentencePracticeDictationParams,
+        return: SentencePracticeResultVO
+    };
+    /** 查询单个意群的练习历史,按时间倒序。 */
+    'practice/list-by-sentence': {
+        params: { fileHash: string; sentenceIndex: number },
+        return: SentencePracticeRecordVO[]
+    };
+}
+
 // 使用交叉类型合并 ApiDefinitions 和 ExtraApiDefinition
 export type ApiDefinitions = ApiDefinition
     & AiFuncDef
@@ -526,7 +545,8 @@ export type ApiDefinitions = ApiDefinition
     & TagDef
     & VocabularyDef
     & VideoLearningDef
-    & DubbingDef;
+    & DubbingDef
+    & PracticeDef;
 
 // 更新 ApiMap 类型以使用 CombinedApiDefinitions
 export type ApiMap = {

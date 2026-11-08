@@ -1,0 +1,36 @@
+{
+    "panel": {
+        "title": "跟读与听写",
+        "noSentence": "当前没有字幕句，先播放带字幕的视频",
+        "playSentence": "播放原句",
+        "replay": "重播",
+        "stop": "暂停",
+        "tabShadowing": "跟读",
+        "tabDictation": "听写"
+    },
+    "recorder": {
+        "start": "开始录音",
+        "stop": "结束",
+        "processing": "评分中…",
+        "empty": "没有录到声音",
+        "denied": "麦克风不可用或未授权",
+        "unsupported": "当前环境不支持录音"
+    },
+    "shadowing": {
+        "hint": "点击开始，对着麦克风朗读这句；再次点击结束并评分",
+        "asrUnavailable": "语音识别模型未安装，请到 设置 → 资源 下载后使用跟读"
+    },
+    "dictation": {
+        "hiddenHint": "听写模式：先听原句，把你听到的内容写下来",
+        "placeholder": "输入你听到的句子…",
+        "submit": "提交评分",
+        "emptyInput": "还没有输入内容"
+    },
+    "result": {
+        "heard": "识别结果",
+        "retry": "再试一次",
+        "history": "练习记录",
+        "modeShadowing": "跟读",
+        "modeDictation": "听写"
+    }
+}

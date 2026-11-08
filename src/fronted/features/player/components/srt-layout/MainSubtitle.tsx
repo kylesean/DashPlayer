@@ -23,6 +23,7 @@ import { Input } from '@/fronted/components/ui/input';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
 import LearningModeButton from './LearningModeButton';
+import PracticeModeButton from './PracticeModeButton';
 import {
     CAPTION_CARD_ANCHOR_CLASS,
     CAPTION_CARD_BUTTON_CLASS,
@@ -496,6 +497,9 @@ export default function MainSubtitle() {
                                     </div>
                                 </PopoverContent>
                             </Popover>
+
+                            {/* 跟读/听写练习开关：与整句学习页互斥打开 */}
+                            <PracticeModeButton />
 
                             {/* 整句学习开关：挂在胶囊最右侧，与学习界面右下角那颗是同一颗，位置不随视图变化 */}
                             <LearningModeButton />
