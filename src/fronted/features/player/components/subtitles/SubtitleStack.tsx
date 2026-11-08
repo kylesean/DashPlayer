@@ -25,6 +25,9 @@ const SubtitleStack = () => {
 
     /** 当前句所在的意群块；整句模式关闭时为 null，回退单行渲染。 */
     const block = usePlayerState((state) => state.getCurrentBlock());
+    // getCurrentBlock 依赖的 sentenceBlockMode 在 playerStore 内经 getState 非响应式读取，
+    // 这里必须订阅开关本身：否则暂停态下（无 timeupdate）切换整句模式不会重算，主字幕区永久陈旧
+    usePlayerUi((state) => state.sentenceBlockMode);
 
     /** 单行渲染（整句模式关闭时的原始行为）：当前句的原文/机翻/自带中文三行。 */
     const renderSingleLine = (): ReactElement[] => {
