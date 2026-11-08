@@ -8,10 +8,16 @@
 import type { VirtuosoHandle } from 'react-virtuoso';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { useStoreWithEqualityFn } from 'zustand/traditional';
-import type { Ele } from './useBoundary';
-import useLayout from '@/fronted/hooks/useLayout';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import { recordScrollRequest } from '@/fronted/features/player/dev/scrollWriteLog';
+
+/** 字幕容器或字幕行在视口坐标系中的上下安全边界。 */
+export interface ScrollBoundary {
+    /** 顶部纵坐标（基于 viewport 绝对坐标）。 */
+    yt: number;
+    /** 底部纵坐标（基于 viewport 绝对坐标）。 */
+    yb: number;
+}
 
 export type ScrollState =
     /** 用户正在浏览，自动滚动完全让位 */
@@ -76,7 +82,7 @@ export type SubtitleScrollState = {
     };
     scrollState: ScrollState;
     /** 字幕容器可视安全边界；组件挂载、useBoundary 测量完成前为 null */
-    boundary: Ele | null;
+    boundary: ScrollBoundary | null;
 };
 
 export type SubtitleScrollActions = {
@@ -86,7 +92,7 @@ export type SubtitleScrollActions = {
     syncIntoView: (listPosition: number) => void;
     onUserFinishScrolling: () => void;
     setVirtuoso: (virtuoso: VirtuosoHandle) => void;
-    updateBoundary: (boundary: Ele) => void;
+    updateBoundary: (boundary: ScrollBoundary) => void;
     updateVisibleRange: (range: [number, number]) => void;
     pauseMeasurement: () => void;
     delaySetNormal: () => void;
@@ -101,7 +107,7 @@ export type SubtitleScrollActions = {
     setHoldActive: (active: boolean) => void;
 };
 
-const getEle = (ele: HTMLDivElement): Ele => {
+const getEle = (ele: HTMLDivElement): ScrollBoundary => {
     const rect = ele.getBoundingClientRect();
     return {
         yt: rect.top,
@@ -394,7 +400,7 @@ const useSubtitleScroll = create(
                  * 边界变化（分栏拖动、窗口缩放、全屏切换）可能把当前行挤出屏幕，
                  * NORMAL 态下重新调度一次同步，把当前行拉回边界内。
                  */
-                updateBoundary: (boundary: Ele) => {
+                updateBoundary: (boundary: ScrollBoundary) => {
                     set({ boundary });
                     const { scrollState } = get();
                     if (scrollState !== 'NORMAL') {
@@ -469,11 +475,14 @@ const useSubtitleScroll = create(
 );
 export default useSubtitleScroll;
 
-const subtitleScrollStore = useSubtitleScroll;
-
+/**
+ * 按选择器订阅字幕滚动状态机状态；多字段选择请配合 `useShallow`。
+ *
+ * @param selector 状态选择器。
+ * @returns 选中的滚动状态切片。
+ */
 export function useSubtitleScrollState<T>(
     selector: (s: SubtitleScrollState & SubtitleScrollActions) => T,
-    equalityFn?: (a: T, b: T) => boolean
 ): T {
-    return useStoreWithEqualityFn(subtitleScrollStore, selector, equalityFn);
+    return useSubtitleScroll(selector);
 }

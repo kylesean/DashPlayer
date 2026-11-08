@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { VirtuosoHandle } from 'react-virtuoso';
 import useSubtitleScroll from '../useSubtitleScroll';
-import useLayout from '@/fronted/hooks/useLayout';
+import useLayout from '@/fronted/app/stores/layoutStore';
 
 /** 构造 rect 固定的 mock 字幕行 */
 const mockRow = (top: number, bottom: number) =>

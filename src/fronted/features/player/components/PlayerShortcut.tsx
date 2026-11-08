@@ -11,11 +11,16 @@ import { playerActions } from '@/fronted/features/player/components/PlayerAction
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 
+/**
+ * 规范化快捷键配置字符串，去除空白项。
+ *
+ * @param values 逗号分隔的快捷键配置字符串。
+ * @returns 规范化的快捷键数组。
+ */
 const process = (values: string) => values
     .split(',')
     .map((k) => k.replaceAll(' ', ''))
-    .filter((k) => k !== '')
-    .filter((k) => k !== 'left' && k !== 'right' && k !== 'up' && k !== 'down' && k !== 'space');
+    .filter((k) => k !== '');
 
 /**
  * 注册播放器页快捷键，并在快捷键配置变化后即时重绑。
@@ -65,13 +70,17 @@ export default function PlayerShortCut() {
         nextPlaybackRate: s.values.get('shortcut.nextPlaybackRate') ?? '',
         aiChat: s.values.get('shortcut.aiChat') ?? '',
         addClip: s.values.get('shortcut.addClip') ?? '',
+        volumeUp: s.values.get('shortcut.volumeUp') ?? '',
+        volumeDown: s.values.get('shortcut.volumeDown') ?? '',
+        seekBackward: s.values.get('shortcut.seekBackward') ?? '',
+        seekForward: s.values.get('shortcut.seekForward') ?? '',
     })));
+
     // 模式开关的写入统一走 PlayerActions，此处只订阅展示用的值
     const singleRepeat = usePlayer((s) => s.singleRepeat);
     const autoPause = usePlayer((s) => s.autoPause);
     const learningVisible = useChatPanel((s) => s.learningVisible);
     const practiceRecording = usePracticePanel((s) => s.recording);
-    // 学习页打开期间或跟读录音进行中停用播放类快捷键；开关学习页的快捷键除外
     const playbackKeysEnabled = !learningVisible && !practiceRecording;
 
     const toggleSingleRepeat = () => {
@@ -81,57 +90,41 @@ export default function PlayerShortCut() {
         playerActions.setAutoPause(!autoPause);
     };
 
-    useHotkeys('left', () => {
+    useHotkeys(process(shortcuts.previousSentence), (e) => {
+        e.preventDefault();
         playerActions.prevSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     }, { enabled: playbackKeysEnabled }, [onUserFinishScrolling, scrollState]);
-    useHotkeys('right', () => {
+
+    useHotkeys(process(shortcuts.nextSentence), (e) => {
+        e.preventDefault();
         playerActions.nextSentence();
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     }, { enabled: playbackKeysEnabled }, [onUserFinishScrolling, scrollState]);
-    useHotkeys('down', (e) => {
+
+    useHotkeys(process(shortcuts.repeatSentence), (e) => {
         e.preventDefault();
         playerActions.repeatCurrent({ loop: false });
         if (scrollState === 'USER_BROWSING') {
             onUserFinishScrolling();
         }
     }, { enabled: playbackKeysEnabled }, [onUserFinishScrolling, scrollState]);
-    useHotkeys('space', (e) => {
+
+    useHotkeys(process(shortcuts.playPause), (e) => {
         e.preventDefault();
         playerActions.togglePlay();
     }, { enabled: playbackKeysEnabled });
-    useHotkeys('up', (e) => {
-        e.preventDefault();
-        playerActions.togglePlay();
-    }, { enabled: playbackKeysEnabled });
-    useHotkeys(process(shortcuts.previousSentence), () => {
-        playerActions.prevSentence();
-        if (scrollState === 'USER_BROWSING') {
-            onUserFinishScrolling();
-        }
-    }, { enabled: playbackKeysEnabled }, [onUserFinishScrolling, scrollState]);
-    useHotkeys(process(shortcuts.nextSentence), () => {
-        playerActions.nextSentence();
-        if (scrollState === 'USER_BROWSING') {
-            onUserFinishScrolling();
-        }
-    }, { enabled: playbackKeysEnabled }, [onUserFinishScrolling, scrollState]);
-    useHotkeys(process(shortcuts.repeatSentence), () => {
-        playerActions.repeatCurrent({ loop: false });
-        if (scrollState === 'USER_BROWSING') {
-            onUserFinishScrolling();
-        }
-    }, { enabled: playbackKeysEnabled }, [onUserFinishScrolling, scrollState]);
-    useHotkeys(process(shortcuts.playPause), playerActions.togglePlay.bind(playerActions), { enabled: playbackKeysEnabled });
+
     useHotkeys(process(shortcuts.repeatSingleSentence), toggleSingleRepeat, { enabled: playbackKeysEnabled }, [toggleSingleRepeat]);
     useHotkeys(process(shortcuts.autoPause), toggleAutoPause, { enabled: playbackKeysEnabled }, [toggleAutoPause]);
     useHotkeys(process(shortcuts.toggleEnglishDisplay), changeShowEn, { enabled: playbackKeysEnabled });
     useHotkeys(process(shortcuts.toggleChineseDisplay), changeShowCn, { enabled: playbackKeysEnabled });
     useHotkeys(process(shortcuts.toggleBilingualDisplay), changeShowEnCn, { enabled: playbackKeysEnabled });
+
     useHotkeys(process(shortcuts.adjustBeginMinus), () => {
         playerActions.adjustCurrentBegin(-0.2);
     }, { enabled: playbackKeysEnabled });
@@ -149,6 +142,32 @@ export default function PlayerShortCut() {
     }, { enabled: playbackKeysEnabled });
     useHotkeys(process(shortcuts.toggleWordLevelDisplay), changeShowWordLevel, { enabled: playbackKeysEnabled });
     useHotkeys(process(shortcuts.nextPlaybackRate), playerActions.cyclePlaybackRate.bind(playerActions), { enabled: playbackKeysEnabled });
+
+    useHotkeys(process(shortcuts.volumeUp), (e) => {
+        e.preventDefault();
+        const current = usePlayer.getState().volume;
+        playerActions.setVolume(Math.min(1, Math.round((current + 0.1) * 10) / 10));
+    }, { enabled: playbackKeysEnabled });
+
+    useHotkeys(process(shortcuts.volumeDown), (e) => {
+        e.preventDefault();
+        const current = usePlayer.getState().volume;
+        playerActions.setVolume(Math.max(0, Math.round((current - 0.1) * 10) / 10));
+    }, { enabled: playbackKeysEnabled });
+
+    useHotkeys(process(shortcuts.seekBackward), (e) => {
+        e.preventDefault();
+        const currentTime = usePlayer.getState().internal.exactPlayTime;
+        playerActions.seekTo({ time: Math.max(0, currentTime - 5) });
+    }, { enabled: playbackKeysEnabled });
+
+    useHotkeys(process(shortcuts.seekForward), (e) => {
+        e.preventDefault();
+        const currentTime = usePlayer.getState().internal.exactPlayTime;
+        const duration = usePlayer.getState().duration;
+        playerActions.seekTo({ time: Math.min(duration, currentTime + 5) });
+    }, { enabled: playbackKeysEnabled });
+
     useHotkeys(process(shortcuts.aiChat), () => {
         // 同一个快捷键开关学习页：进入时学习页会自行暂停播放，返回时不动播放状态。
         // 与 LearningModeButton 同口径：两个覆盖面板共享同一块区域，打开学习页时收起练习面板
@@ -161,5 +180,6 @@ export default function PlayerShortCut() {
     useHotkeys(process(shortcuts.addClip), async () => {
         useFavouriteClip.getState().changeCurrentLineClip();
     }, { enabled: playbackKeysEnabled });
+
     return <></>;
 }

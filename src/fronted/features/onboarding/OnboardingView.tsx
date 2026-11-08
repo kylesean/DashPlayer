@@ -23,6 +23,7 @@ import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { markOnboardingCompleted } from '@/fronted/features/onboarding/onboardingApi';
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
+import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import toast from 'react-hot-toast';
 
 export const CURRENT_ONBOARDING_VERSION = '1';
@@ -182,6 +183,18 @@ interface BundleEntry {
     cancel: () => Promise<void>;
 }
 
+/**
+ * 并发拉取存储位置、语音合成模型与字幕识别引擎的当前就绪状态。
+ */
+async function fetchOnboardingStatuses() {
+    const [storageStatus, tts, transcription] = await Promise.all([
+        settingsApi.getStorageStatus().catch(() => null),
+        settingsApi.getSherpaTtsModelStatus().catch(() => null),
+        settingsApi.getWhisperCppModelStatus().catch(() => null),
+    ]);
+    return { storageStatus, tts, transcription };
+}
+
 
 export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) => {
     const { t } = useI18nTranslation('onboarding');
@@ -215,37 +228,47 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
     /** 最近一次进度采样，用于估算网速。 */
     const speedSampleRef = React.useRef<{ at: number; downloaded: number } | null>(null);
 
+    /** 将拉取到的资源状态写入组件状态。 */
+    const applyStatuses = React.useCallback((result: Awaited<ReturnType<typeof fetchOnboardingStatuses>>) => {
+        if (result.storageStatus) {
+            setStoragePath(result.storageStatus.resolvedPath);
+            setStorageAvailable(result.storageStatus.available);
+        }
+        if (result.tts) setTtsStatus(result.tts);
+        if (result.transcription) setTranscriptionStatus(result.transcription);
+    }, []);
+
     /** 拉取存储位置与资源包内资源项的状态。 */
     const refreshAllStatuses = React.useCallback(async () => {
         try {
-            const [storageStatus, tts, transcription] = await Promise.all([
-                settingsApi.getStorageStatus().catch(() => null),
-                settingsApi.getSherpaTtsModelStatus().catch(() => null),
-                settingsApi.getWhisperCppModelStatus().catch(() => null),
-            ]);
-            if (storageStatus) {
-                setStoragePath(storageStatus.resolvedPath);
-                setStorageAvailable(storageStatus.available);
-            }
-            if (tts) setTtsStatus(tts);
-            if (transcription) setTranscriptionStatus(transcription);
+            const result = await fetchOnboardingStatuses();
+            applyStatuses(result);
         } catch {
             // 状态拉取失败不阻断引导：页面保持"未下载"，用户仍可点下载或跳过
         }
-    }, []);
+    }, [applyStatuses]);
 
     useEffect(() => {
-        void refreshAllStatuses();
+        let cancelled = false;
+        const loadStatuses = () => {
+            void fetchOnboardingStatuses().then((result) => {
+                if (!cancelled) {
+                    applyStatuses(result);
+                }
+            }).catch(() => undefined);
+        };
+        loadStatuses();
         // 用户可能在文件管理器里删掉或移动模型目录，窗口重新获得焦点时重新检测
-        const refreshOnFocus = () => { void refreshAllStatuses(); };
-        const refreshOnVisible = () => { if (!document.hidden) void refreshAllStatuses(); };
+        const refreshOnFocus = () => { loadStatuses(); };
+        const refreshOnVisible = () => { if (!document.hidden) loadStatuses(); };
         window.addEventListener('focus', refreshOnFocus);
         document.addEventListener('visibilitychange', refreshOnVisible);
         return () => {
+            cancelled = true;
             window.removeEventListener('focus', refreshOnFocus);
             document.removeEventListener('visibilitychange', refreshOnVisible);
         };
-    }, [refreshAllStatuses]);
+    }, [applyStatuses]);
 
     /** 记录一次进度采样：写入原始快照，并用指数滑动平均估算网速。 */
     const trackProgress = React.useCallback((downloaded: number, total: number) => {
@@ -274,26 +297,16 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
         return () => window.clearInterval(timer);
     }, [downloadingBundle]);
 
-    // 订阅主进程推送的下载进度（initRendererApis 会把 IPC 事件转成不带前缀的 window 事件）
+    // 订阅主进程推送的下载进度
     useEffect(() => {
-        const handleArchiveProgress = (event: Event) => {
-            const detail = (event as CustomEvent<{
-                downloaded: number;
-                total: number;
-                phase: ModelDownloadPhase;
-            }>).detail;
+        const unsubscribe = subscribeArchiveDownloadProgress((detail) => {
             setActivePhase(detail.phase);
             if (detail.phase === 'downloading' && detail.total > 0) {
                 trackProgress(detail.downloaded, detail.total);
             }
             if (detail.phase === 'idle') void refreshAllStatuses();
-        };
-        window.addEventListener('sherpa-tts-model-download-progress', handleArchiveProgress);
-        window.addEventListener('whisper-cpp-model-download-progress', handleArchiveProgress);
-        return () => {
-            window.removeEventListener('sherpa-tts-model-download-progress', handleArchiveProgress);
-            window.removeEventListener('whisper-cpp-model-download-progress', handleArchiveProgress);
-        };
+        });
+        return unsubscribe;
     }, [refreshAllStatuses, trackProgress]);
 
     /** 复制文本到剪贴板。 */

@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { CircleX, PlayCircle } from 'lucide-react';
 import { Button } from '@/fronted/components/ui/button';
 import { Progress } from '@/fronted/components/ui/progress';
-import useDpTaskCenter from '@/fronted/hooks/useDpTaskCenter';
+import useDpTaskCenter from '@/fronted/app/stores/dpTaskStore';
 import { DpTaskState } from '@/common/contracts/dp-task';
 import type { YoutubeImportTaskResult } from '@/common/contracts/youtube-import';
 import { youtubeImportApi } from './youtubeImportApi';

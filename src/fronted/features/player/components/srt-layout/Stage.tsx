@@ -1,32 +1,37 @@
-import React, { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
-import { shallow } from 'zustand/shallow';
+import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import PlayerEngine from '@/fronted/features/player/components/PlayerEngine';
 import { usePlayerState } from '@/fronted/features/player/playerState';
-import useLayout from '@/fronted/hooks/useLayout';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import PlaybackControlBar from './ControlBar';
 import HardsubMask from '@/fronted/features/player/components/HardsubMask';
 import FullscreenSubtitleOverlay from '@/fronted/features/player/components/subtitles/FullscreenSubtitleOverlay';
 import { cn } from '@/fronted/lib/utils';
 
-type PlaybackStageProps = {
+/**
+ * 播放舞台组件入参。
+ */
+export interface PlaybackStageProps {
     className?: string;
     onReady?: () => void;
     onEnded?: () => void;
     onProvideVideoElement?: (video: HTMLVideoElement | null) => void;
-};
+}
 
-export default function PlaybackStage({ className, onReady, onEnded, onProvideVideoElement }: PlaybackStageProps): ReactElement {
+/**
+ * 承载视频播放区域、硬字幕遮罩与全屏字幕覆盖层的播放舞台组件。
+ */
+export default function PlaybackStage({ className = '', onReady, onEnded, onProvideVideoElement }: PlaybackStageProps): ReactElement {
     const {
         src,
         hasSource
     } = usePlayerState(
-        (state) => ({
+        useShallow((state) => ({
             src: state.src,
             hasSource: !!state.src
-        }),
-        shallow
+        })),
     );
 
     const videoElementRef = useRef<HTMLVideoElement | null>(null);
@@ -86,7 +91,3 @@ export default function PlaybackStage({ className, onReady, onEnded, onProvideVi
         </div>
     );
 }
-
-PlaybackStage.defaultProps = {
-    className: ''
-};

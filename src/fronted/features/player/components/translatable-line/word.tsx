@@ -1,13 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
-import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
-import convex from '@turf/convex';
+import React, { useCallback, useRef, useState } from 'react';
 import {
-    featureCollection,
-    point,
-    polygon,
-    type Feature,
-    type Polygon,
-} from '@turf/helpers';
+    useFloating,
+    autoUpdate,
+    offset,
+    flip,
+    shift,
+    useHover,
+    useFocus,
+    useDismiss,
+    useRole,
+    useInteractions,
+    safePolygon,
+} from '@floating-ui/react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import WordPop from './word-pop';
@@ -18,7 +22,8 @@ import Style from '@/fronted/styles/style';
 import { cn } from '@/fronted/lib/utils';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import Eb from '@/fronted/components/shared/common/Eb';
-import useVocabulary from '@/fronted/features/player/vocabularyStore';
+import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useTransLineTheme } from './translatable-theme';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
@@ -66,11 +71,14 @@ const buildFavoriteTranslate = (data: OpenAIDictionaryResult | null | undefined)
         .join('；');
 };
 
+/**
+ * 单词组件入参。
+ */
 export interface WordParam {
     word: string;
     original: string;
     lemma?: string;
-    /** 单词所在的整句字幕,供词典引擎做语境消歧;缺失时回退普通词典查询。 */
+    /** 单词所在的整句字幕，供词典引擎做语境消歧；缺失时回退普通词典查询。 */
     sentenceText?: string;
     pop: boolean;
     requestPop: () => void;
@@ -84,44 +92,47 @@ export interface WordParam {
 }
 
 /**
- * 以左上角为原点，顺时针旋转
- */
-export const getBox = (ele: HTMLElement): Feature<Polygon> => {
-    if (!ele) {
-        return polygon([[]]);
-    }
-    const rect = ele.getBoundingClientRect();
-    const number = 2;
-    return polygon([
-        [
-            [rect.left - number, rect.top - number],
-            [rect.right + number, rect.top - number],
-            [rect.right + number, rect.bottom + number],
-            [rect.left - number, rect.bottom + number],
-            [rect.left - number, rect.top - number],
-        ],
-    ]);
-};
-/**
  * 渲染单个字幕原文词，并使用 lemma 判断生词高亮；词典查询仍传递原文。
- * @param props 字幕词原文、lemma 及交互状态。
+ * 查词浮层使用 Floating UI (useHover + safePolygon) 统一接管，支持配置化自动暂停与按住 Alt 暂停。
  */
-const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alwaysDark, classNames}: WordParam) => {
+export default function Word({
+    word,
+    original,
+    lemma,
+    sentenceText,
+    pop,
+    requestPop,
+    show,
+    alwaysDark = false,
+    classNames,
+}: WordParam) {
     const pause = usePlayer((s) => s.pause);
-    const vocabularyStore = useVocabulary();
+    const {
+        isVocabularyWord: checkIsVocab,
+        getBaseWord,
+        removeVocabularyWords,
+        addVocabularyWords,
+    } = useVocabularyState(
+        useShallow((s) => ({
+            isVocabularyWord: s.isVocabularyWord,
+            getBaseWord: s.getBaseWord,
+            removeVocabularyWords: s.removeVocabularyWords,
+            addVocabularyWords: s.addVocabularyWords,
+            version: s.version,
+        })),
+    );
     const { t } = useTranslation('common');
-    const [hovered, setHovered] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
     const [playLoading, setPlayLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     // 收藏状态：idle 未收藏；saving 提交中；saved 已加入收藏
     const [favoriteState, setFavoriteState] = useState<'idle' | 'saving' | 'saved'>('idle');
-    const [referenceElement, setReferenceElement] = useState<HTMLSpanElement | null>(null);
 
     const theme = useTransLineTheme();
 
     // 检查是否是词汇单词
     const cleanWord = (lemma ?? word).toLowerCase().trim();
-    const isVocabularyWord = cleanWord && vocabularyStore.isVocabularyWord(cleanWord);
+    const isVocabularyWord = cleanWord && checkIsVocab(cleanWord);
 
     const hoverBg = classNames?.hover ?? (alwaysDark ? 'hover:bg-neutral-600' : theme.word.hoverBgClass);
     const vocabCls = isVocabularyWord ? (classNames?.vocab ?? theme.word.vocabHighlightClass) : undefined;
@@ -131,17 +142,17 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
         dictionaryEngineRaw === 'openai' || dictionaryEngineRaw === 'local'
             ? dictionaryEngineRaw
             : 'openai';
-    // 本地词典与 OpenAI 返回同一结构，复用 AI 词典卡片与最终结果同步路径
-    const openaiDictionaryEnabled = dictionaryEngine === 'openai' || dictionaryEngine === 'local';
-    const dictionaryMode = dictionaryEngine;
+    const pauseOnWordHover = setting('player.pauseOnWordHover') === 'true';
+
+    // 订阅流式查词状态；当本词不是活动流时直接忽略
     const dictionaryEntry = useDictionaryStream((state) => state.getActiveEntry(original));
 
-    const shouldFetch = hovered;
+    const shouldFetch = isOpen && pop;
 
     const {
         data: dictionaryResponse,
         isLoading: isWordLoading,
-        mutate
+        mutate: mutateWord,
     } = useSWR(
         shouldFetch ? ['ai-trans/word', original, sentenceText ?? ''] : null,
         async ([_apiName, wordParam, sentenceParam]) => {
@@ -154,14 +165,14 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
                     word: targetWord,
                     forceRefresh: false,
                     requestId,
-                    context: (sentenceParam as string) || undefined
+                    context: (sentenceParam as string) || undefined,
                 });
 
                 const isOpenAIDictionary = !!result && typeof result === 'object' && 'definitions' in result;
                 useDictionaryStream.getState().setFinalResult(
                     targetWord,
                     requestId,
-                    isOpenAIDictionary ? result as OpenAIDictionaryResult : null
+                    isOpenAIDictionary ? result as OpenAIDictionaryResult : null,
                 );
 
                 return result;
@@ -169,8 +180,43 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
                 useDictionaryStream.getState().setFinalResult(targetWord, requestId, null);
                 throw error;
             }
-        }
+        },
     );
+
+    // Floating UI 浮层与交互配置
+    const { refs, floatingStyles, context } = useFloating({
+        open: isOpen && pop,
+        onOpenChange: (open) => {
+            setIsOpen(open);
+            if (open) {
+                requestPop();
+            }
+        },
+        placement: 'bottom-start',
+        whileElementsMounted: autoUpdate,
+        middleware: [
+            offset(6),
+            flip({ fallbackPlacements: ['top-start', 'bottom-end', 'top-end'] }),
+            shift({ padding: 8 }),
+        ],
+    });
+
+    const hover = useHover(context, {
+        enabled: pop,
+        handleClose: safePolygon({ buffer: 2 }),
+        restMs: 40,
+        delay: { open: 40, close: 140 },
+    });
+    const focus = useFocus(context, { enabled: pop });
+    const dismiss = useDismiss(context, { enabled: pop });
+    const role = useRole(context, { role: 'dialog' });
+
+    const { getReferenceProps, getFloatingProps } = useInteractions([
+        hover,
+        focus,
+        dismiss,
+        role,
+    ]);
 
     const handleRefresh = async () => {
         setIsRefreshing(true);
@@ -182,33 +228,26 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
                 word: original,
                 forceRefresh: true,
                 requestId,
-                context: sentenceText || undefined
+                context: sentenceText || undefined,
             });
 
             const isOpenAIDictionary = !!newData && typeof newData === 'object' && 'definitions' in newData;
             useDictionaryStream.getState().setFinalResult(
                 original,
                 requestId,
-                isOpenAIDictionary ? newData as OpenAIDictionaryResult : null
+                isOpenAIDictionary ? newData as OpenAIDictionaryResult : null,
             );
-
-            mutate(newData, { revalidate: false });
+            await mutateWord(newData, { revalidate: false });
         } catch (error) {
-            logger.error('failed to refresh dictionary result', { error: error instanceof Error ? error.message : error });
             useDictionaryStream.getState().setFinalResult(original, requestId, null);
+            logger.error('failed to refresh dictionary word', { error: error instanceof Error ? error.message : error });
         } finally {
             setIsRefreshing(false);
         }
     };
 
     /**
-     * 切换收藏：未收藏时加入词汇工坊，已收藏时从词表移除。
-     *
-     * 行为说明：
-     * - 收藏：传递点击原文与弹窗已查到的释义，由后端还原为原始形态后入库；
-     * - 取消收藏：传递点击原文由后端删除，成功后同步移除前端生词高亮词表，
-     *   词表版本变化会触发裁切状态自动重检；
-     * - 词表中的词（含默认词表）取消收藏即从词表删除，与词汇工坊删除同义。
+     * 切换生词收藏：未收藏时加入词汇工坊，已收藏时从词表移除。
      */
     const handleFavorite = async () => {
         const favorited = isVocabularyWord || favoriteState === 'saved';
@@ -222,8 +261,8 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
             if (favorited) {
                 const result = await videoLearningApi.deleteWord(original);
                 if (result.success) {
-                    const localBase = vocabularyStore.getBaseWord(cleanWord);
-                    vocabularyStore.removeVocabularyWords([
+                    const localBase = getBaseWord(cleanWord);
+                    removeVocabularyWords([
                         ...(result.data ? [result.data.word] : []),
                         ...(localBase ? [localBase] : [])
                     ]);
@@ -238,7 +277,7 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
 
             const result = await videoLearningApi.favoriteWord(original, buildFavoriteTranslate(dictionaryResponse));
             if (result.success && result.data) {
-                vocabularyStore.addVocabularyWords([result.data.word]);
+                addVocabularyWords([result.data.word]);
                 setFavoriteState('saved');
                 toast.success(result.data.alreadyExists ? t('wordAlreadyFavorited') : t('wordFavorited'));
             } else {
@@ -252,16 +291,8 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
         }
     };
 
-    const eleRef = useRef<HTMLSpanElement | null>(null);
-    const popperRef = useRef<HTMLDivElement | null>(null);
-    const resquested = useRef(false);
-
     /**
-     * 判断当前是否存在与该单词相关的有效选区。
-     *
-     * 说明：
-     * - 拖拽复制完成后会产生非折叠选区，此时不应触发发音。
-     * - 双击被拦截后，正常单击不会留下选区，因此不影响点按发音。
+     * 判断当前是否存在与该单词相关的有效选区（选中文本时不触发点击发音）。
      */
     const hasMeaningfulSelection = (target: HTMLElement): boolean => {
         const selection = window.getSelection();
@@ -272,46 +303,8 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
         return selection.containsNode(target, true);
     };
 
-    useEffect(() => {
-        // 如果鼠标移出了凸多边形，就关闭
-        let timeout: NodeJS.Timeout;
-        const mouseEvent = (e: MouseEvent) => {
-            if (!eleRef?.current) {
-                return;
-            }
-            const wordELe = getBox(eleRef.current!);
-            const popper = getBox(popperRef.current ?? eleRef.current!);
-            const hull = convex(featureCollection([wordELe, popper]));
-            const pt = point([e.clientX, e.clientY]);
-
-            const b = booleanPointInPolygon(pt, hull!);
-            clearTimeout(timeout);
-            if (!b) {
-                setHovered(false);
-                return;
-            }
-            timeout = setTimeout(() => {
-                if (!resquested.current) {
-                    resquested.current = true;
-                    requestPop();
-                }
-            }, 50);
-        };
-        if (hovered) {
-            document.addEventListener('mousemove', mouseEvent);
-        } else {
-            resquested.current = false;
-        }
-        return () => {
-            document.removeEventListener('mousemove', mouseEvent);
-            clearTimeout(timeout);
-        };
-    }, [hovered, requestPop]);
-
     /**
-     * 单击单词时播放发音；若用户刚通过拖拽产生选区，则跳过播放。
-     *
-     * 发音链路：本地 sherpa TTS 优先，不可用时回退浏览器语音。
+     * 单击单词时播放发音。
      */
     const playWordAudio = async () => {
         if (playLoading) return;
@@ -331,12 +324,6 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
         }
     };
 
-    /**
-     * 单击单词时播放发音；若用户刚通过拖拽产生选区，则跳过播放。
-     *
-     * 单词点击已被“播放发音”消费，需阻止事件冒泡，
-     * 避免再触发父级字幕行的点击行为（如播客模式的“跳转到行首”）。
-     */
     const handleWordClick = async (event: React.MouseEvent<HTMLSpanElement>) => {
         event.stopPropagation();
         if (hasMeaningfulSelection(event.currentTarget)) {
@@ -345,60 +332,61 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
         await playWordAudio();
     };
 
-    const setWordRef = (node: HTMLSpanElement | null) => {
-        eleRef.current = node;
-        setReferenceElement(node);
-    };
+    const referenceProps = getReferenceProps({
+        ref: refs.setReference,
+        className: 'rounded cursor-pointer inline',
+        role: 'button',
+        tabIndex: 0,
+        onMouseEnter: (e: React.MouseEvent) => {
+            // 用户开启了悬浮暂停设置或正在按住 Alt 时暂停播放
+            if (pauseOnWordHover || e.altKey) {
+                pause();
+            }
+        },
+        onKeyDown: (e: React.KeyboardEvent) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                pause();
+                void playWordAudio();
+                if (pop) {
+                    setIsOpen(true);
+                    requestPop();
+                }
+            }
+        },
+        onClick: (e: React.MouseEvent<HTMLSpanElement>) => {
+            pause();
+            void handleWordClick(e);
+            if (pop) {
+                setIsOpen(true);
+                requestPop();
+            }
+        },
+    });
 
     return (
         <span className="inline">
-            <span
-                ref={setWordRef}
-                className="rounded cursor-pointer inline"
-                role="button"
-                tabIndex={0}
-                onFocus={() => {
-                    setHovered(true);
-                }}
-                onMouseOver={() => {
-                    setHovered(true);
-                    pause();
-                }}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        void playWordAudio();
-                        if (!hovered) {
-                            setHovered(true);
-                        }
-                    }
-                }}
-                onClick={(e) => {
-                    void handleWordClick(e);
-                    if (!hovered) {
-                        setHovered(true);
-                    }
-                }}
-            >
+            <span {...referenceProps}>
                 <span
                     className={cn(
                         'rounded select-text transition-all duration-150',
                         !show && ['text-transparent', Style.word_hover_bg],
                         show && hoverBg,
                         show && vocabCls,
-                        hovered && pop && (alwaysDark ? 'bg-neutral-600' : theme.word.popReferenceBgClass),
+                        isOpen && pop && (alwaysDark ? 'bg-neutral-600' : theme.word.popReferenceBgClass),
                         classNames?.word,
                     )}
                 >
                     {word}
                 </span>
             </span>
-            {pop && hovered ? (
+            {pop && isOpen ? (
                 <Eb>
                     <WordPop
                         translation={dictionaryResponse}
-                        referenceElement={referenceElement}
-                        ref={popperRef}
+                        setFloatingRef={refs.setFloating}
+                        floatingStyles={floatingStyles}
+                        getFloatingProps={getFloatingProps}
                         isLoading={isWordLoading || isRefreshing}
                         openaiStreamingData={dictionaryEntry?.data ?? null}
                         isStreaming={!!dictionaryEntry && !dictionaryEntry.isComplete}
@@ -411,10 +399,4 @@ const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alway
             ) : null}
         </span>
     );
-};
-
-export default Word;
-
-Word.defaultProps = {
-    alwaysDark: false,
 }

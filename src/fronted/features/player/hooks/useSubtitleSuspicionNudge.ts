@@ -3,7 +3,7 @@
  */
 import useSWR from 'swr';
 import { SWR_KEY } from '@/fronted/lib/swr-util';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { transcriptApi } from '@/fronted/features/transcript/transcriptApi';
 import { isTaskPendingOrRunning } from '@/common/contracts/transcript/transcript-task';
 import { useSubtitleSuspicion } from '@/fronted/features/player/subtitleSuspicion';
@@ -18,7 +18,7 @@ import { useSubtitleSuspicion } from '@/fronted/features/player/subtitleSuspicio
  */
 export function useSubtitleSuspicionNudge(): boolean {
     const hasSuspicion = useSubtitleSuspicion((s) => s.reasons.length > 0);
-    const videoPath = useFile((s) => s.videoPath);
+    const videoPath = usePlaybackSession((s) => s.videoPath);
     const { data: tasks = [] } = useSWR(SWR_KEY.TRANSCRIPTION_TASKS, transcriptApi.listTasks);
     if (!hasSuspicion) {
         return false;

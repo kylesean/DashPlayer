@@ -3,7 +3,7 @@
  */
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
 import type { Nullable } from '@/common/types/Types';
 import StrUtil from '@/common/utils/str-util';
@@ -57,8 +57,8 @@ const useFavouriteClip = create(
     changeCurrentLineClip: async () => {
       // 使用当前播放器聚焦句子作为收藏切换的目标。
       const currentSentence = usePlayer.getState().currentSentence;
-      const videoPath = useFile.getState().videoPath;
-      const srtHash = useFile.getState().srtHash;
+      const videoPath = usePlaybackSession.getState().videoPath;
+      const srtHash = usePlaybackSession.getState().srtHash;
       if (!videoPath || !srtHash || !currentSentence) {
         return;
       }
@@ -101,7 +101,7 @@ const useFavouriteClip = create(
     deleteClip: async (key: string) => {
       await favouriteApi.delete(key);
       await swrApiMutate('favorite-clips/search');
-      useFile.setState({
+      usePlaybackSession.setState({
         subtitlePath: null
       });
       set((state) => {

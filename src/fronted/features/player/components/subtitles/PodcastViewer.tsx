@@ -1,4 +1,4 @@
-import React, { useRef, useLayoutEffect } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { motion, useSpring } from 'framer-motion';
 import { cn } from '@/fronted/lib/utils';
 import { usePlayer } from '@/fronted/features/player/playerStore';
@@ -146,10 +146,6 @@ const PodcastViewer = ({ className }: { className?: string }) => {
             <PodcastControlBar className="absolute left-0 bottom-0 z-30" />
         </div>
     );
-};
+}
 
 export default PodcastViewer;
-
-PodcastViewer.defaultProps = {
-    className: ''
-};

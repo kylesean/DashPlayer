@@ -28,6 +28,7 @@ import {
     AlertDialogTrigger,
 } from '@/fronted/components/ui/alert-dialog';
 import { ManualDownloadGuide } from '@/fronted/components/shared/ManualDownloadGuide';
+import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 import type { TranscriptionEngine } from '@/common/contracts/transcription-engine';
@@ -146,28 +147,16 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
         return () => window.clearInterval(timer);
     }, [downloading]);
 
-    // 订阅主进程推送的下载进度（initRendererApis 会把 IPC 事件转成不带前缀的 window 事件）
+    // 订阅主进程推送的下载进度
     React.useEffect(() => {
-        const handleArchiveProgress = (event: Event) => {
-            const detail = (event as CustomEvent<{
-                downloaded: number;
-                total: number;
-                phase: ModelDownloadPhase;
-            }>).detail;
+        const unsubscribe = subscribeArchiveDownloadProgress((detail) => {
             setActivePhase(detail.phase);
             if (detail.phase === 'downloading' && detail.total > 0) {
                 trackProgress(detail.downloaded, detail.total);
             }
             if (detail.phase === 'idle') onRefresh();
-        };
-        window.addEventListener('sherpa-tts-model-download-progress', handleArchiveProgress);
-        window.addEventListener('whisper-cpp-model-download-progress', handleArchiveProgress);
-        window.addEventListener('parakeet-model-download-progress', handleArchiveProgress);
-        return () => {
-            window.removeEventListener('sherpa-tts-model-download-progress', handleArchiveProgress);
-            window.removeEventListener('whisper-cpp-model-download-progress', handleArchiveProgress);
-            window.removeEventListener('parakeet-model-download-progress', handleArchiveProgress);
-        };
+        });
+        return unsubscribe;
     }, [onRefresh, trackProgress]);
 
 

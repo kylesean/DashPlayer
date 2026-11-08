@@ -6,12 +6,12 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import {
     startListeningToDpTasks,
     stopListeningToDpTasks,
-} from '@/fronted/hooks/useDpTaskCenter';
+} from '@/fronted/app/stores/dpTaskStore';
 import {
     startListeningToRepairEvents,
     stopListeningToRepairEvents,
 } from '@/fronted/features/repair/repairEvents';
-import { syncStatus } from '@/fronted/hooks/useSystem';
+import { syncStatus } from '@/fronted/app/stores/systemStore';
 import { initPlayerDebug } from '@/fronted/features/player/dev/playerDebug';
 import { resolveDevMode } from '@/fronted/lib/devMode';
 

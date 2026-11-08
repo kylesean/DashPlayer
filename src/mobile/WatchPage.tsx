@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Virtuoso } from 'react-virtuoso';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import type { MobileWatchDetail } from '@/common/contracts/mobile-web';
 import { mobileApi } from './api';
 import DictionaryBar from './DictionaryBar';
@@ -18,7 +18,10 @@ import { useWatchPlayer } from './useWatchPlayer';
  * @param detail 播放详情。
  */
 const WatchPlayer = ({ detail }: { detail: MobileWatchDetail }) => {
-    const player = useWatchPlayer(detail);
+    const videoRef = React.useRef<HTMLVideoElement | null>(null);
+    const virtuosoRef = React.useRef<VirtuosoHandle | null>(null);
+    const dictRef = React.useRef<HTMLDivElement | null>(null);
+    const player = useWatchPlayer(detail, { videoRef, virtuosoRef, dictRef });
     const navigate = useNavigate();
     const pauseMenuOpen = player.paused && !player.videoError;
 
@@ -28,7 +31,7 @@ const WatchPlayer = ({ detail }: { detail: MobileWatchDetail }) => {
                 {/* 字幕由页面自绘，不使用 WebVTT track，关闭 jsx-a11y 的 captions 规则。 */}
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
                 <video
-                    ref={player.videoRef}
+                    ref={videoRef}
                     controls
                     playsInline
                     preload="metadata"
@@ -78,7 +81,7 @@ const WatchPlayer = ({ detail }: { detail: MobileWatchDetail }) => {
                         </div>
                     ) : (
                         <Virtuoso
-                            ref={player.virtuosoRef}
+                            ref={virtuosoRef}
                             scrollerRef={player.handleScrollerRef}
                             style={{ height: '100%' }}
                             data={detail.subtitles}
@@ -138,29 +141,22 @@ const WatchPlayer = ({ detail }: { detail: MobileWatchDetail }) => {
                 onChangeTheme={player.changeTheme}
             />
 
-            <DictionaryBar ref={player.dictRef} dict={player.dict} />
+            <DictionaryBar ref={dictRef} dict={player.dict} />
         </div>
     );
 };
 
 /**
- * 手机版播放页：加载详情，成功后挂播放器。
+ * 按视频标识挂载详情加载器：路由切换时通过 key 重置状态，避免副作用内同步清空 state。
+ *
+ * @param id 视频记录标识。
  */
-const WatchPage = () => {
-    const { id } = useParams<{ id: string }>();
+const WatchDetailLoader = ({ id }: { id: string }) => {
     const [detail, setDetail] = React.useState<MobileWatchDetail | null>(null);
     const [error, setError] = React.useState<string | null>(null);
 
     React.useEffect(() => {
         let cancelled = false;
-        setDetail(null);
-        setError(null);
-        if (!id) {
-            setError(t('缺少视频标识', 'Missing video id'));
-            return () => {
-                cancelled = true;
-            };
-        }
         document.title = 'DashPlayer';
         mobileApi.getWatchDetail(id)
             .then((next) => {
@@ -205,6 +201,29 @@ const WatchPage = () => {
     }
 
     return <WatchPlayer key={detail.id} detail={detail} />;
+};
+
+/**
+ * 手机版播放页：加载详情，成功后挂播放器。
+ */
+const WatchPage = () => {
+    const { id } = useParams<{ id: string }>();
+
+    if (!id) {
+        return (
+            <div className="view watch">
+                <div className="state">
+                    <div className="state-title">{t('打不开这个视频', 'Cannot open this video')}</div>
+                    <div className="state-text">{t('缺少视频标识', 'Missing video id')}</div>
+                    <Link className="retry-btn" to="/">
+                        {t('返回最近播放', 'Back to recent plays')}
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    return <WatchDetailLoader key={id} id={id} />;
 };
 
 export default WatchPage;

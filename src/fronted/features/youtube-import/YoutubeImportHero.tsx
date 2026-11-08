@@ -9,7 +9,7 @@ import { Input } from '@/fronted/components/ui/input';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import FolderSelector, { FolderSelectAction } from '@/fronted/features/file-browser/components/FolderSelector';
 import FileSelector, { FileAction } from '@/fronted/features/file-browser/components/FileSelector';
-import useLayout from '@/fronted/hooks/useLayout';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import { youtubeImportApi } from './youtubeImportApi';
 import useYoutubeImportTasks from './useYoutubeImportTasks';
 import YoutubeImportTaskRow from './YoutubeImportTaskRow';

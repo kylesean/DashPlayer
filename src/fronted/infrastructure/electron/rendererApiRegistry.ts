@@ -1,6 +1,14 @@
 import type { RendererApiMap } from '@/common/api/renderer-api-def';
 
 /**
+ * 供 main 进程调用的 renderer 接口注册函数签名。
+ */
+export type RegisterRendererApi = <K extends keyof RendererApiMap>(
+    path: K,
+    handler: RendererApiMap[K],
+) => (() => void) | void;
+
+/**
  * 注册供 main 进程调用的 renderer 接口。
  *
  * @param path renderer 接口路径。

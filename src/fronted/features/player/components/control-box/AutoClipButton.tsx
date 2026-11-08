@@ -4,12 +4,12 @@ import toast from 'react-hot-toast';
 import { codeBlock } from 'common-tags';
 import { Scissors } from 'lucide-react';
 import TooltippedButton from '@/fronted/components/shared/common/TooltippedButton';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import type { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
-import { registerRendererApi } from '@/fronted/infrastructure/electron/rendererApiRegistry';
+import { subscribeClipStatusUpdate } from '@/fronted/features/video-learning/videoLearningEvents';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 const logger = getRendererLogger('AutoClipButton');
@@ -34,9 +34,9 @@ interface AutoClipButtonProps {
 export default function AutoClipButton({ className }: AutoClipButtonProps) {
   const { t } = useI18nTranslation('player');
   const { mutate: mutateSWRCache } = useSWRConfig();
-  const videoPath = useFile((state) => state.videoPath);
-  const srtHash = useFile((state) => state.srtHash);
-  const subtitlePath = useFile((state) => state.subtitlePath);
+  const videoPath = usePlaybackSession((state) => state.videoPath);
+  const srtHash = usePlaybackSession((state) => state.srtHash);
+  const subtitlePath = usePlaybackSession((state) => state.subtitlePath);
   const canQuery = !!(videoPath && srtHash && subtitlePath);
 
   const { data: globalQueueStatus, mutate: mutateGlobalQueueStatus } = useSWR<GlobalVideoLearningClipQueueStatusVO>(
@@ -110,53 +110,39 @@ export default function AutoClipButton({ className }: AutoClipButtonProps) {
    * 监听当前字幕对应的后端状态推送。
    */
   useEffect(() => {
-    const unregister = registerRendererApi(
-      'video-learning/clip-status-update',
-      (params: {
-        videoPath: string;
-        srtKey: string;
-        status: ClipStatus;
-        pendingCount?: number;
-        inProgressCount?: number;
-        completedCount?: number;
-        message?: string;
-        analyzingProgress?: number;
-        seq?: number;
-      }) => {
-        if (params.srtKey === srtHash) {
-          const applyUpdate = (prev: ClipStatusState | undefined): ClipStatusState | undefined => {
-            if (prev?.seq !== undefined && params.seq !== undefined && params.seq <= prev.seq) {
-              return prev;
-            }
+    return subscribeClipStatusUpdate((params) => {
+      if (params.srtKey === srtHash) {
+        const applyUpdate = (prev: ClipStatusState | undefined): ClipStatusState | undefined => {
+          if (prev?.seq !== undefined && params.seq !== undefined && params.seq <= prev.seq) {
+            return prev;
+          }
 
-            const isAnalyzing = params.status === 'analyzing';
-            const analyzingProgress = isAnalyzing
-              ? params.analyzingProgress ?? prev?.analyzingProgress ?? 0
-              : params.analyzingProgress;
+          const isAnalyzing = params.status === 'analyzing';
+          const analyzingProgress = isAnalyzing
+            ? params.analyzingProgress ?? prev?.analyzingProgress ?? 0
+            : params.analyzingProgress;
 
-            return {
-              status: params.status,
-              pendingCount:
-                params.status === 'pending'
-                  ? params.pendingCount ?? 0
-                  : params.pendingCount,
-              inProgressCount:
-                params.status === 'in_progress'
-                  ? params.inProgressCount ?? 0
-                  : params.inProgressCount,
-              completedCount: params.completedCount,
-              message: params.message,
-              analyzingProgress,
-              seq: params.seq ?? prev?.seq,
-            };
+          return {
+            status: params.status,
+            pendingCount:
+              params.status === 'pending'
+                ? params.pendingCount ?? 0
+                : params.pendingCount,
+            inProgressCount:
+              params.status === 'in_progress'
+                ? params.inProgressCount ?? 0
+                : params.inProgressCount,
+            completedCount: params.completedCount,
+            message: params.message,
+            analyzingProgress,
+            seq: params.seq ?? prev?.seq,
           };
+        };
 
-          // 单一真相源：SWR cache。push 直接写回 cache，避免“切回复用旧 0%”问题。
-          void mutateClipStatus((prev) => applyUpdate(prev), { revalidate: false });
-        }
+        // 单一真相源：SWR cache。push 直接写回 cache，避免“切回复用旧 0%”问题。
+        void mutateClipStatus((prev) => applyUpdate(prev), { revalidate: false });
       }
-    );
-    return () => unregister();
+    });
   }, [srtHash, mutateClipStatus]);
 
   const pendingCount = clipStatus?.pendingCount ?? 0;

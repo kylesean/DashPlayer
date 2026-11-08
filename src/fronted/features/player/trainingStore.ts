@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { persist, subscribeWithSelector } from 'zustand/middleware';
-import { useStoreWithEqualityFn } from 'zustand/traditional';
 
 /**
  * 训练模式的数值参数：由「自定义训练参数」弹窗编辑并整体持久化。
@@ -53,9 +52,14 @@ export const useTrainingModeStore = create(
   )
 );
 
+/**
+ * 按选择器订阅训练模式状态；多字段选择请配合 `useShallow`。
+ *
+ * @param selector 状态选择器。
+ * @returns 选中的训练模式状态切片。
+ */
 export function useTrainingMode<T>(
   selector: (s: TrainingModeState) => T,
-  equalityFn?: (a: T, b: T) => boolean
 ): T {
-  return useStoreWithEqualityFn(useTrainingModeStore, selector, equalityFn);
+  return useTrainingModeStore(selector);
 }

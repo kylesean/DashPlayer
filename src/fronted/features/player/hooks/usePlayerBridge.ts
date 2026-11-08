@@ -4,14 +4,14 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import StrUtil from '@/common/utils/str-util';
 import UrlUtil from '@/common/utils/UrlUtil';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
-import { computeResumeTime } from '@/fronted/lib/playerResume';
+import { computeResumeTime } from '@/fronted/features/player/lib/playerResume';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import useTranslation from '@/fronted/features/player/translationStore';
-import useVocabulary from '@/fronted/features/player/vocabularyStore';
+import { useVocabularyStore } from '@/fronted/features/player/vocabularyStore';
 import { transcriptApi } from '@/fronted/features/transcript/transcriptApi';
 import { TRANSCRIPTION_CHUNK_SECONDS } from '@/common/contracts/transcript/transcript-task';
 import {
@@ -36,13 +36,13 @@ async function waitForPlayerDuration(timeoutMs = 1500): Promise<number> {
  * 绑定播放器所需的外部副作用，并返回页面层直接使用的桥接事件。
  */
 export function usePlayerBridge(navigate: (path: string) => void) {
-    const videoPath = useFile((s) => s.videoPath);
-    const subtitlePath = useFile((s) => s.subtitlePath);
-    const srtHash = useFile((s) => s.srtHash);
-    const subtitleSessionId = useFile((s) => s.subtitleSessionId);
-    const videoId = useFile((s) => s.videoId);
+    const videoPath = usePlaybackSession((s) => s.videoPath);
+    const subtitlePath = usePlaybackSession((s) => s.subtitlePath);
+    const srtHash = usePlaybackSession((s) => s.srtHash);
+    const subtitleSessionId = usePlaybackSession((s) => s.subtitleSessionId);
+    const videoId = usePlaybackSession((s) => s.videoId);
     /** 字幕重载令牌；增量转录会话结束后由 renderer api 递增，触发字幕回退重载。 */
-    const subtitleReloadToken = useFile((s) => s.subtitleReloadToken);
+    const subtitleReloadToken = usePlaybackSession((s) => s.subtitleReloadToken);
 
     const lastLoadedFileRef = useRef<string | undefined>(undefined);
 
@@ -69,13 +69,13 @@ export function usePlayerBridge(navigate: (path: string) => void) {
          * - 新字幕解析成功后，先激活新的 fileHash，再加载字幕，确保依赖当前句子的副作用看到的是一致上下文。
          */
         const loadSubtitles = async () => {
-            useVocabulary.getState().clearVocabularyWords();
+            useVocabularyStore.getState().clearVocabularyWords();
             const currentVideoId = videoId;
             if (StrUtil.isBlank(currentVideoId)) {
                 return;
             }
             // 先清掉上一视频残留的字幕哈希与翻译上下文，避免增量分支提前返回时旧状态继续生效。
-            useFile.setState({
+            usePlaybackSession.setState({
                 srtHash: null,
                 subtitleSessionId: null,
             });
@@ -83,7 +83,7 @@ export function usePlayerBridge(navigate: (path: string) => void) {
             playerActions.clearSubtitles();
             const currentPath = StrUtil.isBlank(subtitlePath) ? null : subtitlePath!;
             const incrementalSnapshot = await transcriptApi.getSessionSnapshot(videoPath!);
-            if (cancelled || videoPath !== useFile.getState().videoPath) return;
+            if (cancelled || videoPath !== usePlaybackSession.getState().videoPath) return;
             if (incrementalSnapshot && incrementalSnapshot.sentences.length > 0) {
                 // 转录进行中：增量字幕优先于已挂载的 SRT，直到会话结束。
                 // 字幕正在重新生成，之前“字幕不对”的引导不再成立。
@@ -106,18 +106,18 @@ export function usePlayerBridge(navigate: (path: string) => void) {
                 });
                 if (
                     cancelled
-                    || currentPath !== useFile.getState().subtitlePath
-                    || currentVideoId !== useFile.getState().videoId
+                    || currentPath !== usePlaybackSession.getState().subtitlePath
+                    || currentVideoId !== usePlaybackSession.getState().videoId
                 ) {
                     return;
                 }
                 if (!result) {
-                    useFile.setState({ subtitlePath: null, srtResegmented: false });
+                    usePlaybackSession.setState({ subtitlePath: null, srtResegmented: false });
                     useTranslation.getState().setActiveFileHash(null);
                     playerActions.clearSubtitles();
                     return;
                 }
-                useFile.setState({
+                usePlaybackSession.setState({
                     srtHash: result.fileHash,
                     subtitleSessionId: playbackSessionId,
                     // 后端解析时判定的重切分标志,练习记录按它隔离 (fileHash, index) 查询键
@@ -208,13 +208,13 @@ export function usePlayerBridge(navigate: (path: string) => void) {
                     || result.videoId !== currentVideoId
                     || result.playbackSessionId !== currentSessionId
                     || result.fileHash !== currentFileHash
-                    || useFile.getState().srtHash !== currentFileHash
-                    || useFile.getState().subtitleSessionId !== currentSessionId
-                    || useFile.getState().videoId !== currentVideoId
+                    || usePlaybackSession.getState().srtHash !== currentFileHash
+                    || usePlaybackSession.getState().subtitleSessionId !== currentSessionId
+                    || usePlaybackSession.getState().videoId !== currentVideoId
                 ) {
                     return;
                 }
-                useVocabulary.getState().setVocabularyWords(result.vocabularyWords);
+                useVocabularyStore.getState().setVocabularyWords(result.vocabularyWords);
             } catch (error) {
                 logger.error('failed to match subtitle vocabulary', {
                     error: error instanceof Error ? error.message : String(error),
@@ -243,8 +243,8 @@ export function usePlayerBridge(navigate: (path: string) => void) {
         const tick = async () => {
             if (stopped) return;
             try {
-                if (useFile.getState().videoLoaded) {
-                    const file = useFile.getState().videoPath;
+                if (usePlaybackSession.getState().videoLoaded) {
+                    const file = usePlaybackSession.getState().videoPath;
                     if (StrUtil.isNotBlank(file)) {
                         counter += 1;
                         if (counter % 5 === 0) {
@@ -282,13 +282,13 @@ export function usePlayerBridge(navigate: (path: string) => void) {
      * 靠 lastLoadedFileRef 幂等去重；守卫命中是常规路径，只在 debug 级留下痕迹。
      */
     const handlePlayerReady = useCallback(async () => {
-        const file = useFile.getState().videoPath;
-        const currentVideoId = useFile.getState().videoId;
+        const file = usePlaybackSession.getState().videoPath;
+        const currentVideoId = usePlaybackSession.getState().videoId;
         logger.debug('player ready callback entered', {
             videoId: currentVideoId,
             videoPath: file,
             lastLoadedFile: lastLoadedFileRef.current,
-            videoLoaded: useFile.getState().videoLoaded,
+            videoLoaded: usePlaybackSession.getState().videoLoaded,
         });
         if (StrUtil.isBlank(file) || StrUtil.isBlank(currentVideoId)) {
             logger.warn('player ready callback skipped: missing file context', {
@@ -317,16 +317,16 @@ export function usePlayerBridge(navigate: (path: string) => void) {
         } catch (error) {
             logger.error('failed to jump to history progress', { error: error instanceof Error ? error.message : String(error) });
         }
-        useFile.getState().loadedVideo(file);
+        usePlaybackSession.getState().loadedVideo(file);
         logger.info('player ready callback completed', {
             videoId: currentVideoId,
             videoPath: file,
-            videoLoaded: useFile.getState().videoLoaded,
+            videoLoaded: usePlaybackSession.getState().videoLoaded,
         });
     }, []);
 
     const handleAutoPlayNext = useCallback(async () => {
-        const currentVideoId = useFile.getState().videoId;
+        const currentVideoId = usePlaybackSession.getState().videoId;
         const autoPlayNext = usePlayer.getState().autoPlayNext;
         if (!autoPlayNext || !currentVideoId) {
             return;

@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/fronted/lib/utils';
-import useLayout from '@/fronted/hooks/useLayout';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import { useSubtitleScrollState } from '@/fronted/features/player/hooks/useSubtitleScroll';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
 import { useHotkeys } from 'react-hotkeys-hook';
@@ -13,9 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fron
 const process = (values: string) => values
     .split(',')
     .map((k) => k.replaceAll(' ', ''))
-    .filter((k) => k !== '')
-    // remove left right up down space
-    .filter((k) => k !== 'left' && k !== 'right' && k !== 'up' && k !== 'down' && k !== 'space');
+    .filter((k) => k !== '');
 
 /**
  * 悬浮控制按钮群：

@@ -2,7 +2,7 @@ import React from 'react';
 import { codeBlock } from 'common-tags';
 import { Captions } from 'lucide-react';
 import TooltippedButton from '@/fronted/components/shared/common/TooltippedButton';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import { SWR_KEY } from '@/fronted/lib/swr-util';
@@ -27,7 +27,7 @@ interface TranscriptButtonProps {
  */
 export default function TranscriptButton({ className }: TranscriptButtonProps) {
   const { t } = useI18nTranslation('player');
-  const videoPath = useFile((s) => s.videoPath);
+  const videoPath = usePlaybackSession((s) => s.videoPath);
   const showSubtitleNudge = useSubtitleSuspicionNudge();
   const { data: tasks = [], error, mutate } = useSWR(
     SWR_KEY.TRANSCRIPTION_TASKS,

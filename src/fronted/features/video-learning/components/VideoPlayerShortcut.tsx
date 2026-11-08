@@ -13,13 +13,12 @@ type Props = {
 };
 
 /**
- * 规范化快捷键配置，移除空白和由播放器占用的基础方向键。
+ * 规范化快捷键配置，去除空白项。
  */
 const processShortcutKeys = (values: string) => values
     .split(',')
     .map((k) => k.replaceAll(' ', ''))
-    .filter((k) => k !== '')
-    .filter((k) => k !== 'left' && k !== 'right' && k !== 'up' && k !== 'down' && k !== 'space');
+    .filter((k) => k !== '');
 
 /**
  * 视频学习页快捷键注册器：监听设置变化后即时更新绑定。
@@ -41,32 +40,7 @@ const VideoPlayerShortcut: React.FC<Props> = ({
         autoPause: s.values.get('shortcut.autoPause') ?? '',
     })));
 
-    // 基础方向键导航（与主播放器保持一致）
-    useHotkeys('left', (e) => {
-        e.preventDefault();
-        onPrevSentence();
-    }, [onPrevSentence]);
-
-    useHotkeys('right', (e) => {
-        e.preventDefault();
-        onNextSentence();
-    }, [onNextSentence]);
-
-    useHotkeys('down', (e) => {
-        e.preventDefault();
-        onRepeatSentence();
-    }, [onRepeatSentence]);
-
-    // 空格和上方向键播放/暂停（与主播放器保持一致）
-    useHotkeys('space', (e) => {
-        e.preventDefault();
-        onPlayPause();
-    }, [onPlayPause]);
-
-    useHotkeys('up', (e) => {
-        e.preventDefault();
-        onPlayPause();
-    }, [onPlayPause]);
+    // 从设置中读取绑定的快捷键并注册（默认配置包含方向键与字母键）
 
     // 自定义快捷键配置（从设置中读取）
     useHotkeys(processShortcutKeys(shortcuts.previousSentence), (e) => {

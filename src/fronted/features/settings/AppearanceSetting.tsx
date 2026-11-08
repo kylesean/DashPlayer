@@ -16,7 +16,7 @@ import { applyLanguageSetting } from '@/fronted/i18n';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 import useSWR from 'swr';
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
-import { Globe, Palette, Sliders, Type, Moon, Sun } from 'lucide-react';
+import { Globe, Palette, Sliders, Type, Moon, Sun, Laptop } from 'lucide-react';
 
 const logger = getRendererLogger('AppearanceSetting');
 type AppearanceFormValues = AppearanceSettingVO;
@@ -103,6 +103,11 @@ const AppearanceSetting = () => {
                     >
                         <div className="flex items-center gap-2">
                             {[
+                                {
+                                    value: 'system' as const,
+                                    label: t('appearance.themeSystem'),
+                                    icon: Laptop,
+                                },
                                 {
                                     value: 'dark' as const,
                                     label: t('appearance.themeDark'),

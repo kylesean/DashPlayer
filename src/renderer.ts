@@ -28,7 +28,7 @@
 
 import './index.css';
 import { startRendererRuntime } from './fronted/app/bootstrap/rendererRuntime';
-import { mountApp } from './app';
+import { mountApp } from './fronted/app/App';
 import { getRendererLogger } from './fronted/log/simple-logger';
 
 const rendererStartupStartedAt = performance.now();

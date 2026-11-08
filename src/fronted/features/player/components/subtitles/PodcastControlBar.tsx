@@ -1,78 +1,74 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import VolumeSlider from '../VolumeSlider';
-import { usePlayer } from '@/fronted/features/player/playerStore';
-import {cn} from "@/fronted/lib/utils";
+import { cn } from '@/fronted/lib/utils';
 import SpeedSlider from '../SpeedSlider';
 import { CONTROL_POPOVER_OFFSET_STACKED_BAR } from '@/fronted/features/player/components/ControlPopover';
-import { Slider } from '@/fronted/components/ui/slider';
-import { Card } from '@/fronted/components/ui/card';
-import {Pause, Play} from "lucide-react";
-import {Button} from "@/fronted/components/ui/button";
-import TimeUtil from "@/common/utils/TimeUtil";
+import { Pause, Play } from 'lucide-react';
+import { Button } from '@/fronted/components/ui/button';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
+import { usePlayerState } from '@/fronted/features/player/playerState';
+import { playerActions } from '@/fronted/features/player/components/PlayerActions';
+import {
+    PlaybackProgressSlider,
+    PlaybackTimeReadout,
+} from '@/fronted/features/player/components/PlaybackProgressControls';
 
+const logger = getRendererLogger('PodcastControlBar');
+
+/**
+ * 播客沉浸式视图控制栏组件入参。
+ */
 export interface PodcastControlBarProps {
     className?: string;
-
+    onTimeChange?: (time: number) => void;
 }
 
-const PodcastControlBar = ({
-                                 className
-                             }: PodcastControlBarProps) => {
-    const logger = getRendererLogger('PodcastControlBar');
-    const playTime = usePlayer((s) => s.internal.exactPlayTime);
-    const duration = usePlayer((s) => s.duration);
-    const volume = usePlayer((s) => s.volume);
-    const setVolume = usePlayer((s) => s.setVolume);
-    const playbackRate = usePlayer((s) => s.playbackRate);
-    const setPlaybackRate = usePlayer((s) => s.setPlaybackRate);
-    const muted = usePlayer((s) => s.muted);
-    const setMuted = usePlayer((s) => s.setMuted);
-    const onPlay = usePlayer((s) => s.play);
-    const onPause = usePlayer((s) => s.pause);
-    const playing = usePlayer((s) => s.playing);
-    const seekTo = usePlayer((s) => s.seekTo);
-    const setAutoPause = usePlayer((s) => s.setAutoPause);
-    const setSingleRepeat = usePlayer((s) => s.setSingleRepeat);
-    const [mouseOver, setMouseOver] = useState<boolean>(false);
-    const [currentValue, setCurrentValue] = useState(0);
-    const currentValueUpdateTime = useRef<number>(0);
-    const [selecting, setSelecting] = useState(false);
+/**
+ * 播客沉浸视图底部的控制条。
+ * 进度条与播放时间订阅已被完全隔离在叶子组件中，避免 22Hz 刷新导致整条按钮频繁重渲染。
+ */
+export default function PodcastControlBar({
+    className = '',
+    onTimeChange,
+}: PodcastControlBarProps) {
+    const { volume, playbackRate, muted, playing } = usePlayerState(
+        useShallow((s) => ({
+            volume: s.volume,
+            playbackRate: s.playbackRate,
+            muted: s.muted,
+            playing: s.playing,
+        })),
+    );
 
-    // const currentValueUpdateTime
-    useEffect(() => {
-        if (selecting || Date.now() - currentValueUpdateTime.current < 500) {
-            return;
-        }
-        setCurrentValue(playTime);
-    }, [playTime, duration, selecting]);
+    const [previewTime, setPreviewTime] = useState<number | null>(null);
 
+    const handleScrubCommit = useCallback((time: number) => {
+        logger.debug('Podcast time slider scrub commit', { time });
+        onTimeChange?.(time);
+        playerActions.seekTo({ time });
+        playerActions.setAutoPause(false);
+        playerActions.setSingleRepeat(false);
+    }, [onTimeChange]);
 
     return (
         <div className={cn('w-full pointer-events-auto transition-colors duration-300 pb-5 pt-2 px-8', className)}>
             <div className="w-full flex flex-col gap-3">
                 {/* 细致平滑的进度条 */}
                 <div className="w-full flex items-center">
-                    <Slider
+                    <PlaybackProgressSlider
+                        previewTime={previewTime}
+                        onPreviewTimeChange={setPreviewTime}
+                        onScrubValueChange={(time) => {
+                            playerActions.seekTo({ time });
+                            playerActions.setAutoPause(false);
+                            playerActions.setSingleRepeat(false);
+                        }}
+                        onScrubCommit={handleScrubCommit}
                         className="cursor-pointer py-1"
                         trackClassName="bg-zinc-200/70 dark:bg-zinc-800/80"
                         rangeClassName="bg-zinc-400 dark:bg-zinc-500"
                         thumbClassName="border-zinc-400 dark:border-zinc-500 bg-white dark:bg-zinc-900 shadow-sm"
-                        max={duration}
-                        min={0}
-                        value={[currentValue]}
-                        onValueChange={(value) => {
-                            logger.debug('Viewer time slider value changed', { value });
-                            setCurrentValue(value[0]);
-                            setSelecting(true);
-                            seekTo({ time: value[0] });
-                            setAutoPause(false);
-                            setSingleRepeat(false);
-                        }}
-                        onValueCommit={() => {
-                            currentValueUpdateTime.current = Date.now();
-                            setSelecting(false);
-                        }}
                     />
                 </div>
 
@@ -82,13 +78,13 @@ const PodcastControlBar = ({
                         <Button
                             onClick={() => {
                                 if (playing) {
-                                    onPause?.();
+                                    playerActions.pause();
                                 } else {
-                                    onPlay?.();
+                                    playerActions.play();
                                 }
                             }}
-                            size={'icon'}
-                            variant={'ghost'}
+                            size="icon"
+                            variant="ghost"
                             className="w-9 h-9 rounded-full text-zinc-800 dark:text-zinc-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                         >
                             {playing ? (
@@ -97,24 +93,27 @@ const PodcastControlBar = ({
                                 <Play className="w-4 h-4 ml-0.5" />
                             )}
                         </Button>
-                        <div className="flex items-center font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                            <span className="text-zinc-800 dark:text-zinc-200 font-medium">{TimeUtil.secondToTimeStr(currentValue)}</span>
-                            <span className="mx-1.5 opacity-40">/</span>
-                            <span>{TimeUtil.secondToTimeStr(duration)}</span>
-                        </div>
+                        <PlaybackTimeReadout
+                            previewTime={previewTime}
+                            className="flex items-center font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400"
+                            currentClassName="text-zinc-800 dark:text-zinc-200 font-medium"
+                            separatorClassName="mx-1.5 opacity-40"
+                            durationClassName=""
+                            durationWrapperClassName="inline-flex items-center"
+                        />
                     </div>
 
                     <div className="flex justify-center items-center gap-4 text-zinc-600 dark:text-zinc-400">
                         <SpeedSlider
                             speed={playbackRate}
                             popoverOffset={CONTROL_POPOVER_OFFSET_STACKED_BAR}
-                            onSpeedChange={setPlaybackRate}
+                            onSpeedChange={(speed) => playerActions.setPlaybackRate(speed)}
                         />
                         <VolumeSlider
                             muted={muted}
-                            onMutedChange={setMuted}
+                            onMutedChange={(nextMuted) => playerActions.setMuted(nextMuted)}
                             volume={volume}
-                            onVolumeChange={setVolume}
+                            onVolumeChange={(nextVolume) => playerActions.setVolume(nextVolume)}
                             sliderTrackClassName="bg-zinc-200/70 dark:bg-zinc-800/80"
                             sliderRangeClassName="bg-zinc-400 dark:bg-zinc-500"
                             sliderThumbClassName="border-zinc-400 dark:border-zinc-500 bg-white dark:bg-zinc-900 shadow-sm"
@@ -124,19 +123,4 @@ const PodcastControlBar = ({
             </div>
         </div>
     );
-};
-PodcastControlBar.defaultProps = {
-    className: '',
-    onTimeChange: () => {
-        //
-    },
-    onPause: () => {
-        //
-    },
-    onPlay: () => {
-        //
-    },
-    playing: false
-};
-
-export default PodcastControlBar;
+}

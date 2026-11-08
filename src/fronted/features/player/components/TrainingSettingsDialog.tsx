@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,20 +8,36 @@ import {
 } from '@/fronted/components/ui/dialog';
 import { Button } from '@/fronted/components/ui/button';
 import { Input } from '@/fronted/components/ui/input';
-import { Label } from '@/fronted/components/ui/label';
 import { Slider } from '@/fronted/components/ui/slider';
 import { Mic, Repeat, Gauge, Sliders, RotateCcw } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
+import { type TrainingModeConfig, useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 
+/** 训练模式设置弹窗的入参。 */
 interface TrainingSettingsDialogProps {
+  /** 是否打开弹窗。 */
   open: boolean;
+  /** 控制开关状态的回调。 */
   onOpenChange: (open: boolean) => void;
 }
 
+/**
+ * 训练模式设置弹窗：按打开状态挂载表单，避免在副作用中同步重置草稿状态。
+ */
 export function TrainingSettingsDialog({ open, onOpenChange }: TrainingSettingsDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open ? <TrainingSettingsForm onClose={() => onOpenChange(false)} /> : null}
+    </Dialog>
+  );
+}
+
+/**
+ * 训练模式设置表单内容。
+ */
+function TrainingSettingsForm({ onClose }: { onClose: () => void }) {
   const { t } = useI18nTranslation('player');
   const config = useTrainingModeStore((s) => s.config);
   const updateConfig = useTrainingModeStore((s) => s.updateConfig);
@@ -29,19 +45,19 @@ export function TrainingSettingsDialog({ open, onOpenChange }: TrainingSettingsD
 
   const sentenceLoop = usePlayer((s) => s.sentenceLoop);
 
-  // 本地临时表单状态
   const [shadowingRatio, setShadowingRatio] = useState(config.shadowingRatio);
   const [repeatTimes, setRepeatTimes] = useState(config.repeatTimes);
   const [progressiveRatesStr, setProgressiveRatesStr] = useState(config.progressiveRates.join(', '));
 
-  useEffect(() => {
-    if (open) {
-      setShadowingRatio(config.shadowingRatio);
-      setRepeatTimes(config.repeatTimes);
-      setProgressiveRatesStr(config.progressiveRates.join(', '));
-    }
-  }, [open, config]);
+  const applyConfigDraft = (nextConfig: TrainingModeConfig) => {
+    setShadowingRatio(nextConfig.shadowingRatio);
+    setRepeatTimes(nextConfig.repeatTimes);
+    setProgressiveRatesStr(nextConfig.progressiveRates.join(', '));
+  };
 
+  /**
+   * 校验并保存训练模式设置；若当前正在运行单句循环，同步热更新循环参数。
+   */
   const handleSave = () => {
     // 解析递进倍速
     const parsedRates = progressiveRatesStr
@@ -68,18 +84,18 @@ export function TrainingSettingsDialog({ open, onOpenChange }: TrainingSettingsD
       }
     }
 
-    onOpenChange(false);
+    onClose();
   };
 
+  /**
+   * 恢复训练模式默认参数并刷新当前草稿表单。
+   */
   const handleReset = () => {
     resetConfig();
-    setShadowingRatio(1.5);
-    setRepeatTimes(3);
-    setProgressiveRatesStr('0.75, 1.0, 1.25');
+    applyConfigDraft(useTrainingModeStore.getState().config);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
@@ -175,7 +191,7 @@ export function TrainingSettingsDialog({ open, onOpenChange }: TrainingSettingsD
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => onOpenChange(false)}
+              onClick={onClose}
               className="text-xs"
             >
               {t('trainingSettings.cancel')}
@@ -191,6 +207,5 @@ export function TrainingSettingsDialog({ open, onOpenChange }: TrainingSettingsD
           </div>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
   );
 }

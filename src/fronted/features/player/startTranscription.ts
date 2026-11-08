@@ -6,7 +6,7 @@
 import toast from 'react-hot-toast';
 import i18n from '@/fronted/i18n';
 import StrUtil from '@/common/utils/str-util';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { transcriptApi } from '@/fronted/features/transcript/transcriptApi';
 import { useSubtitleSuspicion } from '@/fronted/features/player/subtitleSuspicion';
@@ -18,7 +18,7 @@ import { useSubtitleSuspicion } from '@/fronted/features/player/subtitleSuspicio
  * （引导生成字幕的目的已达成，小圆点与后续提示一并消失）。
  */
 export async function startTranscriptionForCurrentVideo(): Promise<void> {
-    const videoPath = useFile.getState().videoPath;
+    const videoPath = usePlaybackSession.getState().videoPath;
     if (StrUtil.isBlank(videoPath)) {
         toast.error(i18n.t('player:transcript.noVideoSelected'));
         return;

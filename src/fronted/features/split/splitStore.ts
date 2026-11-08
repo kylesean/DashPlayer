@@ -7,7 +7,7 @@ import { persist, subscribeWithSelector } from 'zustand/middleware';
 import type { ChapterParseResult } from '@/common/types/chapter-result';
 import { DpTaskState } from '@/common/contracts/dp-task';
 import MediaUtil from '@/common/utils/MediaUtil';
-import useDpTaskCenter from '@/fronted/hooks/useDpTaskCenter';
+import useDpTaskCenter from '@/fronted/app/stores/dpTaskStore';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
 import StrUtil from '@/common/utils/str-util';

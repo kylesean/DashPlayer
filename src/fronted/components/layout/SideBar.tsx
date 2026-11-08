@@ -1,23 +1,28 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import React, { cloneElement, type ReactElement } from 'react';
+import { cloneElement, type ReactElement } from 'react';
 import { cn } from '@/fronted/lib/utils';
 import logoLight from '../../../../assets/logo-light.png';
 import logoDark from '../../../../assets/logo-dark.png';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import YoutubeImportSidebarItem from '@/fronted/features/youtube-import/YoutubeImportSidebarItem';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { BookOpen, Captions, Rotate3D, Settings, SquareSplitHorizontal, Star, Video } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 
+/** 左侧主导航栏属性。 */
 export interface SideBarProps {
+    /** 是否以紧凑图标模式展示。 */
     compact?: boolean;
 }
 
-const SideBar = ({ compact }: SideBarProps) => {
+/**
+ * 桌面端主导航侧栏，提供各核心功能页面入口及当前主题标识。
+ */
+const SideBar = ({ compact = false }: SideBarProps) => {
     const { t } = useI18nTranslation('nav');
     const navigate = useNavigate();
     const location = useLocation();
-    const videoId = useFile((s) => s.videoId);
+    const videoId = usePlaybackSession((s) => s.videoId);
     const theme = useSetting((s) => s.values.get('appearance.theme'));
     const item = (
         text: string,
@@ -49,7 +54,7 @@ const SideBar = ({ compact }: SideBarProps) => {
                 )}
             >
                 {cloneElement(icon as ReactElement<{ className?: string }>, {
-                    className: cn('w-5 h-5 text-yellow-600 text-yellow-500 flex-shrink-0')
+                    className: cn('w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0')
                 })}
                 {!compact && (
                     <div className={cn('text-base text-foreground  truncate w-0 flex-1')}>
@@ -61,7 +66,7 @@ const SideBar = ({ compact }: SideBarProps) => {
     };
 
     return (
-        <div className={cn('w-full h-full flex flex-col text-black ')}>
+        <div className={cn('w-full h-full flex flex-col text-foreground')}>
             <div
                 className={cn(
                     'flex-1 flex items-center justify-center min-h-fit py-10'
@@ -72,7 +77,7 @@ const SideBar = ({ compact }: SideBarProps) => {
                         'w-24 h-24 user-drag-none',
                         compact && 'w-14 h-14'
                     )}
-                    src={theme === 'dark' ? logoDark : logoLight}
+                    src={(theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)) ? logoDark : logoLight}
                     alt=""
                 />
             </div>
@@ -119,10 +124,6 @@ const SideBar = ({ compact }: SideBarProps) => {
             </div>
         </div>
     );
-};
-
-SideBar.defaultProps = {
-    compact: false
 };
 
 export default SideBar;

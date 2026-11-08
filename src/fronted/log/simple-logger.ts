@@ -49,7 +49,6 @@ const RENDERER_LOGGER_CACHE = new Map<string, RendererLogger>();
 function write(moduleName: string, level: SimpleLevel, msg: string, data?: unknown): void {
     if (import.meta.env.DEV) {
         const method = level === 'error' ? 'error' : level === 'warn' ? 'warn' : level === 'debug' ? 'debug' : 'log';
-        // eslint-disable-next-line no-console
         console[method](`[renderer|${moduleName}|${level}]`, msg, data ?? '');
     }
 
@@ -64,7 +63,6 @@ function write(moduleName: string, level: SimpleLevel, msg: string, data?: unkno
         });
     } catch (error) {
         // 日志通道故障必须显式可见，否则整条证据链会静默断裂；仍不向上抛以免打断用户操作。
-        // eslint-disable-next-line no-console
         console.error(`[dp-log] renderer log write failed (module=${moduleName}, msg=${msg})`, error);
     }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeResumeTime } from '@/fronted/lib/playerResume';
+import { computeResumeTime } from '@/fronted/features/player/lib/playerResume';
 
 describe('computeResumeTime', () => {
     it('returns 0 for no progress', () => {

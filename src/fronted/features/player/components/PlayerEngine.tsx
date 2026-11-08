@@ -12,7 +12,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import HtmlPlayer from 'react-player/HtmlPlayer';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayer, type SeekRequest } from '@/fronted/features/player/playerStore';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 
 const logger = getRendererLogger('PlayerEngine');
@@ -66,17 +66,19 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
     playRequestId,
     setDuration,
     updateExactPlayTime,
-  } = usePlayerState((s) => ({
-    src: s.src,
-    playing: s.playing,
-    muted: s.muted,
-    volume: s.volume,
-    seekTime: s.seekTime,
-    playbackRate: s.playbackRate,
-    playRequestId: s.playRequestId,
-    setDuration: s.setDuration,
-    updateExactPlayTime: s.updateExactPlayTime,
-  }), shallow);
+  } = usePlayerState(
+    useShallow((s) => ({
+      src: s.src,
+      playing: s.playing,
+      muted: s.muted,
+      volume: s.volume,
+      seekTime: s.seekTime,
+      playbackRate: s.playbackRate,
+      playRequestId: s.playRequestId,
+      setDuration: s.setDuration,
+      updateExactPlayTime: s.updateExactPlayTime,
+    })),
+  );
 
   // v3 HtmlPlayer 的 ref 直接就是底层媒体元素（<video>/<audio>），不再有实例方法
   const videoRef = useRef<HTMLVideoElement | null>(null);

@@ -12,15 +12,15 @@ export type FontSizeType =
 export const FONT_SIZE: {
     [key in FontSizeType]: string;
 } = {
-    'ms1-small': 'text-xl',
-    'ms1-medium': 'text-2xl',
-    'ms1-large': 'text-3xl',
-    'ms2-small': 'text-lg',
-    'ms2-medium': 'text-xl',
-    'ms2-large': 'text-2xl',
-    'ms3-small': 'text-base',
-    'ms3-medium': 'text-lg',
-    'ms3-large': 'text-xl',
+    'ms1-small': 'text-[length:calc(1.25rem*var(--sub-scale,1))]',
+    'ms1-medium': 'text-[length:calc(1.5rem*var(--sub-scale,1))]',
+    'ms1-large': 'text-[length:calc(1.875rem*var(--sub-scale,1))]',
+    'ms2-small': 'text-[length:calc(1.125rem*var(--sub-scale,1))]',
+    'ms2-medium': 'text-[length:calc(1.25rem*var(--sub-scale,1))]',
+    'ms2-large': 'text-[length:calc(1.5rem*var(--sub-scale,1))]',
+    'ms3-small': 'text-[length:calc(1rem*var(--sub-scale,1))]',
+    'ms3-medium': 'text-[length:calc(1.125rem*var(--sub-scale,1))]',
+    'ms3-large': 'text-[length:calc(1.25rem*var(--sub-scale,1))]',
 };
 export type ColorType =
     | 'bg-background'

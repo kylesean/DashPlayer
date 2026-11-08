@@ -4,6 +4,7 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 
 const logger = getRendererLogger('SrtTender');
 
+/** 分桶索引内部存储的字幕行节点。 */
 interface TenderLine<T> {
     index: number;
     t1: number;
@@ -12,12 +13,15 @@ interface TenderLine<T> {
     origin: T;
 }
 
+/**
+ * 字幕时间轴索引与时间调整器契约。
+ */
 export interface SrtTender<T> {
     getByTime(time: number): T;
 
     pin(sentence: T): void;
 
-    mapSeekTime(time: number | T): { start: number, end: number };
+    mapSeekTime(time: number | T): { start: number; end: number };
 
     adjustBegin(sentence: T, time: number): T;
 
@@ -27,22 +31,29 @@ export interface SrtTender<T> {
 
     clearAdjust(sentence: T): T;
 
-    timeDiff(sentence: T): { start: number, end: number };
+    timeDiff(sentence: T): { start: number; end: number };
 
     update(sentence: T): void;
 }
 
-
+/**
+ * 按 10 秒时间桶分桶的字幕快速查询与单句微调基类。
+ */
 export abstract class AbstractSrtTender<T> implements SrtTender<T> {
     private GROUP_SECONDS = 10;
     private MAX_OP_ID = 0;
     private lineBucket = new Map<number, TenderLine<T>[]>();
     private readonly lines: TenderLine<T>[] = [];
     private readonly lineRange = new Map<number, [number, number]>();
-    private keyLineMapping:Map<string, number> | null = null;
+    private keyLineMapping: Map<string, number> | null = null;
     private cacheIndex: number | null = null;
     private backupIndex = 0;
 
+    /**
+     * 构造分桶索引并导入全部字幕行。
+     *
+     * @param sentences 按时间顺序排列的字幕列表。
+     */
     public constructor(sentences: T[]) {
         if (CollUtil.isEmpty(sentences)) return;
         const tempLines = this.mapToLine(sentences);
@@ -80,19 +91,20 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
         this.put({ ...line });
     }
 
-    public mapSeekTime(time: number | T): { start: number, end: number } {
-        const line = typeof time === 'number' ?
-            this.getByTimeInternal(time) :
-            this.getByT(time);
+    public mapSeekTime(time: number | T): { start: number; end: number } {
+        const line =
+            typeof time === 'number'
+                ? this.getByTimeInternal(time)
+                : this.getByT(time);
         if (!line) {
             return {
                 start: 0,
-                end: 0
+                end: 0,
             };
         }
         return {
             start: line.t1,
-            end: line.t2
+            end: line.t2,
         };
     }
 
@@ -103,7 +115,7 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
         this.put({
             ...line,
             t1: line.t1 + time,
-            origin: clone
+            origin: clone,
         });
         return clone;
     }
@@ -115,7 +127,7 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
         this.put({
             ...line,
             t2: line.t2 + time,
-            origin: clone
+            origin: clone,
         });
         return clone;
     }
@@ -124,7 +136,10 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
         const line = this.getByT(sentence);
         if (!line) return false;
         const origin = line.origin;
-        return Math.abs(line.t1 - this.getOriginStart(origin)) > delta || Math.abs(line.t2 - this.getOriginEnd(origin)) > delta;
+        return (
+            Math.abs(line.t1 - this.getOriginStart(origin)) > delta ||
+            Math.abs(line.t2 - this.getOriginEnd(origin)) > delta
+        );
     }
 
     public clearAdjust(sentence: T): T {
@@ -135,18 +150,18 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
             ...line,
             t1: this.getOriginStart(line.origin),
             t2: this.getOriginEnd(line.origin),
-            origin: clone
+            origin: clone,
         });
         return clone;
     }
 
-    public timeDiff(sentence: T): { start: number, end: number } {
+    public timeDiff(sentence: T): { start: number; end: number } {
         const line = this.getByT(sentence);
         if (!line) return { start: 0, end: 0 };
         const origin = line.origin;
         return {
             start: line.t1 - this.getOriginStart(origin),
-            end: line.t2 - this.getOriginEnd(origin)
+            end: line.t2 - this.getOriginEnd(origin),
         };
     }
 
@@ -155,14 +170,18 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
         if (!line) return;
         this.put({
             ...line,
-            origin: sentence
+            origin: sentence,
         });
     }
 
     private getByT(sentence: T): TenderLine<T> | null {
         const index = this.getKeyLineMapping().get(this.getOriginKey(sentence));
         if (index === undefined) {
-            logger.error('Can not find sentence', { sentence, key: this.getOriginKey(sentence), mapping: this.getKeyLineMapping() });
+            logger.error('Can not find sentence', {
+                sentence,
+                key: this.getOriginKey(sentence),
+                mapping: this.getKeyLineMapping(),
+            });
             return null;
         }
         return this.lines[index];
@@ -177,7 +196,7 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
     private put(item: TenderLine<T>) {
         const tempItem = {
             ...this.orderTime(item),
-            opId: this.MAX_OP_ID++
+            opId: this.MAX_OP_ID++,
         };
         // 先根据旧范围删除，再加入新范围
         this.deleteInBucket(tempItem.index);
@@ -193,7 +212,7 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
         this.lineRange.set(tempItem.index, [minIndex, maxIndex]);
         for (let i = minIndex; i <= maxIndex; i += 1) {
             const group = this.lineBucket.get(i) ?? [];
-            // 最新写入的放到最前，等价于"按 opId 逆序"
+            // 最新写入的放到最前，等价于“按 opId 逆序”
             group.unshift(tempItem);
             this.lineBucket.set(i, group);
         }
@@ -202,19 +221,19 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
     private deleteInBucket(index: number) {
         const item = this.lines[index];
         if (!item) return;
-        // 优先使用写入时记录的旧范围，保证能从"旧桶"正确移除
+        // 优先使用写入时记录的旧范围，保证能从“旧桶”正确移除
         const range = this.lineRange.get(index);
         let minIndex: number;
         let maxIndex: number;
         if (range) {
             [minIndex, maxIndex] = range;
         } else {
-            // 兜底：退化为按当前范围删除（可能漏删，但不影响正确性，只影响空间占用）
+            // 退化为按当前范围删除（可能漏删，但不影响正确性，只影响空间占用）
             [minIndex, maxIndex] = this.mapIndex(item);
         }
         for (let i = minIndex; i <= maxIndex; i += 1) {
             const group = this.lineBucket.get(i) ?? [];
-            const idx = group.findIndex((item) => item.index === index);
+            const idx = group.findIndex((entry) => entry.index === index);
             if (idx !== -1) {
                 group.splice(idx, 1);
             }
@@ -224,11 +243,15 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
     }
 
     private mapIndex(item: TenderLine<T>) {
-        let minIndex = Math.floor(Math.min(this.start(item), this.nextStart(item)) / this.GROUP_SECONDS);
+        let minIndex = Math.floor(
+            Math.min(this.start(item), this.nextStart(item)) / this.GROUP_SECONDS,
+        );
         if (item.index === 0) {
             minIndex = 0;
         }
-        const maxIndex = Math.floor(Math.max(this.end(item), this.nextStart(item)) / this.GROUP_SECONDS);
+        const maxIndex = Math.floor(
+            Math.max(this.end(item), this.nextStart(item)) / this.GROUP_SECONDS,
+        );
         return [minIndex, maxIndex];
     }
 
@@ -256,15 +279,20 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
     private mapToLine(sentences: T[]): TenderLine<T>[] {
         let index = 0;
         return sentences.map((sentence) => ({
-                index: index++,
-                t1: [this.getOriginAdjustedStart(sentence),
-                    this.getOriginStart(sentence)].find((item) => item !== null) ?? 0,
-                t2: [this.getOriginAdjustedEnd(sentence),
-                    this.getOriginEnd(sentence)].find((item) => item !== null) ?? 0,
-                opId: 0,
-                origin: sentence
-            })
-        );
+            index: index++,
+            t1:
+                [
+                    this.getOriginAdjustedStart(sentence),
+                    this.getOriginStart(sentence),
+                ].find((item) => item !== null) ?? 0,
+            t2:
+                [
+                    this.getOriginAdjustedEnd(sentence),
+                    this.getOriginEnd(sentence),
+                ].find((item) => item !== null) ?? 0,
+            opId: 0,
+            origin: sentence,
+        }));
     }
 
     private orderTime(line: TenderLine<T>) {
@@ -274,7 +302,7 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
         return {
             ...line,
             t1: line.t2,
-            t2: line.t1
+            t2: line.t1,
         };
     }
 
@@ -284,7 +312,7 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
             const first = this.lines[0];
             const last = this.lines[this.lines.length - 1];
             const firstStart = this.start(first);
-            const lastEndBound = this.end(last); // 对最后一行，等价于 [start(last), end(last)]
+            const lastEndBound = this.end(last);
             if (time <= firstStart) {
                 this.cacheIndex = 0;
                 this.backupIndex = 0;
@@ -318,6 +346,9 @@ export abstract class AbstractSrtTender<T> implements SrtTender<T> {
     }
 }
 
+/**
+ * 面向桌面端 Sentence 对象的字幕时间轴索引实现。
+ */
 export class SrtTenderImpl extends AbstractSrtTender<Sentence> {
     getOriginStart(sentence: Sentence): number {
         return sentence.start;
@@ -338,5 +369,4 @@ export class SrtTenderImpl extends AbstractSrtTender<Sentence> {
     getOriginKey(sentence: Sentence): string {
         return `${sentence.fileHash}-${sentence.index}`;
     }
-
 }

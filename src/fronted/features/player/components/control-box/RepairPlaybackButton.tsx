@@ -2,7 +2,7 @@ import React from 'react';
 import { codeBlock } from 'common-tags';
 import { Wrench } from 'lucide-react';
 import TooltippedButton from '@/fronted/components/shared/common/TooltippedButton';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import StrUtil from '@/common/utils/str-util';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { repairPlayback } from '@/fronted/features/player/repairPlayback';
@@ -21,7 +21,7 @@ interface RepairPlaybackButtonProps {
  */
 export default function RepairPlaybackButton({ className }: RepairPlaybackButtonProps) {
     const { t } = useI18nTranslation('player');
-    const videoPath = useFile((s) => s.videoPath);
+    const videoPath = usePlaybackSession((s) => s.videoPath);
     const canRepair = !StrUtil.isBlank(videoPath);
 
     const tooltipMd = codeBlock`

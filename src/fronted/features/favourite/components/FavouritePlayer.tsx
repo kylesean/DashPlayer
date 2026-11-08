@@ -4,10 +4,10 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import PlayerEngine from '@/fronted/features/player/components/PlayerEngine';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import useSWR from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
-import React, { useCallback, useEffect, useRef, useState, memo } from 'react';
+import { useCallback, useEffect, useRef, useState, memo } from 'react';
 import { AspectRatio } from '@/fronted/components/ui/aspect-ratio';
 import TagSelector from '@/fronted/features/favourite/components/TagSelector';
 import FavouriteMainSrt from './FavouriteMainSrt';
@@ -66,12 +66,11 @@ const FavouritePlayer = () => {
 
   // 低频状态：数值/布尔，变化不频繁
   const { playing, autoPause, singleRepeat } = usePlayerState(
-    (s) => ({
+    useShallow((s) => ({
       playing: s.playing,
       autoPause: s.autoPause,
-      singleRepeat: s.singleRepeat
-    }),
-    shallow
+      singleRepeat: s.singleRepeat,
+    })),
   );
 
   useEffect(() => {

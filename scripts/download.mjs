@@ -1,15 +1,17 @@
 #!/usr/bin/env zx
 
-import axios from 'axios';
 import fs from 'fs';
 import progress from "progress";
 import {createHash} from "crypto";
 import os from "os";
 import path from 'path';
+import {Readable} from 'stream';
 import {pipeline} from 'stream/promises';
 import * as tarFs from 'tar-fs';
 import unbzip2Stream from 'unbzip2-stream';
 import chalk from 'chalk';
+import {EnvHttpProxyAgent, setGlobalDispatcher} from 'undici';
+import {socksDispatcher} from 'fetch-socks';
 import { $ } from 'zx';
 import { withNetworkRetry } from './network-retry.mjs';
 import {
@@ -159,31 +161,39 @@ const downloadAndExtractBinaryFromZip = async ({url, outputPath, binaryNameCandi
     fs.chmodSync(outputPath, 0o755);
 };
 
+const fetchJson = async (url, options = {}) => {
+    const response = await fetch(url, options);
+    if (!response.ok) {
+        await response.body?.cancel();
+        throw Object.assign(new Error(`HTTP ${response.status} ${response.statusText} (${url})`), { status: response.status });
+    }
+    return response.json();
+};
+
 const getLatestReleaseAssetUrl = async ({owner, repo, nameRegex}) => {
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
-    const res = await withNetworkRetry(() => axios.get(apiUrl, {
+    const data = await withNetworkRetry(() => fetchJson(apiUrl, {
         headers: {
             'Accept': 'application/vnd.github+json',
             'User-Agent': 'DashPlayer-downloader',
             ...getGithubAuthHeaders(apiUrl),
         }
     }), {label: `查询 ${owner}/${repo} 最新发布`});
-    const assets = res.data?.assets ?? [];
+    const assets = data?.assets ?? [];
     const match = assets.find((a) => nameRegex.test(a?.name || ''));
     return match?.browser_download_url || null;
 };
 
 const getLatestReleaseAssetUrlIncludingPrerelease = async ({owner, repo, nameRegex}) => {
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases?per_page=10`;
-    const res = await withNetworkRetry(() => axios.get(apiUrl, {
+    const releases = await withNetworkRetry(() => fetchJson(apiUrl, {
         headers: {
             'Accept': 'application/vnd.github+json',
             'User-Agent': 'DashPlayer-downloader',
             ...getGithubAuthHeaders(apiUrl),
         }
     }), {label: `查询 ${owner}/${repo} 发布列表`});
-    const releases = res.data ?? [];
-    for (const release of releases) {
+    for (const release of releases ?? []) {
         const assets = release?.assets ?? [];
         const match = assets.find((a) => nameRegex.test(a?.name || ''));
         if (match?.browser_download_url) return match.browser_download_url;
@@ -525,27 +535,39 @@ async function verifyExistence({
 }
 
 /**
- * 将系统代理环境变量应用到下载客户端。
+ * 将系统代理环境变量应用到全局 fetch dispatcher（支持 HTTP/HTTPS 与 SOCKS 代理）。
  */
 function setProxy() {
     const proxyUrl =
         process.env.HTTPS_PROXY ||
         process.env.https_proxy ||
         process.env.HTTP_PROXY ||
-        process.env.http_proxy;
+        process.env.http_proxy ||
+        process.env.ALL_PROXY ||
+        process.env.all_proxy;
 
-    if (proxyUrl) {
-        const {hostname, port, protocol} = new URL(proxyUrl);
-        axios.defaults.proxy = {
-            host: hostname,
-            port: port,
-            protocol: protocol,
-        };
+    if (!proxyUrl) {
+        return;
     }
+    if (proxyUrl.toLowerCase().startsWith('socks')) {
+        const parsed = new URL(proxyUrl);
+        const port = Number(parsed.port);
+        if (Number.isInteger(port) && port > 0) {
+            setGlobalDispatcher(socksDispatcher({
+                type: parsed.protocol === 'socks4:' ? 4 : 5,
+                host: parsed.hostname,
+                port,
+                userId: parsed.username ? decodeURIComponent(parsed.username) : undefined,
+                password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+            }));
+        }
+        return;
+    }
+    setGlobalDispatcher(new EnvHttpProxyAgent());
 }
 
 /**
- * 单次下载尝试：流式写入目标文件，并按需校验 SHA1。
+ * 单次下载尝试：流式写入目标文件，并按需校验 SHA1 / SHA256。
  * 失败时抛出错误，交给 withNetworkRetry 判断是否值得重试。
  *
  * @param {{url: string, dest: string, file: string, sha: string | undefined, algo: 'sha1' | 'sha256'}} param
@@ -553,35 +575,39 @@ function setProxy() {
  * @returns {Promise<void>} 文件写入并通过校验后结束。
  */
 async function fetchToFile({url, dest, file, sha, algo}) {
-    const response = await axios.get(url, {
-        responseType: "stream",
+    const response = await fetch(url, {
         headers: getGithubAuthHeaders(url),
     });
-    const totalLength = response.headers["content-length"];
+    if (!response.ok) {
+        await response.body?.cancel();
+        throw Object.assign(new Error(`HTTP ${response.status} ${response.statusText} (${url})`), { status: response.status });
+    }
+    if (!response.body) {
+        throw new Error(`Empty response body for ${url}`);
+    }
+    const totalLength = Number.parseInt(response.headers.get("content-length") || "0", 10);
 
-    const progressBar = new progress(`-> downloading [:bar] :percent :etas`, {
-        width: 40,
-        complete: "=",
-        incomplete: " ",
-        renderThrottle: 1,
-        total: parseInt(totalLength),
-    });
+    const progressBar = totalLength > 0
+        ? new progress(`-> downloading [:bar] :percent :etas`, {
+            width: 40,
+            complete: "=",
+            incomplete: " ",
+            renderThrottle: 1,
+            total: totalLength,
+        })
+        : null;
 
-    response.data.on("data", (chunk) => {
-        progressBar.tick(chunk.length);
+    const bodyStream = Readable.fromWeb(response.body);
+    bodyStream.on("data", (chunk) => {
+        progressBar?.tick(chunk.length);
     });
-    await new Promise((resolve, reject) => {
-        response.data.pipe(fs.createWriteStream(dest)).on("close", async () => {
-            console.info(chalk.green(`✅ File ${file} downloaded successfully`));
-            const hash = await hashFile(dest, {algo});
-            if (sha === undefined || hash === sha) {
-                resolve();
-            } else {
-                // 内容对不上：常见原因是下载被截断，带 HASH_MISMATCH 让上层重下一次
-                reject(Object.assign(new Error(`File ${file} sha1 mismatch`), {code: 'HASH_MISMATCH'}));
-            }
-        });
-    });
+    await pipeline(bodyStream, fs.createWriteStream(dest));
+    console.info(chalk.green(`✅ File ${file} downloaded successfully`));
+    const hash = await hashFile(dest, {algo});
+    if (sha !== undefined && hash !== sha) {
+        // 内容对不上：常见原因是下载被截断，带 HASH_MISMATCH 让上层重下一次
+        throw Object.assign(new Error(`File ${file} ${algo} mismatch`), {code: 'HASH_MISMATCH'});
+    }
 }
 
 /**

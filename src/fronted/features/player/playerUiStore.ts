@@ -5,7 +5,6 @@
  */
 import { create } from 'zustand';
 import { createJSONStorage, persist, subscribeWithSelector, type StateStorage } from 'zustand/middleware';
-import { useStoreWithEqualityFn } from 'zustand/traditional';
 
 type PlayerUiState = {
   showEn: boolean;
@@ -235,13 +234,16 @@ export const usePlayerUi = create(
   )
 );
 
-const playerUiStore = usePlayerUi;
-
+/**
+ * 按选择器订阅播放器界面展示偏好；多字段选择请配合 `useShallow`。
+ *
+ * @param selector 状态选择器。
+ * @returns 选中的界面偏好切片。
+ */
 export function usePlayerUiState<T>(
     selector: (s: PlayerUiState & PlayerUiActions) => T,
-    equalityFn?: (a: T, b: T) => boolean
 ): T {
-    return useStoreWithEqualityFn(playerUiStore, selector, equalityFn);
+    return usePlayerUi(selector);
 }
 
 export default usePlayerUi;

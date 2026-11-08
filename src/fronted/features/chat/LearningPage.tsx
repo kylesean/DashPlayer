@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import useChatPanel from '@/fronted/features/chat/chatStore';
@@ -9,7 +9,8 @@ import { useSentenceLearningChat } from '@/fronted/features/chat/useSentenceLear
 import LearningWorkspace, { type LearningSentence } from '@/fronted/features/chat/components/LearningWorkspace';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
-import useVocabulary from '@/fronted/features/player/vocabularyStore';
+import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
+import { useShallow } from 'zustand/react/shallow';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { getTtsUrl, playAudioUrl } from '@/fronted/infrastructure/audio/AudioPlayer';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
@@ -50,10 +51,30 @@ export default function LearningPage() {
             toast.error(t('learning.sentenceResolveFailed'));
         }
     }, [sentenceResolveError, t]);
-    const vocabulary = useVocabulary();
+    const {
+        isVocabularyWord,
+        getBaseWord,
+        removeVocabularyWords,
+        addVocabularyWords,
+    } = useVocabularyState(
+        useShallow((s) => ({
+            isVocabularyWord: s.isVocabularyWord,
+            getBaseWord: s.getBaseWord,
+            removeVocabularyWords: s.removeVocabularyWords,
+            addVocabularyWords: s.addVocabularyWords,
+            version: s.version,
+        })),
+    );
     const sentences = usePlayerState((state) => state.sentences);
-    // 本地选词结果：生词卡与悬停取词共用同一份数据
-    const [sentenceVocabulary, setSentenceVocabulary] = useState<SentenceVocabularyVO | null>(null);
+    const trimmedTopic = topicText.trim();
+    // 按句子文本关联本地选词结果，句子清空或切换时无需在 effect 中同步清空旧状态
+    const [vocabularyState, setVocabularyState] = useState<{
+        text: string;
+        data: SentenceVocabularyVO | null;
+    } | null>(null);
+    const sentenceVocabulary = trimmedTopic && vocabularyState?.text === trimmedTopic
+        ? vocabularyState.data
+        : null;
 
     // 主题所在字幕行：句子信息与位置标签都从它取值，句子列表不变时不必重算
     const topicLine = useMemo(
@@ -75,16 +96,14 @@ export default function LearningPage() {
 
     // 句子一变就重新选词：本地词典、同步返回，不涉及模型与网络
     useEffect(() => {
-        const text = topicText.trim();
-        if (!text) {
-            setSentenceVocabulary(null);
+        if (!trimmedTopic) {
             return;
         }
         let cancelled = false;
-        chatApi.pickSentenceVocabulary(text)
+        chatApi.pickSentenceVocabulary(trimmedTopic)
             .then((result) => {
                 if (!cancelled) {
-                    setSentenceVocabulary(result);
+                    setVocabularyState({ text: trimmedTopic, data: result });
                 }
             })
             .catch((error) => {
@@ -93,14 +112,14 @@ export default function LearningPage() {
                     error: error instanceof Error ? error.message : error,
                 });
                 if (!cancelled) {
-                    setSentenceVocabulary(null);
+                    setVocabularyState({ text: trimmedTopic, data: null });
                     toast.error(t('learning.vocabFailed'));
                 }
             });
         return () => {
             cancelled = true;
         };
-    }, [t, topicText]);
+    }, [t, trimmedTopic]);
 
     const vocabWords = useMemo(() => sentenceVocabulary?.picks ?? [], [sentenceVocabulary]);
 
@@ -127,16 +146,16 @@ export default function LearningPage() {
      * 取消收藏按基础形态删除，因为词表命中可能来自变体形态。
      */
     const toggleFavorite = useCallback(async (word: string, meaning: string) => {
-        const favorited = vocabulary.isVocabularyWord(word);
+        const favorited = isVocabularyWord(word);
         try {
             if (favorited) {
-                const baseWord = vocabulary.getBaseWord(word);
+                const baseWord = getBaseWord(word);
                 const result = await videoLearningApi.deleteWord(baseWord ?? word);
                 if (!result.success) {
                     toast.error(result.error || t('unfavoriteWordFailed'));
                     return;
                 }
-                vocabulary.removeVocabularyWords([
+                removeVocabularyWords([
                     ...(result.data ? [result.data.word] : []),
                     ...(baseWord ? [baseWord] : []),
                     word,
@@ -149,15 +168,15 @@ export default function LearningPage() {
                 toast.error(result.error || t('favoriteWordFailed'));
                 return;
             }
-            vocabulary.addVocabularyWords([result.data.word]);
+            addVocabularyWords([result.data.word]);
             toast.success(result.data.alreadyExists ? t('wordAlreadyFavorited') : t('wordFavorited'));
         } catch (error) {
             logger.error('failed to toggle favorite word', { error: error instanceof Error ? error.message : error });
             toast.error(favorited ? t('unfavoriteWordFailed') : t('favoriteWordFailed'));
         }
-    }, [t, vocabulary]);
+    }, [t, isVocabularyWord, getBaseWord, removeVocabularyWords, addVocabularyWords]);
 
-    const isFavorite = useCallback((word: string) => vocabulary.isVocabularyWord(word), [vocabulary]);
+    const isFavorite = useCallback((word: string) => isVocabularyWord(word), [isVocabularyWord]);
 
     const requestAnalysis = useCallback(() => {
         void useChatPanel.getState().startAnalysis();

@@ -35,9 +35,9 @@ const pathExists = async (target: string): Promise<boolean> => {
 /**
  * 打包时裁掉非目标平台/架构的原生库变体。
  *
- * 背景：sharp 的平台包、better-sqlite3 的预编译目录会把异平台/异架构
- * 的原生库一起装进 node_modules；这些异架构 ELF 还会让 Linux RPM 打包
- * 阶段的 brp-strip 报 "Unable to recognise the format" 而整包失败。
+ * 背景：better-sqlite3 的 prebuilds 与历史 bin 目录会把异平台/异架构的原生库
+ * 一起装进 node_modules；这些异架构 ELF 会让 Linux RPM 打包阶段的 brp-strip
+ * 报 "Unable to recognise the format" 而整包失败，并显著增大安装包体积。
  *
  * @param buildPath 打包暂存目录（应用根目录）。
  * @param platform 目标平台（darwin/linux/win32/mas）。
@@ -53,16 +53,17 @@ const pruneForeignNativeVariants = async (buildPath: string, platform: string, a
         console.log(`[prune-native] 移除 ${path.relative(buildPath, target)}`);
     };
 
-    // sharp：@img/sharp-<platform>-<arch>、@img/sharp-libvips-<platform>-<arch>
-    const imgRoot = path.join(buildPath, 'node_modules/@img');
-    if (await pathExists(imgRoot)) {
-        for (const pkg of await fs.readdir(imgRoot)) {
-            if (!pkg.startsWith('sharp-') || pkg.includes(`-${nativePlatform}-${arch}`)) continue;
-            await drop(path.join(imgRoot, pkg));
+    // better-sqlite3@13：prebuilds/<platform>-<arch>.node 只保留目标平台架构
+    const sqlitePrebuildsRoot = path.join(buildPath, 'node_modules/better-sqlite3/prebuilds');
+    if (await pathExists(sqlitePrebuildsRoot)) {
+        const expectedPrebuild = `${nativePlatform}-${arch}.node`;
+        for (const variant of await fs.readdir(sqlitePrebuildsRoot)) {
+            if (variant === expectedPrebuild) continue;
+            await drop(path.join(sqlitePrebuildsRoot, variant));
         }
     }
 
-    // better-sqlite3：bin/<platform>-<arch>-<abi> 只保留目标组合
+    // better-sqlite3 旧版目录结构兼容：bin/<platform>-<arch>-<abi> 只保留目标组合
     const sqliteBinRoot = path.join(buildPath, 'node_modules/better-sqlite3/bin');
     if (await pathExists(sqliteBinRoot)) {
         for (const variant of await fs.readdir(sqliteBinRoot)) {
@@ -109,77 +110,21 @@ const config: ForgeConfig = {
             if (file.startsWith('/.vite')) return false;
             if (file === '/node_modules') return false;
 
-            // Only ship the minimum set of runtime deps from `node_modules`.
-            // Everything else should be bundled by Vite into `/.vite/**`.
+            // 仅保留 Vite externalized 的原生依赖与运行时网络代理传递依赖，其余由 Vite 打入 /.vite
             const keptNodeModulePrefixes = [
                 '/node_modules/better-sqlite3',
-                '/node_modules/bindings',
-                '/node_modules/file-uri-to-path',
-                '/node_modules/inversify',
-                '/node_modules/reflect-metadata',
+                '/node_modules/node-addon-api',
                 '/node_modules/undici',
                 '/node_modules/fetch-socks',
                 '/node_modules/socks',
                 '/node_modules/smart-buffer',
                 '/node_modules/ip-address',
                 '/node_modules/ipaddr.js',
-
-                '/node_modules/@img/',
-                '/node_modules/@isaacs/fs-minipass',
-                '/node_modules/@protobufjs/aspromise',
-                '/node_modules/@protobufjs/base64',
-                '/node_modules/@protobufjs/codegen',
-                '/node_modules/@protobufjs/eventemitter',
-                '/node_modules/@protobufjs/fetch',
-                '/node_modules/@protobufjs/float',
-                '/node_modules/@protobufjs/path',
-                '/node_modules/@protobufjs/pool',
-                '/node_modules/@protobufjs/utf8',
-                '/node_modules/@types/node',
-                '/node_modules/boolean',
-                '/node_modules/chownr',
-                '/node_modules/define-data-property',
-                '/node_modules/define-properties',
-                '/node_modules/detect-libc',
-                '/node_modules/detect-node',
-                '/node_modules/es-define-property',
-                '/node_modules/es-errors',
-                '/node_modules/es6-error',
-                '/node_modules/escape-string-regexp',
-                '/node_modules/flatbuffers',
-                '/node_modules/global-agent',
-                '/node_modules/globalthis',
-                '/node_modules/gopd',
-                '/node_modules/guid-typescript',
-                '/node_modules/has-property-descriptors',
-                '/node_modules/json-stringify-safe',
-                '/node_modules/long',
-                '/node_modules/lru-cache',
-                '/node_modules/matcher',
-                '/node_modules/minipass',
-                '/node_modules/minizlib',
-                '/node_modules/object-keys',
-                '/node_modules/platform',
-                '/node_modules/protobufjs',
-                '/node_modules/roarr',
-                '/node_modules/semver',
-                '/node_modules/semver-compare',
-                '/node_modules/serialize-error',
-                '/node_modules/sharp',
-                '/node_modules/sprintf-js',
-                '/node_modules/tar',
-                '/node_modules/type-fest',
-                '/node_modules/undici-types',
-                '/node_modules/yallist',
             ];
 
             // ignore 返回 true 时 electron-packager 会连整棵子树一起跳过，
-            // 所以除了白名单路径自身，还必须放行它的所有祖先目录：
-            // 只写 `/node_modules/@huggingface/transformers` 而漏掉父目录
-            // `/node_modules/@huggingface` 时，scoped 依赖会整体丢包
-            // （打包版启动即 Cannot find module '@huggingface/transformers'）。
+            // 所以除了白名单路径自身，还必须放行它的所有祖先目录（兼容 scoped 包）。
             for (const prefix of keptNodeModulePrefixes) {
-                // 兼容 `/node_modules/@img/` 这类带结尾斜杠的写法
                 const normalized = prefix.replace(/\/+$/, '');
                 if (file === normalized
                     || file.startsWith(`${normalized}/`)

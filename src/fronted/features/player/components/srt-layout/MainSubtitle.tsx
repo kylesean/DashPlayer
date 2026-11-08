@@ -10,7 +10,7 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import useFavouriteClip, { mapClipKey } from '@/fronted/features/favourite/favouriteStore';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { Bookmark, History, RotateCcw } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
@@ -83,8 +83,9 @@ export default function MainSubtitle() {
         }
     };
 
+    const srtHash = usePlaybackSession((s) => s.srtHash);
     const isFavourite = useFavouriteClip(
-        (s) => sentence ? (s.lineClip.get(mapClipKey(useFile.getState().srtHash, sentence.index)) ?? false) : false
+        (s) => sentence && srtHash ? (s.lineClip.get(mapClipKey(srtHash, sentence.index)) ?? false) : false
     );
     const changeCurrentLineClip = useFavouriteClip((s) => s.changeCurrentLineClip);
 
@@ -102,14 +103,14 @@ export default function MainSubtitle() {
     const openAiMode = useTranslation(state => state.openAiMode);
     const activeFileHash = useTranslation(state => state.activeFileHash);
 
-    // 长意群溢出适配:字幕内容块整体等比缩放(CSS zoom),保证原文+译文永远完整可见。
-    // 正常长度时 zoom 恒为 1,用户设置的固定字号不受影响——固定档位保证日常阅读一致性,
-    // 缩放只在内容高度超过容器时兜底,下限 0.75 防止缩到不可读。
+    // 长意群溢出适配:通过 CSS 变量 --sub-scale 进行自适应字号缩放，保证原文+译文永远完整可见，
+    // 杜绝非标准 CSS zoom 造成的文本模糊、布局变形及 Floating UI 浮层坐标偏移。
+    // 正常长度时 scale 为 1，用户设置的固定字号不受影响；超出容器时动态缩小（下限 0.75，防止字体过小不可读）。
     const subtitleContainerRef = React.useRef<HTMLDivElement>(null);
     const subtitleContentRef = React.useRef<HTMLDivElement>(null);
     const [, bumpSubtitleFitTick] = React.useReducer((tick: number) => tick + 1, 0);
 
-    // 绘制前测量:先复位 zoom=1 量自然高度,超出容器则按比例缩小(上限 1,不放大)。
+    // 绘制前测量:先复位 --sub-scale 量自然高度,超出容器则按比例调整字号缩放(上限 1,不放大)。
     // 全部用布局口径(offsetHeight / clientHeight):播放器浮动层带 transform: scale(),
     // getBoundingClientRect 会把测量值乘上缩放系数,而 overflow-hidden 按布局盒裁切,
     // 两种口径混用会算错缩放比。可用高度要扣除容器上下内边距(pt-3/pb-2)。
@@ -118,15 +119,16 @@ export default function MainSubtitle() {
         const container = subtitleContainerRef.current;
         const content = subtitleContentRef.current;
         if (!container || !content) return;
-        content.style.zoom = '1';
+        content.style.removeProperty('--sub-scale');
         const natural = content.offsetHeight;
         const style = getComputedStyle(container);
         const available = container.clientHeight
             - (parseFloat(style.paddingTop) || 0)
             - (parseFloat(style.paddingBottom) || 0);
-        content.style.zoom = natural > available && available > 0
-            ? String(Math.max(0.75, available / natural))
-            : '1';
+        if (natural > available && available > 0) {
+            const scale = Math.max(0.75, available / natural);
+            content.style.setProperty('--sub-scale', scale.toFixed(3));
+        }
     });
 
     // 容器尺寸变化(拖窗口/切换窗口模式)不经过 React 渲染,监听后触发一次重渲染走上面的测量

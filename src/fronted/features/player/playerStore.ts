@@ -3,9 +3,9 @@
  */
 import { create } from 'zustand';
 import type { Sentence } from '@/common/types/SentenceC';
-import { type SrtTender, SrtTenderImpl } from '@/fronted/lib/SrtTender';
+import { type SrtTender, SrtTenderImpl } from '@/fronted/features/player/lib/SrtTender';
 import StrUtil from '@/common/utils/str-util';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
@@ -1416,7 +1416,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       set({ currentSentence: resetSentence });
       state.repeatCurrent({ loop: false });
 
-      const { subtitlePath } = useFile.getState();
+      const { subtitlePath } = usePlaybackSession.getState();
       if (StrUtil.isBlank(subtitlePath)) {
         return;
       }
@@ -1498,7 +1498,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
       state.repeatCurrent({ loop: false });
 
-      const { subtitlePath } = useFile.getState();
+      const { subtitlePath } = usePlaybackSession.getState();
       if (StrUtil.isBlank(subtitlePath)) {
         return;
       }
@@ -1507,7 +1507,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       void playerApi.updateTimestampAdjustment({
         key: updated.key,
         subtitle_path: subtitlePath,
-        subtitle_hash: useFile.getState().srtHash,
+        subtitle_hash: usePlaybackSession.getState().srtHash,
         start_at: start2,
         end_at: end2
       }).catch(() => {
@@ -1543,13 +1543,13 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
       state.repeatCurrent({ loop: false });
 
-      const { subtitlePath } = useFile.getState();
+      const { subtitlePath } = usePlaybackSession.getState();
       if (!StrUtil.isBlank(subtitlePath)) {
         const { start: start2, end: end2 } = srtTender.mapSeekTime(updated);
       void playerApi.updateTimestampAdjustment({
           key: updated.key,
           subtitle_path: subtitlePath,
-          subtitle_hash: useFile.getState().srtHash,
+          subtitle_hash: usePlaybackSession.getState().srtHash,
           start_at: start2,
           end_at: end2
         }).catch(() => {

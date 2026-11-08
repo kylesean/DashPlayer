@@ -4,7 +4,6 @@
  * 词表以 Set 存储：字幕每个词渲染都会查询命中，数组扫描在词表较大时是热路径瓶颈。
  */
 import { create } from 'zustand';
-import { useStoreWithEqualityFn } from 'zustand/traditional';
 
 type VocabularyFormsMap = Record<string, string>;
 
@@ -156,13 +155,17 @@ const useVocabularyStore = create<VocabularyState>((set, get) => ({
     }
 	}));
 
-const vocabularyStore = useVocabularyStore;
-
+/**
+ * 按选择器订阅生词表状态；多字段选择请配合 `useShallow`。
+ *
+ * @param selector 状态选择器。
+ * @returns 选中的生词表状态切片。
+ */
 export function useVocabularyState<T>(
     selector: (s: VocabularyState) => T,
-    equalityFn?: (a: T, b: T) => boolean
 ): T {
-    return useStoreWithEqualityFn(vocabularyStore, selector, equalityFn);
+    return useVocabularyStore(selector);
 }
 
+export { useVocabularyStore };
 export default useVocabularyStore;

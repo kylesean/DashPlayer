@@ -21,15 +21,21 @@ const RETRYABLE_ERROR_CODES = new Set([
 /**
  * 判断一个错误是否值得重试。
  *
- * @param {unknown} error 抛出的错误对象（axios 错误带 code / response）。
+ * @param {unknown} error 抛出的错误对象（fetch / undici 或带状态码的 HTTP 错误）。
  * @returns {boolean} 瞬时故障返回 true；404 这类确定性失败返回 false（重试也没用）。
  */
 export const isRetryableNetworkError = (error) => {
-    const code = error && typeof error === 'object' ? error.code : undefined;
+    if (!error || typeof error !== 'object') {
+        return false;
+    }
+    const code = error.code ?? (error.cause && typeof error.cause === 'object' ? error.cause.code : undefined);
     if (typeof code === 'string' && RETRYABLE_ERROR_CODES.has(code)) {
         return true;
     }
-    const status = error && typeof error === 'object' ? error.response?.status : undefined;
+    if (error.name === 'TimeoutError' || (error.cause && typeof error.cause === 'object' && String(error.cause.code || '').startsWith('UND_ERR_'))) {
+        return true;
+    }
+    const status = typeof error.status === 'number' ? error.status : error.response?.status;
     return typeof status === 'number' && (status === 429 || status >= 500);
 };
 

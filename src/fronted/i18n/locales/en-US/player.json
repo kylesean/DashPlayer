@@ -129,6 +129,8 @@
         "sidebarHiddenNow": "The sidebar is hidden right now — this switch takes effect once it shows.",
         "singleRepeat": "Replay current line",
         "autoPause": "Auto-pause",
+        "pauseOnWordHover": "Pause on word hover",
+        "pauseOnWordHoverHint": "Automatically pause video playback when hovering over a subtitle word. When disabled, holding Alt or clicking still pauses.",
         "autoPlayNext": "Auto-play next",
         "nightMode": "Night mode",
         "fullScreen": "Fullscreen",

@@ -4,17 +4,6 @@
 import { useEffect, useRef } from 'react';
 import useSubtitleScroll from './useSubtitleScroll';
 
-export interface Ele {
-    /**
-     * y 顶部安全边界（基于 viewport 绝对坐标）
-     */
-    yt: number;
-    /**
-     * y 底部安全边界（基于 viewport 绝对坐标）
-     */
-    yb: number;
-}
-
 /**
  * 字幕滚动区域上下预留的安全内边距（像素）。
  * 避免字幕行紧贴容器顶底边缘，为用户视觉和交互提供缓冲。

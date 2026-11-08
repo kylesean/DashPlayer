@@ -16,7 +16,7 @@ import {
 } from '@/fronted/components/ui/alert-dialog';
 import { FolderOpen, HardDrive, RefreshCw, Trash2, FolderSync } from 'lucide-react';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { Input } from '@/fronted/components/ui/input';
@@ -115,7 +115,7 @@ const StorageSetting = () => {
             await flush();
             await settingsApi.syncFavouriteFromOss();
             await swrApiMutate('favorite-clips/search');
-            useFile.setState({ subtitlePath: null });
+            usePlaybackSession.setState({ subtitlePath: null });
             toast.success(t('storage.collectionSync.success'));
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);

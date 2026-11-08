@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import { useSWRConfig } from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
-import useDpTaskCenter from '@/fronted/hooks/useDpTaskCenter';
+import useDpTaskCenter from '@/fronted/app/stores/dpTaskStore';
 import { DpTaskState } from '@/common/contracts/dp-task';
 import type { DpTask } from '@/common/contracts/dp-task';
 import type { YoutubeImportTaskResult } from '@/common/contracts/youtube-import';

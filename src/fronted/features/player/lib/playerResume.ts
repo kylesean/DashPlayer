@@ -1,3 +1,9 @@
+/**
+ * 计算打开媒体时的续播起始时间；接近片尾时从头播放。
+ *
+ * @param opts 当前已保存的进度与总时长（秒）。
+ * @returns 推荐续播位置（秒）。
+ */
 export function computeResumeTime(opts: { progress: number; duration: number }): number {
     const progress = Number.isFinite(opts.progress) ? opts.progress : 0;
     const duration = Number.isFinite(opts.duration) ? opts.duration : 0;

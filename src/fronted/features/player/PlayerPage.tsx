@@ -1,11 +1,11 @@
 import React, {useCallback, useEffect, useLayoutEffect, useRef, useState} from 'react';
 import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router-dom';
-import useLayout, {cpW} from '@/fronted/hooks/useLayout';
+import useLayout, {cpW} from '@/fronted/app/stores/layoutStore';
 import {cn} from '@/fronted/lib/utils';
 import FileBrowser from '@/fronted/features/file-browser/components/FileBrowser';
 import ControlBox from '@/fronted/features/player/components/control-box/ControlBox';
 import ControlButton from '@/fronted/features/player/components/ControlButton';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import PlayerShortcut from '@/fronted/features/player/components/PlayerShortcut';
 import SideBar from '@/fronted/components/layout/SideBar';
 import useChatPanel from '@/fronted/features/chat/chatStore';
@@ -25,7 +25,7 @@ import { SubtitleSuspicionToast } from '@/fronted/components/shared/toasts/Subti
 import { useSubtitleSuspicion } from '@/fronted/features/player/subtitleSuspicion';
 import { useSubtitleSuspicionNudge } from '@/fronted/features/player/hooks/useSubtitleSuspicionNudge';
 import { startTranscriptionForCurrentVideo } from '@/fronted/features/player/startTranscription';
-import useSystem from '@/fronted/hooks/useSystem';
+import useSystem from '@/fronted/app/stores/systemStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { diagnosePlayback, probeAndRecordPlaybackCapability, repairPlayback } from '@/fronted/features/player/repairPlayback';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
@@ -68,7 +68,7 @@ const PlayerWithControlsPage = () => {
     const showSideBar = useLayout((state) => state.showSideBar);
     const titleBarHeight = useLayout((state) => state.titleBarHeight);
     const uiFullScreen = useLayout((s) => s.fullScreen);
-    const videoLoaded = useFile((s) => s.videoLoaded);
+    const videoLoaded = usePlaybackSession((s) => s.videoLoaded);
     const w = cpW.bind(
         null,
         useLayout((s) => s.width)
@@ -190,19 +190,19 @@ const PlayerWithControlsPage = () => {
             if (!video) {
                 // 菜单页与播放器共用同一页面实例，离开播放器时必须清理旧媒体上下文，
                 // 否则返回同一个视频时路径和 videoId 不变，播放器不会重新触发 ready。
-                useFile.getState().clear();
+                usePlaybackSession.getState().clear();
                 useSubtitleTranslation.getState().clearTranslations();
                 useSubtitleSuspicion.getState().setReasons([]);
                 playerActions.clearSubtitles();
                 playerActions.setSource(null);
                 return;
             }
-            const previousVideoId = useFile.getState().videoId;
-            useFile.setState({videoId: video.id});
-            const vp = useFile.getState().videoPath;
+            const previousVideoId = usePlaybackSession.getState().videoId;
+            usePlaybackSession.setState({videoId: video.id});
+            const vp = usePlaybackSession.getState().videoPath;
             const videoPath = PathUtil.join(video.basePath, video.fileName);
             if (previousVideoId !== video.id) {
-                useFile.setState({
+                usePlaybackSession.setState({
                     subtitlePath: null,
                     srtHash: null,
                     subtitleSessionId: null,
@@ -213,7 +213,7 @@ const PlayerWithControlsPage = () => {
                 useChatPanel.getState().clear();
             }
             if (videoPath && vp !== videoPath) {
-                useFile.getState().updateFile(videoPath);
+                usePlaybackSession.getState().updateFile(videoPath);
             }
 
             // 播放兼容预检：容器/编码层面能提前看出来的问题，等播放报错就太晚了
@@ -311,7 +311,7 @@ const PlayerWithControlsPage = () => {
         if (mediaErrorCode === null && playbackStallCount === 0) {
             return;
         }
-        const { videoId, videoPath } = useFile.getState();
+        const { videoId, videoPath } = usePlaybackSession.getState();
         if (!videoId || !videoPath) {
             return;
         }
@@ -354,7 +354,7 @@ const PlayerWithControlsPage = () => {
             }
 
             const videoPath = PathUtil.join(video.basePath, video.fileName);
-            const fileState = useFile.getState();
+            const fileState = usePlaybackSession.getState();
             if (
                 !fileState.videoLoaded
                 || fileState.videoId !== video.id
@@ -365,7 +365,7 @@ const PlayerWithControlsPage = () => {
 
             try {
                 const resolution = await playerApi.getPlayerSubtitle(video.id);
-                const latestFileState = useFile.getState();
+                const latestFileState = usePlaybackSession.getState();
                 if (
                     cancelled
                     || !latestFileState.videoLoaded

@@ -39,7 +39,7 @@ import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { TrainingSettingsDialog } from '@/fronted/features/player/components/TrainingSettingsDialog';
-import useLayout from '@/fronted/hooks/useLayout';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import { isSidebarHiddenByEnglish } from '@/fronted/features/player/components/sidePanelVisibility';
 import useSetting from '@/fronted/features/settings/settingsStore';
 

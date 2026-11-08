@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { codeBlock } from 'common-tags';
 import TooltippedButton from '@/fronted/components/shared/common/TooltippedButton';
 import { Eraser } from 'lucide-react';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import type { RuntimeSettingKey } from '@/common/contracts/runtime-settings';
 import { playerApi } from '@/fronted/features/player/playerApi';
@@ -35,15 +35,11 @@ export default function ClearAdjustButton({ className }: ClearAdjustButtonProps)
   `;
 
   const handleClick = async () => {
-    const fileHash = useFile.getState().srtHash;
+    const fileHash = usePlaybackSession.getState().srtHash;
     if (!fileHash) return;
     await playerApi.deleteTimestampAdjustment(fileHash);
-    // 触发字幕重载
-    const path = useFile.getState().subtitlePath;
-    useFile.setState({ subtitlePath: null });
-    setTimeout(() => {
-      if (path) useFile.setState({ subtitlePath: path });
-    }, 0);
+    // 触发字幕重载：调用规范的 reloadSubtitles 动作，无需 setTimeout 设空再恢复
+    usePlaybackSession.getState().reloadSubtitles();
     toast(t('clearAdjust.done'), { icon: '👏' });
   };
 

@@ -7,11 +7,11 @@ import { cn } from '@/fronted/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
 import { motion } from 'framer-motion';
 import useFavouriteClip, { mapClipKey } from '@/fronted/features/favourite/favouriteStore';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import type { Sentence } from '@/common/types/SentenceC';
 import useTranslation from '@/fronted/features/player/translationStore';
-import useVocabulary from '@/fronted/features/player/vocabularyStore';
-import { shallow } from 'zustand/shallow';
+import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
+import { useShallow } from 'zustand/react/shallow';
 import { splitWords, isWordToken, cleanWord } from '@/common/utils/subtitle';
 import { Bookmark, Pause, Repeat1 } from 'lucide-react';
 
@@ -84,8 +84,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
     ({ sentence, onClick, isCurrent, isRepeat, selectionState }: SideSentenceNewParam, ref) => {
         const playing = usePlayerState((state) => state.playing);
         const { showEn, syncSide, showSideTranslation } = usePlayerUiState(
-            (s) => ({ showEn: s.showEn, syncSide: s.syncSide, showSideTranslation: s.showSideTranslation }),
-            shallow
+            useShallow((s) => ({ showEn: s.showEn, syncSide: s.syncSide, showSideTranslation: s.showSideTranslation })),
         );
         const translationKey = sentence?.translationKey || '';
         // 关闭侧栏译文时选择器恒返回 undefined，避免白白跟着译文库重渲染
@@ -101,11 +100,16 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
         const fontSize = useSetting((state) =>
             state.values.get('appearance.fontSize')
         );
-        const isFavourite = useFavouriteClip((s) => s.lineClip.get(mapClipKey(useFile.getState().srtHash, sentence.index)) ?? false);
+        const srtHash = usePlaybackSession((s) => s.srtHash);
+        const isFavourite = useFavouriteClip((s) => sentence && srtHash ? (s.lineClip.get(mapClipKey(srtHash, sentence.index)) ?? false) : false);
         const [hover, setHover] = React.useState(false);
         const show = !syncSide ? true : showEn;
-        const vocabularyStore = useVocabulary();
-        const isVocabularyWord = vocabularyStore.isVocabularyWord;
+        const { isVocabularyWord } = useVocabularyState(
+            useShallow((s) => ({
+                isVocabularyWord: s.isVocabularyWord,
+                version: s.version,
+            })),
+        );
 
         const renderStatusIcon = () => {
             if (!isCurrent) return null;
@@ -181,11 +185,12 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
         }, [selectionState]);
 
         return (
-            // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
             <div
+                role="button"
+                tabIndex={0}
                 className={cn(
                     // 外边距与内边距保持绝对恒定，四个方向 1px 边框始终存在，高度与定位 100% 绝对静止
-                    'group relative my-1.5 ml-1.5 mr-0 pl-3.5 pr-2.5 py-3 rounded-xl flex items-start gap-2.5 cursor-pointer select-none border transition-colors duration-150',
+                    'group relative my-1.5 ml-1.5 mr-0 pl-3.5 pr-2.5 py-3 rounded-xl flex items-start gap-2.5 cursor-pointer select-none border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
                     // 卡片色调（激活与常规卡片底色非常接近、仅微调边框和文字，保持整体质感平滑统一）：
                     !selectionState?.isMember && (
                         isCurrent
@@ -196,6 +201,12 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                 )}
                 onClick={() => {
                     onClick(sentence);
+                }}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onClick(sentence);
+                    }
                 }}
                 onMouseEnter={() => {
                     setHover(true);

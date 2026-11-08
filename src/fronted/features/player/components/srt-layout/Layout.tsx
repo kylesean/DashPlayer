@@ -5,8 +5,8 @@ import PodcastViewer from '@/fronted/features/player/components/subtitles/Podcas
 import MainSubtitle from './MainSubtitle';
 import Subtitle from './components/Subtitle';
 import React, { useEffect, useRef, useState } from 'react';
-import useFile from '@/fronted/features/file-browser/fileStore';
-import useLayout from '@/fronted/hooks/useLayout';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import { useLocalStorage } from '@uidotdev/usehooks';
 import StrUtil from '@/common/utils/str-util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
@@ -25,7 +25,7 @@ import { CAPTION_CARD_ANCHOR_CLASS, CAPTION_CARD_CLASS } from '@/fronted/feature
 const logger = getRendererLogger('PlaybackLayout');
 
 const PlaybackLayout = () => {
-    const hasSubTitle = useFile((s) => StrUtil.isNotBlank(s.subtitlePath));
+    const hasSubTitle = usePlaybackSession((s) => StrUtil.isNotBlank(s.subtitlePath));
     const showSideBar = useLayout((state) => state.showSideBar);
     const fullScreen = useLayout((s) => s.fullScreen);
     const podcastMode = useLayout(s => s.podcastMode);

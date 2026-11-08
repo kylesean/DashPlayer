@@ -5,11 +5,12 @@ import { app, BrowserWindow, type Session } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { spawn } from 'node:child_process';
 import fs from 'fs';
-import path from 'path';import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
+import path from 'path';
+import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import registerHandler from '@/backend/dispatcher';
 import { setConcurrencyLogger } from '@/backend/utils/concurrency';
 import { seedDefaultVocabularyIfNeeded } from '@/backend/startup/seedDefaultVocabulary';
-import { DpTaskServiceImpl } from '@/backend/services/DpTaskService';
+import type DpTaskService from '@/backend/services/DpTaskService';
 import runStartupMigrations from '@/backend/startup/runStartupMigrations';
 import { getMigrationFailure } from '@/backend/startup/migrationFailureState';
 import { initProxyFeature } from '@/backend/startup/initProxy';
@@ -240,7 +241,7 @@ app.on('ready', async () => {
     registerHandler(mainWindowRef);
     logStartupPhase('controllers');
     await seedDefaultVocabularyIfNeeded();
-    await DpTaskServiceImpl.cancelAll();
+    await container.get<DpTaskService>(TYPES.DpTaskService).recoverInterruptedTasks();
     await container
         .get<TranscriptionService>(TYPES.LocalTranscriptionService)
         .recoverInterruptedTasks();

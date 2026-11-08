@@ -8,7 +8,7 @@ import PathUtil from '@/common/utils/PathUtil';
 import { SWR_KEY, swrMutate } from '@/fronted/lib/swr-util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import i18n from '@/fronted/i18n';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { repairApi } from '@/fronted/features/repair/repairApi';
@@ -79,8 +79,8 @@ export async function repairPlayback(filePath: string): Promise<PlaybackRepairOu
  * @returns 本次修复的最终状态。
  */
 async function runRepair(filePath: string): Promise<PlaybackRepairOutcome> {
-    const startedPath = useFile.getState().videoPath;
-    const startedVideoId = useFile.getState().videoId;
+    const startedPath = usePlaybackSession.getState().videoPath;
+    const startedVideoId = usePlaybackSession.getState().videoId;
     const startPosition = usePlayer.getState().getExactPlayTime();
     const toastId = toast.loading(i18n.t('player:repair.inProgress'));
 
@@ -157,7 +157,7 @@ async function switchToRepairedMedia(args: {
     toastId: string;
 }): Promise<void> {
     const { startedPath, startedVideoId, startPosition, toastId } = args;
-    if (!startedPath || !startedVideoId || useFile.getState().videoPath !== startedPath) {
+    if (!startedPath || !startedVideoId || usePlaybackSession.getState().videoPath !== startedPath) {
         toast.success(i18n.t('player:repair.done'), { id: toastId });
         return;
     }

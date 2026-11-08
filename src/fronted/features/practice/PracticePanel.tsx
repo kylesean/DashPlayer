@@ -11,7 +11,7 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayerState } from '@/fronted/features/player/playerState';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import usePracticePanel from './practiceStore';
 import { practiceApi } from './practiceApi';
 import { usePracticeRecorder } from './usePracticeRecorder';
@@ -109,7 +109,7 @@ const PracticePanel = () => {
 
     const sentenceKey = currentSentence?.key ?? null;
     // 当前字幕是否意群重切分行:练习记录按 (fileHash, index, resegmented) 隔离,开关切换后序号重排不串档
-    const srtResegmented = useFile((s) => s.srtResegmented);
+    const srtResegmented = usePlaybackSession((s) => s.srtResegmented);
     // 换句即清空上一句的评分与输入:渲染期条件重置(React 官方推荐模式),面板总是从干净状态开始
     const [lastSentenceKey, setLastSentenceKey] = useState<string | null>(sentenceKey);
     if (sentenceKey !== lastSentenceKey) {

@@ -9,13 +9,9 @@ export default defineConfig({
         target: 'node20',
         rollupOptions: {
             external: [
-                // Native / non-bundle-friendly deps (ship via `node_modules` in the packaged app)
+                // 原生模块与不可直接打包的运行时依赖（通过 Forge 打包进 node_modules 目录）
                 'better-sqlite3',
-                // 轻量翻译引擎：transformers.js 内部动态 require onnxruntime 平台二进制，
-                // 不能被打包器处理，必须整体 external 由 node_modules 运行时加载。
-                '@huggingface/transformers',
-                'onnxruntime-node',
-                // Proxy stack: loaded at runtime from `node_modules` (shipped via forge ignore list)
+                // 网络代理基础设施（运行时从 node_modules 加载）
                 'undici',
                 'fetch-socks',
                 'ipaddr.js',

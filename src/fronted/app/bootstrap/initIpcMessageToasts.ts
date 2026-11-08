@@ -1,5 +1,6 @@
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { rendererEvents } from '@/fronted/infrastructure/electron/rendererEvents';
+import { showNotification } from '@/fronted/components/shared/toasts/notification';
 
 /** renderer 全局提示事件的展示参数。 */
 type ToastVariant = 'default' | 'success' | 'info' | 'warning' | 'error';
@@ -19,12 +20,12 @@ interface ToastDetail {
 }
 
 /**
- * 向 React 提示组件派发全局事件。
+ * 直接调用通知管理器展示全局提示。
  *
  * @param detail 提示内容和展示选项。
  */
 function emitToast(detail: ToastDetail): void {
-    window.dispatchEvent(new CustomEvent('show-toast', { detail }));
+    showNotification(detail);
 }
 
 /**

@@ -3,10 +3,10 @@ import React, { useEffect } from 'react';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import HomePage from '@/fronted/features/file-browser/HomePage';
-import TitleBarLayout from '@/fronted/pages/TieleBarLayout';
+import TitleBarLayout from '@/fronted/components/layout/TitleBarLayout';
 import YoutubeImportDialogHost from '@/fronted/features/youtube-import/YoutubeImportDialogHost';
 import PlayerPage from '@/fronted/features/player/PlayerPage';
-import Layout from '@/fronted/pages/Layout';
+import AppShellLayout from '@/fronted/components/layout/AppShellLayout';
 import SettingLayout from '@/fronted/features/settings/SettingLayout';
 import ShortcutSetting from '@/fronted/features/settings/ShortcutSetting';
 import StorageSetting from '@/fronted/features/settings/StorageSetting';
@@ -17,7 +17,6 @@ import MobileAccessSetting from '@/fronted/features/settings/MobileAccessSetting
 import YoutubeImportSetting from '@/fronted/features/settings/YoutubeImportSetting';
 import ServiceResourceSetting from '@/fronted/features/settings/ServiceResourceSetting';
 import toast, { Toaster as HotToaster, type Toast } from 'react-hot-toast';
-import RendererToastHost from '@/fronted/components/shared/toasts/RendererToastHost';
 
 import TranscriptPage from '@/fronted/features/transcript/TranscriptPage';
 import SplitPage from '@/fronted/features/split/SplitPage';
@@ -69,6 +68,9 @@ const StartupLoading: React.FC = () => {
     );
 };
 
+/**
+ * DashPlayer 桌面端根组件，负责启动门槛判定、主题语言同步及全局路由。
+ */
 export const App = () => {
     const { t } = useI18nTranslation('toast');
     const theme = useSetting((s) => s.values.get('appearance.theme'));
@@ -99,11 +101,31 @@ export const App = () => {
         };
     }, []);
 
+    // 同步外观主题到 html 根节点：支持 light、dark 及跟随系统（system）
     useEffect(() => {
-        document.documentElement.classList.add(theme ?? 'dark');
-        return () => {
-            document.documentElement.classList.remove(theme ?? 'dark');
+        const rawTheme = theme || 'light';
+        const resolveEffectiveTheme = (): 'dark' | 'light' => {
+            if (rawTheme === 'dark') return 'dark';
+            if (rawTheme === 'light') return 'light';
+            return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         };
+
+        const applyTheme = () => {
+            const effective = resolveEffectiveTheme();
+            document.documentElement.classList.remove('dark', 'light');
+            document.documentElement.classList.add(effective);
+        };
+
+        applyTheme();
+
+        if (rawTheme === 'system') {
+            const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+            const listener = () => applyTheme();
+            mediaQuery.addEventListener('change', listener);
+            return () => {
+                mediaQuery.removeEventListener('change', listener);
+            };
+        }
     }, [theme]);
 
     useEffect(() => {
@@ -138,18 +160,19 @@ export const App = () => {
                     {
                         id: UPDATE_TOAST_ID,
                         duration: 8000,
-                    }
+                    },
                 );
             })().catch(() => {
-                // ignore update check failures on startup
+                // 启动自动检查更新失败时静默跳过
             });
         }, UPDATE_CHECK_DELAY_MS);
 
         return () => window.clearTimeout(timer);
     }, [t]);
+
     return (
         <>
-            <div className="w-full h-screen text-black overflow-hidden select-none font-sans">
+            <div className="w-full h-screen text-foreground overflow-hidden select-none font-sans">
                 {gate?.kind === 'migration-failure' && (
                     <MigrationFailureGate failure={gate.failure} />
                 )}
@@ -166,7 +189,7 @@ export const App = () => {
                                     path="player/:videoId"
                                     element={<PlayerPage />}
                                 />
-                                <Route path="*" element={<Layout />}>
+                                <Route path="*" element={<AppShellLayout />}>
                                     <Route
                                         path="transcript"
                                         element={<Eb key="transcript"><TranscriptPage /></Eb>}
@@ -254,7 +277,6 @@ export const App = () => {
                     },
                 }}
             />
-            <RendererToastHost />
             <GlobalShortCut />
         </>
     );

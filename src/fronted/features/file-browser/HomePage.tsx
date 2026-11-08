@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
-import useLayout from '@/fronted/hooks/useLayout';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import useLayout from '@/fronted/app/stores/layoutStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import ProjectListCard from '@/fronted/features/file-browser/components/project-list-card';
 import { Button } from '@/fronted/components/ui/button';
 import useSWR from 'swr';
@@ -43,7 +43,7 @@ const HomePage = () => {
     const { data: vpsBasic } = useSWR(apiPath('watch-history/list/basic'), fileBrowserApi.listBasicWatchHistory);
     const [vpsFull, setVpsFull] = React.useState<typeof vpsBasic>(undefined);
     const vps = vpsFull ?? vpsBasic;
-    const clear = useFile((s) => s.clear);
+    const clear = usePlaybackSession((s) => s.clear);
     const [num, setNum] = React.useState(4);
     // 从第四个开始截取num个
     const rest = vps?.slice(3, num + 3);

@@ -1,15 +1,24 @@
-import React, { useEffect, useState } from 'react';
 import { cn } from '@/fronted/lib/utils';
 
+/** 分段档位选择器的入参。 */
 export interface SliderInputProps {
+    /** 可选标题。 */
     title?: string;
+    /** 候选档位值列表。 */
     values: string[];
+    /** 当前选中的受控值。 */
     defaultValue: string;
+    /** 选中新档位时的回调。 */
     setValue: (value: string) => void;
+    /** 容器宽度类名。 */
     inputWidth?: string;
+    /** 档位值到展示文案的映射。 */
     valueLabelMap?: Record<string, string>;
 }
 
+/**
+ * 档位切换器：直接由上层受控值驱动选中态，不在本地维护镜像状态。
+ */
 const SliderInput = ({
     values,
     defaultValue,
@@ -17,12 +26,6 @@ const SliderInput = ({
     inputWidth,
     valueLabelMap,
 }: SliderInputProps) => {
-    const [localValue, setLocalValue] = useState<string>(defaultValue);
-
-    useEffect(() => {
-        setLocalValue(defaultValue);
-    }, [defaultValue]);
-
     return (
         <div
             className={cn(
@@ -31,14 +34,14 @@ const SliderInput = ({
             )}
         >
             {values.map((val, idx) => {
-                const isSelected = localValue === val;
+                const isSelected = defaultValue === val;
                 const label = valueLabelMap?.[val] ?? val;
-                
+
                 // 视觉字号阶梯示意：A 小中大
-                const fontScaleClass = idx === 0 
-                    ? 'text-xs' 
-                    : idx === 1 
-                    ? 'text-sm' 
+                const fontScaleClass = idx === 0
+                    ? 'text-xs'
+                    : idx === 1
+                    ? 'text-sm'
                     : 'text-base';
 
                 return (
@@ -46,7 +49,6 @@ const SliderInput = ({
                         key={val}
                         type="button"
                         onClick={() => {
-                            setLocalValue(val);
                             setValue(val);
                         }}
                         className={cn(
@@ -63,11 +65,6 @@ const SliderInput = ({
             })}
         </div>
     );
-};
-
-SliderInput.defaultProps = {
-    inputWidth: undefined,
-    valueLabelMap: undefined,
 };
 
 export default SliderInput;

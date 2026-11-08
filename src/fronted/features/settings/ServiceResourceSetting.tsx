@@ -17,6 +17,7 @@ import { OpenAiCredentialCard } from '@/fronted/features/settings/components/Ope
 import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 import { OPENAI_SUBTITLE_DEFAULT_STYLES } from '@/common/constants/openaiSubtitlePrompts';
+import { subscribeLocalAiDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import type { LocalAiModelStatus } from '@/common/contracts/local-ai';
 import type { TranscriptionEngine } from '@/common/contracts/transcription-engine';
 import type { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
@@ -219,8 +220,7 @@ const ServiceResourceSetting: React.FC = () => {
      * 本地增强模型的下载进度：只改动聚合快照里对应那一行，结束后重新拉取完整状态。
      */
     React.useEffect(() => {
-        const handler = (event: Event) => {
-            const progress = (event as CustomEvent<LocalAiDownloadProgress>).detail;
+        const unsubscribe = subscribeLocalAiDownloadProgress((progress) => {
             void refreshResourceStatus((current) => current ? {
                 ...current,
                 localAi: {
@@ -231,9 +231,8 @@ const ServiceResourceSetting: React.FC = () => {
                 },
             } : current, { revalidate: false });
             if (progress.phase === 'idle') void refreshResourceStatus();
-        };
-        window.addEventListener('local-ai-model-download-progress', handler);
-        return () => window.removeEventListener('local-ai-model-download-progress', handler);
+        });
+        return unsubscribe;
     }, [refreshResourceStatus]);
 
     /** 切换字幕识别方式并刷新聚合状态。 */

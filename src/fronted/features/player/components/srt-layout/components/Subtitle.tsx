@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Virtuoso } from 'react-virtuoso';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import SideSentence from '../SideSentence';
@@ -8,7 +8,7 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { isSidebarHiddenByEnglish } from '@/fronted/features/player/components/sidePanelVisibility';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
-import useLayout from '@/fronted/hooks/useLayout';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import { cn } from '@/fronted/lib/utils';
 import useSubtitleScroll, { useSubtitleScrollState } from '@/fronted/features/player/hooks/useSubtitleScroll';
 import { useSideTranslationHold } from '@/fronted/features/player/hooks/useSideTranslationHold';
@@ -26,13 +26,15 @@ export default function Subtitle() {
     const { t } = useI18nTranslation('player');
     // 「随英文字幕隐藏」把侧栏收起时，卡片文案是 opacity-0，chip 是这块空白唯一的解释
     const sidebarHiddenByEnglish = isSidebarHiddenByEnglish(syncSide, showEn);
-    const { currentSentence, subtitle, singleRepeat, hoverRepeat, virtualGroup } = usePlayerState((s) => ({
-        currentSentence: s.currentSentence,
-        subtitle: s.sentences,
-        singleRepeat: s.singleRepeat,
-        hoverRepeat: s.hoverRepeat,
-        virtualGroup: s.virtualGroup,
-    }), shallow);
+    const { currentSentence, subtitle, singleRepeat, hoverRepeat, virtualGroup } = usePlayerState(
+        useShallow((s) => ({
+            currentSentence: s.currentSentence,
+            subtitle: s.sentences,
+            singleRepeat: s.singleRepeat,
+            hoverRepeat: s.hoverRepeat,
+            virtualGroup: s.virtualGroup,
+        })),
+    );
     const { setBoundaryRef } = useBoundary();
 
     const scrollerRef = useRef<HTMLElement | Window | null>(null);
@@ -47,15 +49,17 @@ export default function Subtitle() {
         updateVisibleRange,
         delaySetNormal,
         syncIntoView,
-    } = useSubtitleScrollState((s) => ({
-        scrollState: s.scrollState,
-        onScrolling: s.onScrolling,
-        updateCurrentRef: s.updateCurrentRef,
-        setVirtuoso: s.setVirtuoso,
-        updateVisibleRange: s.updateVisibleRange,
-        delaySetNormal: s.delaySetNormal,
-        syncIntoView: s.syncIntoView,
-    }), shallow);
+    } = useSubtitleScrollState(
+        useShallow((s) => ({
+            scrollState: s.scrollState,
+            onScrolling: s.onScrolling,
+            updateCurrentRef: s.updateCurrentRef,
+            setVirtuoso: s.setVirtuoso,
+            updateVisibleRange: s.updateVisibleRange,
+            delaySetNormal: s.delaySetNormal,
+            syncIntoView: s.syncIntoView,
+        })),
+    );
 
     const currentListPosition = useMemo(() => {
         if (!currentSentence || subtitle.length === 0) {

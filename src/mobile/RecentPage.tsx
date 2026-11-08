@@ -75,10 +75,15 @@ const RecentPage = () => {
         saveTheme(next);
     };
 
-    React.useEffect(() => {
-        let cancelled = false;
+    /** 重新拉取最近播放列表，并把界面状态重置为加载中。 */
+    const handleRetry = (): void => {
         setItems(null);
         setError(null);
+        setReloadToken((value) => value + 1);
+    };
+
+    React.useEffect(() => {
+        let cancelled = false;
         mobileApi.listRecent()
             .then((next) => {
                 if (!cancelled) {
@@ -129,7 +134,7 @@ const RecentPage = () => {
                         <button
                             type="button"
                             className="retry-btn"
-                            onClick={() => setReloadToken((value) => value + 1)}
+                            onClick={handleRetry}
                         >
                             {t('重试', 'Retry')}
                         </button>

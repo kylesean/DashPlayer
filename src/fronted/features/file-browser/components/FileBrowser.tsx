@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/fronted/lib/utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/fronted/components/ui/card';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import ProjectListComp from '@/fronted/features/file-browser/components/project-list-comp';
 import { Folder, X } from 'lucide-react';
 import { apiPath, swrApiMutate } from '@/fronted/lib/swr-util';
@@ -22,8 +22,8 @@ const logger = getRendererLogger('FileBrowser');
 const FileBrowser = () => {
     const navigate = useNavigate();
     const { t } = useTranslation('common');
-    const file = useFile(state => state.videoPath);
-    const videoId = useFile(state => state.videoId);
+    const file = usePlaybackSession(state => state.videoPath);
+    const videoId = usePlaybackSession(state => state.videoId);
     const cardRef = useRef<HTMLDivElement>(null);
     const [showTitle, setShowTitle] = useState(true);
 

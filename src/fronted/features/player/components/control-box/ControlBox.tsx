@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/fronted/components/u
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
-import useLayout from '@/fronted/hooks/useLayout';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import useLayout from '@/fronted/app/stores/layoutStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import type { RuntimeSettingKey } from '@/common/contracts/runtime-settings';
 import AutoClipButton from './AutoClipButton';
@@ -246,6 +246,18 @@ export default function ControlBox() {
             labelClassName="text-xs font-medium"
           />
           <SettingToggle
+            id="pauseOnWordHover"
+            label={t('controlBox.pauseOnWordHover')}
+            checked={setting('player.pauseOnWordHover') === 'true'}
+            onCheckedChange={async () => {
+              const current = setting('player.pauseOnWordHover') === 'true';
+              await setSetting('player.pauseOnWordHover', current ? 'false' : 'true');
+            }}
+            tooltipMd={t('controlBox.pauseOnWordHoverHint')}
+            className="h-9 px-3 py-1 rounded-xl"
+            labelClassName="text-xs font-medium"
+          />
+          <SettingToggle
             id="autoPlayNext"
             label={t('controlBox.autoPlayNext')}
             checked={autoPlayNext}
@@ -261,9 +273,11 @@ export default function ControlBox() {
           <SettingToggle
             id="nightMode"
             label={t('controlBox.nightMode')}
-            checked={setting('appearance.theme') === 'dark'}
+            checked={setting('appearance.theme') === 'dark' || (setting('appearance.theme') === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)}
             onCheckedChange={() => {
-              setSetting('appearance.theme', setting('appearance.theme') === 'dark' ? 'light' : 'dark');
+              const currentTheme = setting('appearance.theme');
+              const isDark = currentTheme === 'dark' || (currentTheme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+              void setSetting('appearance.theme', isDark ? 'light' : 'dark');
             }}
             tooltipMd={t('controlBox.shortcutHint', { shortcut: getShortcut('shortcut.nextTheme') })}
             className="h-9 px-3 py-1 rounded-xl"
@@ -293,7 +307,7 @@ export default function ControlBox() {
                 const nextMode = !podcstMode;
                 setPodcastMode(nextMode);
                 changeFullScreen(false);
-                const videoId = useFile.getState().videoId;
+                const videoId = usePlaybackSession.getState().videoId;
                 if (videoId) {
                     void playerApi.setPodcastModePreference(videoId, nextMode);
                     void swrMutate(SWR_KEY.PLAYER_P);

@@ -1,12 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { shallow } from 'zustand/shallow';
+import { useCallback, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 import VolumeSlider from '../VolumeSlider';
 import SpeedSlider from '../SpeedSlider';
-import { Slider } from '@/fronted/components/ui/slider';
 import { cn } from '@/fronted/lib/utils';
-import useLayout from '@/fronted/hooks/useLayout';
-import TimeUtil from '@/common/utils/TimeUtil';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
@@ -25,35 +23,42 @@ import {
     CONTROL_BAR_ZONE_PX,
 } from '@/fronted/features/player/components/controlBarZone';
 import { useHardsubMaskBarAdjust } from '@/fronted/features/player/components/hardsubMaskBarLayout';
+import {
+    PlaybackProgressSlider,
+    PlaybackTimeReadout,
+} from '@/fronted/features/player/components/PlaybackProgressControls';
 
 const logger = getRendererLogger('PlaybackControlBar');
 
+/**
+ * 嵌入式播放控制条组件入参。
+ */
 export interface PlaybackControlBarProps {
     className?: string;
     onTimeChange?: (time: number) => void;
 }
 
-const PlaybackControlBar = ({
-    className,
+/**
+ * 视频区域底部悬浮的主播放控制栏。
+ * 进度条与播放时间高频订阅已被完全隔离在叶子组件中，避免 22Hz 刷新导致整条按钮频繁重渲染。
+ */
+export default function PlaybackControlBar({
+    className = '',
     onTimeChange
-}: PlaybackControlBarProps) => {
+}: PlaybackControlBarProps) {
     const {
-        playTime,
-        duration,
         volume,
         playbackRate,
         muted
     } = usePlayerState(
-        (state) => ({
-            playTime: state.internal.exactPlayTime,
-            duration: state.duration,
+        useShallow((state) => ({
             volume: state.volume,
             playbackRate: state.playbackRate,
             muted: state.muted
-        }),
-        shallow
+        }))
     );
 
+    const [previewTime, setPreviewTime] = useState<number | null>(null);
     const fullScreen = useLayout((s) => s.fullScreen);
     const changeFullScreen = useLayout((s) => s.changeFullScreen);
     // 用户钉住后控制条常显，不再受鼠标超时隐藏影响
@@ -68,30 +73,26 @@ const PlaybackControlBar = ({
     const [mouseOverOut, setMouseOverOut] = useState<boolean>(false);
     // 训练模式/字幕轨道菜单或训练参数弹窗展开期间钉住控制条：鼠标移向菜单会先离开本条区域
     const [menuOpen, setMenuOpen] = useState<boolean>(false);
-    const [currentValue, setCurrentValue] = useState(0);
-    const currentValueUpdateTime = useRef<number>(0);
-    const [selecting, setSelecting] = useState(false);
-    const mouseOverTimeout = useRef<number[]>([0]);
+    const mouseOverTimeout = useRef<number[]>([]);
     // 本条是否该显形：钉住/鼠标在条上/菜单展开才算「想显示」，且鼠标压到贴片上时要让位
     const barVisible = (mouseOverOut || menuOpen || pinned) && !maskAdjust.hiddenByMask;
 
-    useEffect(() => {
-        if (selecting || Date.now() - currentValueUpdateTime.current < 500) {
-            return;
-        }
-        setCurrentValue(playTime);
-    }, [playTime, duration, selecting]);
-
     const onMouseLeave = () => {
         while (mouseOverTimeout.current.length > 0) {
-            window.clearTimeout(mouseOverTimeout.current.pop());
+            const timer = mouseOverTimeout.current.pop();
+            if (timer !== undefined) {
+                window.clearTimeout(timer);
+            }
         }
         setMouseOverOut(false);
     };
 
     const handleMouseMove = () => {
         while (mouseOverTimeout.current.length > 0) {
-            window.clearTimeout(mouseOverTimeout.current.pop());
+            const timer = mouseOverTimeout.current.pop();
+            if (timer !== undefined) {
+                window.clearTimeout(timer);
+            }
         }
         if (!mouseOverOut) {
             setMouseOverOut(true);
@@ -104,12 +105,22 @@ const PlaybackControlBar = ({
 
     const handleMouseMoveIn = () => {
         while (mouseOverTimeout.current.length > 0) {
-            window.clearTimeout(mouseOverTimeout.current.pop());
+            const timer = mouseOverTimeout.current.pop();
+            if (timer !== undefined) {
+                window.clearTimeout(timer);
+            }
         }
         if (!mouseOverOut) {
             setMouseOverOut(true);
         }
     };
+
+    const handleScrubCommit = useCallback((time: number) => {
+        logger.debug('time slider commit', { time });
+        onTimeChange?.(time);
+        playerActions.setAutoPause(false);
+        playerActions.setSingleRepeat(false);
+    }, [onTimeChange]);
 
     return (
         <div
@@ -137,40 +148,16 @@ const PlaybackControlBar = ({
                 }}
             >
                 <div className="flex flex-col items-center justify-between w-full gap-2.5">
-                    <Slider
-                        max={Math.max(duration, 0.1)}
-                        min={0}
-                        step={0.1}
-                        disabled={duration <= 0}
-                        value={[Math.min(Math.max(0, currentValue), Math.max(duration, 0.1))]}
-                        onValueChange={(value) => {
-                            const [next] = value;
-                            logger.debug('time slider changing', { next });
-                            setCurrentValue(next);
-                            setSelecting(true);
-                        }}
-                        onValueCommit={(value) => {
-                            const [next] = value;
-                            currentValueUpdateTime.current = Date.now();
-                            setCurrentValue(next);
-                            onTimeChange?.(next);
-                            playerActions.setAutoPause(false);
-                            playerActions.setSingleRepeat(false);
-                            setSelecting(false);
-                        }}
+                    <PlaybackProgressSlider
+                        previewTime={previewTime}
+                        onPreviewTimeChange={setPreviewTime}
+                        onScrubCommit={handleScrubCommit}
                     />
                     <div className="w-full flex justify-between items-center">
                         <div className="flex gap-2 items-center">
                             {/* 上一句 / 播放暂停 / 下一句：与全屏控制条共用同一份控件 */}
                             <PlaybackNavControls />
-                            <div className="h-full flex items-center font-mono text-xs text-white/80 tabular-nums">
-                                <span>{TimeUtil.secondToTimeStr(currentValue)}</span>
-                                {/* lg 以下只留当前时间：总时长在窄窗里是纯装饰，却要为它挤掉最右的图标 */}
-                                <span className="hidden lg:inline-flex items-center">
-                                    <span className="mx-1.5 text-white/40">/</span>
-                                    <span className="text-white/60">{TimeUtil.secondToTimeStr(duration)}</span>
-                                </span>
-                            </div>
+                            <PlaybackTimeReadout previewTime={previewTime} />
                         </div>
                         <div className="h-full flex-1" />
                         {/* 右侧按钮组：xl 以下收紧间隙。窄窗时这一排摆不下，gap-2 的间隙白花掉十几像素，
@@ -203,13 +190,4 @@ const PlaybackControlBar = ({
             </div>
         </div>
     );
-};
-
-PlaybackControlBar.defaultProps = {
-    className: '',
-    onTimeChange: () => {
-        //
-    }
-};
-
-export default PlaybackControlBar;
+}

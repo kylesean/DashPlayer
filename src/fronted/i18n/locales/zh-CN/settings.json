@@ -39,6 +39,7 @@
         "cardDescription": "自定义播放器的色彩主题、界面语言与字幕字体大小。",
         "themeTitle": "色彩主题",
         "themeDescription": "选择明亮或暗色主题风格，切换后即刻应用。",
+        "themeSystem": "跟随系统",
         "themeDark": "深色",
         "themeLight": "浅色",
         "fontSizeTitle": "界面字号",
@@ -223,6 +224,22 @@
             "openControlPanel": {
                 "title": "打开控制面板",
                 "description": "打开播放器控制面板"
+            },
+            "volumeUp": {
+                "title": "增大音量",
+                "description": "按步长增加播放音量"
+            },
+            "volumeDown": {
+                "title": "减小音量",
+                "description": "按步长减小播放音量"
+            },
+            "seekBackward": {
+                "title": "后退快退",
+                "description": "后退跳过固定时长（默认 5 秒）"
+            },
+            "seekForward": {
+                "title": "前进快进",
+                "description": "前进跳过固定时长（默认 5 秒）"
             }
         },
         "rerecord": "重新录制",

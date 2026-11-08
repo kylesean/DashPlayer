@@ -5,7 +5,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { engEqual, p } from '@/common/utils/Util';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { getTtsUrl, playAudioUrl } from '@/fronted/infrastructure/audio/AudioPlayer';
 import StrUtil from '@/common/utils/str-util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
@@ -264,7 +264,7 @@ const startSessionForTopic = async (
     translation: string,
     cloudAvailable: boolean
 ): Promise<void> => {
-    const videoId = useFile.getState().videoId;
+    const videoId = usePlaybackSession.getState().videoId;
     if (!videoId) {
         throw new Error('当前视频 ID 不存在，无法创建整句学习会话');
     }

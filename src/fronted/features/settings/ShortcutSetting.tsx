@@ -25,12 +25,10 @@ import {
     TooltipTrigger,
 } from '@/fronted/components/ui/tooltip';
 import {
-    Eraser,
     Pencil,
     Plus,
     RotateCcw,
     Search,
-    Trash2,
     X,
     PlayCircle,
     Subtitles,
@@ -155,31 +153,11 @@ const stringifyShortcutList = (shortcuts: string[]): string => shortcuts.join(',
  */
 const toShortcutStoreKey = (key: ShortcutKey): ShortcutStoreKey => `shortcut.${key}`;
 
-/**
- * 录制快捷键弹窗：提供一键录制、按键实体展示与多快捷键管理。
- */
-const RecordDialog = ({
-    title,
-    value,
-    defaultValue,
-    onChange,
-    triggerRef,
-    dialogTitle,
-    dialogDescription,
-    saveChangesLabel,
-    currentShortcutsLabel,
-    emptyShortcutsLabel,
-    addRecordedLabel,
-    removeShortcutLabel,
-    resetDefaultLabel,
-    listeningPrompt,
-    clearAllLabel,
-}: {
+/** 录制弹窗内部正文属性。 */
+interface RecordDialogBodyProps {
     title: string;
-    value: string;
+    initialShortcuts: string[];
     defaultValue: string;
-    onChange: (value: string) => void;
-    triggerRef: React.RefObject<HTMLButtonElement>;
     dialogTitle: string;
     dialogDescription: string;
     saveChangesLabel: string;
@@ -190,13 +168,35 @@ const RecordDialog = ({
     resetDefaultLabel: string;
     listeningPrompt: string;
     clearAllLabel: string;
-}) => {
+    onSubmit: (nextValue: string) => void;
+    onClose: () => void;
+}
+
+/**
+ * 录制弹窗正文：只在弹窗打开时挂载，用初始值建立本地草稿状态，不在副作用内同步重置状态。
+ */
+const RecordDialogBody = ({
+    title,
+    initialShortcuts,
+    defaultValue,
+    dialogTitle,
+    dialogDescription,
+    saveChangesLabel,
+    currentShortcutsLabel,
+    emptyShortcutsLabel,
+    addRecordedLabel,
+    removeShortcutLabel,
+    resetDefaultLabel,
+    listeningPrompt,
+    clearAllLabel,
+    onSubmit,
+    onClose,
+}: RecordDialogBodyProps) => {
     const { t } = useI18nTranslation('settings');
     const [keys, { start, stop }] = useRecordHotkeys();
-    const [open, setOpen] = React.useState(false);
-    const [shortcuts, setShortcuts] = React.useState<string[]>([]);
-    const [isListening, setIsListening] = React.useState(false);
-    const recordContainerRef = React.useRef<HTMLDivElement>(null);
+    const [shortcuts, setShortcuts] = React.useState<string[]>(initialShortcuts);
+    const [isListening, setIsListening] = React.useState(true);
+    const recordContainerRef = React.useRef<HTMLButtonElement>(null);
 
     const recordedShortcut = React.useMemo(() => {
         return Array.from(keys).join('+').trim().replaceAll(' ', '');
@@ -241,9 +241,9 @@ const RecordDialog = ({
      * 保存弹窗内草稿并回写到表单字段。
      */
     const submitChanges = React.useCallback(() => {
-        onChange(stringifyShortcutList(shortcuts));
-        setOpen(false);
-    }, [onChange, shortcuts]);
+        onSubmit(stringifyShortcutList(shortcuts));
+        onClose();
+    }, [onClose, onSubmit, shortcuts]);
 
     /**
      * 重置为默认值。
@@ -259,41 +259,40 @@ const RecordDialog = ({
         setShortcuts([]);
     }, []);
 
-    // 打开弹窗时自动激活录制监听
+    // 挂载即开启录制并聚焦录制面板，卸载时自动停止监听
     React.useEffect(() => {
-        if (open) {
-            setShortcuts(parseShortcutList(value));
-            setIsListening(true);
-            start();
-            // 聚焦录制容器
-            setTimeout(() => {
-                recordContainerRef.current?.focus();
-            }, 50);
-        } else {
-            setIsListening(false);
+        start();
+        const focusTimer = window.setTimeout(() => {
+            recordContainerRef.current?.focus();
+        }, 50);
+        return () => {
+            window.clearTimeout(focusTimer);
             stop();
-        }
-    }, [open, start, stop, value]);
+        };
+    }, [start, stop]);
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button ref={triggerRef} className="hidden" aria-hidden="true" tabIndex={-1}>Open</Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[480px]">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <span>{dialogTitle}</span>
-                        <span className="text-sm font-normal text-muted-foreground">({title})</span>
-                    </DialogTitle>
-                    <DialogDescription>{dialogDescription}</DialogDescription>
-                </DialogHeader>
+        <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                    <span>{dialogTitle}</span>
+                    <span className="text-sm font-normal text-muted-foreground">({title})</span>
+                </DialogTitle>
+                <DialogDescription>{dialogDescription}</DialogDescription>
+            </DialogHeader>
 
-                <div className="space-y-4 py-2">
-                    {/* 录制捕获面板 */}
-                    <div
+            <div className="space-y-4 py-2">
+                {/* 录制捕获面板 */}
+                <div
+                    className={`relative group rounded-xl border-2 p-5 flex flex-col items-center justify-center gap-3 transition-all ${
+                        isListening
+                            ? 'border-primary/60 bg-primary/5 shadow-inner'
+                            : 'border-dashed border-border/80 hover:border-primary/40 bg-muted/20'
+                    }`}
+                >
+                    <button
                         ref={recordContainerRef}
-                        tabIndex={0}
+                        type="button"
                         onFocus={() => {
                             setIsListening(true);
                             start();
@@ -302,13 +301,10 @@ const RecordDialog = ({
                             setIsListening(false);
                             stop();
                         }}
-                        className={`relative group rounded-xl border-2 p-5 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer outline-none ${
-                            isListening
-                                ? 'border-primary/60 bg-primary/5 shadow-inner'
-                                : 'border-dashed border-border/80 hover:border-primary/40 bg-muted/20'
-                        }`}
+                        onClick={() => recordContainerRef.current?.focus()}
+                        className="flex w-full flex-col items-center justify-center gap-3 cursor-pointer outline-none"
                     >
-                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                             {isListening ? (
                                 <span className="flex items-center gap-1.5 text-primary animate-pulse">
                                     <Radio className="w-3.5 h-3.5" />
@@ -317,126 +313,193 @@ const RecordDialog = ({
                             ) : (
                                 <span>{t('shortcut.clickToListen')}</span>
                             )}
-                        </div>
+                        </span>
 
                         {/* 录制实时展示 */}
-                        <div className="min-h-[36px] flex items-center justify-center">
+                        <span className="min-h-[36px] flex items-center justify-center">
                             {recordedShortcut ? (
-                                <div className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100">
+                                <span className="flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100">
                                     {recordedShortcut.split('+').map((k, idx) => (
                                         <React.Fragment key={idx}>
                                             {idx > 0 && <span className="text-xs text-muted-foreground font-semibold">+</span>}
                                             <KeyCap label={k} className="h-8 min-w-[32px] px-2 text-sm shadow-md" />
                                         </React.Fragment>
                                     ))}
-                                </div>
+                                </span>
                             ) : (
                                 <span className="text-xs text-muted-foreground/60 italic select-none">
                                     {t('shortcut.listeningPromptHint')}
                                 </span>
                             )}
-                        </div>
+                        </span>
+                    </button>
 
-                        {recordedShortcut && (
-                            <div className="flex items-center gap-2 mt-1">
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={handleRerecord}
-                                    className="h-7 text-xs gap-1"
-                                >
-                                    <RotateCcw className="w-3 h-3" />
-                                    {t('shortcut.rerecord')}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="default"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        appendRecordedShortcut();
-                                    }}
-                                    className="h-7 text-xs gap-1 shadow-sm"
-                                >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    {addRecordedLabel}
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* 当前绑定的快捷键列表 */}
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                            <span className="text-xs font-semibold text-foreground">{currentShortcutsLabel}</span>
-                            <div className="flex items-center gap-1">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 text-[11px] text-muted-foreground hover:text-foreground px-1.5"
-                                    onClick={clearAll}
-                                >
-                                    {clearAllLabel}
-                                </Button>
-                                <span className="text-border">|</span>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 text-[11px] text-muted-foreground hover:text-foreground px-1.5 gap-1"
-                                    onClick={resetToDefault}
-                                >
-                                    <RotateCcw className="w-3 h-3" />
-                                    {resetDefaultLabel}
-                                </Button>
-                            </div>
+                    {recordedShortcut && (
+                        <div className="flex items-center gap-2 mt-1">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={handleRerecord}
+                                className="h-7 text-xs gap-1"
+                            >
+                                <RotateCcw className="w-3 h-3" />
+                                {t('shortcut.rerecord')}
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="default"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    appendRecordedShortcut();
+                                }}
+                                className="h-7 text-xs gap-1 shadow-sm"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                {addRecordedLabel}
+                            </Button>
                         </div>
-
-                        <div className="rounded-lg border border-border/70 bg-muted/20 p-3 min-h-[72px] flex flex-wrap gap-2 items-center content-start">
-                            {shortcuts.length === 0 ? (
-                                <div className="w-full text-center text-xs text-muted-foreground/60 py-2">
-                                    {emptyShortcutsLabel}
-                                </div>
-                            ) : (
-                                shortcuts.map((shortcut) => (
-                                    <div
-                                        key={shortcut}
-                                        className="inline-flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-md border border-border/70 bg-background shadow-xs text-xs font-mono"
-                                    >
-                                        <div className="flex items-center gap-1">
-                                            {shortcut.split('+').map((k, idx) => (
-                                                <React.Fragment key={idx}>
-                                                    {idx > 0 && <span className="text-[10px] text-muted-foreground">+</span>}
-                                                    <span className="font-semibold text-foreground">{formatKeySymbol(k)}</span>
-                                                </React.Fragment>
-                                            ))}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            className="ml-1 rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                            title={removeShortcutLabel}
-                                            onClick={() => removeShortcut(shortcut)}
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
+                    )}
                 </div>
 
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                        {t('shortcut.cancel')}
-                    </Button>
-                    <Button type="button" onClick={submitChanges}>
-                        {saveChangesLabel}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
+                {/* 当前绑定的快捷键列表 */}
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground">{currentShortcutsLabel}</span>
+                        <div className="flex items-center gap-1">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[11px] text-muted-foreground hover:text-foreground px-1.5"
+                                onClick={clearAll}
+                            >
+                                {clearAllLabel}
+                            </Button>
+                            <span className="text-border">|</span>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 text-[11px] text-muted-foreground hover:text-foreground px-1.5 gap-1"
+                                onClick={resetToDefault}
+                            >
+                                <RotateCcw className="w-3 h-3" />
+                                {resetDefaultLabel}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border/70 bg-muted/20 p-3 min-h-[72px] flex flex-wrap gap-2 items-center content-start">
+                        {shortcuts.length === 0 ? (
+                            <div className="w-full text-center text-xs text-muted-foreground/60 py-2">
+                                {emptyShortcutsLabel}
+                            </div>
+                        ) : (
+                            shortcuts.map((shortcut) => (
+                                <div
+                                    key={shortcut}
+                                    className="inline-flex items-center gap-1.5 pl-2 pr-1.5 py-1 rounded-md border border-border/70 bg-background shadow-xs text-xs font-mono"
+                                >
+                                    <div className="flex items-center gap-1">
+                                        {shortcut.split('+').map((k, idx) => (
+                                            <React.Fragment key={idx}>
+                                                {idx > 0 && <span className="text-[10px] text-muted-foreground">+</span>}
+                                                <span className="font-semibold text-foreground">{formatKeySymbol(k)}</span>
+                                            </React.Fragment>
+                                        ))}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="ml-1 rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                        title={removeShortcutLabel}
+                                        onClick={() => removeShortcut(shortcut)}
+                                    >
+                                        <X className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={onClose}>
+                    {t('shortcut.cancel')}
+                </Button>
+                <Button type="button" onClick={submitChanges}>
+                    {saveChangesLabel}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    );
+};
+
+/**
+ * 录制快捷键弹窗：提供一键录制、按键实体展示与多快捷键管理。
+ */
+const RecordDialog = ({
+    title,
+    value,
+    defaultValue,
+    onChange,
+    triggerRef,
+    dialogTitle,
+    dialogDescription,
+    saveChangesLabel,
+    currentShortcutsLabel,
+    emptyShortcutsLabel,
+    addRecordedLabel,
+    removeShortcutLabel,
+    resetDefaultLabel,
+    listeningPrompt,
+    clearAllLabel,
+}: {
+    title: string;
+    value: string;
+    defaultValue: string;
+    onChange: (value: string) => void;
+    triggerRef: React.RefObject<HTMLButtonElement>;
+    dialogTitle: string;
+    dialogDescription: string;
+    saveChangesLabel: string;
+    currentShortcutsLabel: string;
+    emptyShortcutsLabel: string;
+    addRecordedLabel: string;
+    removeShortcutLabel: string;
+    resetDefaultLabel: string;
+    listeningPrompt: string;
+    clearAllLabel: string;
+}) => {
+    const [open, setOpen] = React.useState(false);
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button ref={triggerRef} className="hidden" aria-hidden="true" tabIndex={-1}>Open</Button>
+            </DialogTrigger>
+            {open ? (
+                <RecordDialogBody
+                    key={value}
+                    title={title}
+                    initialShortcuts={parseShortcutList(value)}
+                    defaultValue={defaultValue}
+                    dialogTitle={dialogTitle}
+                    dialogDescription={dialogDescription}
+                    saveChangesLabel={saveChangesLabel}
+                    currentShortcutsLabel={currentShortcutsLabel}
+                    emptyShortcutsLabel={emptyShortcutsLabel}
+                    addRecordedLabel={addRecordedLabel}
+                    removeShortcutLabel={removeShortcutLabel}
+                    resetDefaultLabel={resetDefaultLabel}
+                    listeningPrompt={listeningPrompt}
+                    clearAllLabel={clearAllLabel}
+                    onSubmit={onChange}
+                    onClose={() => setOpen(false)}
+                />
+            ) : null}
         </Dialog>
     );
 };
@@ -497,6 +560,10 @@ const ShortcutSetting = () => {
                 { key: 'playPause', title: t('shortcut.items.playPause.title'), description: t('shortcut.items.playPause.description') },
                 { key: 'previousSentence', title: t('shortcut.items.previousSentence.title'), description: t('shortcut.items.previousSentence.description') },
                 { key: 'nextSentence', title: t('shortcut.items.nextSentence.title'), description: t('shortcut.items.nextSentence.description') },
+                { key: 'seekBackward', title: t('shortcut.items.seekBackward.title'), description: t('shortcut.items.seekBackward.description') },
+                { key: 'seekForward', title: t('shortcut.items.seekForward.title'), description: t('shortcut.items.seekForward.description') },
+                { key: 'volumeUp', title: t('shortcut.items.volumeUp.title'), description: t('shortcut.items.volumeUp.description') },
+                { key: 'volumeDown', title: t('shortcut.items.volumeDown.title'), description: t('shortcut.items.volumeDown.description') },
                 { key: 'repeatSentence', title: t('shortcut.items.repeatSentence.title'), description: t('shortcut.items.repeatSentence.description') },
                 { key: 'repeatSingleSentence', title: t('shortcut.items.repeatSingleSentence.title'), description: t('shortcut.items.repeatSingleSentence.description') },
                 { key: 'autoPause', title: t('shortcut.items.autoPause.title'), description: t('shortcut.items.autoPause.description') },

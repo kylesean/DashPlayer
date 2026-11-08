@@ -1,43 +1,37 @@
-import React, { useState } from 'react';
-import { History, Bookmark } from 'lucide-react';
+import { useState } from 'react';
 import { cn } from '@/fronted/lib/utils';
 import { FONT_SIZE } from '@/fronted/styles/style';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
-import { Button } from '@/fronted/components/ui/button';
 
 import type { Sentence } from '@/common/types/SentenceC';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import useFavouriteClip, { mapClipKey } from '@/fronted/features/favourite/favouriteStore';
-import useFile from '@/fronted/features/file-browser/fileStore';
 import TranslatableLine from '@/fronted/features/player/components/translatable-line/translatable-line';
 
-
-interface TranslatableLineWrapperProps {
+/**
+ * 可交互字幕行包装组件入参。
+ */
+export interface TranslatableLineWrapperProps {
   sentence: Sentence;
-  adjusted: boolean;
-  clearAdjust: () => void;
+  adjusted?: boolean;
+  clearAdjust?: () => void;
   className?: string;     // 可选：容器附加 class
   coreClassName?: string; // 可选：如需给 Core 容器加类，可结合 atoms 改动一起使用
   variant?: 'default' | 'plain';
 }
 
-const TranslatableLineWrapper: React.FC<TranslatableLineWrapperProps> = ({
+/**
+ * 包装字幕原文行，负责悬浮显隐控制、卡片底色与尺寸适配。
+ */
+export default function TranslatableLineWrapper({
   sentence,
-  adjusted,
-  clearAdjust,
   className,
   coreClassName,
   variant = 'default'
-}) => {
+}: TranslatableLineWrapperProps) {
   const text = sentence.text;
   const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
   const show = usePlayerUi((state) => state.showEn);
   const [hovered, setHovered] = useState(false);
-
-  const isFavourite = useFavouriteClip(
-    (s) => s.lineClip.get(mapClipKey(useFile.getState().srtHash, sentence.index)) ?? false
-  );
 
   if (!text) return <div />;
 
@@ -87,6 +81,4 @@ const TranslatableLineWrapper: React.FC<TranslatableLineWrapperProps> = ({
       </div>
     </div>
   );
-};
-
-export default TranslatableLineWrapper;
+}

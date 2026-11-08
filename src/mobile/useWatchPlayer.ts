@@ -26,12 +26,19 @@ export interface DictionaryState {
     error: string | null;
 }
 
-/** 播放页 hook 暴露给视图的状态和操作。 */
-export interface WatchPlayerApi {
+/** 播放页 hook 由视图层传入并托管的底层元素引用。 */
+export interface WatchPlayerRefs {
+    /** 视频元素引用。 */
     videoRef: React.RefObject<HTMLVideoElement | null>;
+    /** 虚拟列表实例引用。 */
     virtuosoRef: React.RefObject<VirtuosoHandle | null>;
-    handleScrollerRef: (ref: HTMLElement | Window | null) => void;
+    /** 顶部查词条元素引用。 */
     dictRef: React.RefObject<HTMLDivElement | null>;
+}
+
+/** 播放页 hook 暴露给视图的状态和操作（不包含 RefObject，避免渲染期误触发 ref 读取告警）。 */
+export interface WatchPlayerApi {
+    handleScrollerRef: (ref: HTMLElement | Window | null) => void;
     currentIndex: number;
     currentLine: MobileSubtitleLine | null;
     currentTranslation: string;
@@ -96,13 +103,12 @@ const BROWSE_SETTLE_MS = 400;
  * 把播放页的播放、字幕、循环和查词逻辑收在一个 hook 里。
  *
  * @param detail 播放详情。
- * @returns 视图需要的 ref、状态和操作。
+ * @param refs 由视图层持有的视频、字幕列表与查词条 DOM 引用。
+ * @returns 视图需要的状态、滚动回调与控制操作。
  */
-export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
-    const videoRef = React.useRef<HTMLVideoElement | null>(null);
-    const virtuosoRef = React.useRef<VirtuosoHandle | null>(null);
+export const useWatchPlayer = (detail: MobileWatchDetail, refs: WatchPlayerRefs): WatchPlayerApi => {
+    const { videoRef, virtuosoRef, dictRef } = refs;
     const scrollerRef = React.useRef<HTMLElement | null>(null);
-    const dictRef = React.useRef<HTMLDivElement | null>(null);
     const mountedRef = React.useRef(true);
 
     const [currentIndex, setCurrentIndex] = React.useState(-1);
@@ -180,7 +186,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         if (videoRef.current) {
             videoRef.current.playbackRate = speed;
         }
-    }, [speed]);
+    }, [speed, videoRef]);
 
     /**
      * 写回当前播放位置。
@@ -198,7 +204,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         }
         lastSavedRef.current = second;
         void mobileApi.saveProgress(detail.id, second, force).catch(() => undefined);
-    }, [detail.id]);
+    }, [detail.id, videoRef]);
 
     /**
      * 判断某行字幕是否完整落在可视区内。
@@ -257,7 +263,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         autoScrollingRef.current = true;
         settleAutoScroll();
         virtuosoRef.current?.scrollIntoView({ index, align: 'start', behavior: 'auto' });
-    }, [isRowVisible, settleAutoScroll]);
+    }, [isRowVisible, settleAutoScroll, virtuosoRef]);
 
     /**
      * 用户停下滚动后统一判定一次。
@@ -453,7 +459,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
 
         applyIndex(resolveCurrentIndex(video.currentTime));
         saveProgress(false);
-    }, [detail.subtitles, applyIndex, saveProgress, resolveCurrentIndex]);
+    }, [detail.subtitles, applyIndex, saveProgress, resolveCurrentIndex, videoRef]);
 
     /** 原生进度条开始 seek 时暂停循环/自动暂停判定。 */
     const handleSeeking = React.useCallback((): void => {
@@ -480,7 +486,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         if (video) {
             applyIndex(resolveCurrentIndex(video.currentTime));
         }
-    }, [applyIndex, resolveCurrentIndex]);
+    }, [applyIndex, resolveCurrentIndex, videoRef]);
 
     /** 处理元数据加载，按上次位置续播。 */
     const handleLoadedMetadata = React.useCallback((): void => {
@@ -514,7 +520,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         if (resumeDoneRef.current) {
             applyIndex(resolveCurrentIndex(video.currentTime));
         }
-    }, [detail.currentPosition, applyIndex, resolveCurrentIndex]);
+    }, [detail.currentPosition, applyIndex, resolveCurrentIndex, videoRef]);
 
     /** 暂停时写回进度，并让暂停菜单出现。 */
     const handlePause = React.useCallback((): void => {
@@ -539,7 +545,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
             return;
         }
         setVideoError(true);
-    }, []);
+    }, [videoRef]);
 
     /** 视频有画面后收起错误提示。 */
     const handleLoadedData = React.useCallback((): void => {
@@ -574,7 +580,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         settleAutoScroll();
         virtuosoRef.current?.scrollToIndex({ index, align: 'start', behavior: 'auto' });
         tapFeedback();
-    }, [settleAutoScroll]);
+    }, [settleAutoScroll, virtuosoRef]);
 
     /**
      * 关闭查词条并清理定时器。
@@ -690,7 +696,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
             void video.play().catch(() => undefined);
         }
         tapFeedback();
-    }, [detail.subtitles, applyIndex, closeDict]);
+    }, [detail.subtitles, applyIndex, closeDict, videoRef]);
 
     /**
      * 按句前后跳。
@@ -706,7 +712,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
             : tender.getIndexByTime(videoRef.current?.currentTime ?? 0);
         const target = Math.max(0, Math.min(detail.subtitles.length - 1, (base < 0 ? -1 : base) + delta));
         seekLine(target, true);
-    }, [detail.subtitles, seekLine, tender]);
+    }, [detail.subtitles, seekLine, tender, videoRef]);
 
     /** 重播当前句。 */
     const replayCurrent = React.useCallback((): void => {
@@ -717,7 +723,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
             ? currentIndexRef.current
             : tender.getIndexByTime(videoRef.current?.currentTime ?? 0);
         seekLine(base < 0 ? 0 : base, true);
-    }, [detail.subtitles, seekLine, tender]);
+    }, [detail.subtitles, seekLine, tender, videoRef]);
 
     /** 打开播放设置。 */
     const openSettings = React.useCallback((): void => setSettingsOpen(true), []);
@@ -794,7 +800,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         };
         document.addEventListener('pointerdown', handler, true);
         return () => document.removeEventListener('pointerdown', handler, true);
-    }, [dict, closeDict]);
+    }, [dict, closeDict, dictRef]);
 
     React.useEffect(() => {
         const onPageHide = (): void => saveProgress(true);
@@ -842,7 +848,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
                 window.clearTimeout(dictTimerRef.current);
             }
         };
-    }, [saveProgress]);
+    }, [saveProgress, videoRef]);
 
     const currentLine = currentIndex >= 0 ? detail.subtitles[currentIndex] : detail.subtitles[0] ?? null;
     const currentTranslation = currentLine
@@ -857,10 +863,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
                 : '—');
 
     return {
-        videoRef,
-        virtuosoRef,
         handleScrollerRef,
-        dictRef,
         currentIndex,
         currentLine,
         currentTranslation,

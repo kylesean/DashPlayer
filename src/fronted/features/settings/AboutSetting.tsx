@@ -94,7 +94,7 @@ const AboutSetting = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-5">
                     <div className="flex items-center gap-3.5">
                         <img
-                            src={theme === 'dark' ? logoDark : logoLight}
+                            src={(theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)) ? logoDark : logoLight}
                             alt="DashPlayer Logo"
                             className="w-12 h-12 object-contain select-none shrink-0"
                             draggable={false}

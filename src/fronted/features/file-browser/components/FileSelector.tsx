@@ -6,9 +6,9 @@ import MediaUtil, {
     AllFormats,
     SupportedFormats,
 } from '@/common/utils/MediaUtil';
-import useFile from '@/fronted/features/file-browser/fileStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { SWR_KEY, swrApiMutate, swrMutate } from '@/fronted/lib/swr-util';
-import useLayout from '@/fronted/hooks/useLayout';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import StrUtil from '@/common/utils/str-util';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import { useTranslation } from 'react-i18next';
@@ -19,10 +19,10 @@ export class FileAction {
     public static playerAction(navigate: (s: string) => void) {
         return async (ps: string[]) => {
             if (ps.length === 1 && MediaUtil.isSubtitle(ps[0])) {
-                const videoPath = useFile.getState().videoPath;
+                const videoPath = usePlaybackSession.getState().videoPath;
                 if (StrUtil.isNotBlank(videoPath)) {
                     await fileBrowserApi.attachSubtitle(videoPath, ps[0]);
-                    useFile.getState().clearSrt();
+                    usePlaybackSession.getState().clearSrt();
                 }
             } else {
                 // 格式兼容性引导统一由播放页负责（乐观播放 + 失败/无声检测），这里不再预检
@@ -40,10 +40,10 @@ export class FileAction {
     public static playerAction2(navigate: (s: string) => void) {
         return async (ps: string[]) => {
             if (ps.length === 1 && MediaUtil.isSubtitle(ps[0])) {
-                const videoPath = useFile.getState().videoPath;
+                const videoPath = usePlaybackSession.getState().videoPath;
                 if (StrUtil.isNotBlank(videoPath)) {
                     await fileBrowserApi.attachSubtitle(videoPath, ps[0]);
-                    useFile.getState().clearSrt();
+                    usePlaybackSession.getState().clearSrt();
                 }
             } else {
                 const [id] = await fileBrowserApi.createWatchHistory(ps);
@@ -59,15 +59,23 @@ export class FileAction {
     }
 }
 
-export default function FileSelector({
-                                         onSelected,
-                                         withMkv,
-                                         className
-                                     }: {
+/**
+ * 本地文件选择器组件入参。
+ */
+export interface FileSelectorProps {
     onSelected: (ps: string[]) => Promise<void>;
     withMkv?: boolean;
     className?: string;
-}) {
+}
+
+/**
+ * 打开本地媒体/字幕文件的通用按钮。
+ */
+export default function FileSelector({
+    onSelected,
+    withMkv = false,
+    className = '',
+}: FileSelectorProps) {
     const { t } = useTranslation('common');
     const handleClick = async () => {
         const ps = await fileBrowserApi.selectFiles(withMkv ? AllFormats : SupportedFormats);
@@ -96,6 +104,3 @@ export default function FileSelector({
         </TooltipProvider>
     );
 }
-FileSelector.defaultProps = {
-    withMkv: false
-};

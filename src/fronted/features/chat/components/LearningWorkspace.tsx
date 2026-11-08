@@ -9,7 +9,7 @@ import Playable from '@/fronted/components/shared/common/Playable';
 import { cleanWord, isWordToken, splitWords } from '@/common/utils/subtitle/tokenize';
 import { formatPhonetic } from '@/fronted/lib/phonetic';
 import { formatDictTag } from '@/fronted/lib/dict-tags';
-import useSystem from '@/fronted/hooks/useSystem';
+import useSystem from '@/fronted/app/stores/systemStore';
 import type { AiUnifiedAnalysisRes } from '@/common/types/aiRes/AiUnifiedAnalysisRes';
 import type { SentenceWordEntry } from '@/common/types/vo/SentenceVocabularyVO';
 import type { AnalysisStatus, LearningMessageView } from '@/fronted/features/chat/types';
@@ -98,14 +98,18 @@ const PHRASE_GROUP_MARKS = [
  *
  * @param text 原句。
  * @param groups 意群片段。
- * @returns 按原文顺序排列的文本片段及其是否属于意群。
+ * @returns 按原文顺序排列的文本片段及其意群顺序编号（非意群为 null）。
  */
-const splitSentenceByGroups = (text: string, groups: string[]): { text: string; isGroup: boolean }[] => {
+const splitSentenceByGroups = (
+    text: string,
+    groups: string[],
+): { text: string; groupIndex: number | null }[] => {
     if (groups.length === 0 || text.trim().length === 0) {
-        return [{ text, isGroup: false }];
+        return [{ text, groupIndex: null }];
     }
-    const segments: { text: string; isGroup: boolean }[] = [];
+    const segments: { text: string; groupIndex: number | null }[] = [];
     let remaining = text;
+    let nextGroupIndex = 0;
     groups.forEach((group) => {
         const target = group.trim();
         if (!target || remaining.trim().length === 0) {
@@ -117,13 +121,14 @@ const splitSentenceByGroups = (text: string, groups: string[]): { text: string; 
         }
         const before = remaining.slice(0, index);
         if (before) {
-            segments.push({ text: before, isGroup: false });
+            segments.push({ text: before, groupIndex: null });
         }
-        segments.push({ text: remaining.slice(index, index + target.length), isGroup: true });
+        segments.push({ text: remaining.slice(index, index + target.length), groupIndex: nextGroupIndex });
+        nextGroupIndex += 1;
         remaining = remaining.slice(index + target.length);
     });
     if (remaining) {
-        segments.push({ text: remaining, isGroup: false });
+        segments.push({ text: remaining, groupIndex: null });
     }
     return segments;
 };
@@ -166,8 +171,6 @@ const SentenceStrip = ({
         () => splitSentenceByGroups(sentence.en, phraseGroups),
         [phraseGroups, sentence.en]
     );
-    /** 意群在整句中的序号（非意群片段不占号），用于取标记色。 */
-    let groupIndex = -1;
 
     /**
      * 把一段文本渲染成可悬停的单词序列。
@@ -214,16 +217,15 @@ const SentenceStrip = ({
             <section className="relative flex shrink-0 flex-col items-center justify-center px-16 py-8 text-center">
                 <p className="mx-auto max-w-4xl text-2xl font-medium leading-relaxed tracking-tight text-foreground">
                     {segments.map((segment, index) => {
-                        if (!segment.isGroup) {
+                        if (segment.groupIndex === null) {
                             return <span key={`plain-${index}`}>{renderWords(segment.text)}</span>;
                         }
-                        groupIndex += 1;
                         return (
                             <span
                                 key={`group-${index}`}
                                 className={cn(
                                     'underline underline-offset-[0.28em] decoration-[3px]',
-                                    PHRASE_GROUP_MARKS[groupIndex % PHRASE_GROUP_MARKS.length]
+                                    PHRASE_GROUP_MARKS[segment.groupIndex % PHRASE_GROUP_MARKS.length]
                                 )}
                             >
                                 {renderWords(segment.text)}
