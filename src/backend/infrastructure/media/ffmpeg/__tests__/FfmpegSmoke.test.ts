@@ -89,44 +89,6 @@ describe.skipIf(!binariesReady)('ffmpeg 网关冒烟测试（真实执行）', (
         expect(info.duration).toBeGreaterThan(2.5);
     });
 
-    it('splitVideo 无重编码分割后产物时长应约为 1 秒', { timeout: 30_000 }, async () => {
-        const outputFile = path.join(workDir, 'split.mp4');
-
-        await gateway.splitVideo({
-            inputFile: sampleVideo,
-            outputFile,
-            startSecond: 1,
-            endSecond: 2,
-        });
-
-        const probe = await probeJson(outputFile);
-        const duration = Number(probe.format.duration);
-        expect(duration).toBeGreaterThan(0.7);
-        expect(duration).toBeLessThan(1.3);
-    });
-
-    it('splitVideoByTimes 在 1 秒处切一刀应产出 2 段且返回实测边界', { timeout: 30_000 }, async () => {
-        const outputPattern = path.join(workDir, 'chunk_%03d.mp4');
-
-        const segments = await gateway.splitVideoByTimes({
-            inputFile: sampleVideo,
-            times: [1],
-            outputPattern,
-        });
-
-        const chunks = fs.readdirSync(workDir).filter(file => file.startsWith('chunk_'));
-        expect(chunks).toHaveLength(2);
-        expect(segments).toHaveLength(2);
-
-        // 每段返回自己的文件，边界首尾相接，且覆盖原视频约 3 秒总长。
-        expect(segments[0].file).toContain('chunk_000');
-        expect(segments[1].file).toContain('chunk_001');
-        expect(segments[0].start).toBe(0);
-        expect(segments[1].start).toBeCloseTo(segments[0].end, 1);
-        expect(segments[1].end).toBeGreaterThan(2.5);
-        expect(segments[1].end).toBeLessThan(3.5);
-    });
-
     it('trimVideo 重编码裁剪后时长应约为 1 秒且按指定宽度缩放', { timeout: 60_000 }, async () => {
         const outputFile = path.join(workDir, 'trim.mp4');
 

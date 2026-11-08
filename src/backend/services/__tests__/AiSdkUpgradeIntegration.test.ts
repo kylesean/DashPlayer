@@ -37,7 +37,6 @@ import { convertArrayToReadableStream, MockLanguageModelV4 } from 'ai/test';
 
 import { loadAiSdkTestConfig } from '@/test/aiSdkTestConfig';
 import { splitSystemMessages } from '@/backend/services/chat/ChatPromptBuilder';
-import { ChatServiceImpl } from '../ChatService';
 import { ChatSessionServiceImpl } from '../ChatSessionService';
 import { TranslateServiceImpl } from '../TranslateService';
 import { BuiltinDictionaryStoreImpl } from '@/backend/infrastructure/translate/BuiltinDictionaryStoreImpl';
@@ -208,71 +207,6 @@ const runTests = (): void => {
             }, 15000);
         });
 
-        describe('ChatServiceImpl.run（结构化输出任务路径）', () => {
-            it('流式产出结构化对象，并在 finish 时写入 schema 校验后的完整结果', async () => {
-                const calls: Array<{ type: string; id: number; info: Record<string, unknown> }> = [];
-                const dpTask: DpTaskService = {
-                    create: vi.fn().mockResolvedValue(1),
-                    detail: vi.fn(),
-                    update: vi.fn(),
-                    process: vi.fn((id, info) => calls.push({ type: 'process', id, info: info as Record<string, unknown> })),
-                    finish: vi.fn((id, info) => calls.push({ type: 'finish', id, info: info as Record<string, unknown> })),
-                    fail: vi.fn((id, info) => calls.push({ type: 'fail', id, info: info as Record<string, unknown> })),
-                    cancel: vi.fn(),
-                    checkCancel: vi.fn(),
-                    registerTask: vi.fn(),
-                    recoverInterruptedTasks: vi.fn(),
-                };
-                const provider: AiProviderService = {
-                    getModel: vi.fn(() => buildMockTextModel('{"answer": "yes"}')),
-                    createModelById: vi.fn(() => buildMockTextModel('{"answer": "yes"}')),
-                };
-                const chatService = new ChatServiceImpl(dpTask, provider);
-
-                const schema = z.object({ answer: z.string() });
-                await chatService.run(1, schema, 'Reply with JSON matching the schema.');
-
-                const processes = calls.filter((c) => c.type === 'process');
-                expect(processes.length).toBeGreaterThan(0);
-                const finish = calls.find((c) => c.type === 'finish');
-                expect(calls.find((c) => c.type === 'fail')).toBeUndefined();
-                expect(finish).toBeDefined();
-                // 最终结果必须在 finish 里完整写入，且符合 schema（修复点：旧实现 finish 不带结果）。
-                const finalResult = JSON.parse(String(finish!.info.result)) as { answer?: string };
-                expect(schema.safeParse(finalResult).success).toBe(true);
-                expect(finalResult.answer).toBe('yes');
-            }, 15000);
-
-            it('模型流中断时任务被标记失败，而不是永远停在执行中', async () => {
-                const calls: Array<{ type: string; id: number; info: Record<string, unknown> }> = [];
-                const dpTask: DpTaskService = {
-                    create: vi.fn().mockResolvedValue(1),
-                    detail: vi.fn(),
-                    update: vi.fn(),
-                    process: vi.fn((id, info) => calls.push({ type: 'process', id, info: info as Record<string, unknown> })),
-                    finish: vi.fn((id, info) => calls.push({ type: 'finish', id, info: info as Record<string, unknown> })),
-                    fail: vi.fn((id, info) => calls.push({ type: 'fail', id, info: info as Record<string, unknown> })),
-                    cancel: vi.fn(),
-                    checkCancel: vi.fn(),
-                    registerTask: vi.fn(),
-                    recoverInterruptedTasks: vi.fn(),
-                };
-                const provider: AiProviderService = {
-                    getModel: vi.fn(() => buildErrorModel(new Error('模型流中断'))),
-                    createModelById: vi.fn(() => buildErrorModel(new Error('模型流中断'))),
-                };
-                const chatService = new ChatServiceImpl(dpTask, provider);
-
-                const schema = z.object({ answer: z.string() });
-                await chatService.run(1, schema, 'Reply with JSON matching the schema.');
-
-                expect(calls.find((c) => c.type === 'finish')).toBeUndefined();
-                const failed = calls.find((c) => c.type === 'fail');
-                expect(failed).toBeDefined();
-                // AI SDK 会把底层模型错误包装成 NoObjectGeneratedError，这里只断言任务确实被标记失败且带统一前缀。
-                expect(String(failed!.info.progress)).toContain('AI 请求失败');
-            }, 15000);
-        });
     });
 
     describeLive('AI SDK 升级验证（ai v7 + @ai-sdk/openai-compatible）', () => {
@@ -345,51 +279,6 @@ const runTests = (): void => {
             }, 60000);
         });
 
-        describe('ChatServiceImpl（句子学习 chat / run 任务路径）', () => {
-            let chatService: ChatServiceImpl;
-            let dpTask: DpTaskService;
-            let provider: AiProviderService;
-            const calls: Array<{ type: string; id: number; info: Record<string, unknown> }> = [];
-
-            const installMocks = (): void => {
-                dpTask = {
-                    create: vi.fn().mockResolvedValue(1),
-                    detail: vi.fn(),
-                    update: vi.fn(),
-                    process: vi.fn((id, info) => calls.push({ type: 'process', id, info: info as Record<string, unknown> })),
-                    finish: vi.fn((id, info) => calls.push({ type: 'finish', id, info: info as Record<string, unknown> })),
-                    fail: vi.fn((id, info) => calls.push({ type: 'fail', id, info: info as Record<string, unknown> })),
-                    cancel: vi.fn(),
-                    checkCancel: vi.fn(),
-                    registerTask: vi.fn(),
-                    recoverInterruptedTasks: vi.fn(),
-                };
-                provider = {
-                    getModel: vi.fn(() => buildLiveModel(testConfig!.model)),
-                    createModelById: vi.fn(() => buildLiveModel(testConfig!.model)),
-                };
-                chatService = new ChatServiceImpl(dpTask, provider);
-            };
-
-            beforeAll(() => {
-                installMocks();
-            });
-
-            it('真实连接：run() 能流式产出符合 schema 的结构化对象，并在 finish 写入完整结果', async () => {
-                calls.length = 0;
-                const schema = z.object({
-                    answer: z.string(),
-                });
-                await chatService.run(2, schema, 'Reply with JSON matching the schema, e.g. {"answer": "yes"}');
-                const processes = calls.filter((c) => c.type === 'process');
-                expect(processes.length).toBeGreaterThan(0);
-                const finish = calls.find((c) => c.type === 'finish');
-                expect(finish).toBeDefined();
-                const parsed = JSON.parse(String(finish!.info.result)) as { answer?: string };
-                expect(schema.safeParse(parsed).success).toBe(true);
-                expect(typeof parsed.answer).toBe('string');
-            }, 60000);
-        });
 
         describe('ChatSessionServiceImpl（播放页对话/句子分析路径）', () => {
             let sessionService: ChatSessionServiceImpl;

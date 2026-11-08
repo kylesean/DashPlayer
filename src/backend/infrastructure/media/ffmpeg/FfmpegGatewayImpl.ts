@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import type FfmpegGateway from '@/backend/services/gateways/media/FfmpegGateway';
-import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type SplitVideoByTimesArgs, type SplitVideoRangeArgs, type TrimAudioArgs, type TrimVideoArgs, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
+import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type TrimVideoArgs, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
 import type { VideoInfo } from '@/common/types/video-info';
 import fs from 'fs';
 import path from 'path';
@@ -122,21 +122,8 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
         };
     }
 
-    /**
-     * 按起止时间分割视频。
-     */
-    public async splitVideo(args: SplitVideoRangeArgs, options: FfmpegRunOptions = {}): Promise<void> {
-        await this.runCommand(args, (a) => this.commandBuilder.buildSplitVideo(a), options);
-    }
-
-    /**
-     * 按时间点切段视频；落刀点受关键帧影响，切分后逐段实测时长并累加出真实边界。
-     */
-    public async splitVideoByTimes(args: SplitVideoByTimesArgs, options: FfmpegRunOptions = {}): Promise<VideoSegment[]> {
-        await this.runCommand(args, (a) => this.commandBuilder.buildSplitVideoByTimes(a), options);
-        return await this.collectSegments(args.outputPattern);
-    }
-
+    
+    
     /**
      * 枚举切分产物文件并实测每段时长，累加得到各段在原视频中的实际起止时间。
      * @param outputPattern 切分输出命名模板，如 /tmp/chunk_%03d.mp4。
@@ -205,7 +192,6 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
         return (preferred ?? textSubtitles[0])?.index;
     }
 
-
     /**
      * 裁剪视频。
      */
@@ -220,13 +206,7 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
         await this.runCommand(args, (a) => this.commandBuilder.buildConvertToWav(a), options);
     }
 
-    /**
-     * 裁剪音频。
-     */
-    public async trimAudio(args: TrimAudioArgs, options: FfmpegRunOptions = {}): Promise<void> {
-        await this.runCommand(args, (a) => this.commandBuilder.buildTrimAudio(a), options);
-    }
-
+    
     /**
      * 调用 ffprobe 获取媒体元数据，与 ffmpeg 共用同一条子进程执行路径。
      * @param filePath 媒体文件路径。

@@ -3,9 +3,6 @@ import type {
     ConvertToWavArgs,
     CreateThumbnailArgs,
     ExtractSubtitleCommandArgs,
-    SplitVideoByTimesArgs,
-    SplitVideoRangeArgs,
-    TrimAudioArgs,
     TrimVideoArgs,
 } from '@/backend/services/gateways/media/FfmpegGateway';
 
@@ -31,15 +28,6 @@ const MAX_TRANSCODE_WIDTH = 1920;
  * 参数类型统一从网关契约（FfmpegGateway.ts）导入，保证业务层、网关与构建器看到同一份定义。
  */
 export interface FfmpegCommandBuilder {
-    /**
-     * 构建按起止时间分割视频命令参数。
-     */
-    buildSplitVideo(args: SplitVideoRangeArgs): string[];
-
-    /**
-     * 构建按时间点切段视频命令参数。
-     */
-    buildSplitVideoByTimes(args: SplitVideoByTimesArgs): string[];
 
     /**
      * 构建视频裁剪命令参数。
@@ -62,51 +50,12 @@ export interface FfmpegCommandBuilder {
      */
     buildConvertToWav(args: ConvertToWavArgs): string[];
 
-    /**
-     * 构建音频裁剪命令参数。
-     */
-    buildTrimAudio(args: TrimAudioArgs): string[];
 }
 
 /**
  * 默认 FFmpeg 命令构建实现。
  */
 export class DefaultFfmpegCommandBuilder implements FfmpegCommandBuilder {
-    /**
-     * 构建按起止时间分割视频命令参数。
-     */
-    public buildSplitVideo(args: SplitVideoRangeArgs): string[] {
-        this.assertRange(args.startSecond, args.endSecond, '视频分割');
-        const duration = args.endSecond - args.startSecond;
-        return [
-            '-y',
-            '-ss', TimeUtil.secondToTimeStrWithMs(args.startSecond),
-            '-accurate_seek',
-            '-i', args.inputFile,
-            '-t', `${duration}`,
-            '-codec', 'copy',
-            '-avoid_negative_ts', '1',
-            args.outputFile,
-        ];
-    }
-
-    /**
-     * 构建按时间点切段视频命令参数。
-     */
-    public buildSplitVideoByTimes(args: SplitVideoByTimesArgs): string[] {
-        this.assertAscendingTimes(args.times, '视频时间点分段');
-        return [
-            '-y',
-            '-i', args.inputFile,
-            '-f', 'segment',
-            '-segment_times', args.times.map(t => TimeUtil.secondToTimeStr(t)).join(','),
-            '-c', 'copy',
-            '-map', '0',
-            '-reset_timestamps', '1',
-            args.outputPattern,
-        ];
-    }
-
     /**
      * 构建视频裁剪命令参数。
      */
@@ -224,26 +173,6 @@ export class DefaultFfmpegCommandBuilder implements FfmpegCommandBuilder {
             args.outputFile,
         );
         return result;
-    }
-
-    /**
-     * 构建音频裁剪命令参数。
-     */
-    public buildTrimAudio(args: TrimAudioArgs): string[] {
-        this.assertRange(args.startSecond, args.endSecond, '音频裁剪');
-        const duration = args.endSecond - args.startSecond;
-        const audioCodec = args.audioCodec ?? 'libmp3lame';
-        const audioBitrate = args.audioBitrate ?? '192k';
-
-        return [
-            '-y',
-            '-ss', TimeUtil.secondToTimeStrWithMs(args.startSecond),
-            '-i', args.inputFile,
-            '-t', `${duration}`,
-            '-c:a', audioCodec,
-            '-b:a', audioBitrate,
-            args.outputFile,
-        ];
     }
 
     /**

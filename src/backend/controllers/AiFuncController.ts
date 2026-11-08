@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import { nonEmptyStringSchema } from '@/backend/controllers/ipc/routeSchemas';
 import { inject, injectable } from 'inversify';
@@ -22,9 +21,6 @@ export default class AiFuncController implements Controller {
 
 
     registerRoutes(): void {
-        registerRoute('ai-func/format-split', (p) => this.aiFuncService.formatSplit(p), {
-            schema: z.string(),
-        });
         registerRoute('ai-func/tts', (p) => this.aiFuncService.tts(p), {
             schema: nonEmptyStringSchema,
         });

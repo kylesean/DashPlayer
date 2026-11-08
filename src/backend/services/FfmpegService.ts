@@ -7,36 +7,11 @@ import { getMainLogger } from '@/backend/infrastructure/logger';
 import type { VideoInfo } from '@/common/types/video-info';
 import { CancelByUserError } from '@/backend/utils/errors/errors';
 import type FfmpegGateway from '@/backend/services/gateways/media/FfmpegGateway';
-import { FfmpegExecutionError, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
+import { FfmpegExecutionError } from '@/backend/services/gateways/media/FfmpegGateway';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 
 export default interface FfmpegService {
-    splitVideo({
-                   inputFile,
-                   startSecond,
-                   endSecond,
-                   outputFile
-               }: {
-        inputFile: string,
-        startSecond: number,
-        endSecond: number,
-        outputFile: string
-    }): Promise<void>;
-
-    /**
-     * 按建议时间点切段视频；落刀点受关键帧影响，返回每段文件与切分后实测的真实起止时间。
-     */
-    splitVideoByTimes({
-        inputFile,
-        times,
-        outputFolder
-    }: {
-        inputFile: string,
-        times: number[],
-        outputFolder: string
-    }): Promise<VideoSegment[]>;
-
     duration(filePath: string): Promise<number>;
 
     /**
@@ -104,11 +79,6 @@ export default interface FfmpegService {
         job?: string;
     }): Promise<string[]>;
 
-    /**
-     * 按时间范围裁剪音频并转码为 MP3。
-     */
-    trimAudio(inputPath: string, startTime: number, endTime: number, outputPath: string): Promise<void>;
-
 }
 
 
@@ -131,58 +101,6 @@ export class FfmpegServiceImpl implements FfmpegService {
         @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
     ) {}
-
-    /**
-     * 分割视频。
-     */
-    @WithSemaphore('ffmpeg')
-    public async splitVideo({
-                                inputFile,
-                                startSecond,
-                                endSecond,
-                                outputFile,
-                            }: {
-        inputFile: string,
-        startSecond: number,
-        endSecond: number,
-        outputFile: string,
-    }): Promise<void> {
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputFile);
-        await this.ffmpegGateway.splitVideo({
-            inputFile,
-            startSecond,
-            endSecond,
-            outputFile,
-        });
-    }
-
-    /**
-     * 按建议时间点切段视频；临时分段名用随机前缀避免与历史残留混淆，返回实测起止边界。
-     */
-    @WithSemaphore('ffmpeg')
-    public async splitVideoByTimes({
-                                       inputFile,
-                                       times,
-                                       outputFolder,
-                                   }: {
-        inputFile: string,
-        times: number[],
-        outputFolder: string,
-    }): Promise<VideoSegment[]> {
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputFolder);
-        // 每次使用独立前缀，避免失败任务留下的旧分段混入本次结果。
-        const outputPattern = path.join(outputFolder, `split-${randomUUID()}_%03d${path.extname(inputFile)}`);
-
-        return await this.ffmpegGateway.splitVideoByTimes({
-            inputFile,
-            times,
-            outputPattern,
-        }, {
-            job: `split:${outputFolder}`,
-        });
-    }
 
     /**
      * 获取视频时长。
@@ -351,28 +269,6 @@ export class FfmpegServiceImpl implements FfmpegService {
             outputFile: outputPath,
             sampleRate: 16000,
             channels: 1,
-        });
-    }
-
-    /**
-     * 裁剪音频（按时间，转码为 MP3 以保证兼容）；非法时间区间直接抛错，不静默产出空结果。
-     */
-    @WithSemaphore('ffmpeg')
-    public async trimAudio(
-        inputPath: string,
-        startTime: number,
-        endTime: number,
-        outputPath: string,
-    ): Promise<void> {
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputPath);
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputPath);
-        await this.ffmpegGateway.trimAudio({
-            inputFile: inputPath,
-            outputFile: outputPath,
-            startSecond: startTime,
-            endSecond: endTime,
-            audioCodec: 'libmp3lame',
-            audioBitrate: '192k',
         });
     }
 

@@ -14,7 +14,6 @@ import type { SubtitleTimestampAdjustmentInput } from '@/common/contracts/subtit
 import { TRANSCRIPTION_ENGINES, type TranscriptionEngine } from '@/common/contracts/transcription-engine';
 import type { YoutubeImportSettingSaveVO } from '@/common/contracts/youtube-import';
 import type { AnalysisStartParams } from '@/common/types/analysis';
-import type { ChapterParseResult } from '@/common/types/chapter-result';
 import type {
     ChatSendMessageParams,
     ChatSessionCloseParams,
@@ -53,15 +52,6 @@ export const windowStateSchema: z.ZodType<WindowState> = z.enum([
     'home',
     'player',
 ]);
-
-/** 章节解析结果校验架构。 */
-export const chapterParseResultSchema: z.ZodType<ChapterParseResult> = z.object({
-    timestampStart: z.string(),
-    timestampEnd: z.string(),
-    timestampValid: z.boolean(),
-    title: z.string(),
-    original: z.string(),
-});
 
 /** 运行时单键设置保存请求校验架构。 */
 export const runtimeSettingSaveSchema: z.ZodType<RuntimeSettingSaveRequest> = z.object({

@@ -56,32 +56,6 @@ export interface FfmpegRunOptions {
 }
 
 /**
- * 按起止时间分割视频参数。
- */
-export interface SplitVideoRangeArgs {
-    /** 输入视频文件路径。 */
-    inputFile: string;
-    /** 起始时间（秒）。 */
-    startSecond: number;
-    /** 结束时间（秒）。 */
-    endSecond: number;
-    /** 输出视频文件路径。 */
-    outputFile: string;
-}
-
-/**
- * 按时间点切段视频参数。
- */
-export interface SplitVideoByTimesArgs {
-    /** 输入视频文件路径。 */
-    inputFile: string;
-    /** 切段时间点（秒，严格递增）；实际落刀点受关键帧位置影响。 */
-    times: number[];
-    /** 输出路径模板，如 /tmp/chunk_%03d.mp4。 */
-    outputPattern: string;
-}
-
-/**
  * 切分产物段信息。
  */
 export interface VideoSegment {
@@ -164,24 +138,6 @@ export interface TrimVideoArgs {
 }
 
 /**
- * 音频裁剪参数。
- */
-export interface TrimAudioArgs {
-    /** 输入音频文件路径。 */
-    inputFile: string;
-    /** 输出音频文件路径。 */
-    outputFile: string;
-    /** 起始时间（秒）。 */
-    startSecond: number;
-    /** 结束时间（秒）。 */
-    endSecond: number;
-    /** 音频编码器。 */
-    audioCodec?: string;
-    /** 音频码率。 */
-    audioBitrate?: string;
-}
-
-/**
  * 转 WAV 参数。
  */
 export interface ConvertToWavArgs {
@@ -209,18 +165,8 @@ export default interface FfmpegGateway {
     /** 获取媒体信息。 */
     getVideoInfo(filePath: string): Promise<VideoInfo>;
 
-    /** 按起止时间分割视频。 */
-    splitVideo(args: SplitVideoRangeArgs, options?: FfmpegRunOptions): Promise<void>;
-
-    /**
-     * 按时间点切段视频；落刀点受关键帧影响，返回的每段起止时间为切分后实测值。
-     */
-    splitVideoByTimes(args: SplitVideoByTimesArgs, options?: FfmpegRunOptions): Promise<VideoSegment[]>;
-
-    /** 生成缩略图。 */
+            /** 生成缩略图。 */
     createThumbnail(args: CreateThumbnailArgs, options?: FfmpegRunOptions): Promise<void>;
-
-
 
     /**
      * 提取文本字幕；优先匹配 preferLanguage 的文本字幕轨，无匹配时取第一条。
@@ -234,6 +180,4 @@ export default interface FfmpegGateway {
     /** 转 WAV。 */
     convertToWav(args: ConvertToWavArgs, options?: FfmpegRunOptions): Promise<void>;
 
-    /** 裁剪音频。 */
-    trimAudio(args: TrimAudioArgs, options?: FfmpegRunOptions): Promise<void>;
-}
+    }

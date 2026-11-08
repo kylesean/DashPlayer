@@ -47,13 +47,10 @@ function createGateway(probeStdout = JSON.stringify({ format: { duration: 66.6 }
     deps: GatewayTestDeps;
 } {
     const commandBuilder = {
-        buildSplitVideo: vi.fn(() => ['-split']),
-        buildSplitVideoByTimes: vi.fn(() => ['-split-times']),
         buildTrimVideo: vi.fn(() => ['-trim-video']),
         buildThumbnail: vi.fn(() => ['-thumbnail']),
         buildExtractSubtitle: vi.fn(() => ['-extract-sub']),
         buildConvertToWav: vi.fn(() => ['-to-wav']),
-        buildTrimAudio: vi.fn(() => ['-trim-audio']),
     } as unknown as FfmpegCommandBuilder;
 
     const cancelMock = vi.fn();
@@ -151,7 +148,7 @@ describe('FfmpegGatewayImpl', () => {
     it('转码命令输入文件不存在时应尽早抛错且不启动 ffmpeg', async () => {
         const { gateway, deps } = createGateway();
 
-        await expect(gateway.splitVideo({
+        await expect(gateway.trimVideo({
             inputFile: path.join(workDir, 'missing.mp4'),
             outputFile: path.join(workDir, 'out.mp4'),
             startSecond: 1,
@@ -164,7 +161,7 @@ describe('FfmpegGatewayImpl', () => {
     it('转码命令输出目录不存在时应尽早抛错', async () => {
         const { gateway, deps } = createGateway();
 
-        await expect(gateway.splitVideo({
+        await expect(gateway.trimVideo({
             inputFile: inputFilePath,
             outputFile: path.join(workDir, 'missing-dir', 'out.mp4'),
             startSecond: 1,
@@ -173,31 +170,6 @@ describe('FfmpegGatewayImpl', () => {
 
         expect(deps.startMock).not.toHaveBeenCalled();
     });
-
-    it('splitVideo 应透传构建参数并触发 runner', async () => {
-        const { gateway, deps } = createGateway();
-
-        await gateway.splitVideo({
-            inputFile: inputFilePath,
-            outputFile: path.join(workDir, 'out.mp4'),
-            startSecond: 1,
-            endSecond: 5,
-        });
-
-        expect(deps.commandBuilder.buildSplitVideo).toHaveBeenCalledWith({
-            inputFile: inputFilePath,
-            outputFile: path.join(workDir, 'out.mp4'),
-            startSecond: 1,
-            endSecond: 5,
-        });
-        expect(deps.startMock).toHaveBeenCalledTimes(1);
-        expect(deps.startMock.mock.calls[0][0]).toMatchObject({
-            ffmpegPath: '/bin/ffmpeg',
-            args: ['-split'],
-        });
-    });
-
-
 
     it('extractSubtitles 有偏好语言的文本字幕时应优先选它并返回 true', async () => {
         const { gateway, deps } = createGateway(JSON.stringify({
@@ -265,23 +237,4 @@ describe('FfmpegGatewayImpl', () => {
     });
 
 
-    it('应把取消函数透传给上层并触发 runner.cancel', async () => {
-        const { gateway, deps } = createGateway();
-        const onCancelable = vi.fn();
-
-        await gateway.trimAudio(
-            {
-                inputFile: inputFilePath,
-                outputFile: path.join(workDir, 'out.mp3'),
-                startSecond: 1,
-                endSecond: 2,
-            },
-            { onCancelable },
-        );
-
-        expect(onCancelable).toHaveBeenCalledTimes(1);
-        const cancel = onCancelable.mock.calls[0][0] as () => void;
-        cancel();
-        expect(deps.cancelMock).toHaveBeenCalledTimes(1);
-    });
 });

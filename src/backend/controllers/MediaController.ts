@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import {
-    chapterParseResultSchema,
     finiteNonNegativeNumberSchema,
     nonEmptyStringSchema,
     positiveIntSchema,
@@ -9,42 +8,19 @@ import {
 import { inject, injectable } from 'inversify';
 import type Controller from '@/backend/controllers/Controller';
 import TYPES from '@/backend/ioc/types';
-import type SplitVideoService from '@/backend/services/SplitVideoService';
-import { type SplitVideoRequest } from '@/backend/services/SplitVideoService';
 import type MediaService from '@/backend/services/MediaService';
 import { type ThumbnailOptions } from '@/backend/services/MediaService';
-import type { ChapterParseResult } from '@/common/types/chapter-result';
 import type { VideoInfo } from '@/common/types/video-info';
 
 /**
- * 注册视频切分和通用媒体 IPC 路由。
+ * 注册通用媒体 IPC 路由。
  */
 @injectable()
 export default class MediaController implements Controller {
     public constructor(
-        @inject(TYPES.SplitVideoService)
-        private readonly splitVideoService: SplitVideoService,
         @inject(TYPES.MediaService)
         private readonly mediaService: MediaService,
     ) {}
-
-    /**
-     * 解析章节文本供界面预览。
-     * @param chapterText 用户输入的章节文本。
-     * @returns 解析后的章节列表。
-     */
-    public async previewSplit(chapterText: string): Promise<ChapterParseResult[]> {
-        return this.splitVideoService.previewSplit(chapterText);
-    }
-
-    /**
-     * 按章节切分视频和可选字幕。
-     * @param request 视频切分请求。
-     * @returns 分段文件所在目录。
-     */
-    public async split(request: SplitVideoRequest): Promise<string> {
-        return this.splitVideoService.splitByChapters(request);
-    }
 
     /**
      * 获取或生成视频缩略图。
@@ -84,16 +60,6 @@ export default class MediaController implements Controller {
      * 注册媒体相关 IPC 路由。
      */
     public registerRoutes(): void {
-        registerRoute('split-video/preview', (params) => this.previewSplit(params), {
-            schema: z.string(),
-        });
-        registerRoute('split-video/split', (params) => this.split(params), {
-            schema: z.object({
-                videoPath: nonEmptyStringSchema,
-                srtPath: z.string().nullable(),
-                chapters: z.array(chapterParseResultSchema),
-            }),
-        });
         registerRoute('media/thumbnail', (params) => this.thumbnail(params), {
             schema: z.object({
                 filePath: nonEmptyStringSchema,

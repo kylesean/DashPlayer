@@ -18,7 +18,6 @@ import YoutubeImportSetting from '@/fronted/features/settings/YoutubeImportSetti
 import ServiceResourceSetting from '@/fronted/features/settings/ServiceResourceSetting';
 import toast, { Toaster as HotToaster, type Toast } from 'react-hot-toast';
 
-import SplitPage from '@/fronted/features/split/SplitPage';
 import GlobalShortCut from '@/fronted/components/shared/shortcuts/GlobalShortCut';
 import Eb from '@/fronted/components/shared/common/Eb';
 import FavouritePage from '@/fronted/features/favourite/FavouritePage';
@@ -191,10 +190,6 @@ export const App = () => {
                                     <Route
                                         path="favorite"
                                         element={<Eb key="favorite"><FavouritePage /></Eb>}
-                                    />
-                                    <Route
-                                        path="split"
-                                        element={<Eb key="split"><SplitPage /></Eb>}
                                     />
                                     <Route
                                         path="vocabulary"

@@ -51,8 +51,6 @@ import { SentencePracticeServiceImpl } from '@/backend/services/SentencePractice
 import SentencePracticeController from '@/backend/controllers/SentencePracticeController';
 import type DpTaskService from '@/backend/services/DpTaskService';
 import { DpTaskServiceImpl } from '@/backend/services/DpTaskService';
-import type ChatService from '@/backend/services/ChatService';
-import { ChatServiceImpl } from '@/backend/services/ChatService';
 import type ChatSessionService from '@/backend/services/ChatSessionService';
 import { ChatSessionServiceImpl } from '@/backend/services/ChatSessionService';
 import type SentenceLearningService from '@/backend/services/SentenceLearningService';
@@ -63,8 +61,6 @@ import type AiProviderService from '@/backend/services/AiProviderService';
 import { AiProviderServiceImpl } from '@/backend/services/AiProviderService';
 import type ModelRoutingService from '@/backend/services/ModelRoutingService';
 import { ModelRoutingServiceImpl } from '@/backend/services/ModelRoutingService';
-import type SplitVideoService from '@/backend/services/SplitVideoService';
-import { SplitVideoServiceImpl } from '@/backend/services/SplitVideoService';
 import type MediaService from '@/backend/services/MediaService';
 import { MediaServiceImpl } from '@/backend/services/MediaService';
 import type ClientProviderService from '@/backend/services/ClientProviderService';
@@ -266,11 +262,9 @@ container.bind<FileSystemGateway>(TYPES.FileSystemGateway).to(AccessRecoveringFi
 container.bind<FfmpegGateway>(TYPES.FfmpegGateway).to(FfmpegGatewayImpl).inSingletonScope();
 container.bind<FfmpegService>(TYPES.FfmpegService).to(FfmpegServiceImpl).inSingletonScope();
 container.bind<DpTaskService>(TYPES.DpTaskService).to(DpTaskServiceImpl).inSingletonScope();
-container.bind<ChatService>(TYPES.ChatService).to(ChatServiceImpl).inSingletonScope();
 container.bind<ChatSessionStore>(TYPES.ChatSessionStore).to(InMemoryChatSessionStore).inSingletonScope();
 container.bind<ChatSessionService>(TYPES.ChatSessionService).to(ChatSessionServiceImpl).inSingletonScope();
 container.bind<SentenceLearningService>(TYPES.SentenceLearningService).to(SentenceLearningServiceImpl).inSingletonScope();
-container.bind<SplitVideoService>(TYPES.SplitVideoService).to(SplitVideoServiceImpl).inSingletonScope();
 container.bind<MediaService>(TYPES.MediaService).to(MediaServiceImpl).inSingletonScope();
 container.bind<TranslateService>(TYPES.TranslateService).to(TranslateServiceImpl).inSingletonScope();
 container.bind<SubtitleTranslationService>(TYPES.SubtitleTranslationService)

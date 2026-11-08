@@ -4,21 +4,6 @@ import { DefaultFfmpegCommandBuilder } from '@/backend/infrastructure/media/ffmp
 describe('DefaultFfmpegCommandBuilder', () => {
     const builder = new DefaultFfmpegCommandBuilder();
 
-    it('按起止时间分割视频时应生成可直接执行的参数', () => {
-        const args = builder.buildSplitVideo({
-            inputFile: '/input.mp4',
-            outputFile: '/output.mp4',
-            startSecond: 10,
-            endSecond: 20,
-        });
-
-        expect(args).toContain('-accurate_seek');
-        expect(args).toContain('-codec');
-        expect(args).toContain('copy');
-        expect(args).toContain('/input.mp4');
-        expect(args[args.length - 1]).toBe('/output.mp4');
-    });
-
     it('视频裁剪时间区间非法时应直接抛错', () => {
         expect(() => {
             builder.buildTrimVideo({
@@ -30,25 +15,6 @@ describe('DefaultFfmpegCommandBuilder', () => {
         }).toThrow('结束时间必须大于起始时间');
     });
 
-    it('视频切段时间点不是严格递增时应抛错', () => {
-        expect(() => {
-            builder.buildSplitVideoByTimes({
-                inputFile: '/a.mp4',
-                times: [5, 5, 10],
-                outputPattern: '/tmp/chunk_%03d.mp4',
-            });
-        }).toThrow('时间点必须严格递增');
-    });
-
-    it('视频切段时间点出现负数时应抛错', () => {
-        expect(() => {
-            builder.buildSplitVideoByTimes({
-                inputFile: '/a.mp4',
-                times: [-1, 5, 10],
-                outputPattern: '/tmp/chunk_%03d.mp4',
-            });
-        }).toThrow('必须是非负数字');
-    });
 
     it('裁剪视频时应带上可选的音频参数', () => {
         const args = builder.buildTrimVideo({
@@ -141,14 +107,4 @@ describe('DefaultFfmpegCommandBuilder', () => {
         expect(args).toContain('pcm_s16le');
     });
 
-    it('音频裁剪时间区间非法时应抛错', () => {
-        expect(() => {
-            builder.buildTrimAudio({
-                inputFile: '/a.mp3',
-                outputFile: '/b.mp3',
-                startSecond: 10,
-                endSecond: 5,
-            });
-        }).toThrow('结束时间必须大于起始时间');
-    });
 });

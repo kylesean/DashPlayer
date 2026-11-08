@@ -97,12 +97,6 @@ const SideBar = ({ compact = false }: SideBarProps) => {
                     <Star />
                 )}
                 {item(
-                    t('sentenceSplitter'),
-                    '/split',
-                    'split',
-                    <SquareSplitHorizontal />
-                )}
-                {item(
                     t('vocabularyStudio'),
                     '/vocabulary',
                     'vocabulary',
