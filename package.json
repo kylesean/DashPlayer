@@ -10,17 +10,17 @@
     "build:dictionary": "node scripts/build-dictionary.mjs",
     "build:mobile": "vite build --config vite.mobile.config.ts",
     "dev:mobile": "vite build --config vite.mobile.config.ts --watch",
-    "start": "yarn run build:mobile && yarn run download && electron-forge start",
-    "package": "yarn run build:mobile && yarn run download && electron-forge package",
-    "make": "yarn run build:mobile && yarn run download && electron-forge make",
-    "publish": "yarn run build:mobile && yarn run download && electron-forge publish",
+    "start": "pnpm run build:mobile && pnpm run download && electron-forge start",
+    "package": "pnpm run build:mobile && pnpm run download && electron-forge package",
+    "make": "pnpm run build:mobile && pnpm run download && electron-forge make",
+    "publish": "pnpm run build:mobile && pnpm run download && electron-forge publish",
     "lint": "eslint qa src",
-    "test": "yarn run test:base",
-    "test:ui": "yarn run test:base --ui",
+    "test": "pnpm run test:base",
+    "test:ui": "pnpm run test:base --ui",
     "test:base": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs",
-    "test:run": "yarn run test:base run",
-    "test:coverage": "yarn run test:base run --coverage",
-    "test:watch": "yarn run test:base watch",
+    "test:run": "pnpm run test:base run",
+    "test:coverage": "pnpm run test:base run --coverage",
+    "test:watch": "pnpm run test:base watch",
     "drizzle-kit": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/drizzle-kit/bin.cjs"
   },
   "keywords": [],
@@ -175,5 +175,19 @@
     "@electron/rebuild": "^4.2.0",
     "undici": "^8.12.4"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@bitdisaster/exe-icon-extractor",
+      "better-sqlite3",
+      "electron-winstaller",
+      "esbuild"
+    ],
+    "overrides": {
+      "@electron/asar": "^4.3.1",
+      "node-abi": "^4.35.0",
+      "@electron/rebuild": "^4.2.0",
+      "undici": "^8.12.4"
+    }
+  },
+  "packageManager": "pnpm@10.5.2+sha512.da9dc28cd3ff40d0592188235ab25d3202add8a207afbedc682220e4a0029ffbff4562102b9e6e46b4e3f9e8bd53e6d05de48544b0c57d4b0179e22c76d1199b"
 }

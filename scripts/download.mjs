@@ -283,7 +283,7 @@ const downloadAndExtractBinaryFromArchive = async ({
  * 官方 linux 发行包只带版本化动态库（如 libllama.so.0.4.0），不再包含
  * .so.0 别名符号链接；动态链接器按 SONAME 查找，缺别名时 llama-server
  * 启动即报 "cannot open shared object file: libllama-common.so.0"。
- * 本函数保证 yarn run download 侧新装/存量都完整；运行时侧
+ * 本函数保证 pnpm run download 侧新装/存量都完整；运行时侧
  * （LocalAiRuntime.start）另有等价自愈，覆盖从不重跑下载脚本的安装。
  * @param {string} runtimeDir 运行时目录。
  */
@@ -488,7 +488,7 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
             extraCopyPatterns,
         });
         if (!dependencyPrefixes.every((prefix) => fs.readdirSync(llamaDir).some((entry) => entry.startsWith(prefix)))) {
-            throw new Error(`llama.cpp 运行时包不完整，缺少依赖库（${dependencyPrefixes.join(', ')}），请重试 yarn run download`);
+            throw new Error(`llama.cpp 运行时包不完整，缺少依赖库（${dependencyPrefixes.join(', ')}），请重试 pnpm run download`);
         }
         // .complete 标记是“安装侧完成校验”的唯一凭据，LocalAiRuntime 只检查该标记，
         // 不在运行时侧复刻依赖库清单，避免两份清单漂移。
@@ -631,7 +631,7 @@ async function download({url, dir, file, sha, algo = 'sha1', hint}) {
     } catch (err) {
         console.error(
             chalk.red(
-                `❌ Failed to download ${url}: ${err}.${hint ? `\n${hint}` : ''}\nPlease try again using command \`yarn download\``
+                `❌ Failed to download ${url}: ${err}.${hint ? `\n${hint}` : ''}\nPlease try again using command \`pnpm download\``
             )
         );
         process.exit(1);

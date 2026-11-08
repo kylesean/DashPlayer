@@ -34,7 +34,6 @@ import { z } from 'zod';
 import { Output, streamText, type LanguageModel } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { convertArrayToReadableStream, MockLanguageModelV4 } from 'ai/test';
-import type { LanguageModelV4StreamPart } from '@ai-sdk/provider';
 
 import { loadAiSdkTestConfig } from '@/test/aiSdkTestConfig';
 import { splitSystemMessages } from '@/backend/services/chat/ChatPromptBuilder';
@@ -86,14 +85,13 @@ const buildLiveModel = (modelId: string): LanguageModel => {
  * @returns 可直接传给 streamText 的 LanguageModel。
  */
 const buildMockTextModel = (text: string): LanguageModel => {
-    // 显式标注流部件类型，让 TS 能精确收窄到 LanguageModelV4StreamPart 联合
-    const streamParts: LanguageModelV4StreamPart[] = [
-        { type: 'text-start', id: 'mock-text' },
-        { type: 'text-delta', id: 'mock-text', delta: text },
-        { type: 'text-end', id: 'mock-text' },
+    const streamParts = [
+        { type: 'text-start' as const, id: 'mock-text' },
+        { type: 'text-delta' as const, id: 'mock-text', delta: text },
+        { type: 'text-end' as const, id: 'mock-text' },
         {
-            type: 'finish',
-            finishReason: { unified: 'stop', raw: 'stop' },
+            type: 'finish' as const,
+            finishReason: { unified: 'stop' as const, raw: 'stop' },
             usage: {
                 inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
                 outputTokens: { total: 5, text: 5, reasoning: 0 },

@@ -5,7 +5,7 @@
  * 数据源：ECDICT 1.0.28（https://github.com/skywind3000/ECDICT，MIT License）。
  * 流程：下载源库（带 sha256 校验与临时目录缓存）→ 解压 → 过滤常用词 → 写入精简 SQLite → 输出统计。
  *
- * 用法：yarn build:dictionary
+ * 用法：pnpm build:dictionary
  *
  * 说明：
  * - 过滤策略：BNC 或 COCA 词频排名 <= 30000，或 Collins/Oxford 收录，或带考试标签；
