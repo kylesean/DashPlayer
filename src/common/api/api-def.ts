@@ -175,7 +175,7 @@ interface SystemDef {
 
 interface AiTransDef {
     'ai-trans/word': {
-        params: { word: string; forceRefresh?: boolean; requestId?: string },
+        params: { word: string; forceRefresh?: boolean; requestId?: string; context?: string },
         return: OpenAIDictionaryResult | null
     };
     /** 更新当前字幕播放位置，后端异步处理当前批次与预取批次。 */

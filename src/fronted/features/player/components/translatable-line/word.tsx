@@ -70,6 +70,8 @@ export interface WordParam {
     word: string;
     original: string;
     lemma?: string;
+    /** 单词所在的整句字幕,供词典引擎做语境消歧;缺失时回退普通词典查询。 */
+    sentenceText?: string;
     pop: boolean;
     requestPop: () => void;
     show: boolean;
@@ -104,7 +106,7 @@ export const getBox = (ele: HTMLElement): Feature<Polygon> => {
  * 渲染单个字幕原文词，并使用 lemma 判断生词高亮；词典查询仍传递原文。
  * @param props 字幕词原文、lemma 及交互状态。
  */
-const Word = ({word, original, lemma, pop, requestPop, show, alwaysDark, classNames}: WordParam) => {
+const Word = ({word, original, lemma, sentenceText, pop, requestPop, show, alwaysDark, classNames}: WordParam) => {
     const pause = usePlayer((s) => s.pause);
     const vocabularyStore = useVocabulary();
     const { t } = useTranslation('common');
@@ -141,8 +143,8 @@ const Word = ({word, original, lemma, pop, requestPop, show, alwaysDark, classNa
         isLoading: isWordLoading,
         mutate
     } = useSWR(
-        shouldFetch ? ['ai-trans/word', original] : null,
-        async ([_apiName, wordParam]) => {
+        shouldFetch ? ['ai-trans/word', original, sentenceText ?? ''] : null,
+        async ([_apiName, wordParam, sentenceParam]) => {
             const targetWord = wordParam as string;
             const requestId = createDictionaryRequestId(targetWord);
             useDictionaryStream.getState().startRequest(targetWord, requestId);
@@ -151,7 +153,8 @@ const Word = ({word, original, lemma, pop, requestPop, show, alwaysDark, classNa
                 const result = await playerApi.translateWord({
                     word: targetWord,
                     forceRefresh: false,
-                    requestId
+                    requestId,
+                    context: (sentenceParam as string) || undefined
                 });
 
                 const isOpenAIDictionary = !!result && typeof result === 'object' && 'definitions' in result;
@@ -178,7 +181,8 @@ const Word = ({word, original, lemma, pop, requestPop, show, alwaysDark, classNa
             const newData = await playerApi.translateWord({
                 word: original,
                 forceRefresh: true,
-                requestId
+                requestId,
+                context: sentenceText || undefined
             });
 
             const isOpenAIDictionary = !!newData && typeof newData === 'object' && 'definitions' in newData;

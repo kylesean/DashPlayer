@@ -7,6 +7,7 @@ import type WordTranslatesRepository from '@/backend/services/repositories/WordT
 import TimeUtil from '@/common/utils/TimeUtil';
 import StrUtil from '@/common/utils/str-util';
 import { p } from '@/common/utils/Util';
+import { ObjUtil } from '@/backend/utils/ObjUtil';
 import type { OpenAIDictionaryResult, OpenAIDictionaryDefinition, OpenAIDictionaryExample } from '@/common/types/DictionaryResult';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import type AiProviderService from '@/backend/services/AiProviderService';
@@ -20,7 +21,8 @@ export default interface TranslateService {
     transWord(
         str: string,
         forceRefresh?: boolean,
-        requestId?: string
+        requestId?: string,
+        context?: string
     ): Promise<OpenAIDictionaryResult | null>;
 
     /**
@@ -82,10 +84,21 @@ const openAIDictionaryCacheSchema = z.object({
  * @param word 查询的英文单词。
  * @returns 提示词文本。
  */
-export const buildDictionaryPrompt = (word: string): string => {
+export const buildDictionaryPrompt = (word: string, context?: string): string => {
+    const contextBlock = context?.trim()
+        ? [
+            '',
+            'The word appears in this subtitle sentence. Explain the word AS USED IN THIS SENTENCE:',
+            'pick the single sense that fits the context (part of speech, meaning, and examples',
+            'should all be consistent with how the word is used here).',
+            `Sentence: "${context.trim()}"`,
+            '',
+        ]
+        : [];
     return [
         'You are a professional English-Chinese dictionary.',
         `Provide concise, structured dictionary information for the word "${word}".`,
+        ...contextBlock,
         '',
         'Requirements:',
         '1. Respond with valid JSON only. Do not include markdown fences or any explanation.',
@@ -231,11 +244,19 @@ export class TranslateServiceImpl implements TranslateService {
     public async transWord(
         str: string,
         forceRefresh?: boolean,
-        requestId?: string
+        requestId?: string,
+        context?: string
     ): Promise<OpenAIDictionaryResult | null> {
+        const normalizedContext = context?.trim() ?? '';
+        const hasContext = normalizedContext.length > 0;
+        const currentProvider = await this.settingService.getCurrentDictionaryProvider();
+
         // 预置词典不依赖任何密钥配置，命中即返回，保证未配置词典服务时也能开箱查词；
         // 强制刷新的语义是绕过预置库与缓存重新在线查询，因此不在这里拦截。
-        if (!forceRefresh) {
+        // 带语境且引擎可用时跳过预置词典：静态义项可能不符合语境，LLM 语境解释优先，
+        // 引擎失败时在 executeWordLookup 内回退预置词典。
+        const builtinFirst = !forceRefresh && (!hasContext || !currentProvider);
+        if (builtinFirst) {
             const builtinResult = this.builtinDictionaryStore.lookup(str);
             if (builtinResult) {
                 this.logger.info('命中预置词典', { word: str });
@@ -243,18 +264,16 @@ export class TranslateServiceImpl implements TranslateService {
             }
         }
 
-        const currentProvider = await this.settingService.getCurrentDictionaryProvider();
-
         if (!currentProvider) {
             this.logger.info('没有启用的字典服务', { word: str });
             return null;
         }
 
         if (forceRefresh) {
-            return this.executeWordLookup(str, currentProvider, true, requestId);
+            return this.executeWordLookup(str, currentProvider, true, requestId, normalizedContext);
         }
 
-        const lookupKey = this.buildWordLookupKey(currentProvider, str);
+        const lookupKey = this.buildWordLookupKey(currentProvider, str, normalizedContext);
         const existingPromise = this.wordLookupInFlight.get(lookupKey);
         if (existingPromise) {
             this.logger.debug('复用进行中的单词查询请求', {
@@ -265,7 +284,7 @@ export class TranslateServiceImpl implements TranslateService {
             return existingPromise;
         }
 
-        const lookupPromise = this.executeWordLookup(str, currentProvider, false, requestId)
+        const lookupPromise = this.executeWordLookup(str, currentProvider, false, requestId, normalizedContext)
             .finally(() => {
                 this.wordLookupInFlight.delete(lookupKey);
             });
@@ -280,8 +299,10 @@ export class TranslateServiceImpl implements TranslateService {
      * @param word 原始查询词。
      * @returns 可用于 in-flight 映射的稳定 key。
      */
-    private buildWordLookupKey(provider: 'openai' | 'local', word: string): string {
-        return `${provider}:${word.trim().toLowerCase()}`;
+    private buildWordLookupKey(provider: 'openai' | 'local', word: string, context?: string): string {
+        // 语境参与键:同一个词在不同句子里义项不同,语境解释必须按句隔离缓存。
+        const contextSuffix = context?.trim() ? `#ctx:${ObjUtil.hash(context.trim())}` : '';
+        return `${provider}:${word.trim().toLowerCase()}${contextSuffix}`;
     }
 
     /**
@@ -297,12 +318,16 @@ export class TranslateServiceImpl implements TranslateService {
         str: string,
         currentProvider: 'openai' | 'local',
         forceRefresh: boolean,
-        requestId?: string
+        requestId?: string,
+        context?: string
     ): Promise<OpenAIDictionaryResult | null> {
+        // 语境解释的持久化键把语境哈希编进词条 word 列(不动表结构),
+        // 同词异句的义项各自独立缓存。
+        const cacheTerm = context?.trim() ? `${str}#ctx:${ObjUtil.hash(context.trim())}` : str;
 
         // 如果不是强制刷新，先检查缓存
         if (!forceRefresh) {
-            const cacheRes = await this.wordLoad(str, currentProvider);
+            const cacheRes = await this.wordLoad(cacheTerm, currentProvider);
             if (cacheRes) {
                 this.logger.info('命中单词缓存', { provider: currentProvider, cache: cacheRes });
                 return cacheRes;
@@ -317,9 +342,9 @@ export class TranslateServiceImpl implements TranslateService {
                 return null;
             }
             try {
-                const result = await this.translateWordWithLocal(str, requestId);
+                const result = await this.translateWordWithLocal(str, requestId, context);
                 this.resourceFallback.clear('dictionary');
-                if (result) await this.wordRecordOpenAI(str, result, 'local');
+                if (result) await this.wordRecordOpenAI(cacheTerm, result, 'local');
                 return result;
             } catch (error) {
                 this.resourceFallback.markFallback(
@@ -328,10 +353,11 @@ export class TranslateServiceImpl implements TranslateService {
                     'builtinDictionary',
                     error instanceof Error ? error.message : String(error)
                 );
-                return null;
+                // 引擎失败回预置词典:静态义项虽可能不合语境,也比空卡片强
+                return this.builtinDictionaryStore.lookup(str);
             }
         }
-        return await this.translateWordWithOpenAI(str, requestId);
+        return await this.translateWordWithOpenAI(str, requestId, context);
     }
 
     /**
@@ -340,7 +366,7 @@ export class TranslateServiceImpl implements TranslateService {
      * @param requestId 渲染层流式请求 id；为空时仅返回最终结果。
      * @returns 生成成功返回简化词典结果；无有效释义或异常时返回 null。
      */
-    private async translateWordWithOpenAI(word: string, requestId?: string): Promise<OpenAIDictionaryResult | null> {
+    private async translateWordWithOpenAI(word: string, requestId?: string, context?: string): Promise<OpenAIDictionaryResult | null> {
         const streamId = requestId ?? `openai-dict-${Date.now()}-${word}`;
         const streamLogger = this.logger;
 
@@ -352,7 +378,7 @@ export class TranslateServiceImpl implements TranslateService {
                 return null;
             }
 
-            const prompt = buildDictionaryPrompt(word);
+            const prompt = buildDictionaryPrompt(word, context);
 
             const { partialOutputStream } = streamText({
                 model,
@@ -450,9 +476,9 @@ export class TranslateServiceImpl implements TranslateService {
     }
 
     /** 使用使用中的本地模型生成同一份词典结构，复用现有清洗与缓存格式。 */
-    private async translateWordWithLocal(word: string, requestId?: string): Promise<OpenAIDictionaryResult | null> {
+    private async translateWordWithLocal(word: string, requestId?: string, context?: string): Promise<OpenAIDictionaryResult | null> {
         const modelId = await this.localAiService.getActiveModelId();
-        const result = await this.localAiService.generate(buildDictionaryPrompt(word), z.toJSONSchema(openAIDictionaryResultSchema), modelId);
+        const result = await this.localAiService.generate(buildDictionaryPrompt(word, context), z.toJSONSchema(openAIDictionaryResultSchema), modelId);
         const parsed = openAIDictionaryResultSchema.safeParse(result);
         if (!parsed.success) {
             this.logger.error('本地字典模型返回结构无效', { word, issues: parsed.error.issues, requestId });

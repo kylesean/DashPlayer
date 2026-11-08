@@ -20,8 +20,8 @@ export default class AiTransController implements Controller {
     /**
      * 单词词典查询：预置词典优先，未命中走 OpenAI 词典模型。
      */
-    public async transWord(params: { word: string; forceRefresh?: boolean; requestId?: string }): Promise<OpenAIDictionaryResult | null> {
-        return this.translateService.transWord(params.word, params.forceRefresh, params.requestId);
+    public async transWord(params: { word: string; forceRefresh?: boolean; requestId?: string; context?: string }): Promise<OpenAIDictionaryResult | null> {
+        return this.translateService.transWord(params.word, params.forceRefresh, params.requestId, params.context);
     }
 
     /**

@@ -240,7 +240,7 @@ export const playerApi = {
      * @param params 单词翻译请求参数。
      * @returns 单词翻译结果。
      */
-    translateWord: (params: { word: string; forceRefresh?: boolean; requestId?: string }) =>
+    translateWord: (params: { word: string; forceRefresh?: boolean; requestId?: string; context?: string }) =>
         backendClient.call('ai-trans/word', params),
 
 };

@@ -13,7 +13,7 @@ vi.mock('electron', () => ({
 }));
 
 import type AiProviderService from '@/backend/services/AiProviderService';
-import { TranslateServiceImpl } from '@/backend/services/TranslateService';
+import { buildDictionaryPrompt, TranslateServiceImpl } from '@/backend/services/TranslateService';
 import type SettingService from '@/backend/services/SettingService';
 import type WordTranslatesRepository from '@/backend/services/repositories/WordTranslatesRepository';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
@@ -38,7 +38,7 @@ describe('单词查询的预置词典优先链路', () => {
      * @param options getCurrentDictionaryProvider 的返回值与预置词表。
      */
     const buildService = (options: {
-        dictionaryProvider: Promise<'openai' | null>;
+        dictionaryProvider: Promise<'openai' | 'local' | null>;
         words: Parameters<typeof createBuiltinDictionaryFixture>[0];
     }) => {
         const fixture = createBuiltinDictionaryFixture(options.words);
@@ -114,5 +114,62 @@ describe('单词查询的预置词典优先链路', () => {
         // 预置命中即返回，在线链路不应被触发，也不应写入查询缓存
         expect(aiProviderService.getModel).not.toHaveBeenCalled();
         expect(wordTranslatesRepository.upsert).not.toHaveBeenCalled();
+    });
+
+    it('带语境时跳过预置词典走引擎，引擎失败回退预置词典', async () => {
+        const { service } = buildService({
+            dictionaryProvider: Promise.resolve('local'),
+            words: [{ word: 'cancel', phonetic: '', translation: 'n. 取消' }],
+        });
+        // localAiService / resourceFallback 为属性注入，测试直接装配桩
+        (service as unknown as { localAiService: unknown }).localAiService = {
+            getActiveModelId: vi.fn().mockResolvedValue('custom:gemma-4-E4B_q4_0-it.gguf'),
+            generate: vi.fn().mockRejectedValue(new Error('模型未就绪')),
+        };
+        (service as unknown as { resourceFallback: unknown }).resourceFallback = {
+            isFallbackActive: vi.fn().mockReturnValue(false),
+            clear: vi.fn(),
+            markFallback: vi.fn(),
+        };
+
+        const result = await service.transWord('cancel', false, undefined, 'Please cancel the meeting.');
+        expect(result).toMatchObject({ word: 'cancel', definitions: [{ partOfSpeech: 'n.', meaning: '取消', examples: [] }] });
+    });
+
+    it('带语境且引擎成功时返回语境解释，缓存键编入语境哈希', async () => {
+        const { service, wordTranslatesRepository } = buildService({
+            dictionaryProvider: Promise.resolve('local'),
+            words: [],
+        });
+        (service as unknown as { localAiService: unknown }).localAiService = {
+            getActiveModelId: vi.fn().mockResolvedValue('custom:gemma-4-E4B_q4_0-it.gguf'),
+            generate: vi.fn().mockResolvedValue({
+                word: 'cues',
+                phonetic: '/kjuːz/',
+                definitions: [{ partOfSpeech: 'n.', meaning: '（倾听中的）提示信号', examples: [] }],
+            }),
+        };
+        (service as unknown as { resourceFallback: unknown }).resourceFallback = {
+            isFallbackActive: vi.fn().mockReturnValue(false),
+            clear: vi.fn(),
+            markFallback: vi.fn(),
+        };
+
+        const result = await service.transWord('cues', false, undefined, 'All of the cues that the person is giving to you.');
+        expect(result).toMatchObject({ word: 'cues' });
+        expect(wordTranslatesRepository.upsert).toHaveBeenCalledWith(
+            expect.stringContaining('#ctx:'),
+            'local',
+            expect.any(String),
+            expect.any(String),
+        );
+    });
+
+    it('词典提示词带语境时包含句子与消歧指令，无语境时不含', () => {
+        const withContext = buildDictionaryPrompt('cues', 'All of the cues that the person is giving to you.');
+        expect(withContext).toContain('AS USED IN THIS SENTENCE');
+        expect(withContext).toContain('All of the cues that the person is giving to you.');
+        const withoutContext = buildDictionaryPrompt('cues');
+        expect(withoutContext).not.toContain('AS USED IN THIS SENTENCE');
     });
 });
