@@ -1,11 +1,6 @@
 import React from 'react';
 import { Play, Info } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import ConfirmDeleteButton from '@/fronted/components/shared/common/ConfirmDeleteButton';
 import type { VideoClip } from '../types';
 import UrlUtil from '@/common/utils/UrlUtil';
@@ -130,32 +125,30 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                           triggerClassName="bg-black/40 backdrop-blur-xs text-white/80 hover:bg-black/60 hover:text-white"
                         />
                       )}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="bg-black/40 backdrop-blur-xs text-white/80 p-1 rounded-md cursor-default hover:bg-black/60 hover:text-white transition-colors">
-                              <Info className="w-3.5 h-3.5" />
+                      <Tooltip
+                        placement="below"
+                        content={
+                          <div className="space-y-1 text-xs">
+                            <div>
+                              <strong>{t('status')}:</strong> {clip.sourceType === 'local' ? t('clipGridProcessing') : t('clipGridDone')}
                             </div>
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs text-xs">
-                            <div className="space-y-1">
-                              <div>
-                                <strong>{t('status')}:</strong> {clip.sourceType === 'local' ? t('clipGridProcessing') : t('clipGridDone')}
-                              </div>
-                              <div>
-                                <strong>{t('videoName')}:</strong> {title}
-                              </div>
-                              <div>
-                                <strong>{t('timeRange')}:</strong> {TimeUtil.secondToTimeStrCompact(mainClip?.start || 0)} -{' '}
-                                {TimeUtil.secondToTimeStrCompact(mainClip?.end || 0)}
-                              </div>
-                              <div>
-                                <strong>{t('createdAt')}:</strong> {new Date(clip.createdAt).toLocaleString()}
-                              </div>
+                            <div>
+                              <strong>{t('videoName')}:</strong> {title}
                             </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                            <div>
+                              <strong>{t('timeRange')}:</strong> {TimeUtil.secondToTimeStrCompact(mainClip?.start || 0)} -{' '}
+                              {TimeUtil.secondToTimeStrCompact(mainClip?.end || 0)}
+                            </div>
+                            <div>
+                              <strong>{t('createdAt')}:</strong> {new Date(clip.createdAt).toLocaleString()}
+                            </div>
+                          </div>
+                        }
+                      >
+                        <div className="bg-black/40 backdrop-blur-xs text-white/80 p-1 rounded-md cursor-default hover:bg-black/60 hover:text-white transition-colors">
+                          <Info className="w-3.5 h-3.5" />
+                        </div>
+                      </Tooltip>
                     </div>
                   </div>
 

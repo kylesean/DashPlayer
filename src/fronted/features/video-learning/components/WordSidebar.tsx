@@ -1,24 +1,15 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Input } from '@/fronted/components/ui/input';
-import { Button } from '@/fronted/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/fronted/components/ui/select';
-import { Search, Upload, Download, List, LocateFixed, Pencil, ArrowUpDown } from 'lucide-react';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Selector } from '@astryxdesign/core/Selector';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Text } from '@astryxdesign/core/Text';
+import { HStack } from '@astryxdesign/core/HStack';
+import { VStack } from '@astryxdesign/core/VStack';
+import { Upload, Download, List, LocateFixed, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { cn } from '@/fronted/lib/utils';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import ConfirmDeleteButton from '@/fronted/components/shared/common/ConfirmDeleteButton';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/fronted/components/ui/tooltip';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import TimeUtil from '@/common/utils/TimeUtil';
 import { useTranslation } from 'react-i18next';
@@ -53,6 +44,9 @@ type Props = {
   onWordDeleted: (word: WordItem) => void;
 };
 
+/**
+ * 单词列表侧栏：支持搜索、排序模式切换、Excel导入导出及虚拟滚动。
+ */
 export default function WordSidebar({
   words,
   loading,
@@ -104,33 +98,48 @@ export default function WordSidebar({
     return sorted;
   }, [words, searchTerm, sortMode]);
 
+  /** 导入单词文件。 */
   const handleImportClick = async () => {
-    const selectedFiles = await videoLearningApi.selectVocabularyFile();
-    const filePath = selectedFiles?.[0];
-    if (!filePath) {
-      return;
+    try {
+      const selectedFiles = await videoLearningApi.selectVocabularyFile();
+      const filePath = selectedFiles?.[0];
+      if (!filePath) {
+        return;
+      }
+      onImportWords(filePath);
+    } catch {
+      toast.error(t('selectFileFailed'));
     }
-    onImportWords(filePath);
   };
 
-  const handleShowAll = () => {
-    onClearSelection();
-  };
-
+  /** 定位当前选中的单词。 */
   const handleLocateCurrent = () => {
     if (!selectedWord) return;
-    const targetIndex = displayedWords.findIndex((word) => word.id === selectedWord.id);
-    if (targetIndex >= 0) {
-      virtuosoRef.current?.scrollToIndex({ index: targetIndex, align: 'center', behavior: 'smooth' });
+    const index = displayedWords.findIndex(w => w.id === selectedWord.id);
+    if (index >= 0 && virtuosoRef.current) {
+      virtuosoRef.current.scrollToIndex({
+        index,
+        align: 'center',
+        behavior: 'smooth'
+      });
     }
   };
 
-  /** 删除确认后调用后端删除并回调页面刷新。 */
+  /** 显示全部视频（清除单词选择与搜索词）。 */
+  const handleShowAll = () => {
+    onClearSelection();
+    if (searchTerm) {
+      onSearchChange('');
+    }
+  };
+
+  /** 用户确认删除某个单词。 */
   const handleDeleteConfirmed = async (word: WordItem) => {
     setDeletingId(word.id);
     try {
       const result = await videoLearningApi.deleteWord(word.word);
       if (result.success) {
+        toast.success(t('wordDeleted'));
         onWordDeleted(word);
       } else {
         toast.error(result.error || t('wordDeleteFailed'));
@@ -144,103 +153,72 @@ export default function WordSidebar({
 
   return (
     <div className="h-full flex flex-col min-h-0">
-      {/* 顶部工具栏 */}
-      <div className="pb-3 space-y-2.5 shrink-0 border-b border-border/40">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-          <Input
-            className="pl-9 h-9 text-xs rounded-xl bg-muted/30 focus-visible:bg-background border-border/50 transition-colors"
-            placeholder={t('wordSearch')}
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
-          />
-        </div>
-        <TooltipProvider>
-          <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground pt-0.5">
-            <div className="text-xs font-medium text-muted-foreground tabular-nums">
-              {t('wordCount', { count: words.length })}
-              {searchTerm && <span className="ml-1.5 text-primary">({t('foundWords', { count: displayedWords.length })})</span>}
-            </div>
-            <div className="flex items-center gap-1">
-              <Select value={sortMode} onValueChange={(value) => setSortMode(value as SortMode)}>
-                <SelectTrigger
-                  className="h-7 w-auto gap-1 rounded-lg px-2 text-xs text-muted-foreground"
-                  aria-label={t('sortMode')}
-                >
-                  <ArrowUpDown className="w-3 h-3" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="usage">{t('sortByUsage')}</SelectItem>
-                  <SelectItem value="alphabetical">{t('sortAlphabetical')}</SelectItem>
-                  <SelectItem value="recentVideo">{t('sortByRecentVideo')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-                    aria-label={t('exportTemplate')}
-                    type="button"
-                    onClick={onExportTemplate}
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t('exportTemplate')}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-                    aria-label={t('importExcel')}
-                    type="button"
-                    onClick={handleImportClick}
-                  >
-                    <Upload className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t('importExcel')}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={selectedWord ? 'ghost' : 'secondary'}
-                    size="icon"
-                    className="h-7 w-7 rounded-lg"
-                    aria-label={t('showAllVideos')}
-                    type="button"
-                    onClick={handleShowAll}
-                  >
-                    <List className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t('showAllVideos')}</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground"
-                    aria-label={t('locateCurrentWord')}
-                    type="button"
-                    onClick={handleLocateCurrent}
-                    disabled={!selectedWord}
-                  >
-                    <LocateFixed className="w-3.5 h-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{t('locateCurrentWord')}</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-        </TooltipProvider>
-      </div>
+      {/* 顶部操作区 */}
+      <VStack gap={2} className="p-3 border-b border-border/70 bg-card shrink-0">
+        <TextInput
+          type="search"
+          label={t('wordSearch')}
+          isLabelHidden
+          placeholder={t('wordSearch')}
+          value={searchTerm}
+          onChange={(val) => onSearchChange(val)}
+          size="sm"
+          width="100%"
+        />
+        <HStack vAlign="center" hAlign="between" gap={1} width="100%">
+          <Text type="supporting" color="secondary" hasTabularNumbers maxLines={1}>
+            {t('wordCount', { count: words.length })}
+            {searchTerm && <span className="ml-1 text-accent">({t('foundWords', { count: displayedWords.length })})</span>}
+          </Text>
+          <HStack vAlign="center" gap={1}>
+            <Selector
+              label={t('sortMode')}
+              isLabelHidden
+              size="sm"
+              value={sortMode}
+              onChange={(value) => setSortMode(value as SortMode)}
+              options={[
+                { value: 'usage', label: t('sortByUsage') },
+                { value: 'alphabetical', label: t('sortAlphabetical') },
+                { value: 'recentVideo', label: t('sortByRecentVideo') }
+              ]}
+            />
+            <IconButton
+              label={t('exportTemplate')}
+              tooltip={t('exportTemplate')}
+              variant="ghost"
+              size="sm"
+              icon={<Download className="w-3.5 h-3.5" />}
+              onClick={onExportTemplate}
+            />
+            <IconButton
+              label={t('importExcel')}
+              tooltip={t('importExcel')}
+              variant="ghost"
+              size="sm"
+              icon={<Upload className="w-3.5 h-3.5" />}
+              onClick={() => void handleImportClick()}
+            />
+            <IconButton
+              label={t('showAllVideos')}
+              tooltip={t('showAllVideos')}
+              variant={selectedWord ? 'ghost' : 'secondary'}
+              size="sm"
+              icon={<List className="w-3.5 h-3.5" />}
+              onClick={handleShowAll}
+            />
+            <IconButton
+              label={t('locateCurrentWord')}
+              tooltip={t('locateCurrentWord')}
+              variant="ghost"
+              size="sm"
+              isDisabled={!selectedWord}
+              icon={<LocateFixed className="w-3.5 h-3.5" />}
+              onClick={handleLocateCurrent}
+            />
+          </HStack>
+        </HStack>
+      </VStack>
 
       {/* 列表区域：使用虚拟列表，占满剩余高度 */}
       <div className="flex-1 min-h-0 pt-2">
@@ -248,12 +226,12 @@ export default function WordSidebar({
           <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary border-t-transparent"></div>
-              {t('loading')}
+              <span>{t('loadingWords')}</span>
             </div>
           </div>
         ) : displayedWords.length === 0 ? (
-          <div className="text-center text-muted-foreground py-10 text-xs">
-            {searchTerm ? t('noMatchingWords') : t('noVocabulary')}
+          <div className="text-center py-10 text-xs text-muted-foreground px-4">
+            {searchTerm ? t('noMatchingWords') : t('wordListEmpty')}
           </div>
         ) : (
           <Virtuoso

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import UrlUtil from '@/common/utils/UrlUtil';
 import SubtitleList from './SubtitleList';
 import type { VideoClip } from '../types';
-import { AspectRatio } from '@/fronted/components/ui/aspect-ratio';
+import { AspectRatio } from '@astryxdesign/core/AspectRatio';
 import VideoPlayerShortcut from './VideoPlayerShortcut';
 import PlayerEngine from '@/fronted/features/player/components/PlayerEngine';
 import { usePlayerState } from '@/fronted/features/player/playerState';

@@ -9,16 +9,8 @@ import WordSidebar, { type WordItem } from '@/fronted/features/video-learning/co
 import WordEditDialog from '@/fronted/features/video-learning/components/WordEditDialog';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious
-} from '@/fronted/components/ui/pagination';
-import { Button } from '@/fronted/components/ui/button';
+import { Pagination } from '@astryxdesign/core/Pagination';
+import { Button } from '@astryxdesign/core/Button';
 import toast from 'react-hot-toast';
 import { cn } from '@/fronted/lib/utils';
 
@@ -568,103 +560,21 @@ export default function VideoLearningPage() {
               </div>
 
               {totalPages > 1 && (
-                <Pagination className="ml-auto w-auto tabular-nums">
-                  <PaginationContent className="gap-1">
-                    <PaginationItem>
-                      <PaginationPrevious
-                        href="#"
-                        aria-disabled={!canPrev || isPageSwitching}
-                        className={cn(
-                          'h-7 px-2 text-xs rounded-lg',
-                          (!canPrev || isPageSwitching) && 'pointer-events-none opacity-40'
-                        )}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          if (canPrev && !isPageSwitching) {
-                            handlePageChange(displayedPage - 1, { targetIndex: 0 });
-                          }
-                        }}
-                      />
-                    </PaginationItem>
-                    {hasPrevGap && (
-                      <>
-                        <PaginationItem>
-                          <PaginationLink
-                            href="#"
-                            isActive={displayedPage === 1}
-                            className="h-7 w-7 text-xs rounded-lg"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              if (displayedPage !== 1 && !isPageSwitching) {
-                                handlePageChange(1, { targetIndex: 0 });
-                              }
-                            }}
-                          >
-                            1
-                          </PaginationLink>
-                        </PaginationItem>
-                        <PaginationItem>
-                          <PaginationEllipsis className="h-7 w-7" />
-                        </PaginationItem>
-                      </>
-                    )}
-                    {pageNumbers.map((num) => (
-                      <PaginationItem key={num}>
-                        <PaginationLink
-                          href="#"
-                          isActive={num === displayedPage}
-                          className="h-7 w-7 text-xs rounded-lg"
-                          onClick={(event) => {
-                            event.preventDefault();
-                            if (num !== displayedPage && !isPageSwitching) {
-                              handlePageChange(num, { targetIndex: 0 });
-                            }
-                          }}
-                        >
-                          {num}
-                        </PaginationLink>
-                      </PaginationItem>
-                    ))}
-                    {hasNextGap && (
-                      <>
-                        <PaginationItem>
-                          <PaginationEllipsis className="h-7 w-7" />
-                        </PaginationItem>
-                        <PaginationItem>
-                          <PaginationLink
-                            href="#"
-                            isActive={displayedPage === safeTotalPages}
-                            className="h-7 w-7 text-xs rounded-lg"
-                            onClick={(event) => {
-                              event.preventDefault();
-                              if (displayedPage !== safeTotalPages && !isPageSwitching) {
-                                handlePageChange(safeTotalPages, { targetIndex: 0 });
-                              }
-                            }}
-                          >
-                            {safeTotalPages}
-                          </PaginationLink>
-                        </PaginationItem>
-                      </>
-                    )}
-                    <PaginationItem>
-                      <PaginationNext
-                        href="#"
-                        aria-disabled={!canNext || isPageSwitching}
-                        className={cn(
-                          'h-7 px-2 text-xs rounded-lg',
-                          (!canNext || isPageSwitching) && 'pointer-events-none opacity-40'
-                        )}
-                        onClick={(event) => {
-                          event.preventDefault();
-                          if (canNext && !isPageSwitching) {
-                            handlePageChange(displayedPage + 1, { targetIndex: 0 });
-                          }
-                        }}
-                      />
-                    </PaginationItem>
-                  </PaginationContent>
-                </Pagination>
+                <div className="ml-auto">
+                  <Pagination
+                    page={displayedPage}
+                    onChange={(newPage) => {
+                      if (!isPageSwitching) {
+                        handlePageChange(newPage, { targetIndex: 0 });
+                      }
+                    }}
+                    totalItems={totalClips}
+                    pageSize={PAGE_SIZE}
+                    variant="pages"
+                    size="sm"
+                    isDisabled={isPageSwitching}
+                  />
+                </div>
               )}
             </div>
 
@@ -675,9 +585,12 @@ export default function VideoLearningPage() {
                   <p className="text-xs text-muted-foreground leading-5 max-w-sm">
                     {t('vocabularyStudio.empty.guideAdd')}
                   </p>
-                  <Button type="button" size="sm" variant="outline" className="text-xs h-8" onClick={recoverVocabularyStudio}>
-                    {t('vocabularyStudio.recover.button')}
-                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    label={t('vocabularyStudio.recover.button')}
+                    onClick={recoverVocabularyStudio}
+                  />
                 </div>
               ) : (
                 <ClipGrid

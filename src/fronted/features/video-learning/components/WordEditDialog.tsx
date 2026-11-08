@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
-import { Sparkles, Loader2, BookMarked } from 'lucide-react';
+import { Sparkles, BookMarked } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/fronted/components/ui/dialog';
-import { Button } from '@/fronted/components/ui/button';
-import { Input } from '@/fronted/components/ui/input';
-import { Label } from '@/fronted/components/ui/label';
-import { Textarea } from '@/fronted/components/ui/textarea';
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { Button } from '@astryxdesign/core/Button';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { TextArea } from '@astryxdesign/core/TextArea';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Text } from '@astryxdesign/core/Text';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 
 /** 编辑弹窗可接收的最小单词信息。 */
@@ -107,63 +103,66 @@ function WordEditForm({ wordItem, onOpenChange, onSaved }: WordEditFormProps) {
   };
 
   return (
-    <DialogContent className="sm:max-w-[440px]">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2 text-base">
-          <BookMarked className="w-4 h-4 text-primary" />
-          {t('editWord')}
-        </DialogTitle>
-      </DialogHeader>
+    <VStack gap={4} width="100%">
+      <DialogHeader
+        title={t('editWord')}
+        startContent={<BookMarked className="w-4 h-4 text-accent" />}
+        onOpenChange={onOpenChange}
+      />
 
-      <div className="flex flex-col gap-4 py-2 text-xs">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="word-edit-input" className="text-xs font-medium">{t('wordField')}</Label>
-          <Input
-            id="word-edit-input"
-            className="text-sm"
-            value={word}
-            onChange={(e) => setWord(e.target.value)}
-            placeholder={t('wordField')}
+      <TextInput
+        label={t('wordField')}
+        value={word}
+        onChange={(val) => setWord(val)}
+        placeholder={t('wordField')}
+        isRequired
+        width="100%"
+      />
+
+      <VStack gap={1.5} width="100%">
+        <HStack vAlign="center" hAlign="between" width="100%">
+          <Text type="label" weight="medium">
+            {t('definitionField')}
+          </Text>
+          <Button
+            label={generating ? t('generating') : t('aiGenerateDefinition')}
+            variant="ghost"
+            size="sm"
+            icon={<Sparkles className="w-3.5 h-3.5" />}
+            isLoading={generating}
+            isDisabled={saving}
+            onClick={handleGenerate}
           />
-        </div>
+        </HStack>
+        <TextArea
+          label={t('definitionField')}
+          isLabelHidden
+          value={translate}
+          onChange={(val) => setTranslate(val)}
+          placeholder={t('noDefinition')}
+          rows={4}
+          width="100%"
+        />
+      </VStack>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="word-edit-translate" className="text-xs font-medium">{t('definitionField')}</Label>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 text-xs gap-1 text-primary hover:text-primary"
-              onClick={handleGenerate}
-              disabled={generating || saving}
-            >
-              {generating
-                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                : <Sparkles className="w-3.5 h-3.5" />}
-              {generating ? t('generating') : t('aiGenerateDefinition')}
-            </Button>
-          </div>
-          <Textarea
-            id="word-edit-translate"
-            className="text-sm min-h-[88px] resize-none"
-            value={translate}
-            onChange={(e) => setTranslate(e.target.value)}
-            placeholder={t('noDefinition')}
-          />
-        </div>
-      </div>
-
-      <DialogFooter>
-        <Button type="button" variant="outline" size="sm" onClick={() => onOpenChange(false)} disabled={saving}>
-          {t('cancel')}
-        </Button>
-        <Button type="button" size="sm" onClick={handleSave} disabled={saving || generating}>
-          {saving && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
-          {t('save')}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
+      <HStack vAlign="center" hAlign="end" gap={2} width="100%">
+        <Button
+          label={t('cancel')}
+          variant="secondary"
+          size="sm"
+          onClick={() => onOpenChange(false)}
+          isDisabled={saving}
+        />
+        <Button
+          label={t('save')}
+          variant="primary"
+          size="sm"
+          onClick={handleSave}
+          isLoading={saving}
+          isDisabled={generating}
+        />
+      </HStack>
+    </VStack>
   );
 }
 
@@ -172,7 +171,13 @@ function WordEditForm({ wordItem, onOpenChange, onSaved }: WordEditFormProps) {
  */
 export default function WordEditDialog({ open, wordItem, onOpenChange, onSaved }: WordEditDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      purpose="form"
+      width={440}
+      padding={4}
+    >
       {wordItem && (
         <WordEditForm
           key={wordItem.word}
