@@ -20,8 +20,9 @@ interface YoutubeImportTaskRowProps {
  */
 const YoutubeImportTaskRow = ({ taskId, onPlay }: YoutubeImportTaskRowProps) => {
     const { t } = useTranslation('youtubeImport');
-    const tasks = useDpTaskCenter((state) => state.tasks);
-    const task = tasks.get(taskId);
+    // 只订阅本任务的对象引用：任务中心任意任务 tick 重建 Map，但不改变未更新任务的对象，
+    // Object.is 比较跳过，避免整表订阅让所有行跟着别人的进度重渲染
+    const task = useDpTaskCenter((state) => state.tasks.get(taskId));
     const taskView = task && task !== 'init' ? task : null;
     const percent = taskView ? parsePercent(taskView.progress) : null;
     const result = taskView ? parseTaskResult(taskView) : null;

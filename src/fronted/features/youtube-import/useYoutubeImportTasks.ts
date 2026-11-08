@@ -29,7 +29,6 @@ const useYoutubeImportTasks = (options: UseYoutubeImportTasksOptions = {}) => {
     const [url, setUrl] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
     const [taskIds, setTaskIds] = React.useState<number[]>([]);
-    const tasks = useDpTaskCenter((state) => state.tasks);
 
     // 任务中心订阅回调闭包固定于注册时刻，经 ref 读取最新登记列表与守卫；
     // 赋值放 effect,避免渲染期写 ref
@@ -93,7 +92,7 @@ const useYoutubeImportTasks = (options: UseYoutubeImportTasksOptions = {}) => {
         }
     };
 
-    return { url, setUrl, submitting, taskIds, tasks, startImport, playVideo };
+    return { url, setUrl, submitting, taskIds, startImport, playVideo };
 };
 
 export default useYoutubeImportTasks;
