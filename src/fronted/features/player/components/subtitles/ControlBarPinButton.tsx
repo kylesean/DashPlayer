@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Pin } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { cn } from '@/fronted/lib/utils';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { DARK_BAR_BUTTON_HOVER } from '@/fronted/features/player/components/PlaybackGlobalControls';
@@ -62,36 +57,32 @@ export default function ControlBarPinButton() {
     }, [pinned, progressMode]);
 
     return (
-        <TooltipProvider delayDuration={300}>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-                        type="button"
-                        onClick={toggle}
-                        aria-pressed={pinned}
-                        aria-label={pinned ? t('controlBar.pinAriaPinned') : t('controlBar.pinAriaIdle')}
-                        className={cn(
-                            'relative w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-                            pinned
-                                ? 'text-white bg-white/20 hover:bg-white/25'
-                                : nudging
-                                ? 'text-amber-300 hover:bg-white/15'
-                                : cn('text-white/80', DARK_BAR_BUTTON_HOVER)
-                        )}
-                    >
-                        {nudging && (
-                            <span
-                                aria-hidden
-                                className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-amber-300/60 animate-pulse"
-                            />
-                        )}
-                        <Pin className={cn('w-4 h-4', pinned && 'fill-current')} />
-                    </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" align="end">
-                    {pinned ? t('controlBar.pinTooltipPinned') : t('controlBar.pinTooltipIdle')}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        <Tooltip
+            content={pinned ? t('controlBar.pinTooltipPinned') : t('controlBar.pinTooltipIdle')}
+            placement="above"
+        >
+            <button
+                type="button"
+                onClick={toggle}
+                aria-pressed={pinned}
+                aria-label={pinned ? t('controlBar.pinAriaPinned') : t('controlBar.pinAriaIdle')}
+                className={cn(
+                    'relative w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+                    pinned
+                        ? 'text-white bg-white/20 hover:bg-white/25'
+                        : nudging
+                        ? 'text-amber-300 hover:bg-white/15'
+                        : cn('text-white/80', DARK_BAR_BUTTON_HOVER)
+                )}
+            >
+                {nudging && (
+                    <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-amber-300/60 animate-pulse"
+                    />
+                )}
+                <Pin className={cn('w-4 h-4', pinned && 'fill-current')} />
+            </button>
+        </Tooltip>
     );
 }

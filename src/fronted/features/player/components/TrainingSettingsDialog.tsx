@@ -1,14 +1,12 @@
 import { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/fronted/components/ui/dialog';
-import { Button } from '@/fronted/components/ui/button';
-import { Input } from '@/fronted/components/ui/input';
-import { Slider } from '@/fronted/components/ui/slider';
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { Button } from '@astryxdesign/core/Button';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { Slider } from '@astryxdesign/core/Slider';
+import { Card } from '@astryxdesign/core/Card';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Text } from '@astryxdesign/core/Text';
 import { Mic, Repeat, Gauge, Sliders, RotateCcw } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { type TrainingModeConfig, useTrainingModeStore } from '@/fronted/features/player/trainingStore';
@@ -28,7 +26,13 @@ interface TrainingSettingsDialogProps {
  */
 export function TrainingSettingsDialog({ open, onOpenChange }: TrainingSettingsDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      purpose="form"
+      width={460}
+      padding={4}
+    >
       {open ? <TrainingSettingsForm onClose={() => onOpenChange(false)} /> : null}
     </Dialog>
   );
@@ -96,116 +100,124 @@ function TrainingSettingsForm({ onClose }: { onClose: () => void }) {
   };
 
   return (
-      <DialogContent className="sm:max-w-[420px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <Sliders className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-            {t('trainingSettings.title')}
-          </DialogTitle>
-        </DialogHeader>
+    <VStack gap={4} width="100%">
+      <DialogHeader
+        title={t('trainingSettings.title')}
+        startContent={<Sliders className="w-4 h-4 text-accent" />}
+        onOpenChange={onClose}
+      />
 
-        <div className="flex flex-col gap-5 py-3 text-xs">
-          {/* 1. 影子跟读 */}
-          <div className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30">
-            <div className="flex items-center justify-between font-medium">
-              <span className="flex items-center gap-1.5 text-stone-900 dark:text-stone-100">
-                <Mic className="w-3.5 h-3.5 text-emerald-500" />
-                {t('trainingSettings.shadowingRatio')}
-              </span>
-              <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+      <VStack gap={3} width="100%">
+        {/* 1. 影子跟读 */}
+        <Card variant="muted" padding={3}>
+          <VStack gap={2} width="100%">
+            <HStack vAlign="center" hAlign="between" width="100%">
+              <HStack vAlign="center" gap={1.5}>
+                <Mic className="w-3.5 h-3.5 text-accent" />
+                <Text type="body" weight="medium">
+                  {t('trainingSettings.shadowingRatio')}
+                </Text>
+              </HStack>
+              <Text type="body" weight="semibold" className="font-mono text-accent">
                 {shadowingRatio.toFixed(1)}x
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
+              </Text>
+            </HStack>
+            <Text type="supporting" color="secondary">
               {t('trainingSettings.shadowingRatioHint', { ratio: shadowingRatio.toFixed(1) })}
-            </p>
+            </Text>
             <Slider
-              value={[shadowingRatio]}
+              label={t('trainingSettings.shadowingRatio')}
+              isLabelHidden
+              valueDisplay="none"
+              value={shadowingRatio}
               min={0.5}
               max={3.0}
               step={0.1}
-              onValueChange={([v]) => setShadowingRatio(v)}
-              className="mt-1"
+              onChange={(v: number | [number, number]) => setShadowingRatio(typeof v === 'number' ? v : v[0])}
+              width="100%"
             />
-          </div>
+          </VStack>
+        </Card>
 
-          {/* 2. 每句重复遍数 */}
-          <div className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30">
-            <div className="flex items-center justify-between font-medium">
-              <span className="flex items-center gap-1.5 text-stone-900 dark:text-stone-100">
+        {/* 2. 每句重复遍数 */}
+        <Card variant="muted" padding={3}>
+          <VStack gap={2} width="100%">
+            <HStack vAlign="center" hAlign="between" width="100%">
+              <HStack vAlign="center" gap={1.5}>
                 <Repeat className="w-3.5 h-3.5 text-amber-500" />
-                {t('trainingSettings.repeatTimes')}
-              </span>
-              <span className="font-mono text-amber-600 dark:text-amber-400 font-semibold">
+                <Text type="body" weight="medium">
+                  {t('trainingSettings.repeatTimes')}
+                </Text>
+              </HStack>
+              <Text type="body" weight="semibold" className="font-mono text-amber-500">
                 {t('trainingSettings.repeatTimesCount', { times: repeatTimes })}
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
+              </Text>
+            </HStack>
+            <Text type="supporting" color="secondary">
               {t('trainingSettings.repeatTimesHint')}
-            </p>
+            </Text>
             <Slider
-              value={[repeatTimes]}
+              label={t('trainingSettings.repeatTimes')}
+              isLabelHidden
+              valueDisplay="none"
+              value={repeatTimes}
               min={1}
               max={10}
               step={1}
-              onValueChange={([v]) => setRepeatTimes(v)}
-              className="mt-1"
+              onChange={(v: number | [number, number]) => setRepeatTimes(typeof v === 'number' ? v : v[0])}
+              width="100%"
             />
-          </div>
+          </VStack>
+        </Card>
 
-          {/* 3. 递进倍速精听 */}
-          <div className="flex flex-col gap-2 p-3 rounded-lg border bg-muted/30">
-            <div className="flex items-center justify-between font-medium">
-              <span className="flex items-center gap-1.5 text-stone-900 dark:text-stone-100">
-                <Gauge className="w-3.5 h-3.5 text-purple-500" />
+        {/* 3. 递进倍速精听 */}
+        <Card variant="muted" padding={3}>
+          <VStack gap={2} width="100%">
+            <HStack vAlign="center" gap={1.5}>
+              <Gauge className="w-3.5 h-3.5 text-purple-500" />
+              <Text type="body" weight="medium">
                 {t('trainingSettings.progressiveRates')}
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
+              </Text>
+            </HStack>
+            <Text type="supporting" color="secondary">
               {t('trainingSettings.progressiveRatesHint')}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <Input
-                value={progressiveRatesStr}
-                onChange={(e) => setProgressiveRatesStr(e.target.value)}
-                placeholder={t('trainingSettings.progressiveRatesPlaceholder')}
-                className="h-8 text-xs font-mono"
-              />
-            </div>
-          </div>
-        </div>
+            </Text>
+            <TextInput
+              label={t('trainingSettings.progressiveRates')}
+              isLabelHidden
+              value={progressiveRatesStr}
+              onChange={(val) => setProgressiveRatesStr(val)}
+              placeholder={t('trainingSettings.progressiveRatesPlaceholder')}
+              size="sm"
+              width="100%"
+            />
+          </VStack>
+        </Card>
+      </VStack>
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between w-full pt-2">
+      <HStack vAlign="center" hAlign="between" width="100%" className="pt-2">
+        <Button
+          label={t('trainingSettings.reset')}
+          variant="ghost"
+          size="sm"
+          icon={<RotateCcw className="w-3 h-3" />}
+          onClick={handleReset}
+        />
+        <HStack vAlign="center" gap={2}>
           <Button
-            type="button"
-            variant="ghost"
+            label={t('trainingSettings.cancel')}
+            variant="secondary"
             size="sm"
-            onClick={handleReset}
-            className="text-xs text-muted-foreground hover:text-foreground gap-1 px-2"
-          >
-            <RotateCcw className="w-3 h-3" />
-            {t('trainingSettings.reset')}
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="text-xs"
-            >
-              {t('trainingSettings.cancel')}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSave}
-              className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-            >
-              {t('trainingSettings.save')}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
+            onClick={onClose}
+          />
+          <Button
+            label={t('trainingSettings.save')}
+            variant="primary"
+            size="sm"
+            onClick={handleSave}
+          />
+        </HStack>
+      </HStack>
+    </VStack>
   );
 }

@@ -3,7 +3,8 @@ import { useShallow } from 'zustand/react/shallow';
 import useSWR from 'swr';
 import { swrMutate, SWR_KEY } from '@/fronted/lib/swr-util';
 import { cn } from '@/fronted/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/fronted/components/ui/card';
+import { Card } from '@astryxdesign/core/Card';
+import { Heading } from '@astryxdesign/core/Heading';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
@@ -150,15 +151,17 @@ export default function ControlBox() {
   }, [autoPlayNextSetting]);
 
   return (
-    <Card className={cn('w-full h-full flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card shadow-2xs')}>
-      <CardHeader className="shrink-0 px-4 pt-4 pb-3.5">
-        <CardTitle className="text-base font-semibold tracking-tight text-foreground">{t('controlBox.title')}</CardTitle>
-      </CardHeader>
+    <Card variant="default" padding={4} className="w-full h-full flex flex-col overflow-hidden">
+      <div className="shrink-0 pb-3">
+        <Heading level={3} weight="semibold">
+          {t('controlBox.title')}
+        </Heading>
+      </div>
       
       {/* 滚动区域：仅开关网格在高度不够时纵向滚动 */}
-      <CardContent
+      <div
         className={cn(
-          'w-full flex-1 min-h-0 overflow-y-auto px-4 pt-0 pb-3',
+          'w-full flex-1 min-h-0 overflow-y-auto pt-0 pb-2',
           'scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-thumb-rounded scrollbar-track-transparent'
         )}
       >
@@ -271,10 +274,10 @@ export default function ControlBox() {
           <SettingToggle
             id="nightMode"
             label={t('controlBox.nightMode')}
-            checked={setting('appearance.theme') === 'dark' || (setting('appearance.theme') === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches)}
+            checked={setting('appearance.theme') === 'dark' || (setting('appearance.theme') === 'system' && typeof document !== 'undefined' && document.documentElement.classList.contains('dark'))}
             onCheckedChange={() => {
               const currentTheme = setting('appearance.theme');
-              const isDark = currentTheme === 'dark' || (currentTheme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+              const isDark = currentTheme === 'dark' || (currentTheme === 'system' && typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
               void setSetting('appearance.theme', isDark ? 'light' : 'dark');
             }}
             tooltipMd={t('controlBox.shortcutHint', { shortcut: getShortcut('shortcut.nextTheme') })}
@@ -331,7 +334,7 @@ export default function ControlBox() {
           <ClearAdjustButton className="h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/70 px-3 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors shadow-none" />
           <AutoClipButton className="h-8 rounded-lg border border-border/70 bg-muted/30 hover:bg-muted/70 px-3 text-xs font-normal text-muted-foreground hover:text-foreground transition-colors shadow-none" />
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }

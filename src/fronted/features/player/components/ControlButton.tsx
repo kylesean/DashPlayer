@@ -8,7 +8,7 @@ import { swrApiMutate } from '@/fronted/lib/swr-util';
 import { useHotkeys } from 'react-hotkeys-hook';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { LayoutGrid, LocateFixed } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 
 const process = (values: string) => values
     .split(',')
@@ -38,129 +38,120 @@ export default function ControlButton() {
         changeSideBar(!showSideBar);
     }, [changeSideBar, showSideBar]);
 
-    return (
-        <TooltipProvider delayDuration={300}>
-            <AnimatePresence>
-                {!fullScreen && (
-                    <div className="fixed bottom-8 right-8 z-[99] pointer-events-none flex flex-col items-center justify-end select-none w-12 h-28">
-                        {/* 2. 定位到当前行按钮（位于 z-10，在主按钮之后） */}
-                        <AnimatePresence>
-                            {isBrowsing && (
-                                <motion.div
-                                    key="locate-popup-button"
-                                    initial={{
-                                        opacity: 0,
-                                        y: 52,
-                                        scale: 0,
-                                    }}
-                                    animate={{
-                                        opacity: 1,
-                                        y: 0,
-                                        scale: 1,
-                                        transition: {
-                                            type: 'spring',
-                                            stiffness: 380,
-                                            damping: 22,
-                                            mass: 0.6,
-                                        },
-                                    }}
-                                    exit={{
-                                        y: 52,
-                                        scale: 0,
-                                        opacity: [1, 1, 0], // 前 85% 保持完全实体，最后 15% 缩入主按钮后轻柔淡出
-                                        transition: {
-                                            y: {
-                                                duration: 0.28,
-                                                ease: [0.36, 0, 0.66, -0.1],
-                                            },
-                                            scale: {
-                                                duration: 0.28,
-                                                ease: [0.36, 0, 0.66, -0.1],
-                                            },
-                                            opacity: {
-                                                duration: 0.28,
-                                                times: [0, 0.85, 1],
-                                                ease: 'easeOut',
-                                            },
-                                        },
-                                    }}
-                                    className="absolute bottom-13 z-10 pointer-events-auto"
-                                >
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    onUserFinishScrolling();
-                                                }}
-                                                className={cn(
-                                                    'w-9 h-9 rounded-full flex items-center justify-center cursor-pointer select-none',
-                                                    'bg-stone-900/90 text-amber-400 border border-white/20 backdrop-blur-xl shadow-md',
-                                                    'dark:bg-neutral-900/90 dark:text-amber-400 dark:border-white/15',
-                                                    'hover:scale-110 active:scale-95 transition-[transform,background-color] duration-150'
-                                                )}
-                                                aria-label={t('controlButton.backToPlayhead')}
-                                            >
-                                                <LocateFixed className="w-4 h-4 animate-pulse" />
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="left" className="text-xs">
-                                            {t('controlButton.backToPlayhead')}
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+    const panelTooltipText = `${showSideBar ? t('controlButton.closePanel') : t('controlButton.openPanel')}${
+        openControlPanelShortcut ? ` (${openControlPanelShortcut})` : ''
+    }`;
 
-                        {/* 1. 打开/收起控制面板主按钮（位于 z-20，遮挡在定位按钮前上方） */}
-                        <motion.div
-                            initial={{
-                                scale: 0,
-                                opacity: 0,
-                            }}
-                            animate={{
-                                scale: 1,
-                                opacity: 1,
-                            }}
-                            exit={{
-                                scale: 0,
-                                opacity: 0,
-                            }}
-                            transition={{
-                                delay: 0.15,
-                                duration: 0.2,
-                            }}
-                            className="absolute bottom-0 z-20 pointer-events-auto"
-                        >
-                            <Tooltip>
-                                <TooltipTrigger asChild>
+    return (
+        <AnimatePresence>
+            {!fullScreen && (
+                <div className="fixed bottom-8 right-8 z-[99] pointer-events-none flex flex-col items-center justify-end select-none w-12 h-28">
+                    {/* 2. 定位到当前行按钮（位于 z-10，在主按钮之后） */}
+                    <AnimatePresence>
+                        {isBrowsing && (
+                            <motion.div
+                                key="locate-popup-button"
+                                initial={{
+                                    opacity: 0,
+                                    y: 52,
+                                    scale: 0,
+                                }}
+                                animate={{
+                                    opacity: 1,
+                                    y: 0,
+                                    scale: 1,
+                                    transition: {
+                                        type: 'spring',
+                                        stiffness: 380,
+                                        damping: 22,
+                                        mass: 0.6,
+                                    },
+                                }}
+                                exit={{
+                                    y: 52,
+                                    scale: 0,
+                                    opacity: [1, 1, 0], // 前 85% 保持完全实体，最后 15% 缩入主按钮后轻柔淡出
+                                    transition: {
+                                        y: {
+                                            duration: 0.28,
+                                            ease: [0.36, 0, 0.66, -0.1],
+                                        },
+                                        scale: {
+                                            duration: 0.28,
+                                            ease: [0.36, 0, 0.66, -0.1],
+                                        },
+                                        opacity: {
+                                            duration: 0.28,
+                                            times: [0, 0.85, 1],
+                                            ease: 'easeOut',
+                                        },
+                                    },
+                                }}
+                                className="absolute bottom-13 z-10 pointer-events-auto"
+                            >
+                                <Tooltip content={t('controlButton.backToPlayhead')} placement="start">
                                     <button
                                         type="button"
-                                        onClick={async () => {
-                                            await swrApiMutate('watch-history/list');
-                                            pauseMeasurement();
-                                            changeSideBar(!showSideBar);
+                                        onClick={() => {
+                                            onUserFinishScrolling();
                                         }}
                                         className={cn(
-                                            'w-11 h-11 rounded-full flex items-center justify-center cursor-pointer select-none group',
-                                            'bg-stone-900/90 text-stone-100 border border-white/20 backdrop-blur-xl shadow-lg',
-                                            'dark:bg-neutral-100/90 dark:text-neutral-900 dark:border-black/10',
-                                            'opacity-80 hover:opacity-100 hover:scale-105 active:scale-95 transition-[transform,opacity,background-color] duration-150'
+                                            'w-9 h-9 rounded-full flex items-center justify-center cursor-pointer select-none',
+                                            'bg-stone-900/90 text-amber-400 border border-white/20 backdrop-blur-xl shadow-md',
+                                            'dark:bg-neutral-900/90 dark:text-amber-400 dark:border-white/15',
+                                            'hover:scale-110 active:scale-95 transition-[transform,background-color] duration-150'
                                         )}
-                                        aria-label={showSideBar ? t('controlButton.closePanel') : t('controlButton.openPanel')}
+                                        aria-label={t('controlButton.backToPlayhead')}
                                     >
-                                        <LayoutGrid className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
+                                        <LocateFixed className="w-4 h-4 animate-pulse" />
                                     </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="left" className="text-xs">
-                                    {showSideBar ? t('controlButton.closePanel') : t('controlButton.openPanel')}
-                                    {openControlPanelShortcut ? ` (${openControlPanelShortcut})` : ''}
-                                </TooltipContent>
-                            </Tooltip>
-                        </motion.div>
-                    </div>
-                )}
-            </AnimatePresence>
-        </TooltipProvider>
+                                </Tooltip>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    {/* 1. 打开/收起控制面板主按钮（位于 z-20，遮挡在定位按钮前上方） */}
+                    <motion.div
+                        initial={{
+                            scale: 0,
+                            opacity: 0,
+                        }}
+                        animate={{
+                            scale: 1,
+                            opacity: 1,
+                        }}
+                        exit={{
+                            scale: 0,
+                            opacity: 0,
+                        }}
+                        transition={{
+                            delay: 0.15,
+                            duration: 0.2,
+                        }}
+                        className="absolute bottom-0 z-20 pointer-events-auto"
+                    >
+                        <Tooltip content={panelTooltipText} placement="start">
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    await swrApiMutate('watch-history/list');
+                                    pauseMeasurement();
+                                    changeSideBar(!showSideBar);
+                                }}
+                                className={cn(
+                                    'w-11 h-11 rounded-full flex items-center justify-center cursor-pointer select-none group',
+                                    'bg-stone-900/90 text-stone-100 border border-white/20 backdrop-blur-xl shadow-lg',
+                                    'dark:bg-neutral-100/90 dark:text-neutral-900 dark:border-black/10',
+                                    'opacity-80 hover:opacity-100 hover:scale-105 active:scale-95 transition-[transform,opacity,background-color] duration-150'
+                                )}
+                                aria-label={showSideBar ? t('controlButton.closePanel') : t('controlButton.openPanel')}
+                            >
+                                <LayoutGrid className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
+                            </button>
+                        </Tooltip>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
     );
 }

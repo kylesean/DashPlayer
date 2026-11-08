@@ -1,7 +1,6 @@
 import React from 'react';
 import { History } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
-import { Button } from '@/fronted/components/ui/button';
+import { IconButton } from '@astryxdesign/core/IconButton';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
 import TranslatableLineWrapper from './TranslatableLineWrapper';
@@ -20,7 +19,6 @@ const TranslatableLinePodcast = ({
     clearAdjust,
     className
 }: TranslatableLinePodcastParam) => {
-
     const text = sentence.text;
 
     return text === undefined ? (
@@ -35,20 +33,14 @@ const TranslatableLinePodcast = ({
         >
             <div className={cn('w-10 h-full translate-x-2.5 flex justify-center items-center')}>
                 {adjusted && (
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    onClick={clearAdjust}
-                                    variant={'ghost'} size={'icon'} className="w-8 h-8 rounded-full hover:bg-stone-300/60 dark:hover:bg-neutral-600/60">
-                                    <History className="w-5 h-5 stroke-[2.2] text-stone-800 dark:text-neutral-200" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                {i18n.t('player:subtitle.resetTimingTooltip')}
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
+                    <IconButton
+                        label={i18n.t('player:subtitle.resetTimingTooltip')}
+                        tooltip={i18n.t('player:subtitle.resetTimingTooltip')}
+                        variant="ghost"
+                        size="sm"
+                        icon={<History className="w-5 h-5 stroke-[2.2]" />}
+                        onClick={clearAdjust}
+                    />
                 )}
             </div>
             <TranslatableLineWrapper
@@ -63,7 +55,3 @@ const TranslatableLinePodcast = ({
 };
 
 export default TranslatableLinePodcast;
-
-TranslatableLinePodcast.defaultProps = {
-    className: ''
-};

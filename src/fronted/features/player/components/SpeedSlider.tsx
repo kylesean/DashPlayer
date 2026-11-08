@@ -5,7 +5,7 @@ import { Button } from '@/fronted/components/ui/button';
 import { Input } from '@/fronted/components/ui/input';
 import { Checkbox } from '@/fronted/components/ui/checkbox';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import {
@@ -117,27 +117,23 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                                 }}
                                 right={
                                     <div className="flex items-center pl-2" onClick={(e) => e.stopPropagation()}>
-                                        <TooltipProvider delayDuration={200}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div className="flex items-center">
-                                                        <Checkbox
-                                                            checked={isFavorite}
-                                                            onCheckedChange={(checked) => {
-                                                                toggleFavorite(num, Boolean(checked));
-                                                            }}
-                                                            className="w-3.5 h-3.5 rounded border-white/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground"
-                                                            id={`speed-check-${num}`}
-                                                        />
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="right" className="text-xs bg-neutral-800 text-white border-neutral-700">
-                                                    {t('speedSlider.favoriteHint', {
-                                                        shortcut: useSetting.getState().setting('shortcut.nextPlaybackRate'),
-                                                    })}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
+                                        <Tooltip
+                                            content={t('speedSlider.favoriteHint', {
+                                                shortcut: useSetting.getState().setting('shortcut.nextPlaybackRate'),
+                                            })}
+                                            placement="end"
+                                        >
+                                            <div className="flex items-center">
+                                                <Checkbox
+                                                    checked={isFavorite}
+                                                    onCheckedChange={(checked) => {
+                                                        toggleFavorite(num, Boolean(checked));
+                                                    }}
+                                                    className="w-3.5 h-3.5 rounded border-white/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground"
+                                                    id={`speed-check-${num}`}
+                                                />
+                                            </div>
+                                        </Tooltip>
                                     </div>
                                 }
                             />

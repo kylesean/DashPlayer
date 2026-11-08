@@ -5,7 +5,7 @@ import { cn } from '@/fronted/lib/utils';
 import SpeedSlider from '../SpeedSlider';
 import { CONTROL_POPOVER_OFFSET_STACKED_BAR } from '@/fronted/features/player/components/ControlPopover';
 import { Pause, Play } from 'lucide-react';
-import { Button } from '@/fronted/components/ui/button';
+import { IconButton } from '@astryxdesign/core/IconButton';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
@@ -75,7 +75,11 @@ export default function PodcastControlBar({
                 {/* 底部控制项与时间展示 */}
                 <div className="w-full flex justify-between items-center text-zinc-500 dark:text-zinc-400">
                     <div className="flex gap-3.5 items-center">
-                        <Button
+                        <IconButton
+                            label={playing ? '暂停' : '播放'}
+                            variant="ghost"
+                            size="sm"
+                            icon={playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
                             onClick={() => {
                                 if (playing) {
                                     playerActions.pause();
@@ -83,16 +87,7 @@ export default function PodcastControlBar({
                                     playerActions.play();
                                 }
                             }}
-                            size="icon"
-                            variant="ghost"
-                            className="w-9 h-9 rounded-full text-zinc-800 dark:text-zinc-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                        >
-                            {playing ? (
-                                <Pause className="w-4 h-4" />
-                            ) : (
-                                <Play className="w-4 h-4 ml-0.5" />
-                            )}
-                        </Button>
+                        />
                         <PlaybackTimeReadout
                             previewTime={previewTime}
                             className="flex items-center font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400"

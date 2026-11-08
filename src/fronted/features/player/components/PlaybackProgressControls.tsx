@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Slider } from '@/fronted/components/ui/slider';
+import { Slider } from '@astryxdesign/core/Slider';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import TimeUtil from '@/common/utils/TimeUtil';
 
@@ -82,9 +82,6 @@ export const PlaybackProgressSlider = memo(function PlaybackProgressSlider({
     onScrubCommit,
     disableWhenEmpty = true,
     className = 'w-full',
-    trackClassName,
-    rangeClassName,
-    thumbClassName,
     step = 0.1,
 }: PlaybackProgressSliderProps) {
     const playTime = usePlayerState((s) => s.internal.exactPlayTime);
@@ -105,40 +102,42 @@ export const PlaybackProgressSlider = memo(function PlaybackProgressSlider({
         : rawValue;
 
     return (
-        <Slider
-            className={className}
-            trackClassName={trackClassName}
-            rangeClassName={rangeClassName}
-            thumbClassName={thumbClassName}
-            max={safeMax}
-            min={0}
-            step={step}
-            disabled={disableWhenEmpty && duration <= 0}
-            value={[clampedValue]}
-            onValueChange={(value) => {
-                const [next] = value;
-                if (holdTimerRef.current !== null) {
-                    window.clearTimeout(holdTimerRef.current);
-                    holdTimerRef.current = null;
-                }
-                setDraggingTime(next);
-                onPreviewTimeChange?.(next);
-                onScrubValueChange?.(next);
-            }}
-            onValueCommit={(value) => {
-                const [next] = value;
-                setDraggingTime(next);
-                onPreviewTimeChange?.(next);
-                onScrubCommit?.(next);
-                if (holdTimerRef.current !== null) {
-                    window.clearTimeout(holdTimerRef.current);
-                }
-                holdTimerRef.current = window.setTimeout(() => {
-                    holdTimerRef.current = null;
-                    setDraggingTime(null);
-                    onPreviewTimeChange?.(null);
-                }, SEEK_HOLD_DURATION_MS);
-            }}
-        />
+        <div className={className}>
+            <Slider
+                label="播放进度"
+                isLabelHidden
+                valueDisplay="none"
+                max={safeMax}
+                min={0}
+                step={step}
+                isDisabled={disableWhenEmpty && duration <= 0}
+                value={clampedValue}
+                onChange={(val: number | [number, number]) => {
+                    const next = typeof val === 'number' ? val : val[0];
+                    if (holdTimerRef.current !== null) {
+                        window.clearTimeout(holdTimerRef.current);
+                        holdTimerRef.current = null;
+                    }
+                    setDraggingTime(next);
+                    onPreviewTimeChange?.(next);
+                    onScrubValueChange?.(next);
+                }}
+                onChangeEnd={(val: number | [number, number]) => {
+                    const next = typeof val === 'number' ? val : val[0];
+                    setDraggingTime(next);
+                    onPreviewTimeChange?.(next);
+                    onScrubCommit?.(next);
+                    if (holdTimerRef.current !== null) {
+                        window.clearTimeout(holdTimerRef.current);
+                    }
+                    holdTimerRef.current = window.setTimeout(() => {
+                        holdTimerRef.current = null;
+                        setDraggingTime(null);
+                        onPreviewTimeChange?.(null);
+                    }, SEEK_HOLD_DURATION_MS);
+                }}
+                width="100%"
+            />
+        </div>
     );
 });

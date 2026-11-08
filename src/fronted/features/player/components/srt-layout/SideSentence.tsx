@@ -4,7 +4,7 @@ import useSetting from '@/fronted/features/settings/settingsStore';
 import { usePlayerUiState } from '@/fronted/features/player/playerUiStore';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { cn } from '@/fronted/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { motion } from 'framer-motion';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import type { Sentence } from '@/common/types/SentenceC';
@@ -36,16 +36,9 @@ interface Part {
 const IconTip = ({ tip, children }: { tip: string; children: React.ReactNode }) => {
     const { t } = useI18nTranslation('player');
     return (
-        <TooltipProvider delayDuration={300}>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    {children}
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={4} className="text-xs">
-                    {t(tip)}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        <Tooltip content={t(tip)} placement="above">
+            {children}
+        </Tooltip>
     );
 };
 

@@ -12,7 +12,7 @@ import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { Bookmark, History, RotateCcw } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import {
     Popover,
     PopoverContent,
@@ -322,32 +322,31 @@ export default function MainSubtitle() {
                 >
                     {/* 当前句操作胶囊：收藏/微调/跟读听写/整句学习 */}
                     <div className={CAPTION_CARD_CLASS}>
-                        <TooltipProvider delayDuration={300}>
-                            {/* 时间戳调整与重置（合并为一个触发器）：图标常驻，调整后整颗按钮高亮；
-                                具体偏移量只在 tooltip 与弹窗里给出，不挤进胶囊、不改变按钮宽度 */}
-                            <Popover open={adjustPopoverOpen} onOpenChange={handleAdjustPopoverChange}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                className={cn(
-                                                    CAPTION_CARD_BUTTON_CLASS,
-                                                    adjusted ? captionCardActiveClass('amber') : CAPTION_CARD_IDLE_CLASS
-                                                )}
-                                            >
-                                                <History className="w-3.5 h-3.5 stroke-[2]" />
-                                            </button>
-                                        </PopoverTrigger>
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top">
-                                        {adjusted
-                                            ? t('subtitle.adjustApplied', {
-                                                  start: `${(adjustDiff?.start ?? 0) >= 0 ? '+' : ''}${(adjustDiff?.start ?? 0).toFixed(2)}s`,
-                                                  end: `${(adjustDiff?.end ?? 0) >= 0 ? '+' : ''}${(adjustDiff?.end ?? 0).toFixed(2)}s`,
-                                              })
-                                            : t('subtitle.adjustTooltip')}
-                                    </TooltipContent>
-                                </Tooltip>
+                        {/* 时间戳调整与重置（合并为一个触发器）：图标常驻，调整后整颗按钮高亮；
+                            具体偏移量只在 tooltip 与弹窗里给出，不挤进胶囊、不改变按钮宽度 */}
+                        <Popover open={adjustPopoverOpen} onOpenChange={handleAdjustPopoverChange}>
+                            <Tooltip
+                                content={
+                                    adjusted
+                                        ? t('subtitle.adjustApplied', {
+                                              start: `${(adjustDiff?.start ?? 0) >= 0 ? '+' : ''}${(adjustDiff?.start ?? 0).toFixed(2)}s`,
+                                              end: `${(adjustDiff?.end ?? 0) >= 0 ? '+' : ''}${(adjustDiff?.end ?? 0).toFixed(2)}s`,
+                                          })
+                                        : t('subtitle.adjustTooltip')
+                                }
+                                placement="above"
+                            >
+                                <PopoverTrigger asChild>
+                                    <button
+                                        className={cn(
+                                            CAPTION_CARD_BUTTON_CLASS,
+                                            adjusted ? captionCardActiveClass('amber') : CAPTION_CARD_IDLE_CLASS
+                                        )}
+                                    >
+                                        <History className="w-3.5 h-3.5 stroke-[2]" />
+                                    </button>
+                                </PopoverTrigger>
+                            </Tooltip>
                                 <PopoverContent side="top" align="end" className="w-72 p-3.5 gap-3 shadow-xl border-border/80 bg-popover/95 backdrop-blur-md">
                                     <div className="flex items-center justify-between border-b border-border/50 pb-2">
                                         <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
@@ -478,7 +477,6 @@ export default function MainSubtitle() {
 
                             {/* 整句学习开关：挂在胶囊最右侧，与学习界面右下角那颗是同一颗，位置不随视图变化 */}
                             <LearningModeButton />
-                        </TooltipProvider>
                     </div>
                 </div>
             </div>

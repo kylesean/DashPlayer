@@ -22,7 +22,7 @@ import useSWR, { useSWRConfig } from 'swr';
 
 import { playerApi } from '@/fronted/features/player/playerApi';
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import {
     CONTROL_POPOVER_HINT,
@@ -102,45 +102,34 @@ export function PlaybackNavControls() {
     const playPauseShortcut = useSetting((s) => s.setting('shortcut.playPause'));
 
     return (
-        <TooltipProvider delayDuration={300}>
-            <div className="flex items-center gap-1 shrink-0">
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <button
-                            onClick={() => { void playerActions.prevSentence(); }}
-                            className={ICON_BUTTON_CLASS}
-                        >
-                            <SkipBack className="w-3.5 h-3.5" />
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">{t('controlBar.prevSentence')}{formatShortcut(prevShortcut)}</TooltipContent>
-                </Tooltip>
+        <div className="flex items-center gap-1 shrink-0">
+            <Tooltip content={`${t('controlBar.prevSentence')}${formatShortcut(prevShortcut)}`} placement="above">
+                <button
+                    onClick={() => { void playerActions.prevSentence(); }}
+                    className={ICON_BUTTON_CLASS}
+                >
+                    <SkipBack className="w-3.5 h-3.5" />
+                </button>
+            </Tooltip>
 
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <button
-                            onClick={() => playerActions.togglePlay()}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/10 hover:bg-white/20 text-white/95 active:scale-95 transition-all"
-                        >
-                            {playing ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">{playing ? t('controlBar.pause') : t('controlBar.play')}{formatShortcut(playPauseShortcut)}</TooltipContent>
-                </Tooltip>
+            <Tooltip content={`${playing ? t('controlBar.pause') : t('controlBar.play')}${formatShortcut(playPauseShortcut)}`} placement="above">
+                <button
+                    onClick={() => playerActions.togglePlay()}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/10 hover:bg-white/20 text-white/95 active:scale-95 transition-all"
+                >
+                    {playing ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+                </button>
+            </Tooltip>
 
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <button
-                            onClick={() => { void playerActions.nextSentence(); }}
-                            className={ICON_BUTTON_CLASS}
-                        >
-                            <SkipForward className="w-3.5 h-3.5" />
-                        </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">{t('controlBar.nextSentence')}{formatShortcut(nextShortcut)}</TooltipContent>
-                </Tooltip>
-            </div>
-        </TooltipProvider>
+            <Tooltip content={`${t('controlBar.nextSentence')}${formatShortcut(nextShortcut)}`} placement="above">
+                <button
+                    onClick={() => { void playerActions.nextSentence(); }}
+                    className={ICON_BUTTON_CLASS}
+                >
+                    <SkipForward className="w-3.5 h-3.5" />
+                </button>
+            </Tooltip>
+        </div>
     );
 }
 
@@ -253,79 +242,84 @@ export function PlaybackModeControls({
         ? `calc(${5 + loopTotalDigits * 2 + 3}ch + 0.625rem)` // 「1.00x」+ 间距 + 「(N/M)」
         : `calc(${loopTotalDigits * 2 + 1}ch + 0.5rem)`; // 「N/M」；影子跟读倒计时位数更少，共用同一槽位
 
-    return (
-        <TooltipProvider delayDuration={300}>
-            <div className="flex items-center gap-1.5 shrink-0">
-                {/* 训练模式：图标固定一颗 Dumbbell，模式身份写在按钮文字里，右侧只挂「进行到哪一步」的中性徽章 */}
-                <Popover open={trainingMenuOpen} onOpenChange={setTrainingMenuOpen}>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <PopoverTrigger asChild>
-                                <button
-                                    className={cn(
-                                        TEXT_BUTTON_CLASS,
-                                        trainingActive
-                                            ? 'text-emerald-200 bg-emerald-500/25 ring-1 ring-emerald-400/30'
-                                            : cn('text-white/80', DARK_BAR_BUTTON_HOVER)
-                                    )}
-                                >
-                                    <Dumbbell className="w-3.5 h-3.5" />
-                                    <span className="font-sans">{trainingLabel}</span>
+    const trainingTooltipContent = singleRepeat
+        ? `${t('controlBar.tooltipSingleRepeat')}${formatShortcut(repeatShortcut)}`
+        : autoPause
+        ? `${t('controlBar.tooltipAutoPause')}${formatShortcut(autoPauseShortcut)}`
+        : shadowing
+        ? `${t('controlBar.tooltipShadowing')}${shadowingPause ? t('controlBar.tooltipShadowingPausing') : ''}`
+        : loopTimesActive
+        ? t('controlBar.tooltipLoopTimes', {
+            times: trainingConfig.repeatTimes,
+            done: (activePlan?.loopDone ?? 0) + 1,
+            total: activePlan?.loopTotal ?? trainingConfig.repeatTimes,
+        })
+        : loopRatesActive
+        ? t('controlBar.tooltipLoopRates', {
+            rate: playbackRate,
+            done: (activePlan?.loopDone ?? 0) + 1,
+            total: activePlan?.loopTotal ?? trainingConfig.progressiveRates.length,
+        })
+        : trainingActive
+        ? t('controlBar.tooltipTrainingActive')
+        : t('controlBar.tooltipTrainingIdle');
 
-                                    {/* 进度徽章槽位：宽度按模式最长内容钉死、常驻（内容缺失时透明占位），
-                                        徽章数字再怎么变也不会撑宽按钮 */}
-                                    {loopTimesActive || loopRatesActive || shadowing ? (
-                                        <span
-                                            className="inline-flex items-center justify-center gap-0.5"
-                                            style={{ minWidth: progressSlotWidth }}
-                                        >
-                                            {loopTimesActive ? (
-                                                activePlan ? <span className={TRAINING_BADGE_CLASS}>{loopCountText}</span> : null
-                                            ) : loopRatesActive ? (
-                                                activePlan ? (
-                                                    <>
-                                                        <span className={TRAINING_BADGE_CLASS}>{playbackRate.toFixed(2)}x</span>
-                                                        <span className="text-[10px] font-mono text-white/70">{`(${loopCountText})`}</span>
-                                                    </>
-                                                ) : null
-                                            ) : shadowingPause ? (
-                                                <ShadowCountdown key={shadowingPause.untilTs} untilTs={shadowingPause.untilTs} />
-                                            ) : null}
-                                        </span>
+    const tracksTooltipContent = t('controlBar.tracksTooltipPrefix') +
+        (showEn && (showCn || showSourceZh)
+            ? t('controlBar.tracksTooltipBilingual')
+            : showEn
+            ? t('controlBar.tracksTooltipEnglish')
+            : showCn || showSourceZh
+            ? t('controlBar.tracksTooltipChinese')
+            : t('controlBar.tracksTooltipNone'));
+
+    return (
+        <div className="flex items-center gap-1.5 shrink-0">
+            {/* 训练模式：图标固定一颗 Dumbbell，模式身份写在按钮文字里，右侧只挂「进行到哪一步」的中性徽章 */}
+            <Popover open={trainingMenuOpen} onOpenChange={setTrainingMenuOpen}>
+                <Tooltip content={trainingTooltipContent} placement="above">
+                    <PopoverTrigger asChild>
+                        <button
+                            className={cn(
+                                TEXT_BUTTON_CLASS,
+                                trainingActive
+                                    ? 'text-emerald-200 bg-emerald-500/25 ring-1 ring-emerald-400/30'
+                                    : cn('text-white/80', DARK_BAR_BUTTON_HOVER)
+                            )}
+                        >
+                            <Dumbbell className="w-3.5 h-3.5" />
+                            <span className="font-sans">{trainingLabel}</span>
+
+                            {/* 进度徽章槽位：宽度按模式最长内容钉死、常驻（内容缺失时透明占位），
+                                徽章数字再怎么变也不会撑宽按钮 */}
+                            {loopTimesActive || loopRatesActive || shadowing ? (
+                                <span
+                                    className="inline-flex items-center justify-center gap-0.5"
+                                    style={{ minWidth: progressSlotWidth }}
+                                >
+                                    {loopTimesActive ? (
+                                        activePlan ? <span className={TRAINING_BADGE_CLASS}>{loopCountText}</span> : null
+                                    ) : loopRatesActive ? (
+                                        activePlan ? (
+                                            <>
+                                                <span className={TRAINING_BADGE_CLASS}>{playbackRate.toFixed(2)}x</span>
+                                                <span className="text-[10px] font-mono text-white/70">{`(${loopCountText})`}</span>
+                                            </>
+                                        ) : null
+                                    ) : shadowingPause ? (
+                                        <ShadowCountdown key={shadowingPause.untilTs} untilTs={shadowingPause.untilTs} />
                                     ) : null}
-                                </button>
-                            </PopoverTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="top">
-                            {singleRepeat
-                                ? `${t('controlBar.tooltipSingleRepeat')}${formatShortcut(repeatShortcut)}`
-                                : autoPause
-                                ? `${t('controlBar.tooltipAutoPause')}${formatShortcut(autoPauseShortcut)}`
-                                : shadowing
-                                ? `${t('controlBar.tooltipShadowing')}${shadowingPause ? t('controlBar.tooltipShadowingPausing') : ''}`
-                                : loopTimesActive
-                                ? t('controlBar.tooltipLoopTimes', {
-                                    times: trainingConfig.repeatTimes,
-                                    done: (activePlan?.loopDone ?? 0) + 1,
-                                    total: activePlan?.loopTotal ?? trainingConfig.repeatTimes,
-                                })
-                                : loopRatesActive
-                                ? t('controlBar.tooltipLoopRates', {
-                                    rate: playbackRate,
-                                    done: (activePlan?.loopDone ?? 0) + 1,
-                                    total: activePlan?.loopTotal ?? trainingConfig.progressiveRates.length,
-                                })
-                                : trainingActive
-                                ? t('controlBar.tooltipTrainingActive')
-                                : t('controlBar.tooltipTrainingIdle')}
-                        </TooltipContent>
-                    </Tooltip>
-                    <PopoverContent
-                        side="top"
-                        align="end"
-                        sideOffset={popoverOffset}
-                        className={cn('w-64', CONTROL_POPOVER_PANEL)}
-                    >
+                                </span>
+                            ) : null}
+                        </button>
+                    </PopoverTrigger>
+                </Tooltip>
+                <PopoverContent
+                    side="top"
+                    align="end"
+                    sideOffset={popoverOffset}
+                    className={cn('w-64', CONTROL_POPOVER_PANEL)}
+                >
                         <div className={cn('flex items-center gap-1.5', CONTROL_POPOVER_LABEL)}>
                             <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
                             {t('controlBar.trainingMenuLabel')}
@@ -413,36 +407,24 @@ export function PlaybackModeControls({
 
                 {/* 字幕轨道开关下拉菜单（直观展示当前是双语/单英文/单中文/全关状态） */}
                 <Popover open={tracksMenuOpen} onOpenChange={setTracksMenuOpen}>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <PopoverTrigger asChild>
-                                <button
-                                    className={cn(TEXT_BUTTON_CLASS, 'text-white/80', DARK_BAR_BUTTON_HOVER)}
-                                >
-                                    <Languages className="w-3.5 h-3.5" />
-                                    {/* 轨道标签: 双语/英/中/隐藏；状态只看这个词，不再给按钮加常驻底色 */}
-                                    <span className="font-sans">
-                                        {showEn && (showCn || showSourceZh)
-                                            ? t('controlBar.tracksBilingual')
-                                            : showEn
-                                            ? t('controlBar.tracksEnglish')
-                                            : showCn || showSourceZh
-                                            ? t('controlBar.tracksChinese')
-                                            : t('controlBar.tracksNone')}
-                                    </span>
-                                </button>
-                            </PopoverTrigger>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" align="end">
-                            {t('controlBar.tracksTooltipPrefix') +
-                                (showEn && (showCn || showSourceZh)
-                                    ? t('controlBar.tracksTooltipBilingual')
-                                    : showEn
-                                    ? t('controlBar.tracksTooltipEnglish')
-                                    : showCn || showSourceZh
-                                    ? t('controlBar.tracksTooltipChinese')
-                                    : t('controlBar.tracksTooltipNone'))}
-                        </TooltipContent>
+                    <Tooltip content={tracksTooltipContent} placement="above">
+                        <PopoverTrigger asChild>
+                            <button
+                                className={cn(TEXT_BUTTON_CLASS, 'text-white/80', DARK_BAR_BUTTON_HOVER)}
+                            >
+                                <Languages className="w-3.5 h-3.5" />
+                                {/* 轨道标签: 双语/英/中/隐藏；状态只看这个词，不再给按钮加常驻底色 */}
+                                <span className="font-sans">
+                                    {showEn && (showCn || showSourceZh)
+                                        ? t('controlBar.tracksBilingual')
+                                        : showEn
+                                        ? t('controlBar.tracksEnglish')
+                                        : showCn || showSourceZh
+                                        ? t('controlBar.tracksChinese')
+                                        : t('controlBar.tracksNone')}
+                                </span>
+                            </button>
+                        </PopoverTrigger>
                     </Tooltip>
                     <PopoverContent
                         side="top"
@@ -507,7 +489,6 @@ export function PlaybackModeControls({
                 {/* 训练模式参数配置弹窗 */}
                 <TrainingSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
             </div>
-        </TooltipProvider>
     );
 }
 
@@ -538,29 +519,22 @@ function HardsubMaskButton() {
     }
 
     return (
-        <TooltipProvider delayDuration={300}>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-                        onClick={toggleMask}
-                        aria-pressed={maskOn}
-                        aria-label={t('hardsubMask.label')}
-                        className={cn(
-                            TEXT_BUTTON_CLASS,
-                            maskOn
-                                ? 'bg-white/20 text-white ring-1 ring-white/30'
-                                : cn('text-white/80', DARK_BAR_BUTTON_HOVER)
-                        )}
-                    >
-                        <SquareDashedBottom className="w-3.5 h-3.5" />
-                        <span className="font-sans hidden lg:inline">{t('hardsubMask.label')}</span>
-                    </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" align="end">
-                    {t('hardsubMask.label')}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        <Tooltip content={t('hardsubMask.label')} placement="above">
+            <button
+                onClick={toggleMask}
+                aria-pressed={maskOn}
+                aria-label={t('hardsubMask.label')}
+                className={cn(
+                    TEXT_BUTTON_CLASS,
+                    maskOn
+                        ? 'bg-white/20 text-white ring-1 ring-white/30'
+                        : cn('text-white/80', DARK_BAR_BUTTON_HOVER)
+                )}
+            >
+                <SquareDashedBottom className="w-3.5 h-3.5" />
+                <span className="font-sans hidden lg:inline">{t('hardsubMask.label')}</span>
+            </button>
+        </Tooltip>
     );
 }
 

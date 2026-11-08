@@ -2,12 +2,7 @@ import { Mic } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { cn } from '@/fronted/lib/utils';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import useChatPanel from '@/fronted/features/chat/chatStore';
@@ -46,25 +41,18 @@ export default function PracticeModeButton() {
     };
 
     return (
-        <TooltipProvider delayDuration={300}>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <button
-                        type="button"
-                        onClick={handleClick}
-                        aria-label={t('panel.title')}
-                        className={cn(
-                            CAPTION_CARD_BUTTON_CLASS,
-                            visible ? captionCardActiveClass('emerald') : CAPTION_CARD_IDLE_CLASS
-                        )}
-                    >
-                        <Mic className="w-3.5 h-3.5" />
-                    </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                    {t('panel.title')}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        <Tooltip content={t('panel.title')} placement="above">
+            <button
+                type="button"
+                onClick={handleClick}
+                aria-label={t('panel.title')}
+                className={cn(
+                    CAPTION_CARD_BUTTON_CLASS,
+                    visible ? captionCardActiveClass('emerald') : CAPTION_CARD_IDLE_CLASS
+                )}
+            >
+                <Mic className="w-3.5 h-3.5" />
+            </button>
+        </Tooltip>
     );
 }

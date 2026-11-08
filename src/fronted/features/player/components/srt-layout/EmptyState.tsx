@@ -2,7 +2,7 @@ import React, {useCallback} from 'react';
 import useSWR from 'swr';
 import {useNavigate} from 'react-router-dom';
 import {Play, Film} from 'lucide-react';
-import {Button} from '@/fronted/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
 import {cn} from '@/fronted/lib/utils';
 import {apiPath, SWR_KEY} from '@/fronted/lib/swr-util';
 import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
@@ -161,18 +161,12 @@ const PlaybackEmptyState: React.FC<PlaybackEmptyStateProps> = ({className}) => {
 
                     <div className="flex flex-col gap-4 sm:flex-row pt-1">
                         <Button
-                            className="
-                                group flex items-center gap-2.5 h-12 rounded-xl
-                                bg-white px-7 text-base sm:text-lg font-semibold text-black
-                                hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-white/40
-                                active:scale-95 transition shadow-lg
-                            "
+                            size="lg"
+                            variant="primary"
+                            label={hasProgress && !isNearEnd ? t('emptyState.continueWatching') : t('emptyState.restartWatching')}
+                            icon={<Play className="h-5 w-5 fill-current" />}
                             onClick={hasProgress && !isNearEnd ? handleContinue : handleRestart}
-                            aria-label={hasProgress && !isNearEnd ? t('emptyState.continueWatching') : t('emptyState.restartWatching')}
-                        >
-                            <Play className="h-5 w-5 fill-black" />
-                            {hasProgress && !isNearEnd ? t('emptyState.continueWatching') : t('emptyState.restartWatching')}
-                        </Button>
+                        />
                     </div>
                 </div>
             </div>
