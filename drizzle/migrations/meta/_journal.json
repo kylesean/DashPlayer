@@ -71,6 +71,13 @@
       "when": 1794139436034,
       "tag": "0009_amusing_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794143837298,
+      "tag": "0010_sticky_aaron_stack",
+      "breakpoints": true
     }
   ]
 }
