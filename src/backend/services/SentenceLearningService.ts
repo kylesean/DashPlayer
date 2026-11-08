@@ -139,7 +139,11 @@ export class SentenceLearningServiceImpl implements SentenceLearningService {
         try {
             const status = await this.localAiService.getStatus();
             if (!status.runtimeReady) return null;
-            return status.models.some((model) => model.ready) ? status.activeModelId : null;
+            // 按使用中模型精确判断就绪：任一其他模型就绪不代表激活模型可用，
+            // 否则 start() 会在用户真正发起请求时才抛「模型未安装」
+            return status.models.find((model) => model.modelId === status.activeModelId)?.ready
+                ? status.activeModelId
+                : null;
         } catch (error) {
             this.logger.warn('local model resolve failed', { error });
             return null;
