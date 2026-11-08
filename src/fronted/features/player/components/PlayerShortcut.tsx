@@ -6,6 +6,7 @@ import useSetting from '@/fronted/features/settings/settingsStore';
 import { useSubtitleScrollState } from '@/fronted/features/player/hooks/useSubtitleScroll';
 import useChatPanel from '@/fronted/features/chat/chatStore';
 import useFavouriteClip from '@/fronted/features/favourite/favouriteStore';
+import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
@@ -19,7 +20,8 @@ const process = (values: string) => values
 /**
  * 注册播放器页快捷键，并在快捷键配置变化后即时重绑。
  *
- * 学习页打开期间全部播放类快捷键停用（enabled: false），避免学习时误触改变播放状态；
+ * 学习页打开期间或跟读录音进行中，全部播放类快捷键停用（enabled: false），
+ * 避免学习时误触改变播放状态、录音中被开播/切句导致评分挂错句与原声混录；
  * 只有开关学习页的快捷键保持可用，否则用户无法用键盘退出学习页。
  */
 export default function PlayerShortCut() {
@@ -68,8 +70,9 @@ export default function PlayerShortCut() {
     const singleRepeat = usePlayer((s) => s.singleRepeat);
     const autoPause = usePlayer((s) => s.autoPause);
     const learningVisible = useChatPanel((s) => s.learningVisible);
-    // 学习页打开期间停用播放类快捷键；开关学习页的快捷键除外
-    const playbackKeysEnabled = !learningVisible;
+    const practiceRecording = usePracticePanel((s) => s.recording);
+    // 学习页打开期间或跟读录音进行中停用播放类快捷键；开关学习页的快捷键除外
+    const playbackKeysEnabled = !learningVisible && !practiceRecording;
 
     const toggleSingleRepeat = () => {
         playerActions.setSingleRepeat(!singleRepeat);
@@ -147,7 +150,9 @@ export default function PlayerShortCut() {
     useHotkeys(process(shortcuts.toggleWordLevelDisplay), changeShowWordLevel, { enabled: playbackKeysEnabled });
     useHotkeys(process(shortcuts.nextPlaybackRate), playerActions.cyclePlaybackRate.bind(playerActions), { enabled: playbackKeysEnabled });
     useHotkeys(process(shortcuts.aiChat), () => {
-        // 同一个快捷键开关学习页：进入时学习页会自行暂停播放，返回时不动播放状态
+        // 同一个快捷键开关学习页：进入时学习页会自行暂停播放，返回时不动播放状态。
+        // 与 LearningModeButton 同口径：两个覆盖面板共享同一块区域，打开学习页时收起练习面板
+        usePracticePanel.getState().setVisible(false);
         useChatPanel.getState().toggleLearning().catch((error) => {
             toast.error(error instanceof Error ? error.message : String(error));
         });
