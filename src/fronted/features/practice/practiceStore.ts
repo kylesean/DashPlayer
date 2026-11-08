@@ -6,8 +6,11 @@ interface PracticePanelState {
     visible: boolean;
     /** 当前练习模式:跟读 / 听写。 */
     mode: SentencePracticeMode;
+    /** 跟读录音是否进行中。快捷键层据此停用播放类快捷键,避免录音中被开播/切句导致评分挂错句。 */
+    recording: boolean;
     setVisible: (visible: boolean) => void;
     setMode: (mode: SentencePracticeMode) => void;
+    setRecording: (recording: boolean) => void;
     toggle: () => void;
 }
 
@@ -18,8 +21,10 @@ interface PracticePanelState {
 const usePracticePanel = create<PracticePanelState>((set) => ({
     visible: false,
     mode: 'shadowing',
+    recording: false,
     setVisible: (visible) => set({ visible }),
     setMode: (mode) => set({ mode }),
+    setRecording: (recording) => set({ recording }),
     toggle: () => set((state) => ({ visible: !state.visible })),
 }));
 

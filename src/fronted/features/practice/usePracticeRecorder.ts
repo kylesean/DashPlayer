@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { practiceApi } from './practiceApi';
+import usePracticePanel from './practiceStore';
 
 const logger = getRendererLogger('usePracticeRecorder');
 
@@ -43,10 +44,32 @@ export function usePracticeRecorder({ onRecordingComplete }: UsePracticeRecorder
         onDoneRef.current = onRecordingComplete;
     }, [onRecordingComplete]);
 
-    const releaseStream = (): void => {
+    const releaseStream = useCallback((): void => {
         mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
         mediaStreamRef.current = null;
-    };
+    }, []);
+
+    // 录音状态提升到 practiceStore:快捷键层据此在录音中停用播放类快捷键,
+    // 避免录音中被开播/切句导致评分挂到错误的意群上
+    const setRecording = usePracticePanel((s) => s.setRecording);
+    useEffect(() => {
+        setRecording(phase === 'recording');
+    }, [phase, setRecording]);
+
+    // 卸载兜底:面板被条件卸载时不会有人再点停止,主动断开收尾回调并停轨,
+    // 否则麦克风保持占用、缓冲持续累积,重开面板还会与新一轮录音并发采集
+    useEffect(() => () => {
+        const recorder = mediaRecorderRef.current;
+        if (recorder && recorder.state === 'recording') {
+            recorder.onstop = null; // 卸载路径不走收尾,避免空 blob 误报 toast
+            try {
+                recorder.stop();
+            } catch {
+                // 流已失效时 stop 可能抛 InvalidStateError,卸载路径无需处理
+            }
+        }
+        releaseStream();
+    }, [releaseStream]);
 
     /** 收尾:释放麦克风、清空缓冲,回到空闲(processing 阶段除外)。 */
     const finishFlow = (): void => {
@@ -61,6 +84,8 @@ export function usePracticeRecorder({ onRecordingComplete }: UsePracticeRecorder
         finishFlow();
         if (blob.size === 0) {
             toast.error(t('recorder.empty'));
+            // 复位到空闲,否则面板停留在录音态:停止键引用已空、开始键被 phase 守卫拒绝,面板内无出路
+            setPhase('idle');
             return;
         }
         setPhase('processing');
