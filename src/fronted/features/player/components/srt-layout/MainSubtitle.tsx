@@ -111,16 +111,21 @@ export default function MainSubtitle() {
     const [, bumpSubtitleFitTick] = React.useReducer((tick: number) => tick + 1, 0);
 
     // 绘制前测量:先复位 zoom=1 量自然高度,超出容器则按比例缩小(上限 1,不放大)。
-    // 无依赖数组——每次渲染都重测:译文到达、意群切换、字号设置变更都会改变内容高度,
-    // 测量本身只是两次 getBoundingClientRect,开销可忽略。
+    // 全部用布局口径(offsetHeight / clientHeight):播放器浮动层带 transform: scale(),
+    // getBoundingClientRect 会把测量值乘上缩放系数,而 overflow-hidden 按布局盒裁切,
+    // 两种口径混用会算错缩放比。可用高度要扣除容器上下内边距(pt-3/pb-2)。
+    // 无依赖数组——每次渲染都重测:译文到达、意群切换、字号设置变更都会改变内容高度。
     useLayoutEffect(() => {
         const container = subtitleContainerRef.current;
         const content = subtitleContentRef.current;
         if (!container || !content) return;
         content.style.zoom = '1';
-        const natural = content.getBoundingClientRect().height;
-        const available = container.clientHeight;
-        content.style.zoom = natural > available
+        const natural = content.offsetHeight;
+        const style = getComputedStyle(container);
+        const available = container.clientHeight
+            - (parseFloat(style.paddingTop) || 0)
+            - (parseFloat(style.paddingBottom) || 0);
+        content.style.zoom = natural > available && available > 0
             ? String(Math.max(0.75, available / natural))
             : '1';
     });
