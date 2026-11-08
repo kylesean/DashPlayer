@@ -31,6 +31,9 @@ const TARGET_SUB_DIRECTORY = 'YouTube';
 /** 首次使用时二进制归档的固定工作目录名（断点续传依赖固定路径）。 */
 const BINARY_WORK_DIRECTORY = '.yt-dlp-download';
 
+/** 二进制下载被用户取消时安装器抛出的错误文案；据此把失败归一成取消语义。 */
+const BINARY_DOWNLOAD_CANCELLED_MESSAGE = 'yt-dlp 组件下载已取消';
+
 /** 英语字幕文件名匹配：`xxx.en.srt`、`xxx.en-orig.srt`、`xxx.en-xx.srt` 等。 */
 const ENGLISH_SRT_PATTERN = /\.en(?:-[A-Za-z0-9-]+)?\.srt$/i;
 
@@ -125,8 +128,7 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
                 modelDirectoryName: YT_DLP_INSTALL_DIRECTORY,
                 storageTarget: StorageDirectoryTarget.BIN,
                 requiredFiles: [ytDlpBinaryFileName()],
-                progressEventName: 'youtube-import/yt-dlp-binary-download-progress',
-                cancelledMessage: 'yt-dlp 组件下载已取消',
+                cancelledMessage: BINARY_DOWNLOAD_CANCELLED_MESSAGE,
                 modelDisplayName: 'yt-dlp 组件',
             },
             rendererGateway,
@@ -146,9 +148,21 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
         }
         const activeTaskId = this.activeImports.get(videoId);
         if (activeTaskId !== undefined) {
-            throw new Error(`该视频正在导入中（任务 #${activeTaskId}），请等待完成后再试`);
+            // 占位值（-1）表示任务编号尚未生成
+            throw new Error(activeTaskId === -1
+                ? '该视频正在导入中，请等待完成后再试'
+                : `该视频正在导入中（任务 #${activeTaskId}），请等待完成后再试`);
         }
-        const taskId = await this.dpTaskService.create();
+        // 先同步占位再异步建任务，消除「检查与登记之间 await」的窗口：
+        // 否则两次并发 start 同一视频都会通过检查、各自整段下载。
+        this.activeImports.set(videoId, -1);
+        let taskId: number;
+        try {
+            taskId = await this.dpTaskService.create();
+        } catch (error) {
+            this.activeImports.delete(videoId);
+            throw error;
+        }
         this.activeImports.set(videoId, taskId);
         // 后台长任务不继承 IPC 的 traceId，用 job 键标注日志（见 docs/observability.md）。
         this.logger.info('youtube import start', { job: `download:${videoId}`, taskId, url });
@@ -159,6 +173,10 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
 
     /** @inheritdoc */
     public async cancel(taskId: number): Promise<{ cancelled: boolean }> {
+        // 只允许取消本服务的导入任务，防止误取消转写等其他功能的任务
+        if (![...this.activeImports.values()].includes(taskId)) {
+            return { cancelled: false };
+        }
         this.dpTaskService.cancel(taskId);
         return { cancelled: true };
     }
@@ -218,50 +236,54 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
         const tempRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
         const workDir = path.join(tempRoot, `youtube-${videoId}-${Date.now()}`);
         await this.fileSystemGateway.ensureDirectory(workDir);
-        const targetDir = path.join(
-            await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.VIDEOS),
-            TARGET_SUB_DIRECTORY,
-        );
-        await this.fileSystemGateway.ensureDirectory(targetDir);
+        // 无论成败都清理临时工作目录：失败/取消路径不能把 GB 级半成品永久留在 temp
+        try {
+            const targetDir = path.join(
+                await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.VIDEOS),
+                TARGET_SUB_DIRECTORY,
+            );
+            await this.fileSystemGateway.ensureDirectory(targetDir);
 
-        // 已导入过同一视频时直接复用库内产物，避免重复下载与重复记录。
-        const existing = await this.findExistingVideo(targetDir, videoId);
-        if (existing) {
-            this.dpTaskService.process(taskId, { progress: '该视频已导入过，直接复用' });
-            return this.registerVideo(existing.videoPath, existing.srtPaths);
-        }
+            // 已导入过同一视频时直接复用库内产物，避免重复下载与重复记录。
+            const existing = await this.findExistingVideo(targetDir, videoId);
+            if (existing) {
+                this.dpTaskService.process(taskId, { progress: '该视频已导入过，直接复用' });
+                return this.registerVideo(existing.videoPath, existing.srtPaths);
+            }
 
-        this.dpTaskService.process(taskId, { progress: '连接 YouTube…' });
-        const cookiesFilePath = this.getCookiesFilePath();
-        // 信号量必须包住“启动下载”，否则并发任务会同时 spawn yt-dlp。
-        const { videoPath, srtPaths } = await concurrency.withSemaphore('yt-dlp', async () => {
-            this.dpTaskService.checkCancel(taskId);
-            const running = this.ytDlpGateway.download({
-                url,
-                outputDir: workDir,
-                ytDlpBinaryPath,
-                cookiesFilePath: cookiesFilePath || undefined,
-                onProgress: (percent) => {
-                    this.dpTaskService.process(taskId, { progress: `下载中 ${percent.toFixed(1)}%` });
-                },
+            this.dpTaskService.process(taskId, { progress: '连接 YouTube…' });
+            const cookiesFilePath = this.getCookiesFilePath();
+            // 信号量必须包住“启动下载”，否则并发任务会同时 spawn yt-dlp。
+            const { videoPath, srtPaths } = await concurrency.withSemaphore('yt-dlp', async () => {
+                this.dpTaskService.checkCancel(taskId);
+                const running = this.ytDlpGateway.download({
+                    url,
+                    outputDir: workDir,
+                    ytDlpBinaryPath,
+                    cookiesFilePath: cookiesFilePath || undefined,
+                    onProgress: (percent) => {
+                        this.dpTaskService.process(taskId, { progress: `下载中 ${percent.toFixed(1)}%` });
+                    },
+                });
+                this.dpTaskService.registerTask(taskId, { cancel: () => running.cancel() });
+                return await running.result;
             });
-            this.dpTaskService.registerTask(taskId, { cancel: () => running.cancel() });
-            return await running.result;
-        });
 
-        this.dpTaskService.process(taskId, { progress: '整理下载产物…' });
-        const fileName = path.basename(videoPath);
-        const targetVideoPath = path.join(targetDir, fileName);
-        await this.fileSystemGateway.moveFile(videoPath, targetVideoPath);
-        const movedSrtPaths: string[] = [];
-        for (const srtPath of srtPaths) {
-            const targetSrtPath = path.join(targetDir, path.basename(srtPath));
-            await this.fileSystemGateway.moveFile(srtPath, targetSrtPath);
-            movedSrtPaths.push(targetSrtPath);
+            this.dpTaskService.process(taskId, { progress: '整理下载产物…' });
+            const fileName = path.basename(videoPath);
+            const targetVideoPath = path.join(targetDir, fileName);
+            await this.fileSystemGateway.moveFile(videoPath, targetVideoPath);
+            const movedSrtPaths: string[] = [];
+            for (const srtPath of srtPaths) {
+                const targetSrtPath = path.join(targetDir, path.basename(srtPath));
+                await this.fileSystemGateway.moveFile(srtPath, targetSrtPath);
+                movedSrtPaths.push(targetSrtPath);
+            }
+
+            return this.registerVideo(targetVideoPath, movedSrtPaths);
+        } finally {
+            await this.fileSystemGateway.removeDirectoryIfExists(workDir);
         }
-        await this.fileSystemGateway.removeDirectoryIfExists(workDir);
-
-        return this.registerVideo(targetVideoPath, movedSrtPaths);
     }
 
     /**
@@ -275,6 +297,11 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             await this.watchHistoryService.attachSrt(videoPath, englishSrt);
         } else if (srtPaths.length === 0) {
             this.logger.warn('youtube import produced no srt; user can transcribe in player', { videoPath });
+        } else {
+            this.logger.warn('youtube import produced srt but none matched english track', {
+                videoPath,
+                srtFiles: srtPaths.map((p) => path.basename(p)),
+            });
         }
         return {
             videoId,
@@ -315,6 +342,15 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             return binaryPath;
         }
         this.dpTaskService.process(taskId, { progress: '首次使用，正在下载 yt-dlp 组件…' });
+        // 先检查取消：在登记取消回调之前就已请求取消的任务，不要再发起无谓的下载。
+        this.dpTaskService.checkCancel(taskId);
+        // 二进制下载阶段接上取消：否则请求取消只是进了 cancelQueue，下载进程照跑、
+        // 轮询还把任务刷回进行中，用户视角是「取消按钮坏了」。
+        this.dpTaskService.registerTask(taskId, {
+            cancel: () => {
+                void this.binaryInstaller.cancelDownload();
+            },
+        });
         // 安装器只向渲染层事件广播进度，这里轮询状态同步到 dp-task 进度文本。
         const pollTimer = setInterval(() => {
             void this.binaryInstaller.getStatus()
@@ -330,6 +366,12 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             if (!result.success) {
                 throw new Error(result.message);
             }
+        } catch (error) {
+            // 安装器把取消表达为普通错误，这里归一成取消语义，让任务进 CANCELLED 而非 FAILED
+            if (error instanceof Error && error.message === BINARY_DOWNLOAD_CANCELLED_MESSAGE) {
+                throw new CancelByUserError(error.message);
+            }
+            throw error;
         } finally {
             clearInterval(pollTimer);
         }
