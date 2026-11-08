@@ -19,7 +19,6 @@ export const SettingKeyObj = {
     'shortcut.clearAdjust': 'v',
     'shortcut.nextPlaybackRate': 'p',
     'shortcut.aiChat': 'slash',
-    'shortcut.addClip': 'shift+l',
     'shortcut.openControlPanel': 'shift+p',
     'shortcut.volumeUp': ']',
     'shortcut.volumeDown': '[',

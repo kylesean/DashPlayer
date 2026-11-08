@@ -1,20 +1,4 @@
 {
-    "savedMoments": {
-        "title": "收藏片段",
-        "description": "集中管理和回看你保存的视频金句片段",
-        "tasksInProgress": "正在生成 {{count}} 个片段...",
-        "recover": {
-            "loading": "正在从本地恢复收藏片段...",
-            "success": "收藏片段恢复完成",
-            "error": "恢复失败，请稍后重试",
-            "button": "从本地恢复收藏片段"
-        },
-        "empty": {
-            "title": "暂无收藏片段",
-            "guideAdd": "在播放器中使用“添加收藏片段”快捷键或按钮，即可将当前句子收录于此集中复习。",
-            "guideRecover": "如果本地已存在 favourite_clips 文件但列表为空，可点击下方按钮重新构建索引。"
-        }
-    },
     "vocabularyStudio": {
         "title": "词汇工坊",
         "description": "聚焦生词片段，快速定位并回看真实语境",

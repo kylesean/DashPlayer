@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Container } from 'inversify';
 import TYPES from '@/backend/ioc/types';
-import ClipOssServiceImpl from '@/backend/infrastructure/storage/ClipOssServiceImpl';
 import VideoLearningOssServiceImpl from '@/backend/infrastructure/storage/VideoLearningOssServiceImpl';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
@@ -36,17 +35,6 @@ describe('片段存储实现的 IoC 装配', () => {
             .toConstantValue({} as FfmpegService);
         return container;
     }
-
-    it('收藏片段存储实现可以从容器解析并具备业务方法', () => {
-        const container = buildContainer();
-        container.bind(ClipOssServiceImpl).toSelf();
-
-        const storage = container.get(ClipOssServiceImpl);
-
-        expect(typeof storage.putClip).toBe('function');
-        expect(typeof storage.get).toBe('function');
-        expect(typeof storage.list).toBe('function');
-    });
 
     it('单词视频存储实现可以从容器解析并具备业务方法', () => {
         const container = buildContainer();

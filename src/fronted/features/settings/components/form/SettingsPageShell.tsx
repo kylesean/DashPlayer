@@ -1,54 +1,75 @@
 import React from 'react';
-import { cn } from '@/fronted/lib/utils';
-import { Separator } from '@/fronted/components/ui/separator';
+import { VStack, HStack } from '@astryxdesign/core/VStack';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Divider } from '@astryxdesign/core/Divider';
 
+/**
+ * 设置子页面容器属性定义。
+ */
 export interface SettingsPageShellProps {
+    /** 页面主标题。 */
     title: string;
+    /** 页面辅助描述说明。 */
     description?: React.ReactNode;
+    /** 页面设置表单主体内容。 */
     children: React.ReactNode;
+    /** 底部动作区（如保存、重置按钮等）。 */
     actions?: React.ReactNode;
+    /** 外部自定义类名。 */
     className?: string;
+    /** 内容区域自定义类名。 */
     contentClassName?: string;
 }
 
-const SettingsPageShell = ({
+/**
+ * 设置子页面统一骨架外壳组件。
+ *
+ * 采用 Astryx 布局原语构建，统一负责设置页面的标题排版、分割线以及滚动区域。
+ *
+ * @param props 组件属性。
+ * @returns 页面外壳 JSX 元素。
+ */
+const SettingsPageShell: React.FC<SettingsPageShellProps> = ({
     title,
     description,
     children,
     actions,
     className,
     contentClassName,
-}: SettingsPageShellProps) => {
+}) => {
     return (
-        <div className={cn('h-full min-h-0 flex flex-col', className)}>
-            <div className="space-y-1">
-                <h1 className="text-lg font-semibold tracking-tight text-foreground">{title}</h1>
+        <VStack gap={4} width="100%" height="fill" className={className}>
+            <VStack gap={1}>
+                <Heading level={2}>{title}</Heading>
                 {description ? (
-                    <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+                    typeof description === 'string' ? (
+                        <Text type="supporting" color="secondary">
+                            {description}
+                        </Text>
+                    ) : (
+                        description
+                    )
                 ) : null}
-            </div>
-            <Separator className="mt-3.5 mb-5 opacity-60" />
+            </VStack>
 
-            <div
-                className={cn(
-                    'flex-1 min-h-0 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-rounded-full scrollbar-thumb-stone-200 dark:scrollbar-thumb-neutral-700',
-                    contentClassName,
-                )}
+            <Divider variant="subtle" />
+
+            <VStack
+                gap={5}
+                width="100%"
+                isScrollable
+                className={contentClassName}
             >
                 {children}
                 {actions ? (
-                    <div className="flex justify-end gap-2 pt-6 pb-1">{actions}</div>
+                    <HStack justify="end" gap={2} paddingBlockStart={4}>
+                        {actions}
+                    </HStack>
                 ) : null}
-            </div>
-        </div>
+            </VStack>
+        </VStack>
     );
-};
-
-SettingsPageShell.defaultProps = {
-    description: undefined,
-    actions: undefined,
-    className: '',
-    contentClassName: '',
 };
 
 export default SettingsPageShell;

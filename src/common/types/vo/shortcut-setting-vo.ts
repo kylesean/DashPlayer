@@ -41,7 +41,6 @@ export interface ShortcutSettingDetailVO {
     /** 打开 AI 对话快捷键。 */
     aiChat: string;
     /** 添加片段快捷键。 */
-    addClip: string;
     /** 打开控制面板快捷键。 */
     openControlPanel: string;
     /** 音量增大快捷键。 */

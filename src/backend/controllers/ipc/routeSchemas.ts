@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
-import type { ClipQuery, SimpleClipQuery } from '@/common/api/dto';
-import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
+import type { SimpleClipQuery } from '@/common/api/dto';import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
 import type { MobileAccessSettingSaveVO } from '@/common/contracts/mobile-access-setting-vo';
 import type { ProxySettingSaveVO } from '@/common/contracts/proxy-setting-vo';
 import type { RuntimeSettingSaveRequest } from '@/common/contracts/runtime-settings';
@@ -126,7 +125,6 @@ export const shortcutSettingSaveSchema: z.ZodType<ShortcutSettingSaveVO> = z.obj
     clearAdjust: z.string(),
     nextPlaybackRate: z.string(),
     aiChat: z.string(),
-    addClip: z.string(),
     openControlPanel: z.string(),
     volumeUp: z.string(),
     volumeDown: z.string(),
@@ -201,19 +199,6 @@ export const completeSentenceSchema: z.ZodType<CompleteSentenceParams> = z.objec
     precedingLines: z.array(z.string()),
     followingLines: z.array(z.string()),
 });
-
-/** 收藏片段筛选条件校验架构（允许省略直接拉取全量列表）。 */
-export const clipQuerySchema: z.ZodType<ClipQuery | undefined> = z.object({
-    keyword: z.string(),
-    keywordRange: z.enum(['context', 'clip']),
-    tags: z.array(z.number().int()),
-    tagsRelation: z.enum(['and', 'or']),
-    date: z.object({
-        from: z.union([z.date(), z.undefined()]),
-        to: z.date().optional(),
-    }),
-    includeNoTag: z.boolean(),
-}).optional();
 
 /** 视频学习片段分页检索条件校验架构。 */
 export const simpleClipQuerySchema: z.ZodType<SimpleClipQuery> = z.object({

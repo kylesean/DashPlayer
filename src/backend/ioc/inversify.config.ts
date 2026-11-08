@@ -3,11 +3,7 @@ import { LocalAiController } from '@/backend/controllers/LocalAiController';
 import { LocalAiRuntime } from '@/backend/infrastructure/ai/LocalAiRuntime';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import TYPES from './types';
-import FavoriteClipsController from '@/backend/controllers/FavoriteClipsController';
 import type Controller from '@/backend/controllers/Controller';
-import type TagService from '@/backend/services/TagService';
-import { TagServiceImpl } from '@/backend/services/TagService';
-import TagController from '@/backend/controllers/TagController';
 import type SrtTimeAdjustService from '@/backend/services/SrtTimeAdjustService';
 import { SrtTimeAdjustServiceImpl } from '@/backend/services/SrtTimeAdjustService';
 import type SubtitleService from '@/backend/services/SubtitleService';
@@ -36,11 +32,9 @@ import type SettingService from '@/backend/services/SettingService';
 import { SettingServiceImpl } from '@/backend/services/SettingService';
 import type ResourceFallbackService from '@/backend/services/ResourceFallbackService';
 import { ResourceFallbackServiceImpl } from '@/backend/services/ResourceFallbackService';
-import { type FavouriteClipsService, FavouriteClipsServiceImpl } from '@/backend/services/FavouriteClipsService';
 import type CacheService from '@/backend/services/CacheService';
 import { CacheServiceImpl } from '@/backend/services/CacheService';
 import type { ClipOssService } from '@/backend/services/OssService';
-import ClipOssServiceImpl from '@/backend/infrastructure/storage/ClipOssServiceImpl';
 import VideoLearningOssServiceImpl from '@/backend/infrastructure/storage/VideoLearningOssServiceImpl';
 import { type VideoLearningService, VideoLearningServiceImpl } from '@/backend/services/VideoLearningService';
 import VideoLearningApiController from '@/backend/controllers/VideoLearningApiController';
@@ -133,8 +127,6 @@ import type WatchHistoryRepository from '@/backend/services/repositories/WatchHi
 import WatchHistoryRepositoryImpl from '@/backend/infrastructure/db/repositories/WatchHistoryRepositoryImpl';
 import type WatchHistoryExtRepository from '@/backend/services/repositories/WatchHistoryExtRepository';
 import WatchHistoryExtRepositoryImpl from '@/backend/infrastructure/db/repositories/WatchHistoryExtRepositoryImpl';
-import type FavouriteClipsRepository from '@/backend/services/repositories/FavouriteClipsRepository';
-import FavouriteClipsRepositoryImpl from '@/backend/infrastructure/db/repositories/FavouriteClipsRepositoryImpl';
 import type WordTranslatesRepository from '@/backend/services/repositories/WordTranslatesRepository';
 import WordTranslatesRepositoryImpl from '@/backend/infrastructure/db/repositories/WordTranslatesRepositoryImpl';
 import type SentenceTranslatesRepository from '@/backend/services/repositories/SentenceTranslatesRepository';
@@ -162,7 +154,6 @@ import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/B
 import { BuiltinDictionaryStoreImpl } from '@/backend/infrastructure/translate/BuiltinDictionaryStoreImpl';
 import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
 
-
 const container = new Container();
 // 数据库单例：仓储层统一从这里注入，测试可用内存库替换。
 container.bind<Db>(TYPES.Database).toConstantValue(db);
@@ -186,8 +177,6 @@ container.bind<BuiltinDictionaryStore>(TYPES.BuiltinDictionaryStore).to(BuiltinD
 container.bind<string>(TYPES.BuiltinDictionaryPath)
     .toConstantValue(getRuntimeResourcePath('resources', 'dictionary.sqlite'));
 // Controllers
-container.bind<Controller>(TYPES.Controller).to(FavoriteClipsController).inSingletonScope();
-container.bind<Controller>(TYPES.Controller).to(TagController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SrtTimeAdjustController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(AiFuncController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(ChatStreamController).inSingletonScope();
@@ -235,18 +224,14 @@ container.bind<VideoLearningClipRepository>(TYPES.VideoLearningClipRepository).t
 container.bind<VideoLearningClipWordRepository>(TYPES.VideoLearningClipWordRepository).to(VideoLearningClipWordRepositoryImpl).inSingletonScope();
 container.bind<WatchHistoryRepository>(TYPES.WatchHistoryRepository).to(WatchHistoryRepositoryImpl).inSingletonScope();
 container.bind<WatchHistoryExtRepository>(TYPES.WatchHistoryExtRepository).to(WatchHistoryExtRepositoryImpl).inSingletonScope();
-container.bind<FavouriteClipsRepository>(TYPES.FavouriteClipsRepository).to(FavouriteClipsRepositoryImpl).inSingletonScope();
 container.bind<WordTranslatesRepository>(TYPES.WordTranslatesRepository).to(WordTranslatesRepositoryImpl).inSingletonScope();
 container.bind<SentenceTranslatesRepository>(TYPES.SentenceTranslatesRepository).to(SentenceTranslatesRepositoryImpl).inSingletonScope();
 container.bind<SentencePracticeRecordRepository>(TYPES.SentencePracticeRecordRepository).to(SentencePracticeRecordRepositoryImpl).inSingletonScope();
 container.bind<SysConfRepository>(TYPES.SysConfRepository).to(SysConfRepositoryImpl).inSingletonScope();
 container.bind<SubtitleTimestampAdjustmentsRepository>(TYPES.SubtitleTimestampAdjustmentsRepository).to(SubtitleTimestampAdjustmentsRepositoryImpl).inSingletonScope();
-container.bind<ClipOssService>(TYPES.ClipOssService).to(ClipOssServiceImpl).inSingletonScope();
 container.bind<ClipOssService>(TYPES.VideoLearningOssService).to(VideoLearningOssServiceImpl).inSingletonScope();
-container.bind<FavouriteClipsService>(TYPES.FavouriteClips).to(FavouriteClipsServiceImpl).inSingletonScope();
 container.bind<SentencePracticeService>(TYPES.SentencePracticeService).to(SentencePracticeServiceImpl).inSingletonScope();
 container.bind<VideoLearningService>(TYPES.VideoLearningService).to(VideoLearningServiceImpl).inSingletonScope();
-container.bind<TagService>(TYPES.TagService).to(TagServiceImpl).inSingletonScope();
 container.bind<SrtTimeAdjustService>(TYPES.SrtTimeAdjustService).to(SrtTimeAdjustServiceImpl).inSingletonScope();
 container.bind<SubtitleService>(TYPES.SubtitleService).to(SubtitleServiceImpl).inSingletonScope();
 container.bind<SubtitleVocabularyAnalysisService>(TYPES.SubtitleVocabularyAnalysisService)

@@ -5,7 +5,6 @@ import toast from 'react-hot-toast';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { useSubtitleScrollState } from '@/fronted/features/player/hooks/useSubtitleScroll';
 import useChatPanel from '@/fronted/features/chat/chatStore';
-import useFavouriteClip from '@/fronted/features/favourite/favouriteStore';
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
@@ -69,7 +68,6 @@ export default function PlayerShortCut() {
         toggleWordLevelDisplay: s.values.get('shortcut.toggleWordLevelDisplay') ?? '',
         nextPlaybackRate: s.values.get('shortcut.nextPlaybackRate') ?? '',
         aiChat: s.values.get('shortcut.aiChat') ?? '',
-        addClip: s.values.get('shortcut.addClip') ?? '',
         volumeUp: s.values.get('shortcut.volumeUp') ?? '',
         volumeDown: s.values.get('shortcut.volumeDown') ?? '',
         seekBackward: s.values.get('shortcut.seekBackward') ?? '',
@@ -176,10 +174,6 @@ export default function PlayerShortCut() {
             toast.error(error instanceof Error ? error.message : String(error));
         });
     }, []);
-
-    useHotkeys(process(shortcuts.addClip), async () => {
-        useFavouriteClip.getState().changeCurrentLineClip();
-    }, { enabled: playbackKeysEnabled });
 
     return <></>;
 }

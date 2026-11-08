@@ -1,7 +1,6 @@
 const TYPES = {
     ClipOssService: Symbol('ClipOssService'),
     VideoLearningOssService: Symbol('VideoLearningOssService'),
-    FavouriteClips: Symbol('FavouriteClips'),
     VideoLearningService: Symbol('VideoLearningService'),
     Controller: Symbol('Controller'),
     MigrationFailureController: Symbol('MigrationFailureController'),
@@ -10,7 +9,6 @@ const TYPES = {
     StorageService: Symbol('StorageService'),
     SystemService: Symbol('SystemService'),
     WatchProject: Symbol('WatchProject'),
-    TagService: Symbol('TagService'),
     SubtitleService: Symbol('SubtitleService'),
     SubtitleVocabularyAnalysisService: Symbol('SubtitleVocabularyAnalysisService'),
     SrtTimeAdjustService: Symbol('SubtitleTimestampAdjustmentService'),
@@ -59,7 +57,6 @@ const TYPES = {
     VideoLearningClipWordRepository: Symbol('VideoLearningClipWordRepository'),
     WatchHistoryRepository: Symbol('WatchHistoryRepository'),
     WatchHistoryExtRepository: Symbol('WatchHistoryExtRepository'),
-    FavouriteClipsRepository: Symbol('FavouriteClipsRepository'),
     WordTranslatesRepository: Symbol('WordTranslatesRepository'),
     SentenceTranslatesRepository: Symbol('SentenceTranslatesRepository'),
     SentencePracticeRecordRepository: Symbol('SentencePracticeRecordRepository'),

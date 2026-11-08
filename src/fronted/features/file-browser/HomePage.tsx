@@ -81,7 +81,6 @@ const HomePage = () => {
     }, []);
 
     const navItems = [
-        { title: t('savedMoments'), path: '/favorite', icon: Star },
         { title: t('vocabularyStudio'), path: '/vocabulary', icon: BookOpen },
         { title: t('settingsCenter'), path: '/settings', icon: Settings },
     ];

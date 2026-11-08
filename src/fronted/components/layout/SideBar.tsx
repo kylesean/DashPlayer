@@ -91,12 +91,6 @@ const SideBar = ({ compact = false }: SideBarProps) => {
                     <Video />
                 )}
                 {item(
-                    t('savedMoments'),
-                    '/favorite',
-                    'favorite',
-                    <Star />
-                )}
-                {item(
                     t('vocabularyStudio'),
                     '/vocabulary',
                     'vocabulary',

@@ -310,7 +310,6 @@ export const settingsApi = {
      *
      * @returns 同步完成后结束。
      */
-    syncFavouriteFromOss: () => backendClient.call('favorite-clips/sync-from-oss'),
 
     /**
      * 从远端同步视频学习数据。

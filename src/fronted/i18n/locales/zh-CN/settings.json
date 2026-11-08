@@ -217,10 +217,6 @@
                 "title": "打开 AI 对话",
                 "description": "唤起 AI 对话面板"
             },
-            "addClip": {
-                "title": "添加收藏片段",
-                "description": "将当前句子片段保存至收藏片段列表"
-            },
             "openControlPanel": {
                 "title": "打开控制面板",
                 "description": "打开播放器控制面板"

@@ -78,15 +78,13 @@ export class StorageServiceImpl implements StorageService {
 
         // word_video 位于 favorite_clips 内，收藏片段分类只保留其余部分；
         // 目录内容在两次遍历之间可能变化，差值为负时按 0 展示。
-        const favouriteClipsOnlyBytes = Math.max(favouriteClipsBytes - wordClipsBytes, 0);
         const otherBytes = Math.max(
-            totalBytes - videosBytes - favouriteClipsOnlyBytes - wordClipsBytes - tempBytes - modelsBytes,
+            totalBytes - videosBytes - favouriteClipsBytes - wordClipsBytes - tempBytes - modelsBytes,
             0,
         );
 
         const knownItems: StorageUsageItemVO[] = [
             { category: 'videos', bytes: videosBytes },
-            { category: 'favorite_clips', bytes: favouriteClipsOnlyBytes },
             { category: 'word_clips', bytes: wordClipsBytes },
             { category: 'models', bytes: modelsBytes },
             { category: 'temp', bytes: tempBytes },

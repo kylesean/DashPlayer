@@ -20,7 +20,6 @@ import toast, { Toaster as HotToaster, type Toast } from 'react-hot-toast';
 
 import GlobalShortCut from '@/fronted/components/shared/shortcuts/GlobalShortCut';
 import Eb from '@/fronted/components/shared/common/Eb';
-import FavouritePage from '@/fronted/features/favourite/FavouritePage';
 import VideoLearningPage from '@/fronted/features/video-learning/VideoLearningPage';
 import { OnboardingView } from '@/fronted/features/onboarding/OnboardingView';
 import { getOnboardingCompletedVersion } from '@/fronted/features/onboarding/onboardingApi';
@@ -32,6 +31,8 @@ import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { applyLanguageSetting } from '@/fronted/i18n';
+import { Theme } from '@astryxdesign/core/theme';
+import { neutralTheme } from '@astryxdesign/theme-neutral/built';
 
 const UPDATE_CHECK_DELAY_MS = 6000;
 const UPDATE_TOAST_ID = 'update-available';
@@ -167,8 +168,11 @@ export const App = () => {
         return () => window.clearTimeout(timer);
     }, [t]);
 
+    const effectiveThemeMode: 'light' | 'dark' | 'system' =
+        theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'system';
+
     return (
-        <>
+        <Theme theme={neutralTheme} mode={effectiveThemeMode}>
             <div className="w-full h-screen text-foreground overflow-hidden select-none font-sans">
                 {gate?.kind === 'migration-failure' && (
                     <MigrationFailureGate failure={gate.failure} />
@@ -187,10 +191,6 @@ export const App = () => {
                                     element={<PlayerPage />}
                                 />
                                 <Route path="*" element={<AppShellLayout />}>
-                                    <Route
-                                        path="favorite"
-                                        element={<Eb key="favorite"><FavouritePage /></Eb>}
-                                    />
                                     <Route
                                         path="vocabulary"
                                         element={<Eb key="vocabulary"><VideoLearningPage /></Eb>}
@@ -263,7 +263,7 @@ export const App = () => {
                 }}
             />
             <GlobalShortCut />
-        </>
+        </Theme>
     );
 };
 

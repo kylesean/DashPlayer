@@ -6,7 +6,6 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import { cn } from '@/fronted/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
 import { motion } from 'framer-motion';
-import useFavouriteClip, { mapClipKey } from '@/fronted/features/favourite/favouriteStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import type { Sentence } from '@/common/types/SentenceC';
 import useTranslation from '@/fronted/features/player/translationStore';
@@ -101,7 +100,6 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
             state.values.get('appearance.fontSize')
         );
         const srtHash = usePlaybackSession((s) => s.srtHash);
-        const isFavourite = useFavouriteClip((s) => sentence && srtHash ? (s.lineClip.get(mapClipKey(srtHash, sentence.index)) ?? false) : false);
         const [hover, setHover] = React.useState(false);
         const show = !syncSide ? true : showEn;
         const { isVocabularyWord } = useVocabularyState(
@@ -230,13 +228,6 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                         aria-hidden="true"
                         className="absolute -bottom-[6px] left-4 right-4 h-[1px] bg-stone-300/80 dark:bg-neutral-600/80 z-[1] pointer-events-none"
                     />
-                )}
-
-                {/* 收藏句右上角精致书签标记（绝对定位，不影响文本排版） */}
-                {isFavourite && (
-                    <div className="absolute top-2.5 right-2 z-20 pointer-events-none">
-                        <Bookmark className="w-3.5 h-3.5 fill-amber-500 text-amber-500 dark:fill-amber-400 dark:text-amber-400 opacity-90 drop-shadow-xs" />
-                    </div>
                 )}
 
                 {/* 左上角状态指示器：固定 4x4 占位布局，通过透明度显隐，绝对不挤压文字；

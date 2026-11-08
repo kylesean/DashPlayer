@@ -1,20 +1,4 @@
 {
-    "savedMoments": {
-        "title": "Saved Clips",
-        "description": "Manage and revisit your saved video clips and highlight sentences",
-        "tasksInProgress": "Generating {{count}} clip(s)...",
-        "recover": {
-            "loading": "Restoring saved clips from local files...",
-            "success": "Saved clips restored successfully",
-            "error": "Failed to restore. Please try again later.",
-            "button": "Restore Saved Clips from Local"
-        },
-        "empty": {
-            "title": "No saved clips yet",
-            "guideAdd": "Use \"Add favorite clip\" in the player to bookmark current sentences for review.",
-            "guideRecover": "If local files exist under favourite_clips but the list is empty, click below to rebuild the index."
-        }
-    },
     "vocabularyStudio": {
         "title": "Vocabulary Studio",
         "description": "Focus on vocabulary clips and quickly revisit authentic contexts",

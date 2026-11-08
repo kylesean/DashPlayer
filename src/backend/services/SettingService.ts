@@ -621,7 +621,6 @@ export class SettingServiceImpl implements SettingService {
             clearAdjust: this.getValue('shortcut.clearAdjust'),
             nextPlaybackRate: this.getValue('shortcut.nextPlaybackRate'),
             aiChat: this.getValue('shortcut.aiChat'),
-            addClip: this.getValue('shortcut.addClip'),
             openControlPanel: this.getValue('shortcut.openControlPanel'),
             volumeUp: this.getValue('shortcut.volumeUp'),
             volumeDown: this.getValue('shortcut.volumeDown'),
@@ -660,7 +659,6 @@ export class SettingServiceImpl implements SettingService {
         await this.setValue('shortcut.clearAdjust', settings.clearAdjust);
         await this.setValue('shortcut.nextPlaybackRate', settings.nextPlaybackRate);
         await this.setValue('shortcut.aiChat', settings.aiChat);
-        await this.setValue('shortcut.addClip', settings.addClip);
         await this.setValue('shortcut.openControlPanel', settings.openControlPanel);
         await this.setValue('shortcut.volumeUp', settings.volumeUp);
         await this.setValue('shortcut.volumeDown', settings.volumeDown);

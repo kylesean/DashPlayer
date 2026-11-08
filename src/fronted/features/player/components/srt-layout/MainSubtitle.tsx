@@ -9,7 +9,6 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import useFavouriteClip, { mapClipKey } from '@/fronted/features/favourite/favouriteStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { Bookmark, History, RotateCcw } from 'lucide-react';
@@ -84,12 +83,7 @@ export default function MainSubtitle() {
     };
 
     const srtHash = usePlaybackSession((s) => s.srtHash);
-    const isFavourite = useFavouriteClip(
-        (s) => sentence && srtHash ? (s.lineClip.get(mapClipKey(srtHash, sentence.index)) ?? false) : false
-    );
-    const changeCurrentLineClip = useFavouriteClip((s) => s.changeCurrentLineClip);
 
-    const favShortcut = useSetting((s) => s.setting('shortcut.addClip'));
     const adjustBeginMinusShortcut = useSetting((s) => s.setting('shortcut.adjustBeginMinus'));
     const adjustBeginPlusShortcut = useSetting((s) => s.setting('shortcut.adjustBeginPlus'));
     const adjustEndMinusShortcut = useSetting((s) => s.setting('shortcut.adjustEndMinus'));
@@ -329,22 +323,6 @@ export default function MainSubtitle() {
                     {/* 当前句操作胶囊：收藏/微调/跟读听写/整句学习 */}
                     <div className={CAPTION_CARD_CLASS}>
                         <TooltipProvider delayDuration={300}>
-                            {/* 收藏当前句 */}
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        onClick={() => { void changeCurrentLineClip(); }}
-                                        className={cn(
-                                            CAPTION_CARD_BUTTON_CLASS,
-                                            isFavourite ? captionCardActiveClass('amber') : CAPTION_CARD_IDLE_CLASS
-                                        )}
-                                    >
-                                        <Bookmark className={`w-3.5 h-3.5 ${isFavourite ? 'fill-current' : ''}`} />
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">{t('subtitle.favoriteCurrent')}{formatShortcut(favShortcut)}</TooltipContent>
-                            </Tooltip>
-
                             {/* 时间戳调整与重置（合并为一个触发器）：图标常驻，调整后整颗按钮高亮；
                                 具体偏移量只在 tooltip 与弹窗里给出，不挤进胶囊、不改变按钮宽度 */}
                             <Popover open={adjustPopoverOpen} onOpenChange={handleAdjustPopoverChange}>

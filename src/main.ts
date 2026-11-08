@@ -16,7 +16,6 @@ import { getMigrationFailure } from '@/backend/startup/migrationFailureState';
 import { initProxyFeature } from '@/backend/startup/initProxy';
 import container from '@/backend/ioc/inversify.config';
 import TYPES from '@/backend/ioc/types';
-import type { FavouriteClipsService } from '@/backend/services/FavouriteClipsService';
 import type { VideoLearningService } from '@/backend/services/VideoLearningService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import { initProcessWatchdog } from '@/backend/startup/initProcessWatchdog';
@@ -80,10 +79,8 @@ const runResyncAfterResetDbIfNeeded = async (): Promise<void> => {
     }
 
     try {
-        const favouriteClipsService = container.get<FavouriteClipsService>(TYPES.FavouriteClips);
         const videoLearningService = container.get<VideoLearningService>(TYPES.VideoLearningService);
 
-        await favouriteClipsService.syncFromOss();
         await videoLearningService.syncFromOss();
 
         logger.info('Resync after reset-db completed');

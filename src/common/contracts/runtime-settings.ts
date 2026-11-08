@@ -22,7 +22,6 @@ export const runtimeSettingKeys = [
     'shortcut.clearAdjust',
     'shortcut.nextPlaybackRate',
     'shortcut.aiChat',
-    'shortcut.addClip',
     'shortcut.openControlPanel',
     'shortcut.volumeUp',
     'shortcut.volumeDown',

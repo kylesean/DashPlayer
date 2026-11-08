@@ -110,19 +110,6 @@ const StorageSetting = () => {
         }, 0);
     }, [detail, loadStorageStatus]);
 
-    async function reloadOss() {
-        try {
-            await flush();
-            await settingsApi.syncFavouriteFromOss();
-            await swrApiMutate('favorite-clips/search');
-            usePlaybackSession.setState({ subtitlePath: null });
-            toast.success(t('storage.collectionSync.success'));
-        } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            toast.error(`${t('storage.collectionSync.error')}\n${message}`);
-        }
-    }
-
     async function reloadWordLearningClips() {
         try {
             await flush();
@@ -300,23 +287,6 @@ const StorageSetting = () => {
                     title={t('storage.switchCollection')}
                     icon={FolderSync}
                 >
-                    <SettingRow
-                        title={t('storage.switchCollection')}
-                        description={t('storage.collectionHint')}
-                        icon={RefreshCw}
-                    >
-                        <Button
-                            disabled={!canSyncCollections}
-                            onClick={reloadOss}
-                            variant="outline"
-                            size="sm"
-                            type="button"
-                        >
-                            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-                            {t('storage.collectionSync.button')}
-                        </Button>
-                    </SettingRow>
-
                     <SettingRow
                         title={t('storage.wordClipsTitle')}
                         description={t('storage.wordClipsHint')}

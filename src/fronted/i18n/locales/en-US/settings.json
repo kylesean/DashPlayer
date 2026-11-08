@@ -217,10 +217,6 @@
                 "title": "Open AI Chat",
                 "description": "Open the AI chat assistant panel."
             },
-            "addClip": {
-                "title": "Add Favorite Clip",
-                "description": "Bookmark current sentence segment to Saved Clips."
-            },
             "openControlPanel": {
                 "title": "Open Control Panel",
                 "description": "Open the playback control panel."
