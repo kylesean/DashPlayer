@@ -168,6 +168,12 @@ import FileSystemGatewayImpl from '@/backend/infrastructure/storage/FileSystemGa
 import AccessRecoveringFileSystemGateway from '@/backend/infrastructure/storage/AccessRecoveringFileSystemGateway';
 import db from '@/backend/infrastructure/db';
 import type { Db } from '@/backend/infrastructure/db/createDb';
+import type DatabaseMaintenance from '@/backend/services/gateways/db/DatabaseMaintenance';
+import DatabaseMaintenanceImpl from '@/backend/infrastructure/db/DatabaseMaintenanceImpl';
+import type StorageService from '@/backend/services/StorageService';
+import { StorageServiceImpl } from '@/backend/services/StorageService';
+import type SystemService from '@/backend/services/SystemService';
+import { SystemServiceImpl } from '@/backend/services/SystemService';
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
 import { BuiltinDictionaryStoreImpl } from '@/backend/infrastructure/translate/BuiltinDictionaryStoreImpl';
 import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
@@ -176,6 +182,9 @@ import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
 const container = new Container();
 // 数据库单例：仓储层统一从这里注入，测试可用内存库替换。
 container.bind<Db>(TYPES.Database).toConstantValue(db);
+container.bind<DatabaseMaintenance>(TYPES.DatabaseMaintenance).to(DatabaseMaintenanceImpl).inSingletonScope();
+container.bind<StorageService>(TYPES.StorageService).to(StorageServiceImpl).inSingletonScope();
+container.bind<SystemService>(TYPES.SystemService).to(SystemServiceImpl).inSingletonScope();
 // Clients
 container.bind<ClientProviderService<TencentTranslateClient>>(TYPES.TencentClientProvider).to(TencentProvider).inSingletonScope();
 container.bind<ConfigStoreFactory>(TYPES.ConfigStoreFactory).to(ConfigStoreFactoryImpl).inSingletonScope();

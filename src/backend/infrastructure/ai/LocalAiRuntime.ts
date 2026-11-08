@@ -4,9 +4,10 @@ import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { spawn, ChildProcess } from 'node:child_process';
 import net from 'node:net';
+import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { setTimeout as delay } from 'node:timers/promises';
-import axios from 'axios';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { z } from 'zod';
 import TYPES from '@/backend/ioc/types';
 import type LocalAiService from '@/backend/services/LocalAiService';
@@ -90,6 +91,8 @@ export class LocalAiRuntime implements LocalAiService {
     private busy = 0;
     private phase: LocalAiStatus['models'][number]['phase'] = 'idle';
     private downloaded = 0;
+    /** 仅用于连接本机回环 `127.0.0.1` 推理端口的直连客户端，绕过全局代理。 */
+    private readonly directLoopbackAgent = new Agent();
     /** 每个模型最近一次下载失败原因；成功后清除，切页后仍可查看。 */
     private readonly modelErrors = new Map<string, string>();
     private lastProgressAt = 0;
@@ -440,21 +443,29 @@ export class LocalAiRuntime implements LocalAiService {
             // 多候选地址时先探测可达性择优（官方优先）；既有 .part 跨源续传安全：
             // 镜像与官方是同一文件的逐字节镜像，续传范围校验 + 下载后 SHA256 兜底。
             const downloadUrl = await this.resolveDownloadUrl(model, signal);
-            const response = await axios.get(downloadUrl, {
-                responseType: 'stream', signal, timeout: 60_000,
+            const response = await fetch(downloadUrl, {
+                signal,
                 headers: existing > 0 ? { Range: `bytes=${existing}-` } : {},
             });
+            if (!response.ok) {
+                await response.body?.cancel();
+                throw new Error(`模型下载请求失败（HTTP ${response.status} ${response.statusText}）`);
+            }
             const resumed = response.status === 206;
-            if (resumed && response.headers['content-range'] !== `bytes ${existing}-${model.bytes - 1}/${model.bytes}`) {
-                response.data.destroy();
+            if (resumed && response.headers.get('content-range') !== `bytes ${existing}-${model.bytes - 1}/${model.bytes}`) {
+                await response.body?.cancel();
                 throw new Error('模型下载服务器返回了错误的续传范围');
             }
+            if (!response.body) {
+                throw new Error(`模型下载响应体为空：${downloadUrl}`);
+            }
             if (!resumed) this.downloaded = 0;
-            response.data.on('data', (chunk: Buffer) => {
+            const bodyStream = Readable.fromWeb(response.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>);
+            bodyStream.on('data', (chunk: Buffer) => {
                 this.downloaded += chunk.length;
                 this.emitProgress(model.id);
             });
-            await pipeline(response.data, fs.createWriteStream(partial, { flags: resumed ? 'a' : 'w' }), { signal });
+            await pipeline(bodyStream, fs.createWriteStream(partial, { flags: resumed ? 'a' : 'w' }), { signal });
         }
         if (await this.fileSize(partial) !== model.bytes) throw new Error('模型下载不完整，请继续下载');
         this.phase = 'verifying';
@@ -474,7 +485,9 @@ export class LocalAiRuntime implements LocalAiService {
         if (!task) return;
         this.activeDownload?.abort.abort();
         await task.catch((error) => {
-            if (!axios.isCancel(error) && error?.name !== 'AbortError') throw error;
+            if (!(error instanceof Error) || (error.name !== 'AbortError' && error.name !== 'CanceledError')) {
+                throw error;
+            }
         });
     }
 
@@ -516,11 +529,31 @@ export class LocalAiRuntime implements LocalAiService {
         });
     }
 
-    /** 判断加载轮询中捕获的错误是否属于“进程仍在启动”的可重试状态。 */
-    private static isRuntimeWarmingUp(error: unknown): boolean {
-        if (!axios.isAxiosError(error)) return false;
-        if (error.code === 'ECONNREFUSED' || error.code === 'ECONNABORTED') return true;
-        return error.response?.status === 503;
+    /**
+     * 判断加载轮询中捕获的错误是否属于“进程仍在启动”的可重试状态。
+     *
+     * @param error 健康检查请求抛出的异常。
+     * @param loadingSignal 整体加载周期信号（外部取消或总超时已触发时不再视作预热中）。
+     * @returns 仍可重试时返回 `true`。
+     */
+    private static isRuntimeWarmingUp(error: unknown, loadingSignal: AbortSignal): boolean {
+        if (loadingSignal.aborted || !(error instanceof Error)) {
+            return false;
+        }
+        if (error.name === 'TimeoutError') {
+            return true;
+        }
+        const status = (error as { status?: number }).status;
+        if (status === 503) {
+            return true;
+        }
+        const directCode = (error as { code?: string }).code;
+        const causeCode = (error.cause as { code?: string } | undefined)?.code;
+        const code = directCode ?? causeCode;
+        return code === 'ECONNREFUSED'
+            || code === 'ECONNABORTED'
+            || code === 'ECONNRESET'
+            || code === 'UND_ERR_CONNECT_TIMEOUT';
     }
 
     /** 按需加载模型，使用随机鉴权密钥并等待就绪；加载失败会结束子进程。 */
@@ -578,15 +611,21 @@ export class LocalAiRuntime implements LocalAiService {
                 loadingSignal.throwIfAborted();
                 if (failure) throw failure;
                 try {
-                    const response = await axios.get(`${endpoint}/health`, {
-                        proxy: false, signal: loadingSignal, timeout: 1000,
+                    const response = await undiciFetch(`${endpoint}/health`, {
+                        dispatcher: this.directLoopbackAgent,
+                        signal: AbortSignal.any([loadingSignal, AbortSignal.timeout(1000)]),
                         headers: { Authorization: `Bearer ${this.apiKey}` },
                     });
-                    if (response.data?.status !== 'ok') throw new Error('本地推理健康检查响应无效');
+                    if (!response.ok) {
+                        await response.body?.cancel();
+                        throw Object.assign(new Error(`本地推理健康检查 HTTP ${response.status}`), { status: response.status });
+                    }
+                    const payload = (await response.json()) as { status?: unknown };
+                    if (payload?.status !== 'ok') throw new Error('本地推理健康检查响应无效');
                     this.endpoint = endpoint; this.loadedPath = modelPath;
                     return endpoint;
                 } catch (error) {
-                    if (!LocalAiRuntime.isRuntimeWarmingUp(error)) throw error;
+                    if (!LocalAiRuntime.isRuntimeWarmingUp(error, loadingSignal)) throw error;
                 }
                 await delay(250, undefined, { signal: loadingSignal });
             }
@@ -814,12 +853,23 @@ export class LocalAiRuntime implements LocalAiService {
         };
     }
 
-    /** 发送一次 chat 请求并返回原始响应体；鉴权、代理禁用与超时在此统一处理。 */
+    /** 发送一次 chat 请求并返回原始响应体；鉴权、直连回环与超时在此统一处理。 */
     private async postChat(endpoint: string, body: Record<string, unknown>, signal: AbortSignal): Promise<unknown> {
-        return (await axios.post(`${endpoint}/v1/chat/completions`, body, {
-            proxy: false, signal, timeout: 180_000,
-            headers: { Authorization: `Bearer ${this.apiKey}` },
-        })).data;
+        const response = await undiciFetch(`${endpoint}/v1/chat/completions`, {
+            method: 'POST',
+            dispatcher: this.directLoopbackAgent,
+            signal: AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
+            headers: {
+                Authorization: `Bearer ${this.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+        });
+        if (!response.ok) {
+            const errBody = await response.text().catch(() => '');
+            throw new Error(`本地推理请求失败（HTTP ${response.status}）${errBody ? `：${errBody.slice(0, 300)}` : ''}`);
+        }
+        return response.json();
     }
 
     /** 结束私有子进程并等待文件句柄释放；超时强制终止。 */
@@ -835,10 +885,11 @@ export class LocalAiRuntime implements LocalAiService {
         this.logger.info('local runtime stopped', { pid: child.pid });
     }
 
-    /** 应用退出时取消全部工作并等待模型文件、子进程释放。 */
+    /** 应用退出时取消全部工作并等待模型文件、子进程与连接池释放。 */
     public async shutdown(): Promise<void> {
         this.lifetime.abort();
         await this.cancelDownload();
         await this.stop();
+        await this.directLoopbackAgent.close().catch(() => undefined);
     }
 }

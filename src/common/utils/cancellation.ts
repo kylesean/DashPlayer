@@ -10,8 +10,8 @@ export const CANCEL_BY_USER_ERROR_NAME = 'CancelByUserError';
  * 判断异常是否由用户主动取消产生。
  *
  * 取消属于预期行为，main 与 renderer 两侧都不应按 error 记录，否则排障时间线会被
- * 大量无害的 AbortError 淹没。判定仅依据错误类型名：浏览器/axios 原生的
- * `AbortError`/`CanceledError`，以及本项目显式标记的 {@link CANCEL_BY_USER_ERROR_NAME}。
+ * 大量无害的 AbortError 淹没。判定仅依据错误类型名：原生 `AbortError`、`CanceledError`，
+ * 以及本项目显式标记的 {@link CANCEL_BY_USER_ERROR_NAME}。
  * 不再用 message 正则——它会把恰好含 "cancel"/"killed" 字样的真实故障误判为预期取消并降级。
  * @param error 捕获到的未知异常。
  * @returns 属于用户主动取消时返回 true。

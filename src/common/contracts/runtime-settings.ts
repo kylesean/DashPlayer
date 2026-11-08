@@ -24,6 +24,10 @@ export const runtimeSettingKeys = [
     'shortcut.aiChat',
     'shortcut.addClip',
     'shortcut.openControlPanel',
+    'shortcut.volumeUp',
+    'shortcut.volumeDown',
+    'shortcut.seekBackward',
+    'shortcut.seekForward',
     'userSelect.playbackRateStack',
     'providers.subtitleTranslation',
     'providers.dictionary',
@@ -32,6 +36,7 @@ export const runtimeSettingKeys = [
     'appearance.fontSize',
     'i18n.language',
     'player.autoPlayNext',
+    'player.pauseOnWordHover',
 ] as const satisfies readonly SettingKey[];
 
 /**
@@ -45,6 +50,7 @@ export type RuntimeSettingKey = typeof runtimeSettingKeys[number];
 export type RuntimeWritableSettingKey =
     | 'appearance.theme'
     | 'player.autoPlayNext'
+    | 'player.pauseOnWordHover'
     | 'userSelect.playbackRateStack';
 
 /**

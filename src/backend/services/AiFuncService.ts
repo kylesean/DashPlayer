@@ -47,29 +47,28 @@ export default interface AiFuncService {
 export class AiFuncServiceImpl implements AiFuncService {
     private logger = getMainLogger('AiFuncService');
 
-    @inject(TYPES.DpTaskService)
-    private dpTaskService!: DpTaskService;
-
-    @inject(TYPES.ChatService)
-    private chatService!: ChatService;
-
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-
-    @inject(TYPES.ParakeetModelService)
-    private parakeetModelService!: ParakeetModelService;
-
-    @inject(TYPES.WhisperCppModelService)
-    private whisperCppModelService!: WhisperCppModelService;
-
-    @inject(TYPES.TranscriptionEngineSelector)
-    private transcriptionEngineSelector!: TranscriptionEngineSelector;
-
-    @inject(TYPES.LocalTranscriptionService)
-    private localTranscriptionService!: TranscriptionService;
-
-    @inject(TYPES.LocalTtsService)
-    private localTtsService!: LocalTtsService;
+    /**
+     * 构造 AI 功能编排服务。
+     *
+     * @param dpTaskService 后台任务管理服务。
+     * @param chatService 结构化对话任务服务。
+     * @param storageDirectoryProvider 外部存储目录提供器。
+     * @param parakeetModelService Parakeet 语音模型服务。
+     * @param whisperCppModelService WhisperCpp 语音模型服务。
+     * @param transcriptionEngineSelector 转录引擎选择器。
+     * @param localTranscriptionService 本地转录服务。
+     * @param localTtsService 本地语音合成服务。
+     */
+    constructor(
+        @inject(TYPES.DpTaskService) private readonly dpTaskService: DpTaskService,
+        @inject(TYPES.ChatService) private readonly chatService: ChatService,
+        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
+        @inject(TYPES.ParakeetModelService) private readonly parakeetModelService: ParakeetModelService,
+        @inject(TYPES.WhisperCppModelService) private readonly whisperCppModelService: WhisperCppModelService,
+        @inject(TYPES.TranscriptionEngineSelector) private readonly transcriptionEngineSelector: TranscriptionEngineSelector,
+        @inject(TYPES.LocalTranscriptionService) private readonly localTranscriptionService: TranscriptionService,
+        @inject(TYPES.LocalTtsService) private readonly localTtsService: LocalTtsService,
+    ) {}
 
     public async formatSplit(text: string): Promise<number> {
         const taskId = await this.dpTaskService.create();

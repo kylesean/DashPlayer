@@ -52,6 +52,10 @@ export interface ConcurrencyProfiles {
      * 所有调度器配置。
      */
     scheduler: Record<string, SchedulerProfile>;
+    /**
+     * 显式锁获取顺序（外层互斥锁优先于内层工具信号量），未列出的键将按层级与字典序参与校验。
+     */
+    lockOrder?: string[];
 }
 
 /**
@@ -62,7 +66,6 @@ export const defaultConcurrencyProfiles: ConcurrencyProfiles = {
         // 与 LocalAiRuntime 的 llama-server 并行 slot 数一致：
         // 多组字幕翻译请求可并发发出，多 slot 走连续批处理。
         localAi: { capacity: 4 },
-        transcription: { capacity: 1 },
         ffmpeg: { capacity: 5 },
         ffprobe: { capacity: 5 },
         whisper: { capacity: 10 },
@@ -79,4 +82,17 @@ export const defaultConcurrencyProfiles: ConcurrencyProfiles = {
     scheduler: {
         default: { timeSliceMs: 8, yieldDelayMs: 0 },
     },
+    lockOrder: [
+        // 业务串行互斥锁：始终在底层资源信号量之前获取，禁止在持有信号量后反向加互斥锁。
+        'favourite-clip-sync',
+        'video-learning-sync',
+        'transcription',
+        // 底层工具与推理信号量：按依赖链路与约定顺序排列。
+        'localAi',
+        'yt-dlp',
+        'ffmpeg',
+        'ffprobe',
+        'whisper',
+        'tts',
+    ],
 };

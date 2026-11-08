@@ -14,7 +14,6 @@ import { createMutex, type Mutex } from '@/backend/utils/concurrency/primitives/
 import { createRateLimiter, type RateLimiter } from '@/backend/utils/concurrency/primitives/RateLimiter';
 import { createSemaphore, type Semaphore } from '@/backend/utils/concurrency/primitives/Semaphore';
 import {
-    type AcquireOptions,
     type ConcurrencyLogger,
     type ConcurrencyLoggerRef,
     type KernelAcquireOptions,
@@ -23,9 +22,19 @@ import {
     type WaitTurnOptions,
 } from '@/backend/utils/concurrency/types';
 
-type HeldLock = {
+type LockKind = 'semaphore' | 'mutex';
+
+type LockRank = {
+    tier: number;
+    configuredOrder: number;
     key: string;
-    order: number;
+};
+
+type HeldLock = {
+    lockId: string;
+    key: string;
+    kind: LockKind;
+    rank: LockRank;
 };
 
 type ReentrantEntry = {
@@ -80,12 +89,12 @@ export interface ConcurrencyKernel {
      */
     acquire(key: string, options?: KernelAcquireOptions): Promise<Permit>;
     /**
-     * 在互斥锁保护下执行任务。
+     * 在互斥锁保护下执行任务，纳入统一并发上下文、锁顺序校验与可选重入控制。
      * @param key 互斥锁键。
      * @param task 任务函数。
      * @param options 获取许可选项。
      */
-    withMutex<T>(key: string, task: () => Promise<T>, options?: AcquireOptions): Promise<T>;
+    withMutex<T>(key: string, task: () => Promise<T>, options?: KernelAcquireOptions): Promise<T>;
     /**
      * 在速率限制保护下执行任务。
      * @param key 速率限制键。
@@ -142,21 +151,67 @@ function mergeProfiles(base: ConcurrencyProfiles, override?: Partial<Concurrency
             ...base.scheduler,
             ...(override?.scheduler ?? {}),
         },
+        lockOrder: override?.lockOrder ?? base.lockOrder,
     };
 }
 
 /**
- * 返回 key 的顺序值；未配置时使用稳定兜底顺序。
- * @param key 锁键。
- * @param orderMap 顺序映射。
- * @returns 顺序值。
+ * 构造互斥与信号量共用的统一锁序号映射。
+ * 显式声明在 `lockOrder` 中的键按声明顺序排位，未声明的信号量键按字典序追加。
+ *
+ * @param profiles 已合并的并发配置。
+ * @returns 键到序号的映射。
  */
-function resolveLockOrder(key: string, orderMap: Map<string, number>): number {
+function buildConfiguredOrderMap(profiles: ConcurrencyProfiles): Map<string, number> {
+    const orderMap = new Map<string, number>();
+    for (const key of profiles.lockOrder ?? []) {
+        if (!orderMap.has(key)) {
+            orderMap.set(key, orderMap.size);
+        }
+    }
+    const extraSemaphoreKeys = Object.keys(profiles.semaphore).sort((a, b) => a.localeCompare(b));
+    for (const key of extraSemaphoreKeys) {
+        if (!orderMap.has(key)) {
+            orderMap.set(key, orderMap.size);
+        }
+    }
+    return orderMap;
+}
+
+/**
+ * 解析锁的全局可比较序号。
+ * - 已配置键进入第 1 层并按显式配置顺序比较；
+ * - 未配置互斥锁位于第 0 层（外层业务锁），按字典序比较；
+ * - 未配置信号量位于第 2 层，按字典序比较。
+ *
+ * @param key 锁键。
+ * @param kind 原语类型。
+ * @param orderMap 已配置顺序映射。
+ * @returns 可比较的锁序结构。
+ */
+function resolveLockRank(key: string, kind: LockKind, orderMap: Map<string, number>): LockRank {
     const configured = orderMap.get(key);
     if (configured !== undefined) {
-        return configured;
+        return { tier: 1, configuredOrder: configured, key };
     }
-    return Number.MAX_SAFE_INTEGER;
+    return { tier: kind === 'mutex' ? 0 : 2, configuredOrder: -1, key };
+}
+
+/**
+ * 比较两把锁的获取顺序权重；返回值 > 0 表示 a 排在 b 之后。
+ *
+ * @param a 前锁序。
+ * @param b 后锁序。
+ * @returns 比较结果。
+ */
+function compareLockRank(a: LockRank, b: LockRank): number {
+    if (a.tier !== b.tier) {
+        return a.tier - b.tier;
+    }
+    if (a.tier === 1) {
+        return a.configuredOrder - b.configuredOrder;
+    }
+    return a.key.localeCompare(b.key);
 }
 
 /**
@@ -177,9 +232,7 @@ export function createConcurrencyKernel(
     const contextStorage = new AsyncLocalStorage<ConcurrencyContext>();
     // 可变引用：组合根可在运行期注入/更新，已创建的原语也能立即生效。
     const loggerRef: ConcurrencyLoggerRef = { current: logger };
-    const semaphoreOrder = new Map<string, number>(Object.keys(profiles.semaphore)
-        .sort((a, b) => a.localeCompare(b))
-        .map((key, index) => [key, index]));
+    const configuredOrder = buildConfiguredOrderMap(profiles);
 
     /**
      * 在并发上下文中运行任务；若当前无上下文则创建隔离上下文。
@@ -201,23 +254,30 @@ export function createConcurrencyKernel(
     function getContextOrThrow(): ConcurrencyContext {
         const context = contextStorage.getStore();
         if (!context) {
-            throw new Error('并发上下文不存在，请通过 withSemaphore/acquire 进入并发上下文');
+            throw new Error('并发上下文不存在，请通过 withSemaphore/withMutex/acquire 进入并发上下文');
         }
         return context;
     }
 
     /**
-     * 对信号量获取执行锁顺序校验。
+     * 对锁获取执行统一顺序校验（覆盖互斥锁与信号量）。
+     * @param context 当前并发上下文。
      * @param key 目标锁键。
+     * @param kind 原语类型。
      * @param options 获取选项。
      */
-    function assertLockOrder(context: ConcurrencyContext, key: string, options?: KernelAcquireOptions): void {
+    function assertLockOrder(
+        context: ConcurrencyContext,
+        key: string,
+        kind: LockKind,
+        options?: KernelAcquireOptions,
+    ): void {
         if (options?.skipOrderCheck) {
             return;
         }
-        const order = resolveLockOrder(key, semaphoreOrder);
-        const currentMaxOrder = context.heldLocks.reduce((maxValue, lock) => Math.max(maxValue, lock.order), -1);
-        if (currentMaxOrder > order) {
+        const targetRank = resolveLockRank(key, kind, configuredOrder);
+        const hasViolation = context.heldLocks.some((held) => compareLockRank(held.rank, targetRank) > 0);
+        if (hasViolation) {
             const heldKeys = context.heldLocks.map((lock) => lock.key).join(', ');
             throw new LockOrderViolationError(
                 `锁顺序违规：尝试获取 ${key}，当前已持有 [${heldKeys}]，请按预定义顺序获取`,
@@ -227,22 +287,28 @@ export function createConcurrencyKernel(
 
     /**
      * 在上下文中登记已持有锁。
+     * @param context 当前并发上下文。
+     * @param lockId 含原语类型的唯一锁标识。
      * @param key 锁键。
+     * @param kind 原语类型。
      */
-    function pushHeldLock(context: ConcurrencyContext, key: string): void {
+    function pushHeldLock(context: ConcurrencyContext, lockId: string, key: string, kind: LockKind): void {
         context.heldLocks.push({
+            lockId,
             key,
-            order: resolveLockOrder(key, semaphoreOrder),
+            kind,
+            rank: resolveLockRank(key, kind, configuredOrder),
         });
     }
 
     /**
      * 在上下文中移除一条已持有锁记录。
-     * @param key 锁键。
+     * @param context 当前并发上下文。
+     * @param lockId 含原语类型的唯一锁标识。
      */
-    function popHeldLock(context: ConcurrencyContext, key: string): void {
+    function popHeldLock(context: ConcurrencyContext, lockId: string): void {
         for (let index = context.heldLocks.length - 1; index >= 0; index--) {
-            if (context.heldLocks[index].key === key) {
+            if (context.heldLocks[index].lockId === lockId) {
                 context.heldLocks.splice(index, 1);
                 return;
             }
@@ -250,24 +316,87 @@ export function createConcurrencyKernel(
     }
 
     /**
-     * 构造带上下文出栈逻辑的许可包装。
+     * 构造带上下文出栈与重入计数清理逻辑的许可包装。
+     * @param context 当前并发上下文。
+     * @param lockId 含原语类型的唯一锁标识。
      * @param key 锁键。
-     * @param permit 底层许可。
+     * @param kind 原语类型。
+     * @param onRelease 真正释放底层许可的回调。
      * @returns 包装许可。
      */
-    function wrapPermitWithContext(context: ConcurrencyContext, key: string, permit: Permit): Permit {
+    function wrapPermitWithContext(
+        context: ConcurrencyContext,
+        lockId: string,
+        key: string,
+        kind: LockKind,
+        onRelease: () => void,
+    ): Permit {
         let released = false;
-        pushHeldLock(context, key);
+        pushHeldLock(context, lockId, key, kind);
         return {
             release: () => {
                 if (released) {
                     return;
                 }
                 released = true;
-                popHeldLock(context, key);
-                permit.release();
+                popHeldLock(context, lockId);
+                onRelease();
             },
         };
+    }
+
+    /**
+     * 统一在并发上下文中获取互斥锁或信号量许可，支持锁顺序校验与可控重入。
+     * @param kind 原语类型。
+     * @param key 锁键。
+     * @param options 获取选项。
+     * @returns 包装后的许可句柄。
+     */
+    async function acquireWithContext(
+        kind: LockKind,
+        key: string,
+        options?: KernelAcquireOptions,
+    ): Promise<Permit> {
+        return await runWithContext(async () => {
+            const context = getContextOrThrow();
+            const lockId = `${kind}:${key}`;
+
+            if (options?.reentrant) {
+                const current = context.reentrantPermits.get(lockId);
+                if (current) {
+                    current.depth += 1;
+                    return wrapPermitWithContext(context, lockId, key, kind, () => {
+                        current.depth -= 1;
+                        if (current.depth <= 0) {
+                            context.reentrantPermits.delete(lockId);
+                            current.basePermit.release();
+                        }
+                    });
+                }
+            }
+
+            assertLockOrder(context, key, kind, options);
+            const permit = kind === 'mutex'
+                ? await kernel.mutex(key).acquire(options)
+                : await kernel.semaphore(key).acquire(options);
+
+            if (options?.reentrant) {
+                const entry: ReentrantEntry = {
+                    depth: 1,
+                    basePermit: permit,
+                };
+                context.reentrantPermits.set(lockId, entry);
+                return wrapPermitWithContext(context, lockId, key, kind, () => {
+                    entry.depth -= 1;
+                    if (entry.depth <= 0) {
+                        context.reentrantPermits.delete(lockId);
+                        entry.basePermit.release();
+                    }
+                });
+            }
+
+            return wrapPermitWithContext(context, lockId, key, kind, () => permit.release());
+        });
     }
 
     /**
@@ -309,7 +438,7 @@ export function createConcurrencyKernel(
         return profile;
     }
 
-    return {
+    const kernel: ConcurrencyKernel = {
         semaphore(key: string): Semaphore {
             const cached = semaphoreInstances.get(key);
             if (cached) {
@@ -365,7 +494,7 @@ export function createConcurrencyKernel(
 
         async withSemaphore<T>(key: string, task: () => Promise<T>, options?: KernelAcquireOptions): Promise<T> {
             return await runWithContext(async () => {
-                const permit = await this.acquire(key, options);
+                const permit = await acquireWithContext('semaphore', key, options);
                 try {
                     return await task();
                 } finally {
@@ -374,50 +503,19 @@ export function createConcurrencyKernel(
             });
         },
 
-        async acquire(key: string, options?: KernelAcquireOptions): Promise<Permit> {
-            return await runWithContext(async () => {
-                const context = getContextOrThrow();
-
-                if (options?.reentrant) {
-                    const current = context.reentrantPermits.get(key);
-                    if (current) {
-                        current.depth += 1;
-                        pushHeldLock(context, key);
-                        let released = false;
-                        return {
-                            release: () => {
-                                if (released) {
-                                    return;
-                                }
-                                released = true;
-                                popHeldLock(context, key);
-                                current.depth -= 1;
-                                if (current.depth <= 0) {
-                                    context.reentrantPermits.delete(key);
-                                    current.basePermit.release();
-                                }
-                            },
-                        };
-                    }
-                }
-
-                assertLockOrder(context, key, options);
-                const permit = await this.semaphore(key).acquire(options);
-                const wrapped = wrapPermitWithContext(context, key, permit);
-
-                if (options?.reentrant) {
-                    context.reentrantPermits.set(key, {
-                        depth: 1,
-                        basePermit: permit,
-                    });
-                }
-
-                return wrapped;
-            });
+        acquire(key: string, options?: KernelAcquireOptions): Promise<Permit> {
+            return acquireWithContext('semaphore', key, options);
         },
 
-        withMutex<T>(key: string, task: () => Promise<T>, options?: AcquireOptions): Promise<T> {
-            return this.mutex(key).runExclusive(task, options);
+        async withMutex<T>(key: string, task: () => Promise<T>, options?: KernelAcquireOptions): Promise<T> {
+            return await runWithContext(async () => {
+                const permit = await acquireWithContext('mutex', key, options);
+                try {
+                    return await task();
+                } finally {
+                    permit.release();
+                }
+            });
         },
 
         withRateLimit<T>(key: string, task: () => Promise<T>, options?: WaitTurnOptions): Promise<T> {
@@ -436,4 +534,6 @@ export function createConcurrencyKernel(
             loggerRef.current = nextLogger;
         },
     };
+
+    return kernel;
 }

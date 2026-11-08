@@ -95,6 +95,13 @@ export function createDb(dbPath: string, options: CreateDbOptions = {}): DbHandl
     }
 
     const sqlite = new Database(dbPath);
+    if (dbPath !== ':memory:') {
+        // 文件库启用 WAL 与 NORMAL 同步模式，降低读写锁争用并平衡耐久性。
+        sqlite.pragma('journal_mode = WAL');
+        sqlite.pragma('synchronous = NORMAL');
+    }
+    sqlite.pragma('busy_timeout = 5000');
+    sqlite.pragma('foreign_keys = ON');
     wrapTimingDatabase(sqlite, options.onSlowQuery);
     const db = drizzle(sqlite, { logger: options.logger ?? false });
 

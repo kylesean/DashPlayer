@@ -1,22 +1,32 @@
 import { desc, eq, inArray, sql } from 'drizzle-orm';
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
-import db from '@/backend/infrastructure/db';
+import type { Db } from '@/backend/infrastructure/db/createDb';
 import { type InsertVideoLearningClip, type VideoLearningClip, videoLearningClip } from '@/backend/infrastructure/db/tables/videoLearningClip';
 import { type InsertVideoLearningClipWord, videoLearningClipWord } from '@/backend/infrastructure/db/tables/videoLearningClipWord';
+import TYPES from '@/backend/ioc/types';
 import TimeUtil from '@/common/utils/TimeUtil';
 import type VideoLearningClipRepository from '@/backend/services/repositories/VideoLearningClipRepository';
 import { type VideoLearningClipCountQuery, type VideoLearningClipPageQuery } from '@/backend/services/repositories/VideoLearningClipRepository';
 
+/**
+ * 视频学习片段仓储实现。
+ */
 @injectable()
 export default class VideoLearningClipRepositoryImpl implements VideoLearningClipRepository {
+    /**
+     * 初始化视频学习片段仓储实例。
+     *
+     * @param db 由依赖容器注入的数据库实例，测试中可替换为内存库。
+     */
+    constructor(@inject(TYPES.Database) private readonly db: Db) {}
 
     public async findExistingKeys(keys: string[]): Promise<Set<string>> {
         if (keys.length === 0) {
             return new Set();
         }
 
-        const rows = await db
+        const rows = await this.db
             .select({ key: videoLearningClip.key })
             .from(videoLearningClip)
             .where(inArray(videoLearningClip.key, keys));
@@ -29,7 +39,7 @@ export default class VideoLearningClipRepositoryImpl implements VideoLearningCli
             return 0;
         }
 
-        const rows = await db
+        const rows = await this.db
             .select({ count: sql<number>`count(*)` })
             .from(videoLearningClip)
             .where(query.keys ? inArray(videoLearningClip.key, query.keys) : undefined);
@@ -42,7 +52,7 @@ export default class VideoLearningClipRepositoryImpl implements VideoLearningCli
             return [];
         }
 
-        return db
+        return this.db
             .select()
             .from(videoLearningClip)
             .where(query.keys ? inArray(videoLearningClip.key, query.keys) : undefined)
@@ -52,7 +62,7 @@ export default class VideoLearningClipRepositoryImpl implements VideoLearningCli
     }
 
     public async exists(key: string): Promise<boolean> {
-        const row = db
+        const row = this.db
             .select({ key: videoLearningClip.key })
             .from(videoLearningClip)
             .where(eq(videoLearningClip.key, key))
@@ -71,7 +81,7 @@ export default class VideoLearningClipRepositoryImpl implements VideoLearningCli
      * @param words 该片段关联的单词关系列表。
      */
     public async saveClipWithWords(clip: InsertVideoLearningClip, words: InsertVideoLearningClipWord[]): Promise<void> {
-        db.transaction((tx) => {
+        this.db.transaction((tx) => {
             const now = TimeUtil.timeUtc();
             tx.insert(videoLearningClip)
                 .values({
@@ -105,7 +115,7 @@ export default class VideoLearningClipRepositoryImpl implements VideoLearningCli
      * @param key 片段键。
      */
     public async deleteClipWithWords(key: string): Promise<void> {
-        db.transaction((tx) => {
+        this.db.transaction((tx) => {
             tx.delete(videoLearningClipWord).where(eq(videoLearningClipWord.clip_key, key)).run();
             tx.delete(videoLearningClip).where(eq(videoLearningClip.key, key)).run();
         });
@@ -122,7 +132,7 @@ export default class VideoLearningClipRepositoryImpl implements VideoLearningCli
      * @param words 重灌的片段-单词关系列表。
      */
     public async replaceAll(clips: InsertVideoLearningClip[], words: InsertVideoLearningClipWord[]): Promise<void> {
-        db.transaction((tx) => {
+        this.db.transaction((tx) => {
             tx.delete(videoLearningClip).where(sql`1=1`).run();
             tx.delete(videoLearningClipWord).where(sql`1=1`).run();
 

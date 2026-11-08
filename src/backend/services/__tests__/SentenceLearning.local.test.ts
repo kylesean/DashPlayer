@@ -14,17 +14,16 @@ import { SentenceLearningServiceImpl } from '@/backend/services/SentenceLearning
 import type AiProviderService from '@/backend/services/AiProviderService';
 import type LocalAiService from '@/backend/services/LocalAiService';
 
-/** 装配纯桩实例:整句学习为属性注入,云端与本地边界直接赋值。 */
+/** 装配纯桩实例：通过构造函数注入云端与本地模型边界桩。 */
 const buildService = (options: {
     cloudModel: 'configured' | null;
     localStatus: { runtimeReady: boolean; hasReadyModel: boolean } | null;
     localGenerate?: (prompt: string) => unknown;
 }) => {
-    const service = new SentenceLearningServiceImpl();
-    (service as unknown as { aiProviderService: AiProviderService }).aiProviderService = {
+    const aiProviderService = {
         getModel: vi.fn(() => (options.cloudModel === 'configured' ? {} : null)),
     } as unknown as AiProviderService;
-    (service as unknown as { localAiService: LocalAiService }).localAiService = {
+    const localAiService = {
         getStatus: vi.fn(async () => ({
             runtimeReady: options.localStatus?.runtimeReady ?? false,
             models: options.localStatus?.hasReadyModel
@@ -32,10 +31,11 @@ const buildService = (options: {
                 : [],
             activeModelId: options.localStatus?.hasReadyModel ? 'custom:gemma-4-E4B_q4_0-it.gguf' : '',
         })),
-        // 与 LocalAiRuntime.generate 真实契约一致:返回已解析的对象
+        // 与 LocalAiRuntime.generate 真实契约一致：返回已解析的对象
         generate: vi.fn(async () => options.localGenerate?.('') ?? {}),
     } as unknown as LocalAiService;
-    return service;
+    const service = new SentenceLearningServiceImpl(aiProviderService, localAiService);
+    return { service, aiProviderService, localAiService };
 };
 
 const PARAMS = {
@@ -46,7 +46,7 @@ const PARAMS = {
 
 describe('整句学习的本地回退', () => {
     it('云端未配置且本地模型就绪时,补全走本地并返回结构化结果', async () => {
-        const service = buildService({
+        const { service } = buildService({
             cloudModel: null,
             localStatus: { runtimeReady: true, hasReadyModel: true },
             localGenerate: () => ({
@@ -63,7 +63,7 @@ describe('整句学习的本地回退', () => {
     });
 
     it('本地 generate 若返回原始 JSON 字符串(历史形态),同样归一化后通过', async () => {
-        const service = buildService({
+        const { service } = buildService({
             cloudModel: null,
             localStatus: { runtimeReady: true, hasReadyModel: true },
             localGenerate: () => JSON.stringify({
@@ -78,27 +78,29 @@ describe('整句学习的本地回退', () => {
     });
 
     it('可用性判定:云端缺失但本地就绪为 true,两者皆无为 false', async () => {
-        const localReady = buildService({ cloudModel: null, localStatus: { runtimeReady: true, hasReadyModel: true } });
+        const { service: localReady } = buildService({ cloudModel: null, localStatus: { runtimeReady: true, hasReadyModel: true } });
         await expect(localReady.isLearningAvailable()).resolves.toBe(true);
 
-        const none = buildService({ cloudModel: null, localStatus: { runtimeReady: false, hasReadyModel: false } });
+        const { service: none } = buildService({ cloudModel: null, localStatus: { runtimeReady: false, hasReadyModel: false } });
         await expect(none.isLearningAvailable()).resolves.toBe(false);
 
-        const cloudOnly = buildService({ cloudModel: 'configured', localStatus: null });
+        const { service: cloudOnly } = buildService({ cloudModel: 'configured', localStatus: null });
         await expect(cloudOnly.isLearningAvailable()).resolves.toBe(true);
     });
 
     it('云端与本地都不可用时补全显式报错引导配置', async () => {
-        const service = buildService({ cloudModel: null, localStatus: { runtimeReady: false, hasReadyModel: false } });
+        const { service } = buildService({ cloudModel: null, localStatus: { runtimeReady: false, hasReadyModel: false } });
         await expect(service.completeSentence(PARAMS)).rejects.toThrow('云端 AI 未配置');
     });
 
     it('云端已配置时不探测本地,保持原有云端路径', async () => {
-        const service = buildService({ cloudModel: 'configured', localStatus: { runtimeReady: true, hasReadyModel: true } });
-        const localAi = (service as unknown as { localAiService: LocalAiService }).localAiService;
+        const { service, aiProviderService, localAiService } = buildService({
+            cloudModel: 'configured',
+            localStatus: { runtimeReady: true, hasReadyModel: true },
+        });
         await service.resolveLocalModelId();
         // 云端路径的 generateObject 由 AI SDK 驱动,这里只验证本地探测未被依赖
-        expect(vi.mocked(localAi.getStatus)).toHaveBeenCalled();
-        expect((service as unknown as { aiProviderService: AiProviderService }).aiProviderService.getModel('sentenceLearning')).not.toBeNull();
+        expect(vi.mocked(localAiService.getStatus)).toHaveBeenCalled();
+        expect(aiProviderService.getModel('sentenceLearning')).not.toBeNull();
     });
 });

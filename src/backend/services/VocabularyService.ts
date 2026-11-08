@@ -127,32 +127,30 @@ export default interface VocabularyService {
  */
 @injectable()
 export class VocabularyServiceImpl implements VocabularyService {
-
-    @inject(TYPES.VideoLearningService)
-    private videoLearningService!: VideoLearningService;
-
-    @inject(TYPES.WordsRepository)
-    private wordsRepository!: WordsRepository;
-
-    @inject(TYPES.WordMatchService)
-    private wordMatchService!: WordMatchService;
-
-    @inject(TYPES.AiProviderService)
-    private aiProviderService!: AiProviderService;
-
-    @inject(TYPES.VideoLearningClipWordRepository)
-    private clipWordRepository!: VideoLearningClipWordRepository;
-
-    @inject(TYPES.SubtitleService)
-    private subtitleService!: SubtitleService;
-
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-
-    @inject(TYPES.FileSystemGateway)
-    private fileSystemGateway!: FileSystemGateway;
-
     private readonly logger = getMainLogger('VocabularyServiceImpl');
+
+    /**
+     * 构造生词本业务服务。
+     *
+     * @param videoLearningService 视频学习片段服务。
+     * @param wordsRepository 单词表仓储。
+     * @param wordMatchService 词表匹配服务。
+     * @param aiProviderService 云端模型提供服务。
+     * @param clipWordRepository 学习片段关联词仓储。
+     * @param subtitleService 字幕业务服务。
+     * @param storageDirectoryProvider 外部存储目录提供器。
+     * @param fileSystemGateway 文件系统访问端口。
+     */
+    constructor(
+        @inject(TYPES.VideoLearningService) private readonly videoLearningService: VideoLearningService,
+        @inject(TYPES.WordsRepository) private readonly wordsRepository: WordsRepository,
+        @inject(TYPES.WordMatchService) private readonly wordMatchService: WordMatchService,
+        @inject(TYPES.AiProviderService) private readonly aiProviderService: AiProviderService,
+        @inject(TYPES.VideoLearningClipWordRepository) private readonly clipWordRepository: VideoLearningClipWordRepository,
+        @inject(TYPES.SubtitleService) private readonly subtitleService: SubtitleService,
+        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
+        @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
+    ) {}
 
     /**
      * 将单词列表转换为 Excel 工作表。

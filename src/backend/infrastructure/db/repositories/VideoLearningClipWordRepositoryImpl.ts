@@ -1,21 +1,31 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
-import db from '@/backend/infrastructure/db';
+import type { Db } from '@/backend/infrastructure/db/createDb';
 import { videoLearningClipWord } from '@/backend/infrastructure/db/tables/videoLearningClipWord';
+import TYPES from '@/backend/ioc/types';
 
 import type VideoLearningClipWordRepository from '@/backend/services/repositories/VideoLearningClipWordRepository';
 import { type WordClipStats } from '@/backend/services/repositories/VideoLearningClipWordRepository';
 
+/**
+ * 视频学习片段与单词关联仓储实现。
+ */
 @injectable()
 export default class VideoLearningClipWordRepositoryImpl implements VideoLearningClipWordRepository {
+    /**
+     * 初始化视频学习片段-单词关联仓储实例。
+     *
+     * @param db 由依赖容器注入的数据库实例，测试中可替换为内存库。
+     */
+    constructor(@inject(TYPES.Database) private readonly db: Db) {}
 
     public async findClipKeysByWord(word: string): Promise<string[]> {
         if (!word) {
             return [];
         }
 
-        const rows = await db
+        const rows = await this.db
             .select({ clip_key: videoLearningClipWord.clip_key })
             .from(videoLearningClipWord)
             .where(eq(videoLearningClipWord.word, word));
@@ -29,7 +39,7 @@ export default class VideoLearningClipWordRepositoryImpl implements VideoLearnin
             return result;
         }
 
-        const rows = await db
+        const rows = await this.db
             .select({
                 clipKey: videoLearningClipWord.clip_key,
                 word: videoLearningClipWord.word,
@@ -62,7 +72,7 @@ export default class VideoLearningClipWordRepositoryImpl implements VideoLearnin
      * @returns 单词到片段数量及最近添加视频时间的映射。
      */
     public async statsGroupedByWord(): Promise<Record<string, WordClipStats>> {
-        const rows = await db
+        const rows = await this.db
             .select({
                 word: videoLearningClipWord.word,
                 count: sql<number>`count(*)`,
@@ -96,7 +106,7 @@ export default class VideoLearningClipWordRepositoryImpl implements VideoLearnin
             return;
         }
 
-        db.transaction((tx) => {
+        this.db.transaction((tx) => {
             const oldRows = tx
                 .select({ clip_key: videoLearningClipWord.clip_key })
                 .from(videoLearningClipWord)
@@ -134,7 +144,7 @@ export default class VideoLearningClipWordRepositoryImpl implements VideoLearnin
             return;
         }
 
-        db.delete(videoLearningClipWord)
+        this.db.delete(videoLearningClipWord)
             .where(eq(videoLearningClipWord.word, word))
             .run();
     }

@@ -1,15 +1,25 @@
 import { eq, or } from 'drizzle-orm';
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
-import db from '@/backend/infrastructure/db';
+import type { Db } from '@/backend/infrastructure/db/createDb';
 import { dpTask, type DpTask as DpTaskRow, DpTaskState, type InsertDpTask } from '@/backend/infrastructure/db/tables/dpTask';
+import TYPES from '@/backend/ioc/types';
 import type { DpTask } from '@/common/contracts/dp-task';
 import TimeUtil from '@/common/utils/TimeUtil';
 import type DpTaskRepository from '@/backend/services/repositories/DpTaskRepository';
 import { type CreateDpTaskParams, type DpTaskUpdatePatch } from '@/backend/services/repositories/DpTaskRepository';
 
+/**
+ * 使用 Drizzle 访问后台任务表。
+ */
 @injectable()
 export default class DpTaskRepositoryImpl implements DpTaskRepository {
+    /**
+     * 初始化后台任务仓储实例。
+     *
+     * @param db 由依赖容器注入的数据库实例，测试中可替换为内存库。
+     */
+    constructor(@inject(TYPES.Database) private readonly db: Db) {}
 
     /**
      * 将数据库行转换为业务任务，并拒绝未知状态。
@@ -32,7 +42,7 @@ export default class DpTaskRepositoryImpl implements DpTaskRepository {
     }
 
     public async findById(id: number): Promise<DpTask | null> {
-        const rows: DpTaskRow[] = await db
+        const rows: DpTaskRow[] = await this.db
             .select()
             .from(dpTask)
             .where(eq(dpTask.id, id));
@@ -40,7 +50,7 @@ export default class DpTaskRepositoryImpl implements DpTaskRepository {
     }
 
     public async create(params: CreateDpTaskParams): Promise<DpTask> {
-        const rows: DpTaskRow[] = await db
+        const rows: DpTaskRow[] = await this.db
             .insert(dpTask)
             .values({
                 status: params.status ?? DpTaskState.INIT,
@@ -57,7 +67,7 @@ export default class DpTaskRepositoryImpl implements DpTaskRepository {
     }
 
     public async updateById(id: number, patch: DpTaskUpdatePatch): Promise<void> {
-        await db
+        await this.db
             .update(dpTask)
             .set({
                 ...patch,
@@ -67,7 +77,7 @@ export default class DpTaskRepositoryImpl implements DpTaskRepository {
     }
 
     public async cancelAllActive(): Promise<void> {
-        await db
+        await this.db
             .update(dpTask)
             .set({
                 status: DpTaskState.CANCELLED,

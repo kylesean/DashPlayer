@@ -106,8 +106,14 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
     /** 单调递增的运行序号。 */
     private nextRunId = 0;
 
-    @inject(TYPES.WordMatchService)
-    private wordMatchService!: WordMatchService;
+    /**
+     * 构造共享字幕生词分析服务。
+     *
+     * @param wordMatchService 词表匹配服务。
+     */
+    constructor(
+        @inject(TYPES.WordMatchService) private readonly wordMatchService: WordMatchService,
+    ) {}
 
     /**
      * 获取或启动一份字幕的共享分析。

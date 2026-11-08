@@ -1,9 +1,9 @@
+import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import { nonEmptyStringSchema, windowStateSchema } from '@/backend/controllers/ipc/routeSchemas';
 import { app, dialog, shell, systemPreferences } from 'electron';
 import path from 'path';
-import { clearDB } from '@/backend/infrastructure/db/db';
 import type { WindowState } from '@/common/types/Types';
-import { checkUpdate } from '@/backend/services/CheckUpdate';
 import { readSystemInfo } from '@/backend/utils/systemInfo';
 import { isDevelopmentMode } from '@/backend/utils/runtimeEnv';
 import { inject, injectable } from 'inversify';
@@ -12,17 +12,15 @@ import StrUtil from '@/common/utils/str-util';
 import TYPES from '@/backend/ioc/types';
 import OpenDialogOptions = Electron.OpenDialogOptions;
 import type WindowPort from '@/backend/services/gateways/window/WindowPort';
-import type SystemConfigService from '@/backend/services/SystemConfigService';
-import { UPDATE_TOAST_LAST_SHOWN_AT_KEY } from '@/common/constants/systemConfigKeys';
 import type { UpdateCheckResult } from '@/common/types/update-check';
 import { RESET_DB_RESYNC_FLAG } from '@/common/constants/resetDb';
-import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
-import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
-import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
+import type SystemService from '@/backend/services/SystemService';
 
 /**
- * eg: .mkv -> mkv
- * @param filter
+ * 过滤并移除文件扩展名前导点号（例如 `.mkv` 转为 `mkv`）。
+ *
+ * @param filter 原始扩展名列表。
+ * @returns 归一化后的扩展名列表。
  */
 function processFilter(filter: string[]) {
     return filter
@@ -30,19 +28,27 @@ function processFilter(filter: string[]) {
         .map(f => f.replace(/^\./, ''));
 }
 
+/**
+ * 系统与窗口交互 IPC 控制器。
+ */
 @injectable()
 export default class SystemController implements Controller {
-    private static readonly UPDATE_TOAST_MIN_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    /**
+     * 构造系统控制器。
+     *
+     * @param windowPort 窗口状态控制端口。
+     * @param systemService 系统业务服务。
+     */
+    constructor(
+        @inject(TYPES.WindowPort) private readonly windowPort: WindowPort,
+        @inject(TYPES.SystemService) private readonly systemService: SystemService,
+    ) {}
 
-    @inject(TYPES.WindowPort)
-    private windowPort!: WindowPort;
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-    @inject(TYPES.FileSystemGateway)
-    private fileSystemGateway!: FileSystemGateway;
-    @inject(TYPES.SystemConfigService)
-    private systemConfigService!: SystemConfigService;
-
+    /**
+     * 读取当前运行平台与硬件概览信息。
+     *
+     * @returns 包含系统平台、开发模式标记和硬件信息的对象。
+     */
     public async info() {
         const platform = process.platform;
         const hardware = await readSystemInfo();
@@ -57,6 +63,12 @@ export default class SystemController implements Controller {
         };
     }
 
+    /**
+     * 打开系统文件选择对话框。
+     *
+     * @param filter 允许的文件扩展名列表。
+     * @returns 用户选中的文件绝对路径列表。
+     */
     public async selectFile(filter: string[]): Promise<string[]> {
         const f = processFilter(filter);
         const files = await dialog.showOpenDialog({
@@ -69,7 +81,13 @@ export default class SystemController implements Controller {
         return files.filePaths;
     }
 
-    public async selectFolder({ defaultPath , createDirectory}: { defaultPath?: string,createDirectory?:boolean }): Promise<string[]> {
+    /**
+     * 打开系统目录选择对话框。
+     *
+     * @param options 默认目录与是否允许新建目录选项。
+     * @returns 用户选中的目录绝对路径列表。
+     */
+    public async selectFolder({ defaultPath, createDirectory }: { defaultPath?: string, createDirectory?: boolean }): Promise<string[]> {
         const options: OpenDialogOptions = {
             properties: ['openDirectory']
         };
@@ -83,6 +101,12 @@ export default class SystemController implements Controller {
         return files.filePaths;
     }
 
+    /**
+     * 拆分路径的basename、父目录和扩展名。
+     *
+     * @param p 目标路径。
+     * @returns 路径各组成部分。
+     */
     public async pathInfo(p: string): Promise<{
         baseName: string,
         dirName: string,
@@ -95,8 +119,11 @@ export default class SystemController implements Controller {
         };
     }
 
+    /**
+     * 清空数据库并重启应用以触发媒体库回灌。
+     */
     public async resetDb() {
-        await clearDB();
+        await this.systemService.resetDatabase();
         app.relaunch({ args: [...process.argv.slice(1), RESET_DB_RESYNC_FLAG] });
         app.quit();
     }
@@ -108,51 +135,55 @@ export default class SystemController implements Controller {
      *                路径本身是目录时直接打开该目录；是文件或尚不存在时打开其父目录。
      */
     public async openFolder(request: { path: string; createDirectory?: boolean }): Promise<void> {
-        const targetIsDirectory = await this.fileSystemGateway.directoryExists(request.path);
-        const folder = targetIsDirectory ? request.path : path.dirname(request.path);
-        if (request.createDirectory === true) {
-            await this.fileSystemGateway.ensureDirectory(folder);
-        }
+        const folder = await this.systemService.prepareFolderForOpen(request);
         const error = await shell.openPath(folder);
         if (error) {
             throw new Error(`打开文件夹失败：${error}`);
         }
     }
 
+    /**
+     * 设置窗口控制按钮显隐状态（仅 macOS 生效）。
+     *
+     * @param visible 是否显示窗口按钮。
+     */
     public async setWindowButtonsVisible(visible: boolean) {
         this.windowPort.setWindowButtonsVisible(visible);
     }
 
+    /**
+     * 切换主窗口状态。
+     *
+     * @param state 目标窗口状态。
+     */
     public async changeWindowSize(state: WindowState) {
         this.windowPort.changeWindowSize(state);
     }
 
+    /**
+     * 查询当前主窗口状态。
+     *
+     * @returns 主窗口当前状态。
+     */
     public async windowState(): Promise<WindowState> {
         return this.windowPort.windowState();
     }
 
+    /**
+     * 检查应用更新，并在弹窗模式下返回是否需要提醒。
+     *
+     * @param params 检查模式参数。
+     * @returns 更新检查结果。
+     */
     public async checkUpdate(params?: { mode?: 'toast' }): Promise<UpdateCheckResult> {
-        const result = await checkUpdate();
-        if (params?.mode !== 'toast' || result.status !== 'ok' || result.releases.length === 0) {
-            return result;
-        }
-
-        const now = Date.now();
-        const lastShownRaw = await this.systemConfigService.getValue(UPDATE_TOAST_LAST_SHOWN_AT_KEY);
-        const lastShownAt = lastShownRaw ? Number(lastShownRaw) : 0;
-        const shouldNotify =
-            Number.isNaN(lastShownAt) || now - lastShownAt >= SystemController.UPDATE_TOAST_MIN_INTERVAL_MS;
-
-        if (shouldNotify) {
-            await this.systemConfigService.setValue(UPDATE_TOAST_LAST_SHOWN_AT_KEY, String(now));
-        }
-
-        return {
-            ...result,
-            shouldNotify,
-        };
+        return this.systemService.checkUpdate(app.getVersion(), params);
     }
 
+    /**
+     * 调用系统默认浏览器打开外部链接。
+     *
+     * @param url 目标 URL。
+     */
     public async openUrl(url: string) {
         await shell.openExternal(url);
     }
@@ -177,16 +208,32 @@ export default class SystemController implements Controller {
         return (await systemPreferences.askForMediaAccess('microphone')) ? 'granted' : 'denied';
     }
 
+    /**
+     * 获取当前应用版本号。
+     *
+     * @returns 应用版本号字符串。
+     */
     public async appVersion() {
         return app.getVersion();
     }
 
+    /**
+     * 读取指定系统配置。
+     *
+     * @param key 配置键。
+     * @returns 配置值；不存在时返回 `null`。
+     */
     public async getSystemConfig(key: string): Promise<string | null> {
-        return this.systemConfigService.getValue(key);
+        return this.systemService.getSystemConfig(key);
     }
 
+    /**
+     * 保存指定系统配置。
+     *
+     * @param params 配置键值参数。
+     */
     public async setSystemConfig(params: { key: string; value: string }): Promise<void> {
-        await this.systemConfigService.setValue(params.key, params.value);
+        await this.systemService.setSystemConfig(params.key, params.value);
     }
 
     /**
@@ -197,26 +244,58 @@ export default class SystemController implements Controller {
      * - 目录异常时直接抛出显式错误，交由前端提示用户重新选择。
      */
     public async openCacheDir() {
-        const libraryRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.LIBRARY_ROOT);
+        const libraryRoot = await this.systemService.resolveCacheDirectory();
         await shell.openPath(libraryRoot);
     }
 
+    /**
+     * 注册系统与窗口相关 IPC 路由。
+     */
     public registerRoutes(): void {
-        registerRoute('system/info', (_) => this.info());
-        registerRoute('system/select-file', (p) => this.selectFile(p));
-        registerRoute('system/select-folder', (p) => this.selectFolder(p));
-        registerRoute('system/path-info', (p) => this.pathInfo(p));
-        registerRoute('system/reset-db', (_) => this.resetDb());
-        registerRoute('system/open-folder', (p) => this.openFolder(p));
+        registerRoute('system/info', () => this.info());
+        registerRoute('system/select-file', (p) => this.selectFile(p), {
+            schema: z.array(z.string()),
+        });
+        registerRoute('system/select-folder', (p) => this.selectFolder(p), {
+            schema: z.object({
+                defaultPath: z.string().optional(),
+                createDirectory: z.boolean().optional(),
+            }),
+        });
+        registerRoute('system/path-info', (p) => this.pathInfo(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('system/reset-db', () => this.resetDb());
+        registerRoute('system/open-folder', (p) => this.openFolder(p), {
+            schema: z.object({
+                path: nonEmptyStringSchema,
+                createDirectory: z.boolean().optional(),
+            }),
+        });
         registerRoute('system/open-folder/cache', () => this.openCacheDir());
-        registerRoute('system/window-size/change', (p) => this.changeWindowSize(p));
+        registerRoute('system/window-size/change', (p) => this.changeWindowSize(p), {
+            schema: windowStateSchema,
+        });
         registerRoute('system/window-size', () => this.windowState());
-        registerRoute('system/window-buttons/visibility', (visible) => this.setWindowButtonsVisible(visible));
-        registerRoute('system/check-update', (p) => this.checkUpdate(p));
-        registerRoute('system/open-url', (p) => this.openUrl(p));
+        registerRoute('system/window-buttons/visibility', (visible) => this.setWindowButtonsVisible(visible), {
+            schema: z.boolean(),
+        });
+        registerRoute('system/check-update', (p) => this.checkUpdate(p), {
+            schema: z.object({ mode: z.enum(['toast']).optional() }).optional(),
+        });
+        registerRoute('system/open-url', (p) => this.openUrl(p), {
+            schema: z.url({ protocol: /^https?$/ }),
+        });
         registerRoute('system/app-version', () => this.appVersion());
         registerRoute('system/ensure-microphone', () => this.ensureMicrophone());
-        registerRoute('system/config/get', (key) => this.getSystemConfig(key));
-        registerRoute('system/config/set', (p) => this.setSystemConfig(p));
+        registerRoute('system/config/get', (key) => this.getSystemConfig(key), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('system/config/set', (p) => this.setSystemConfig(p), {
+            schema: z.object({
+                key: nonEmptyStringSchema,
+                value: z.string(),
+            }),
+        });
     }
 }

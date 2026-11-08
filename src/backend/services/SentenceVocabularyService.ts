@@ -147,11 +147,16 @@ const toMeaning = (entry: OpenAIDictionaryResult): string => entry.definitions
  */
 @injectable()
 export class SentenceVocabularyServiceImpl implements SentenceVocabularyService {
-    @inject(TYPES.BuiltinDictionaryStore)
-    private builtinDictionaryStore!: BuiltinDictionaryStore;
-
-    @inject(TYPES.WordMatchService)
-    private wordMatchService!: WordMatchService;
+    /**
+     * 构造句子生词选词服务。
+     *
+     * @param builtinDictionaryStore 预置本地词典存储端口。
+     * @param wordMatchService 词表匹配服务。
+     */
+    constructor(
+        @inject(TYPES.BuiltinDictionaryStore) private readonly builtinDictionaryStore: BuiltinDictionaryStore,
+        @inject(TYPES.WordMatchService) private readonly wordMatchService: WordMatchService,
+    ) {}
 
     public async pick(text: string): Promise<SentenceVocabularyVO> {
         const details: Record<string, SentenceWordEntry> = {};

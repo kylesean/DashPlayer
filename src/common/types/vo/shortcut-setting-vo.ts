@@ -44,6 +44,14 @@ export interface ShortcutSettingDetailVO {
     addClip: string;
     /** 打开控制面板快捷键。 */
     openControlPanel: string;
+    /** 音量增大快捷键。 */
+    volumeUp: string;
+    /** 音量减小快捷键。 */
+    volumeDown: string;
+    /** 快退快捷键。 */
+    seekBackward: string;
+    /** 快进快捷键。 */
+    seekForward: string;
 }
 
 /**

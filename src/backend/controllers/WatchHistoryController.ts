@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import { finiteNonNegativeNumberSchema, nonEmptyStringSchema } from '@/backend/controllers/ipc/routeSchemas';
 import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import type Controller from '@/backend/controllers/Controller';
@@ -6,10 +8,19 @@ import type WatchHistoryService from '@/backend/services/WatchHistoryService';
 import type { SubtitleResolution } from '@/common/contracts/subtitle-resolution';
 import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
 
+/**
+ * 观看历史、播放详情与字幕绑定 IPC 控制器。
+ */
 @injectable()
 export default class WatchHistoryController implements Controller {
-    @inject(TYPES.WatchHistoryService)
-    private watchHistoryService!: WatchHistoryService;
+    /**
+     * 构造观看历史控制器。
+     *
+     * @param watchHistoryService 观看历史业务服务。
+     */
+    constructor(
+        @inject(TYPES.WatchHistoryService) private readonly watchHistoryService: WatchHistoryService,
+    ) {}
 
     public async updateProgress({ file, currentPosition }: {
         file: string, currentPosition: number
@@ -29,11 +40,11 @@ export default class WatchHistoryController implements Controller {
         return this.watchHistoryService.groupDelete(id);
     }
 
-    public async list(p: string): Promise<WatchHistoryVO[]> {
+    public async list(p = ''): Promise<WatchHistoryVO[]> {
         return this.watchHistoryService.list(p);
     }
 
-    public async listBasic(p: string): Promise<WatchHistoryVO[]> {
+    public async listBasic(p = ''): Promise<WatchHistoryVO[]> {
         return this.watchHistoryService.listBasic(p);
     }
 
@@ -72,17 +83,50 @@ export default class WatchHistoryController implements Controller {
     }
 
     registerRoutes(): void {
-        registerRoute('watch-history/list', (p) => this.list(p));
-        registerRoute('watch-history/list/basic', (p) => this.listBasic(p));
-        registerRoute('watch-history/progress/update', (p) => this.updateProgress(p));
-        registerRoute('watch-history/create', (p) => this.create(p));
-        registerRoute('watch-history/create/from-library', (p) => this.create(p, true));
-        registerRoute('watch-history/group-delete', (p) => this.groupDelete(p));
-        registerRoute('watch-history/detail', (p) => this.detail(p));
-        registerRoute('watch-history/player-detail', (p) => this.playerDetail(p));
-        registerRoute('watch-history/player-subtitle', (p) => this.playerSubtitle(p));
-        registerRoute('watch-history/attach-srt', (p) => this.attachSrt(p));
-        registerRoute('watch-history/get-next-video', (p) => this.getNextVideo(p));
-        registerRoute('watch-history/set-podcast-mode-preference', (p) => this.setPodcastModePreference(p));
+        registerRoute('watch-history/list', (p) => this.list(p), {
+            schema: z.string().optional(),
+        });
+        registerRoute('watch-history/list/basic', (p) => this.listBasic(p), {
+            schema: z.string().optional(),
+        });
+        registerRoute('watch-history/progress/update', (p) => this.updateProgress(p), {
+            schema: z.object({
+                file: nonEmptyStringSchema,
+                currentPosition: finiteNonNegativeNumberSchema,
+            }),
+        });
+        registerRoute('watch-history/create', (p) => this.create(p), {
+            schema: z.array(nonEmptyStringSchema),
+        });
+        registerRoute('watch-history/create/from-library', (p) => this.create(p, true), {
+            schema: z.array(nonEmptyStringSchema),
+        });
+        registerRoute('watch-history/group-delete', (p) => this.groupDelete(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('watch-history/detail', (p) => this.detail(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('watch-history/player-detail', (p) => this.playerDetail(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('watch-history/player-subtitle', (p) => this.playerSubtitle(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('watch-history/attach-srt', (p) => this.attachSrt(p), {
+            schema: z.object({
+                videoPath: nonEmptyStringSchema,
+                srtPath: nonEmptyStringSchema,
+            }),
+        });
+        registerRoute('watch-history/get-next-video', (p) => this.getNextVideo(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('watch-history/set-podcast-mode-preference', (p) => this.setPodcastModePreference(p), {
+            schema: z.object({
+                videoId: nonEmptyStringSchema,
+                podcastMode: z.boolean(),
+            }),
+        });
     }
 }

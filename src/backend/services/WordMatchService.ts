@@ -27,6 +27,9 @@ export interface MatchedWord {
 }
 
 
+/**
+ * 词表匹配与缓存管理服务实现。
+ */
 @injectable()
 export class WordMatchServiceImpl implements WordMatchService {
 
@@ -35,8 +38,14 @@ export class WordMatchServiceImpl implements WordMatchService {
     /** 词表缓存版本，每次词表失效时递增。 */
     private vocabularyRevision = 0;
 
-    @inject(TYPES.WordsRepository)
-    private wordsRepository!: WordsRepository;
+    /**
+     * 构造词表匹配服务。
+     *
+     * @param wordsRepository 单词表仓储。
+     */
+    constructor(
+        @inject(TYPES.WordsRepository) private readonly wordsRepository: WordsRepository,
+    ) {}
 
     async matchWordsInText(text: string): Promise<MatchedWord[]> {
         const results = await this.matchWordsInTexts([text]);

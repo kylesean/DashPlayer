@@ -1,7 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
-import db from '@/backend/infrastructure/db';
+import type { Db } from '@/backend/infrastructure/db/createDb';
+import TYPES from '@/backend/ioc/types';
 import type SubtitleTimestampAdjustmentsRepository from '@/backend/services/repositories/SubtitleTimestampAdjustmentsRepository';
 import {
     type InsertSubtitleTimestampAdjustment,
@@ -14,15 +15,25 @@ import type {
 } from '@/common/contracts/subtitle-timestamp-adjustment';
 import TimeUtil from '@/common/utils/TimeUtil';
 
+/**
+ * 字幕时间戳微调仓储实现。
+ */
 @injectable()
 export default class SubtitleTimestampAdjustmentsRepositoryImpl implements SubtitleTimestampAdjustmentsRepository {
+    /**
+     * 初始化字幕时间戳微调仓储实例。
+     *
+     * @param db 由依赖容器注入的数据库实例，测试中可替换为内存库。
+     */
+    constructor(@inject(TYPES.Database) private readonly db: Db) {}
+
     /**
      * 新增或覆盖字幕时间调整记录。
      *
      * @param values 业务层提交的调整字段。
      */
     public async upsert(values: SubtitleTimestampAdjustmentInput): Promise<void> {
-        await db
+        await this.db
             .insert(subtitleTimestampAdjustments)
             .values(values satisfies InsertSubtitleTimestampAdjustment)
             .onConflictDoUpdate({
@@ -37,19 +48,19 @@ export default class SubtitleTimestampAdjustmentsRepositoryImpl implements Subti
     }
 
     public async deleteByKey(key: string): Promise<void> {
-        await db
+        await this.db
             .delete(subtitleTimestampAdjustments)
             .where(eq(subtitleTimestampAdjustments.key, key));
     }
 
     public async deleteByFileHash(fileHash: string): Promise<void> {
-        await db
+        await this.db
             .delete(subtitleTimestampAdjustments)
             .where(eq(subtitleTimestampAdjustments.subtitle_hash, fileHash));
     }
 
     public async findByKey(key: string): Promise<SubtitleTimestampAdjustment | undefined> {
-        const values: SubtitleTimestampAdjustmentRow[] = await db
+        const values: SubtitleTimestampAdjustmentRow[] = await this.db
             .select()
             .from(subtitleTimestampAdjustments)
             .where(eq(subtitleTimestampAdjustments.key, key))
@@ -58,7 +69,7 @@ export default class SubtitleTimestampAdjustmentsRepositoryImpl implements Subti
     }
 
     public async findByPath(subtitlePath: string): Promise<SubtitleTimestampAdjustment[]> {
-        const values: SubtitleTimestampAdjustmentRow[] = await db
+        const values: SubtitleTimestampAdjustmentRow[] = await this.db
             .select()
             .from(subtitleTimestampAdjustments)
             .where(eq(subtitleTimestampAdjustments.subtitle_path, subtitlePath));
@@ -66,7 +77,7 @@ export default class SubtitleTimestampAdjustmentsRepositoryImpl implements Subti
     }
 
     public async findByHash(hash: string): Promise<SubtitleTimestampAdjustment[]> {
-        const values: SubtitleTimestampAdjustmentRow[] = await db
+        const values: SubtitleTimestampAdjustmentRow[] = await this.db
             .select()
             .from(subtitleTimestampAdjustments)
             .where(eq(subtitleTimestampAdjustments.subtitle_hash, hash));

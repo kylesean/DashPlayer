@@ -18,16 +18,23 @@ export default interface ChatService {
 }
 
 
+/**
+ * 结构化对话任务服务实现。
+ */
 @injectable()
 export class ChatServiceImpl implements ChatService {
-
-    @inject(TYPES.DpTaskService)
-    private dpTaskService!: DpTaskService;
-
-    @inject(TYPES.AiProviderService)
-    private aiProviderService!: AiProviderService;
-
     private logger = getMainLogger('ChatService');
+
+    /**
+     * 构造结构化对话任务服务。
+     *
+     * @param dpTaskService 后台任务管理服务。
+     * @param aiProviderService AI 模型提供服务。
+     */
+    constructor(
+        @inject(TYPES.DpTaskService) private readonly dpTaskService: DpTaskService,
+        @inject(TYPES.AiProviderService) private readonly aiProviderService: AiProviderService,
+    ) {}
 
     @WithRateLimit('gpt')
     public async run(taskId: number, resultSchema: ZodType, promptStr: string) {

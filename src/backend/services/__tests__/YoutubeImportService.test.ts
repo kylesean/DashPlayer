@@ -101,6 +101,8 @@ class FakeDpTaskService implements DpTaskService {
             cancelable.cancel();
         }
     }
+
+    public async recoverInterruptedTasks(): Promise<void> {}
 }
 
 /**

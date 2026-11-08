@@ -118,23 +118,12 @@ type ClipTask = {
     /** 当前片段应新增还是取消。 */
     operation: 'add' | 'cancel'
 };
+/**
+ * 收藏片段管理服务实现。
+ */
 @injectable()
 export class FavouriteClipsServiceImpl implements FavouriteClipsService {
     private readonly logger = getMainLogger('FavouriteClipsServiceImpl');
-    @inject(TYPES.ClipOssService)
-    private clipOssService!: ClipOssService;
-
-    @inject(TYPES.CacheService)
-    private cacheService!: CacheService;
-
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-
-    @inject(TYPES.FfmpegService)
-    private ffmpegService!: FfmpegService;
-
-    @inject(TYPES.FavouriteClipsRepository)
-    private favouriteClipsRepository!: FavouriteClipsRepository;
 
     /** 待执行的收藏片段操作；相同片段的新操作会覆盖旧操作。 */
     private readonly taskQueue = new Map<string, ClipTask>();
@@ -142,11 +131,26 @@ export class FavouriteClipsServiceImpl implements FavouriteClipsService {
     /** 当前是否已有队列消费者在运行。 */
     private isQueueDraining = false;
 
-    @inject(TYPES.FileSystemGateway)
-    private fileSystemGateway!: FileSystemGateway;
-
-    @inject(TYPES.RendererGateway)
-    private rendererGateway!: RendererGateway;
+    /**
+     * 构造收藏片段管理服务。
+     *
+     * @param clipOssService 收藏片段文件存储服务。
+     * @param cacheService 内存缓存服务。
+     * @param storageDirectoryProvider 外部存储目录提供器。
+     * @param ffmpegService FFmpeg 业务服务。
+     * @param favouriteClipsRepository 收藏片段仓储。
+     * @param fileSystemGateway 文件系统访问端口。
+     * @param rendererGateway 渲染进程 API 网关。
+     */
+    constructor(
+        @inject(TYPES.ClipOssService) private readonly clipOssService: ClipOssService,
+        @inject(TYPES.CacheService) private readonly cacheService: CacheService,
+        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
+        @inject(TYPES.FfmpegService) private readonly ffmpegService: FfmpegService,
+        @inject(TYPES.FavouriteClipsRepository) private readonly favouriteClipsRepository: FavouriteClipsRepository,
+        @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
+        @inject(TYPES.RendererGateway) private readonly rendererGateway: RendererGateway,
+    ) {}
 
 
     /**
@@ -450,11 +454,13 @@ export class FavouriteClipsServiceImpl implements FavouriteClipsService {
      * 清除数据库，重新从 OSS 同步。
      *
      * 行为说明：
+     * - 回灌前先校验媒体库收藏目录可访问，目录异常时直接抛错，避免清空数据库后无法恢复；
      * - 先把所有远端片段读入内存，再在单个事务内清空并重灌，任一步失败整体回滚；
      * - 读取远端发生在事务外，避免在同步事务里做 IO；
      * - 与队列任务使用同一把互斥锁串行执行，避免全量重灌清掉并发新增的片段。
      */
     async syncFromOss() {
+        await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.FAVORITE_CLIPS_COLLECTION);
         await concurrency.withMutex('favourite-clip-sync', async () => {
             const keys = await this.clipOssService.list();
             const clips: FavouriteClipsReplaceAllItem[] = [];

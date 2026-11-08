@@ -31,6 +31,11 @@ export default interface DpTaskService {
     checkCancel(id: number): void;
 
     registerTask(taskId: number, process: Cancelable): void;
+
+    /**
+     * 应用启动时将数据库中遗留的活动任务统一标记为已取消。
+     */
+    recoverInterruptedTasks(): Promise<void>;
 }
 
 
@@ -41,10 +46,11 @@ export default interface DpTaskService {
  */
 type PendingTaskUpdate = DpTaskUpdatePatch;
 
+/**
+ * 后台任务业务服务实现。
+ */
 @injectable()
 export class DpTaskServiceImpl implements DpTaskService {
-    @inject(TYPES.RendererEvents) private rendererEvents!: RendererEvents;
-    @inject(TYPES.DpTaskRepository) private dpTaskRepository!: DpTaskRepository;
     private logger = getMainLogger('DpTaskServiceImpl');
     /** 等待合并落库的任务更新。 */
     private readonly pendingUpdates = new Map<number, PendingTaskUpdate>();
@@ -62,6 +68,17 @@ export class DpTaskServiceImpl implements DpTaskService {
         }
     });
     private readonly taskMapping = new Map<number, Cancelable[]>();
+
+    /**
+     * 构造后台任务业务服务。
+     *
+     * @param rendererEvents 渲染进程事件推送端口。
+     * @param dpTaskRepository 后台任务仓储。
+     */
+    constructor(
+        @inject(TYPES.RendererEvents) private readonly rendererEvents: RendererEvents,
+        @inject(TYPES.DpTaskRepository) private readonly dpTaskRepository: DpTaskRepository,
+    ) {}
 
     /**
      * 将任务最新状态通知给渲染进程。
@@ -324,11 +341,9 @@ export class DpTaskServiceImpl implements DpTaskService {
     /**
      * 应用启动时取消数据库中遗留的活动任务。
      */
-    public static async cancelAll(): Promise<void> {
-        getMainLogger('DpTaskServiceImpl').info('cancel all active tasks on startup');
-        const { default: DpTaskRepositoryImpl } = await import('@/backend/infrastructure/db/repositories/DpTaskRepositoryImpl');
-        const repo = new DpTaskRepositoryImpl();
-        await repo.cancelAllActive();
+    public async recoverInterruptedTasks(): Promise<void> {
+        this.logger.info('cancel all active tasks on startup');
+        await this.dpTaskRepository.cancelAllActive();
     }
 
     /**

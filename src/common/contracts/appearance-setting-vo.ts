@@ -1,7 +1,7 @@
 /**
  * 外观主题选项。
  */
-export type AppearanceTheme = 'dark' | 'light';
+export type AppearanceTheme = 'dark' | 'light' | 'system';
 
 /**
  * 外观字号选项。

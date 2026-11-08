@@ -202,6 +202,9 @@ const sanitizeDictionaryResult = (value: OpenAIDictionaryResultLike): OpenAIDict
 
 const deepEqual = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 
+/**
+ * 单词翻译与词典查询服务实现。
+ */
 @injectable()
 export class TranslateServiceImpl implements TranslateService {
     private readonly logger = getMainLogger('TranslateServiceImpl');
@@ -219,26 +222,36 @@ export class TranslateServiceImpl implements TranslateService {
     private readonly settingService: SettingService;
     private readonly wordTranslatesRepository: WordTranslatesRepository;
     private readonly builtinDictionaryStore: BuiltinDictionaryStore;
-    /** 本地模型服务，用于 local 词典引擎；由容器注入，与云端引擎互备。 */
-    @inject(TYPES.LocalAiService)
-    private localAiService!: LocalAiService;
+    private readonly localAiService: LocalAiService;
+    private readonly resourceFallback: ResourceFallbackService;
 
-    /** 补充资源不可用时登记回退状态，供设置页展示。 */
-    @inject(TYPES.ResourceFallbackService)
-    private resourceFallback!: ResourceFallbackService;
-
+    /**
+     * 构造单词翻译与词典查询服务。
+     *
+     * @param rendererGateway 渲染进程 API 网关。
+     * @param aiProviderService 云端模型提供服务。
+     * @param settingService 设置业务服务。
+     * @param wordTranslatesRepository 单词翻译缓存仓储。
+     * @param builtinDictionaryStore 预置本地词典存储端口。
+     * @param localAiService 本地大模型推理服务。
+     * @param resourceFallback 资源回退状态服务。
+     */
     constructor(
         @inject(TYPES.RendererGateway) rendererGateway: RendererGateway,
         @inject(TYPES.AiProviderService) aiProviderService: AiProviderService,
         @inject(TYPES.SettingService) settingService: SettingService,
         @inject(TYPES.WordTranslatesRepository) wordTranslatesRepository: WordTranslatesRepository,
         @inject(TYPES.BuiltinDictionaryStore) builtinDictionaryStore: BuiltinDictionaryStore,
+        @inject(TYPES.LocalAiService) localAiService: LocalAiService,
+        @inject(TYPES.ResourceFallbackService) resourceFallback: ResourceFallbackService,
     ) {
         this.rendererGateway = rendererGateway;
         this.aiProviderService = aiProviderService;
         this.settingService = settingService;
         this.wordTranslatesRepository = wordTranslatesRepository;
         this.builtinDictionaryStore = builtinDictionaryStore;
+        this.localAiService = localAiService;
+        this.resourceFallback = resourceFallback;
     }
 
     public async transWord(

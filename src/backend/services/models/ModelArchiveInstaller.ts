@@ -1,7 +1,7 @@
-import axios, { isAxiosError } from 'axios';
 import { createHash } from 'crypto';
 import fs from 'fs';
 import * as path from 'path';
+import { Readable } from 'node:stream';
 import { pipeline } from 'stream/promises';
 import * as tarFs from 'tar-fs';
 import unbzip2Stream from 'unbzip2-stream';
@@ -317,57 +317,54 @@ export class ModelArchiveInstaller {
     private async downloadArchive(downloadUrl: string, archivePath: string, signal: AbortSignal): Promise<void> {
         const existingSize = await this.getExistingArchiveSize(archivePath);
         // 续传：从已下载的字节数开始请求剩余部分。
-        const headers = existingSize > 0 ? { Range: `bytes=${existingSize}-` } : {};
-        let response;
+        const headers: Record<string, string> = existingSize > 0 ? { Range: `bytes=${existingSize}-` } : {};
+        let response: Response;
         try {
-            response = await axios.get(downloadUrl, { responseType: 'stream', signal, headers });
+            response = await fetch(downloadUrl, { signal, headers });
         } catch (error) {
-            // 完整归档手动放置后，Range 请求可能得到 416；保留现有文件并交给解压校验。
-            if (existingSize > 0 && isAxiosError(error) && error.response?.status === 416) return;
+            if (signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+                throw new Error(this.options.cancelledMessage);
+            }
             throw error;
         }
-        const total = Number(response.headers['content-length'] ?? 0) + (response.status === 206 ? existingSize : 0);
+        // 完整归档手动放置后，Range 请求可能得到 416；保留现有文件并交给解压校验。
+        if (existingSize > 0 && response.status === 416) {
+            await response.body?.cancel();
+            return;
+        }
+        if (!response.ok) {
+            await response.body?.cancel();
+            throw new Error(`模型下载请求失败（HTTP ${response.status} ${response.statusText}）`);
+        }
+        if (!response.body) {
+            throw new Error(`模型下载响应体为空：${downloadUrl}`);
+        }
+        const total = Number(response.headers.get('content-length') ?? 0) + (response.status === 206 ? existingSize : 0);
         // 服务器返回 200 说明不支持续传或远端文件已变化，此时应覆盖重写且进度从 0 计。
         const resuming = response.status === 206;
-
-        await new Promise<void>((resolve, reject) => {
-            const writer = fs.createWriteStream(archivePath, resuming ? { flags: 'a' } : {});
-            let downloaded = resuming ? existingSize : 0;
-            const onAbort = () => {
-                writer.destroy();
-                reject(new Error(this.options.cancelledMessage));
-            };
-            if (signal.aborted) {
-                onAbort();
-                return;
-            }
-            signal.addEventListener('abort', onAbort, { once: true });
-            response.data.on('data', (chunk: Buffer) => {
-                downloaded += chunk.length;
-                const percent = total > 0 ? Math.floor(downloaded / total * 100) : 0;
-                this.currentPercent = percent;
-                this.currentPhase = 'downloading';
-                this.emitProgress({
-                    percent,
-                    downloaded,
-                    total,
-                    phase: 'downloading',
-                });
-            });
-            response.data.on('error', (error: Error) => {
-                signal.removeEventListener('abort', onAbort);
-                reject(error);
-            });
-            response.data.pipe(writer);
-            writer.on('finish', () => {
-                signal.removeEventListener('abort', onAbort);
-                resolve();
-            });
-            writer.on('error', (error: Error) => {
-                signal.removeEventListener('abort', onAbort);
-                reject(error);
+        const bodyStream = Readable.fromWeb(response.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>);
+        let downloaded = resuming ? existingSize : 0;
+        bodyStream.on('data', (chunk: Buffer) => {
+            downloaded += chunk.length;
+            const percent = total > 0 ? Math.floor(downloaded / total * 100) : 0;
+            this.currentPercent = percent;
+            this.currentPhase = 'downloading';
+            this.emitProgress({
+                percent,
+                downloaded,
+                total,
+                phase: 'downloading',
             });
         });
+        const writer = fs.createWriteStream(archivePath, resuming ? { flags: 'a' } : {});
+        try {
+            await pipeline(bodyStream, writer, { signal });
+        } catch (error) {
+            if (signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+                throw new Error(this.options.cancelledMessage);
+            }
+            throw error;
+        }
     }
 
     /**

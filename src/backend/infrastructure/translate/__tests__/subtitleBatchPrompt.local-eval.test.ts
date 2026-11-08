@@ -3,7 +3,7 @@ import { spawn, ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
-import axios, { isAxiosError } from 'axios';
+import { Agent, fetch as undiciFetch } from 'undici';
 import {
     buildLocalSubtitleFillGrammar,
     buildLocalSubtitleFillPrompt,
@@ -129,6 +129,7 @@ const isUsableZhLine = (source: string, translation: string): boolean =>
 describe.skipIf(!evalReady)('本地增强字幕翻译真实推理评测（源文锚定填槽，生产策略）', () => {
     let child: ChildProcess | null = null;
     let endpoint = '';
+    const directAgent = new Agent();
     const stderrTail: string[] = [];
 
     /** 申请回环动态端口，与生产 LocalAiRuntime 同一策略。 */
@@ -171,10 +172,28 @@ describe.skipIf(!evalReady)('本地增强字幕翻译真实推理评测（源文
                 throw new Error(`llama-server 健康检查超时，stderr 末尾：\n${stderrTail.join('\n')}`);
             }
             try {
-                const response = await axios.get(`${endpoint}/health`, { proxy: false, adapter: 'http', timeout: 1000 });
-                if (response.data?.status === 'ok') return;
+                const response = await undiciFetch(`${endpoint}/health`, {
+                    dispatcher: directAgent,
+                    signal: AbortSignal.timeout(1000),
+                });
+                if (response.status === 200) {
+                    const data = (await response.json()) as { status?: string };
+                    if (data?.status === 'ok') return;
+                } else {
+                    await response.body?.cancel();
+                    if (response.status !== 503) {
+                        throw new Error(`llama-server 健康检查异常状态：HTTP ${response.status}`);
+                    }
+                }
+                await new Promise((resolve) => setTimeout(resolve, 250));
             } catch (error) {
-                if (isAxiosError(error) && (error.code === 'ECONNREFUSED' || error.code === 'ECONNABORTED' || error.response?.status === 503)) {
+                const code = error instanceof Error
+                    ? ((error as { code?: string }).code ?? (error.cause as { code?: string } | undefined)?.code)
+                    : undefined;
+                const retryable = (error instanceof Error && error.name === 'TimeoutError')
+                    || code === 'ECONNREFUSED'
+                    || code === 'ECONNABORTED';
+                if (retryable) {
                     await new Promise((resolve) => setTimeout(resolve, 250));
                     continue;
                 }
@@ -186,31 +205,41 @@ describe.skipIf(!evalReady)('本地增强字幕翻译真实推理评测（源文
     afterAll(async () => {
         const exiting = child;
         child = null;
-        if (!exiting) return;
-        exiting.kill();
-        const timer = setTimeout(() => exiting.kill('SIGKILL'), 3000);
-        await new Promise<void>((resolve) => exiting.once('close', () => resolve()));
-        clearTimeout(timer);
+        if (exiting) {
+            exiting.kill();
+            const timer = setTimeout(() => exiting.kill('SIGKILL'), 3000);
+            await new Promise<void>((resolve) => exiting.once('close', () => resolve()));
+            clearTimeout(timer);
+        }
+        await directAgent.close().catch(() => undefined);
     });
 
     /**
      * 走一次与生产 buildChatBody 同形状的 chat 请求（温度可被 LOCAL_EVAL_TEMP 覆盖）。
-     * 评测不设 LLAMA_API_KEY，回环地址无需鉴权。vitest 运行在 jsdom 环境，
-     * axios 默认会选 XHR 适配器并受 CORS 限制，必须显式钉在 node http 上。
+     * 评测不设 LLAMA_API_KEY，回环地址无需鉴权；直接通过 undici 直连，绕过 jsdom XHR 限制与系统代理。
      */
     const generate = async (prompt: string, grammar: string) => {
-        const response = await axios.post(`${endpoint}/v1/chat/completions`, {
-            model: 'eval',
-            messages: [{ role: 'user', content: prompt }],
-            stream: false,
-            temperature: evalTemperature,
-            top_p: 0.95,
-            top_k: 20,
-            max_tokens: 2048,
-            grammar,
-            chat_template_kwargs: { enable_thinking: false },
-        }, { proxy: false, adapter: 'http', timeout: 180_000 });
-        return response.data as {
+        const response = await undiciFetch(`${endpoint}/v1/chat/completions`, {
+            method: 'POST',
+            dispatcher: directAgent,
+            signal: AbortSignal.timeout(180_000),
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'eval',
+                messages: [{ role: 'user', content: prompt }],
+                stream: false,
+                temperature: evalTemperature,
+                top_p: 0.95,
+                top_k: 20,
+                max_tokens: 2048,
+                grammar,
+                chat_template_kwargs: { enable_thinking: false },
+            }),
+        });
+        if (!response.ok) {
+            throw new Error(`评测推理请求失败：HTTP ${response.status}`);
+        }
+        return (await response.json()) as {
             choices: { finish_reason: string; message: { content: string } }[];
             usage?: { prompt_tokens: number; completion_tokens: number };
         };

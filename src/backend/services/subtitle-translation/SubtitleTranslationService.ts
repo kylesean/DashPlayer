@@ -216,39 +216,36 @@ const PROVIDER_LABELS: Partial<Record<TranslationProvider, string>> = {
 export class SubtitleTranslationServiceImpl implements SubtitleTranslationService {
     private readonly logger = getMainLogger('SubtitleTranslationServiceImpl');
 
-    @inject(TYPES.SettingService)
-    private settingService!: SettingService;
-
-    @inject(TYPES.LocalAiService)
-    private localAiService!: LocalAiService;
-
-    @inject(TYPES.CacheService)
-    private cacheService!: CacheService;
-
-    @inject(TYPES.ModelRoutingService)
-    private modelRoutingService!: ModelRoutingService;
-
-    @inject(TYPES.SentenceTranslatesRepository)
-    private sentenceTranslatesRepository!: SentenceTranslatesRepository;
-
-    @inject(TYPES.RendererGateway)
-    private rendererGateway!: RendererGateway;
-
-    @inject(TYPES.TencentClientProvider)
-    private tencentProvider!: ClientProviderService<TencentTranslateClient>;
-
-    @inject(TYPES.OpenAiSubtitleBatchTranslator)
-    private openAiSubtitleTranslator!: OpenAiSubtitleBatchTranslator;
-
-    @inject(TYPES.LocalSubtitleBatchTranslator)
-    private localSubtitleTranslator!: LocalSubtitleBatchTranslator;
-
-    @inject(TYPES.ResourceFallbackService)
-    private resourceFallback!: ResourceFallbackService;
-
     /** 按字幕文件维护事件驱动的优先级翻译窗口。 */
-    private readonly scheduler =
-        new SubtitleTranslationScheduler<SubtitleTranslationExecutionContext>({
+    private readonly scheduler: SubtitleTranslationScheduler<SubtitleTranslationExecutionContext>;
+
+    /**
+     * 构造字幕翻译编排服务。
+     *
+     * @param settingService 设置业务服务。
+     * @param localAiService 本地大模型推理服务。
+     * @param cacheService 内存缓存服务。
+     * @param modelRoutingService 模型路由配置服务。
+     * @param sentenceTranslatesRepository 句子翻译缓存仓储。
+     * @param rendererGateway 渲染进程 API 网关。
+     * @param tencentProvider 腾讯云翻译客户端提供器。
+     * @param openAiSubtitleTranslator OpenAI 批量字幕翻译网关。
+     * @param localSubtitleTranslator 本地模型批量字幕翻译网关。
+     * @param resourceFallback 资源回退状态服务。
+     */
+    constructor(
+        @inject(TYPES.SettingService) private readonly settingService: SettingService,
+        @inject(TYPES.LocalAiService) private readonly localAiService: LocalAiService,
+        @inject(TYPES.CacheService) private readonly cacheService: CacheService,
+        @inject(TYPES.ModelRoutingService) private readonly modelRoutingService: ModelRoutingService,
+        @inject(TYPES.SentenceTranslatesRepository) private readonly sentenceTranslatesRepository: SentenceTranslatesRepository,
+        @inject(TYPES.RendererGateway) private readonly rendererGateway: RendererGateway,
+        @inject(TYPES.TencentClientProvider) private readonly tencentProvider: ClientProviderService<TencentTranslateClient>,
+        @inject(TYPES.OpenAiSubtitleBatchTranslator) private readonly openAiSubtitleTranslator: OpenAiSubtitleBatchTranslator,
+        @inject(TYPES.LocalSubtitleBatchTranslator) private readonly localSubtitleTranslator: LocalSubtitleBatchTranslator,
+        @inject(TYPES.ResourceFallbackService) private readonly resourceFallback: ResourceFallbackService,
+    ) {
+        this.scheduler = new SubtitleTranslationScheduler<SubtitleTranslationExecutionContext>({
             executeBatch: (request) => this.executeBatch(request),
             onBatchError: (error, request) => {
                 this.logger.error('字幕翻译调度执行器异常', {
@@ -306,6 +303,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                 });
             },
         });
+    }
 
     /**
      * 使用当前 provider 对独立文本批次执行一次结构化翻译。

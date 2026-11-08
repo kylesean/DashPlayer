@@ -4,10 +4,11 @@ import { app } from 'electron';
 import { getEnvironmentSuffix } from '@/backend/utils/runtimeEnv';
 import StrUtil from '@/common/utils/str-util';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
-import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
+import { resolveStorageDirectory } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
+
+export { resolveStorageDirectory };
 
 const DEFAULT_STORAGE_FOLDER_NAME = 'DashPlayer';
-const DEFAULT_COLLECTION = 'default';
 
 /**
  * 路径访问检查类型。
@@ -274,37 +275,4 @@ async function findExistingAncestor(candidatePath: string): Promise<string> {
         return candidatePath;
     }
     return findExistingAncestor(parentPath);
-}
-
-/**
- * 解析指定目标目录。
- * @param rootPath 已确认的外部存储根目录。
- * @param target 目录目标。
- * @returns 对应目标目录。
- */
-export function resolveStorageDirectory(rootPath: string, target: StorageDirectoryTarget): string {
-    switch (target) {
-        case StorageDirectoryTarget.LIBRARY_ROOT:
-            return rootPath;
-        case StorageDirectoryTarget.FAVORITE_CLIPS:
-            return path.join(rootPath, 'favorite_clips');
-        case StorageDirectoryTarget.FAVORITE_CLIPS_COLLECTION:
-            return path.join(rootPath, 'favorite_clips', DEFAULT_COLLECTION);
-        case StorageDirectoryTarget.WORD_VIDEO:
-            return path.join(rootPath, 'favorite_clips', 'word_video');
-        case StorageDirectoryTarget.VIDEOS:
-            return path.join(rootPath, 'videos');
-        case StorageDirectoryTarget.TEMP:
-            return path.join(rootPath, 'temp');
-        case StorageDirectoryTarget.TEMP_OSS:
-            return path.join(rootPath, 'temp_oss');
-        case StorageDirectoryTarget.MODELS:
-            return path.join(rootPath, 'models');
-        case StorageDirectoryTarget.PRACTICE:
-            return path.join(rootPath, 'practice');
-        case StorageDirectoryTarget.BIN:
-            return path.join(rootPath, 'bin');
-        default:
-            throw new Error(`未知的外部目录目标：${target satisfies never}`);
-    }
 }

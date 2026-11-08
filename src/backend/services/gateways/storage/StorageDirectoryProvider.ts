@@ -1,4 +1,7 @@
+import path from 'path';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
+
+const DEFAULT_COLLECTION = 'default';
 
 /**
  * 外部存储目录目标。
@@ -18,6 +21,40 @@ export enum StorageDirectoryTarget {
     MODELS = 'models',
     PRACTICE = 'practice',
     BIN = 'bin',
+}
+
+/**
+ * 解析指定外部存储目录目标在媒体库根目录下的物理路径。
+ *
+ * @param rootPath 已确认的外部存储根目录。
+ * @param target 目录目标。
+ * @returns 对应目标目录的绝对路径。
+ */
+export function resolveStorageDirectory(rootPath: string, target: StorageDirectoryTarget): string {
+    switch (target) {
+        case StorageDirectoryTarget.LIBRARY_ROOT:
+            return rootPath;
+        case StorageDirectoryTarget.FAVORITE_CLIPS:
+            return path.join(rootPath, 'favorite_clips');
+        case StorageDirectoryTarget.FAVORITE_CLIPS_COLLECTION:
+            return path.join(rootPath, 'favorite_clips', DEFAULT_COLLECTION);
+        case StorageDirectoryTarget.WORD_VIDEO:
+            return path.join(rootPath, 'favorite_clips', 'word_video');
+        case StorageDirectoryTarget.VIDEOS:
+            return path.join(rootPath, 'videos');
+        case StorageDirectoryTarget.TEMP:
+            return path.join(rootPath, 'temp');
+        case StorageDirectoryTarget.TEMP_OSS:
+            return path.join(rootPath, 'temp_oss');
+        case StorageDirectoryTarget.MODELS:
+            return path.join(rootPath, 'models');
+        case StorageDirectoryTarget.PRACTICE:
+            return path.join(rootPath, 'practice');
+        case StorageDirectoryTarget.BIN:
+            return path.join(rootPath, 'bin');
+        default:
+            throw new Error(`未知的外部目录目标：${target satisfies never}`);
+    }
 }
 
 /**

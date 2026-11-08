@@ -1,4 +1,12 @@
+import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import {
+    nonEmptyStringSchema,
+    playbackEvidenceSchema,
+    playbackRepairDiscardSchema,
+    playbackRepairStartSchema,
+    repairEnqueueSchema,
+} from '@/backend/controllers/ipc/routeSchemas';
 import type {
     FolderVideos,
     PlaybackEvidenceInput,
@@ -141,17 +149,42 @@ export default class PlaybackRepairController implements Controller {
      * 注册播放修复领域的 IPC 路由。
      */
     public registerRoutes(): void {
-        registerRoute('repair/diagnose', (p) => this.diagnose(p));
-        registerRoute('repair/start', (p) => this.startRepair(p));
-        registerRoute('repair/cancel', (p) => this.cancelRepair(p));
-        registerRoute('repair/list-folder-videos', (p) => this.listFolderVideos(p));
+        registerRoute('repair/diagnose', (p) => this.diagnose(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('repair/start', (p) => this.startRepair(p), {
+            schema: playbackRepairStartSchema,
+        });
+        registerRoute('repair/cancel', (p) => this.cancelRepair(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('repair/list-folder-videos', (p) => this.listFolderVideos(p), {
+            schema: z.array(nonEmptyStringSchema),
+        });
         registerRoute('repair/groups', () => this.listRepairGroups());
-        registerRoute('repair/probe', (p) => this.probeRepairTask(p));
-        registerRoute('repair/remove-group', (p) => this.removeRepairGroup(p));
-        registerRoute('repair/enqueue', (p) => this.enqueueRepairTasks(p));
-        registerRoute('repair/remove-task', (p) => this.removeRepairTask(p));
-        registerRoute('repair/discard', (p) => this.discard(p));
-        registerRoute('repair/should-probe-capability', (p) => this.shouldProbeCapability(p));
-        registerRoute('repair/record-playback-evidence', (p) => this.recordPlaybackEvidence(p));
+        registerRoute('repair/probe', (p) => this.probeRepairTask(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('repair/remove-group', (p) => this.removeRepairGroup(p), {
+            schema: z.string(),
+        });
+        registerRoute('repair/enqueue', (p) => this.enqueueRepairTasks(p), {
+            schema: repairEnqueueSchema,
+        });
+        registerRoute('repair/remove-task', (p) => this.removeRepairTask(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('repair/discard', (p) => this.discard(p), {
+            schema: playbackRepairDiscardSchema,
+        });
+        registerRoute('repair/should-probe-capability', (p) => this.shouldProbeCapability(p), {
+            schema: z.object({
+                videoCodec: z.string().nullable(),
+                audioCodec: z.string().nullable(),
+            }),
+        });
+        registerRoute('repair/record-playback-evidence', (p) => this.recordPlaybackEvidence(p), {
+            schema: playbackEvidenceSchema,
+        });
     }
 }

@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import axios from 'axios';
 import { probeReachableDownloadUrl } from '@/backend/utils/probeDownloadUrl';
 
 const OFFICIAL_URL = 'https://official.example.com/model.bin';
 const MIRROR_URL = 'https://mirror.example.com/model.bin';
 
-/** 将 axios.head 打桩为按清单决定地址可达性，未列入清单的地址视为网络不可达。 */
+/** 将全局 fetch 打桩为按清单决定地址可达性，未列入清单的地址视为网络不可达。 */
 function mockHeadReachability(reachableUrls: string[]): void {
-    vi.spyOn(axios, 'head').mockImplementation(async (url: string) => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
         if (!reachableUrls.includes(url)) {
             throw new Error('connection refused');
         }
-        return { status: 200, statusText: 'OK', headers: {}, data: undefined, config: {} } as never;
+        return new Response(null, { status: 200, statusText: 'OK' });
     });
 }
 
@@ -45,11 +45,11 @@ describe('下载地址可达性探测', () => {
     });
 
     it('单个地址探测被取消时视为不可达并返回 null', async () => {
-        // 模拟探测请求已发出但随后被取消：axios 收到中止信号后以 reject 结束
+        // 模拟探测请求已发出但随后被取消：请求收到中止信号后以异常结束
         const controller = new AbortController();
-        vi.spyOn(axios, 'head').mockImplementation(async () => {
+        vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
             controller.abort();
-            return Promise.reject(new Error('canceled'));
+            return Promise.reject(new DOMException('The operation was aborted', 'AbortError'));
         });
 
         const result = await probeReachableDownloadUrl([OFFICIAL_URL], controller.signal);

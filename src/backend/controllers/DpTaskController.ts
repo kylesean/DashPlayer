@@ -1,17 +1,23 @@
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import { positiveIntSchema } from '@/backend/controllers/ipc/routeSchemas';
 import type Controller from '@/backend/controllers/Controller';
 import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import type DpTaskService from '@/backend/services/DpTaskService';
 
 /**
- * AI 翻译
- * @param str
+ * 后台通用任务查询与取消 IPC 控制器。
  */
 @injectable()
 export default class DpTaskController implements Controller {
-    @inject(TYPES.DpTaskService)
-    private dpTaskService!: DpTaskService;
+    /**
+     * 构造后台任务控制器。
+     *
+     * @param dpTaskService 后台任务业务服务。
+     */
+    constructor(
+        @inject(TYPES.DpTaskService) private readonly dpTaskService: DpTaskService,
+    ) {}
 
     public async detail(id: number) {
         return this.dpTaskService.detail(id);
@@ -22,8 +28,8 @@ export default class DpTaskController implements Controller {
     }
 
     registerRoutes(): void {
-        registerRoute('dp-task/detail', (p) => this.detail(p));
-        registerRoute('dp-task/cancel', (p) => this.cancel(p));
+        registerRoute('dp-task/detail', (p) => this.detail(p), { schema: positiveIntSchema });
+        registerRoute('dp-task/cancel', (p) => this.cancel(p), { schema: positiveIntSchema });
     }
 
 }

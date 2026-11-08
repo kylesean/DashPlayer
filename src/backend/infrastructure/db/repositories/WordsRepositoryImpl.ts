@@ -1,8 +1,9 @@
 import { eq, like, or, sql } from 'drizzle-orm';
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
-import db from '@/backend/infrastructure/db';
+import type { Db } from '@/backend/infrastructure/db/createDb';
 import { type InsertWord, type Word, words } from '@/backend/infrastructure/db/tables/words';
+import TYPES from '@/backend/ioc/types';
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
 import { type GetAllWordsQuery, type WordContent } from '@/backend/services/repositories/WordsRepository';
 
@@ -11,6 +12,12 @@ import { type GetAllWordsQuery, type WordContent } from '@/backend/services/repo
  */
 @injectable()
 export default class WordsRepositoryImpl implements WordsRepository {
+    /**
+     * 初始化单词仓储实例。
+     *
+     * @param db 由依赖容器注入的数据库实例，测试中可替换为内存库。
+     */
+    constructor(@inject(TYPES.Database) private readonly db: Db) {}
 
     /**
      * 构建单词的精确匹配条件。
@@ -26,7 +33,7 @@ export default class WordsRepositoryImpl implements WordsRepository {
     }
 
     public async getAll(query: GetAllWordsQuery = {}): Promise<Word[]> {
-        return db
+        return this.db
             .select()
             .from(words)
             .where(
@@ -49,7 +56,7 @@ export default class WordsRepositoryImpl implements WordsRepository {
      * @param values 导入后的完整单词列表。
      */
     public async replaceAll(values: InsertWord[]): Promise<void> {
-        db.transaction((tx) => {
+        this.db.transaction((tx) => {
             tx.delete(words).run();
             if (values.length === 0) {
                 return;
@@ -66,7 +73,7 @@ export default class WordsRepositoryImpl implements WordsRepository {
      * @returns 命中的记录；不存在时返回 null。
      */
     public async findByWord(word: string): Promise<Word | null> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(words)
             .where(this.wordEquals(word))
@@ -81,7 +88,7 @@ export default class WordsRepositoryImpl implements WordsRepository {
      */
     public async insertOne(value: WordContent): Promise<void> {
         const now = new Date().toISOString();
-        db.insert(words)
+        this.db.insert(words)
             .values({
                 word: value.word,
                 translate: value.translate,
@@ -98,7 +105,7 @@ export default class WordsRepositoryImpl implements WordsRepository {
      * @param value 更新后的单词与释义。
      */
     public async updateByWord(oldWord: string, value: WordContent): Promise<void> {
-        db.update(words)
+        this.db.update(words)
             .set({
                 word: value.word,
                 translate: value.translate,
@@ -114,7 +121,7 @@ export default class WordsRepositoryImpl implements WordsRepository {
      * @param word 单词。
      */
     public async deleteByWord(word: string): Promise<void> {
-        db.delete(words)
+        this.db.delete(words)
             .where(this.wordEquals(word))
             .run();
     }

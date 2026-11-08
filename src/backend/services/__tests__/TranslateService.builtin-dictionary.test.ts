@@ -17,6 +17,8 @@ import { buildDictionaryPrompt, TranslateServiceImpl } from '@/backend/services/
 import type SettingService from '@/backend/services/SettingService';
 import type WordTranslatesRepository from '@/backend/services/repositories/WordTranslatesRepository';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
+import type LocalAiService from '@/backend/services/LocalAiService';
+import type ResourceFallbackService from '@/backend/services/ResourceFallbackService';
 import { BuiltinDictionaryStoreImpl } from '@/backend/infrastructure/translate/BuiltinDictionaryStoreImpl';
 import { createBuiltinDictionaryFixture } from '@/test/builtinDictionaryFixture';
 
@@ -35,11 +37,13 @@ describe('单词查询的预置词典优先链路', () => {
     /**
      * 用真实的预置词典夹具装配 TranslateServiceImpl，其余依赖以边界桩注入。
      *
-     * @param options getCurrentDictionaryProvider 的返回值与预置词表。
+     * @param options getCurrentDictionaryProvider 的返回值、预置词表及可选本地模型/回退桩。
      */
     const buildService = (options: {
         dictionaryProvider: Promise<'openai' | 'local' | null>;
         words: Parameters<typeof createBuiltinDictionaryFixture>[0];
+        localAiService?: Partial<LocalAiService>;
+        resourceFallback?: Partial<ResourceFallbackService>;
     }) => {
         const fixture = createBuiltinDictionaryFixture(options.words);
         closeFixture = fixture.close;
@@ -59,6 +63,17 @@ describe('单词查询的预置词典优先链路', () => {
             upsert: vi.fn().mockResolvedValue(undefined),
         } as unknown as WordTranslatesRepository;
         const builtinDictionaryStore = new BuiltinDictionaryStoreImpl(fixture.dbPath);
+        const localAiService = {
+            getActiveModelId: vi.fn().mockResolvedValue(''),
+            generate: vi.fn().mockRejectedValue(new Error('本地模型未配置')),
+            ...options.localAiService,
+        } as unknown as LocalAiService;
+        const resourceFallback = {
+            isFallbackActive: vi.fn().mockReturnValue(false),
+            clear: vi.fn(),
+            markFallback: vi.fn(),
+            ...options.resourceFallback,
+        } as unknown as ResourceFallbackService;
 
         const service = new TranslateServiceImpl(
             rendererGateway,
@@ -66,6 +81,8 @@ describe('单词查询的预置词典优先链路', () => {
             settingService,
             wordTranslatesRepository,
             builtinDictionaryStore,
+            localAiService,
+            resourceFallback,
         );
         return { service, aiProviderService, wordTranslatesRepository };
     };
@@ -120,17 +137,11 @@ describe('单词查询的预置词典优先链路', () => {
         const { service } = buildService({
             dictionaryProvider: Promise.resolve('local'),
             words: [{ word: 'cancel', phonetic: '', translation: 'n. 取消' }],
+            localAiService: {
+                getActiveModelId: vi.fn().mockResolvedValue('custom:gemma-4-E4B_q4_0-it.gguf'),
+                generate: vi.fn().mockRejectedValue(new Error('模型未就绪')),
+            },
         });
-        // localAiService / resourceFallback 为属性注入，测试直接装配桩
-        (service as unknown as { localAiService: unknown }).localAiService = {
-            getActiveModelId: vi.fn().mockResolvedValue('custom:gemma-4-E4B_q4_0-it.gguf'),
-            generate: vi.fn().mockRejectedValue(new Error('模型未就绪')),
-        };
-        (service as unknown as { resourceFallback: unknown }).resourceFallback = {
-            isFallbackActive: vi.fn().mockReturnValue(false),
-            clear: vi.fn(),
-            markFallback: vi.fn(),
-        };
 
         const result = await service.transWord('cancel', false, undefined, 'Please cancel the meeting.');
         expect(result).toMatchObject({ word: 'cancel', definitions: [{ partOfSpeech: 'n.', meaning: '取消', examples: [] }] });
@@ -140,20 +151,15 @@ describe('单词查询的预置词典优先链路', () => {
         const { service, wordTranslatesRepository } = buildService({
             dictionaryProvider: Promise.resolve('local'),
             words: [],
+            localAiService: {
+                getActiveModelId: vi.fn().mockResolvedValue('custom:gemma-4-E4B_q4_0-it.gguf'),
+                generate: vi.fn().mockResolvedValue({
+                    word: 'cues',
+                    phonetic: '/kjuːz/',
+                    definitions: [{ partOfSpeech: 'n.', meaning: '（倾听中的）提示信号', examples: [] }],
+                }),
+            },
         });
-        (service as unknown as { localAiService: unknown }).localAiService = {
-            getActiveModelId: vi.fn().mockResolvedValue('custom:gemma-4-E4B_q4_0-it.gguf'),
-            generate: vi.fn().mockResolvedValue({
-                word: 'cues',
-                phonetic: '/kjuːz/',
-                definitions: [{ partOfSpeech: 'n.', meaning: '（倾听中的）提示信号', examples: [] }],
-            }),
-        };
-        (service as unknown as { resourceFallback: unknown }).resourceFallback = {
-            isFallbackActive: vi.fn().mockReturnValue(false),
-            clear: vi.fn(),
-            markFallback: vi.fn(),
-        };
 
         const result = await service.transWord('cues', false, undefined, 'All of the cues that the person is giving to you.');
         expect(result).toMatchObject({ word: 'cues' });

@@ -3,8 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { createHash } from 'crypto';
-import { PassThrough } from 'stream';
-import axios, { AxiosError, type AxiosResponse } from 'axios';
+import { PassThrough, Readable } from 'stream';
 import { ModelArchiveInstaller, type ModelArchiveInstallerOptions } from '@/backend/services/models/ModelArchiveInstaller';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
@@ -198,70 +197,78 @@ describe('模型归档安装器', () => {
             return path.join(tmpRoot, rawOptions.workDirectoryName, rawOptions.archiveFileName);
         }
 
-        /** 将 axios.head 打桩为按清单决定地址可达性。 */
-        function mockHead(reachableUrls: string[]): void {
-            vi.spyOn(axios, 'head').mockImplementation(async (url: string) => {
-                if (!reachableUrls.includes(url)) throw new Error('connection refused');
-                return { status: 200, statusText: 'OK', headers: {}, data: undefined, config: {} } as unknown as AxiosResponse;
+        /** 创建一次性写完测试体的流式 HTTP 响应。 */
+        function createBodyResponse(): Response {
+            const stream = new PassThrough();
+            process.nextTick(() => {
+                stream.write(RAW_BODY);
+                stream.end();
+            });
+            return new Response(Readable.toWeb(stream) as unknown as BodyInit, {
+                status: 200,
+                statusText: 'OK',
+                headers: { 'content-length': String(RAW_BODY.length) },
             });
         }
 
-        /** 将 axios.get 打桩为返回一次性写完的流式响应。 */
-        function mockDownloadBody(): ReturnType<typeof vi.spyOn> {
-            return vi.spyOn(axios, 'get').mockImplementation(async () => {
-                const stream = new PassThrough();
-                process.nextTick(() => {
-                    stream.write(RAW_BODY);
-                    stream.end();
-                });
-                return {
-                    status: 200,
-                    statusText: 'OK',
-                    headers: { 'content-length': String(RAW_BODY.length) },
-                    data: stream,
-                    config: {},
-                } as unknown as AxiosResponse;
+        /** 将全局 fetch 打桩为按清单响应 HEAD 探测与 GET 下载。 */
+        function mockFetchRoutes(options: {
+            reachableUrls: string[];
+            onGet?: (url: string) => Response | Promise<Response>;
+        }): { headUrls: string[]; getUrls: string[] } {
+            const headUrls: string[] = [];
+            const getUrls: string[] = [];
+            vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+                const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+                if (init?.method === 'HEAD') {
+                    headUrls.push(url);
+                    if (!options.reachableUrls.includes(url)) {
+                        throw new Error('connection refused');
+                    }
+                    return new Response(null, { status: 200, statusText: 'OK' });
+                }
+                getUrls.push(url);
+                if (options.onGet) {
+                    return options.onGet(url);
+                }
+                return createBodyResponse();
             });
+            return { headUrls, getUrls };
         }
 
         it('官方与镜像都可达时优先从官方地址下载并安装', async () => {
-            mockHead([OFFICIAL_URL, MIRROR_URL]);
-            const getSpy = mockDownloadBody();
+            const { getUrls } = mockFetchRoutes({ reachableUrls: [OFFICIAL_URL, MIRROR_URL] });
 
             const result = await createRawInstaller().download();
 
             expect(result.success).toBe(true);
-            expect(getSpy.mock.calls[0][0]).toBe(OFFICIAL_URL);
+            expect(getUrls).toEqual([OFFICIAL_URL]);
             expect(fs.readFileSync(installedModelPath(), 'utf-8')).toBe(RAW_BODY);
         });
 
         it('官方地址不可达时自动改用镜像地址下载', async () => {
-            mockHead([MIRROR_URL]);
-            const getSpy = mockDownloadBody();
+            const { getUrls } = mockFetchRoutes({ reachableUrls: [MIRROR_URL] });
 
             const result = await createRawInstaller().download();
 
             expect(result.success).toBe(true);
-            expect(getSpy.mock.calls[0][0]).toBe(MIRROR_URL);
+            expect(getUrls).toEqual([MIRROR_URL]);
             expect(fs.readFileSync(installedModelPath(), 'utf-8')).toBe(RAW_BODY);
         });
 
         it('全部地址不可达且本地无归档时报错引导手动下载', async () => {
-            mockHead([]);
-            const getSpy = mockDownloadBody();
+            const { getUrls } = mockFetchRoutes({ reachableUrls: [] });
 
             await expect(createRawInstaller().download()).rejects.toThrow('所有下载地址均无法访问');
             // 报错发生在探测阶段，不应发起任何真实下载请求
-            expect(getSpy).not.toHaveBeenCalled();
+            expect(getUrls).toHaveLength(0);
         });
 
         it('全部地址不可达但已手动放置完整文件时直接安装成功', async () => {
-            mockHead([]);
-            vi.spyOn(axios, 'get').mockImplementation(async () => {
-                // 手动放置的完整文件发起 Range 请求会被判 416，应直接进入安装校验
-                const error = new AxiosError('Range Not Satisfiable', 'ERR_BAD_REQUEST');
-                (error as unknown as { response: { status: number } }).response = { status: 416 };
-                throw error;
+            mockFetchRoutes({
+                reachableUrls: [],
+                // 手动放置的完整文件发起 Range 请求会返回 416，应直接进入安装校验
+                onGet: () => new Response(null, { status: 416, statusText: 'Range Not Satisfiable' }),
             });
             fs.mkdirSync(path.dirname(workArchivePath()), { recursive: true });
             fs.writeFileSync(workArchivePath(), RAW_BODY);
@@ -277,8 +284,7 @@ describe('模型归档安装器', () => {
             const RAW_SHA256 = createHash('sha256').update(RAW_BODY).digest('hex');
 
             it('声明的摘要一致时安装成功并广播校验阶段', async () => {
-                mockHead([OFFICIAL_URL]);
-                mockDownloadBody();
+                mockFetchRoutes({ reachableUrls: [OFFICIAL_URL] });
 
                 const result = await createRawInstaller({ ...rawOptions, archiveSha256: RAW_SHA256 }).download();
 
@@ -291,8 +297,7 @@ describe('模型归档安装器', () => {
             });
 
             it('摘要不一致时删除归档并报错，避免下次续传复用损坏文件', async () => {
-                mockHead([OFFICIAL_URL]);
-                mockDownloadBody();
+                mockFetchRoutes({ reachableUrls: [OFFICIAL_URL] });
 
                 await expect(
                     createRawInstaller({ ...rawOptions, archiveSha256: 'f'.repeat(64) }).download(),
@@ -304,14 +309,13 @@ describe('模型归档安装器', () => {
         });
 
         it('只有单个候选地址时无需探测直接下载', async () => {
-            const headSpy = vi.spyOn(axios, 'head').mockRejectedValue(new Error('单地址不应发起探测'));
-            mockDownloadBody();
+            const { headUrls } = mockFetchRoutes({ reachableUrls: [] });
             const singleOptions: ModelArchiveInstallerOptions = { ...rawOptions, downloadUrls: [OFFICIAL_URL] };
 
             const result = await createRawInstaller(singleOptions).download();
 
             expect(result.success).toBe(true);
-            expect(headSpy).not.toHaveBeenCalled();
+            expect(headUrls).toHaveLength(0);
             expect(fs.readFileSync(installedModelPath(), 'utf-8')).toBe(RAW_BODY);
         });
     });

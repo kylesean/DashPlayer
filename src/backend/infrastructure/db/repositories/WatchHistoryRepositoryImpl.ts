@@ -1,21 +1,28 @@
 import { and, asc, desc, eq } from 'drizzle-orm';
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
-import db from '@/backend/infrastructure/db';
+import type { Db } from '@/backend/infrastructure/db/createDb';
 import {
     type InsertWatchHistory,
     watchHistory,
     type WatchHistory,
 } from '@/backend/infrastructure/db/tables/watchHistory';
+import TYPES from '@/backend/ioc/types';
 import TimeUtil from '@/common/utils/TimeUtil';
 import type WatchHistoryRepository from '@/backend/services/repositories/WatchHistoryRepository';
 import { type WatchHistoryDistinctBasePathFileName, type WatchHistoryInsert, WatchHistoryProjectType, type WatchHistoryRecord, type WatchHistoryUpdatePatch } from '@/backend/services/repositories/WatchHistoryRepository';
 
 /**
- * 使用 Drizzle 访问观看历史表，并将数据库行转换为 application 业务记录。
+ * 使用 Drizzle 访问观看历史表，并将数据库行转换为业务记录。
  */
 @injectable()
 export default class WatchHistoryRepositoryImpl implements WatchHistoryRepository {
+    /**
+     * 初始化观看历史仓储实例。
+     *
+     * @param db 由依赖容器注入的数据库实例，测试中可替换为内存库。
+     */
+    constructor(@inject(TYPES.Database) private readonly db: Db) {}
 
     /**
      * 按 ID 查询观看记录。
@@ -24,7 +31,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @returns 找到的观看记录；不存在时返回 `null`。
      */
     public async findById(id: string): Promise<WatchHistoryRecord | null> {
-        const rows: WatchHistory[] = await db
+        const rows: WatchHistory[] = await this.db
             .select()
             .from(watchHistory)
             .where(eq(watchHistory.id, id));
@@ -39,7 +46,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @returns 匹配的观看记录列表。
      */
     public async findByBasePathFileName(basePath: string, fileName: string): Promise<WatchHistoryRecord[]> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(watchHistory)
             .where(and(eq(watchHistory.base_path, basePath), eq(watchHistory.file_name, fileName)));
@@ -59,7 +66,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
         fileName: string,
         type: WatchHistoryProjectType,
     ): Promise<WatchHistoryRecord[]> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(watchHistory)
             .where(
@@ -100,7 +107,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
         basePath: string,
         type: WatchHistoryProjectType,
     ): Promise<WatchHistoryRecord[]> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(watchHistory)
             .where(and(eq(watchHistory.base_path, basePath), eq(watchHistory.project_type, type)))
@@ -119,7 +126,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
         basePath: string,
         type: WatchHistoryProjectType,
     ): Promise<WatchHistoryRecord[]> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(watchHistory)
             .where(and(eq(watchHistory.base_path, basePath), eq(watchHistory.project_type, type)))
@@ -134,7 +141,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @returns 观看记录列表。
      */
     public async listByProjectType(type: WatchHistoryProjectType): Promise<WatchHistoryRecord[]> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(watchHistory)
             .where(eq(watchHistory.project_type, type));
@@ -148,7 +155,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @returns 目录路径列表。
      */
     public async listDistinctFoldersByProjectType(type: WatchHistoryProjectType): Promise<string[]> {
-        const rows: { folder: string }[] = await db
+        const rows: { folder: string }[] = await this.db
             .selectDistinct({ folder: watchHistory.base_path })
             .from(watchHistory)
             .where(eq(watchHistory.project_type, type));
@@ -163,7 +170,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @returns 存在匹配记录时返回 `true`。
      */
     public async existsByBasePathAndProjectType(basePath: string, type: WatchHistoryProjectType): Promise<boolean> {
-        const rows: WatchHistory[] = await db
+        const rows: WatchHistory[] = await this.db
             .select()
             .from(watchHistory)
             .where(and(eq(watchHistory.base_path, basePath), eq(watchHistory.project_type, type)));
@@ -177,7 +184,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @returns 写入后的观看记录。
      */
     public async insert(values: WatchHistoryInsert): Promise<WatchHistoryRecord> {
-        const rows: WatchHistory[] = await db
+        const rows: WatchHistory[] = await this.db
             .insert(watchHistory)
             .values(values)
             .returning();
@@ -195,7 +202,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @param patch 待更新字段。
      */
     public async updateById(id: string, patch: WatchHistoryUpdatePatch): Promise<void> {
-        await db
+        await this.db
             .update(watchHistory)
             .set({
                 ...patch,
@@ -212,7 +219,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @param patch 待更新字段。
      */
     public async updateByBasePathFileName(basePath: string, fileName: string, patch: WatchHistoryUpdatePatch): Promise<void> {
-        await db
+        await this.db
             .update(watchHistory)
             .set({
                 ...patch,
@@ -227,7 +234,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @param id 观看记录 ID。
      */
     public async deleteById(id: string): Promise<void> {
-        await db.delete(watchHistory).where(eq(watchHistory.id, id));
+        await this.db.delete(watchHistory).where(eq(watchHistory.id, id));
     }
 
     /**
@@ -237,7 +244,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @param fileName 视频文件名。
      */
     public async deleteByBasePathFileName(basePath: string, fileName: string): Promise<void> {
-        await db
+        await this.db
             .delete(watchHistory)
             .where(and(eq(watchHistory.base_path, basePath), eq(watchHistory.file_name, fileName)));
     }
@@ -248,7 +255,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @returns 去重后的路径组合列表。
      */
     public async listDistinctBasePathFileName(): Promise<WatchHistoryDistinctBasePathFileName[]> {
-        return db
+        return this.db
             .selectDistinct({
                 base_path: watchHistory.base_path,
                 file_name: watchHistory.file_name,
@@ -263,7 +270,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * @returns 引用该字幕文件的观看记录列表。
      */
     public async findBySrtFile(srtFile: string): Promise<WatchHistoryRecord[]> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(watchHistory)
             .where(eq(watchHistory.srt_file, srtFile));
@@ -271,7 +278,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
     }
 
     /**
-     * 将数据库行转换为 application 层使用的观看历史记录。
+     * 将数据库行转换为业务层使用的观看历史记录。
      *
      * @param row Drizzle 查询返回的数据库行。
      * @returns 不暴露数据库表类型的业务记录。
@@ -287,7 +294,7 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
      * 批量转换数据库行，保持仓储方法的返回结构简单。
      *
      * @param rows Drizzle 查询返回的数据库行列表。
-     * @returns application 层使用的业务记录列表。
+     * @returns 业务层使用的记录列表。
      */
     private toRecords(rows: WatchHistory[]): WatchHistoryRecord[] {
         return rows.map((row) => this.toRecord(row));

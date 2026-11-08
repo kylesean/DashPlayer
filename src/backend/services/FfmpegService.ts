@@ -144,16 +144,20 @@ export default interface FfmpegService {
  */
 @injectable()
 export class FfmpegServiceImpl implements FfmpegService {
-    @inject(TYPES.FfmpegGateway)
-    private ffmpegGateway!: FfmpegGateway;
-
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-
-    @inject(TYPES.FileSystemGateway)
-    private fileSystemGateway!: FileSystemGateway;
-
     private readonly logger = getMainLogger('FfmpegServiceImpl');
+
+    /**
+     * 构造 FFmpeg 业务服务。
+     *
+     * @param ffmpegGateway FFmpeg 底层命令网关。
+     * @param storageDirectoryProvider 外部存储目录提供器。
+     * @param fileSystemGateway 文件系统访问端口。
+     */
+    constructor(
+        @inject(TYPES.FfmpegGateway) private readonly ffmpegGateway: FfmpegGateway,
+        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
+        @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
+    ) {}
 
     /**
      * 分割视频。

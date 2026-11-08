@@ -49,7 +49,7 @@ const clearProxyEnv = (): void => {
 
 /**
  * 将配置写入标准代理环境变量（HTTP_PROXY / NO_PROXY 等），
- * 覆盖 axios、node-fetch、tencentcloud-sdk 等按环境变量取代理的客户端。
+ * 覆盖 node-fetch、tencentcloud-sdk 等按环境变量取代理的客户端。
  */
 const applyProxyEnv = (config: Electron.ProxyConfig): void => {
     clearProxyEnv();
@@ -192,7 +192,7 @@ let appliedKey: string | null = null;
  * 将给定配置应用到所有网络栈：
  * - Electron session（Chromium / net 请求）
  * - Node 侧全局 fetch（AI SDK / openai SDK）
- * - Node 标准代理环境变量（axios / node-fetch / tencentcloud-sdk）
+ * - Node 标准代理环境变量（node-fetch / tencentcloud-sdk）
  */
 const applyProxy = async (config: Electron.ProxyConfig): Promise<void> => {
     logger.info('apply proxy', { mode: config.mode, proxyRules: config.proxyRules, proxyBypassRules: config.proxyBypassRules });

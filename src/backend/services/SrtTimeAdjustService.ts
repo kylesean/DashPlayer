@@ -6,7 +6,9 @@ import { inject, injectable } from 'inversify';
 
 import type SubtitleTimestampAdjustmentsRepository
     from '@/backend/services/repositories/SubtitleTimestampAdjustmentsRepository';
-import TYPES from '@/backend/ioc/types';/**
+import TYPES from '@/backend/ioc/types';
+
+/**
  * SrtTimeAdjustService 的业务契约。
  */
 export default interface SrtTimeAdjustService {
@@ -63,8 +65,15 @@ export default interface SrtTimeAdjustService {
  */
 @injectable()
 export class SrtTimeAdjustServiceImpl implements SrtTimeAdjustService {
-    @inject(TYPES.SubtitleTimestampAdjustmentsRepository)
-    private subtitleTimestampAdjustmentsRepository!: SubtitleTimestampAdjustmentsRepository;
+    /**
+     * 构造字幕时间调整服务。
+     *
+     * @param subtitleTimestampAdjustmentsRepository 字幕时间调整仓储。
+     */
+    constructor(
+        @inject(TYPES.SubtitleTimestampAdjustmentsRepository)
+        private readonly subtitleTimestampAdjustmentsRepository: SubtitleTimestampAdjustmentsRepository,
+    ) {}
 
     /**
      * 新增或覆盖一条字幕时间调整记录。

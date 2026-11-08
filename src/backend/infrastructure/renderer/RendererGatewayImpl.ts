@@ -14,11 +14,17 @@ const RENDERER_API_RESPONSE_TIMEOUT_MS = 10_000;
  */
 @injectable()
 export default class RendererGatewayImpl implements RendererGateway {
-    @inject(TYPES.MainWindowRegistry)
-    private mainWindowRegistry!: MainWindowRegistry;
-
     private logger = getMainLogger('RendererGateway');
     private callIdCounter = 0;
+
+    /**
+     * 构造渲染进程 API 网关。
+     *
+     * @param mainWindowRegistry 主窗口注册表。
+     */
+    constructor(
+        @inject(TYPES.MainWindowRegistry) private readonly mainWindowRegistry: MainWindowRegistry,
+    ) {}
 
     /**
      * 调用当前 renderer 已注册的 API，并记录完整的发送、回执和超时生命周期。

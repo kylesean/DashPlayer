@@ -1,23 +1,34 @@
+import { z } from 'zod';
 import type Controller from '@/backend/controllers/Controller';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import {
+    clipQuerySchema,
+    nonEmptyStringSchema,
+    positiveIntSchema,
+} from '@/backend/controllers/ipc/routeSchemas';
 import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import type { Tag } from '@/common/contracts/tag';
 import type { ClipQuery } from '@/common/api/dto';
 import type { FavouriteClipsService } from '@/backend/services/FavouriteClipsService';
 import type { ClipMeta, OssBaseMeta } from '@/common/types/clipMeta';
-import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
-import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type SubtitleTranslationService from '@/backend/services/subtitle-translation/SubtitleTranslationService';
 
+/**
+ * 收藏片段管理与标签 IPC 控制器。
+ */
 @injectable()
 export default class FavoriteClipsController implements Controller {
-    @inject(TYPES.FavouriteClips)
-    private favouriteClipsService!: FavouriteClipsService;
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-    @inject(TYPES.SubtitleTranslationService)
-    private subtitleTranslationService!: SubtitleTranslationService;
+    /**
+     * 构造收藏片段控制器。
+     *
+     * @param favouriteClipsService 收藏片段业务服务。
+     * @param subtitleTranslationService 字幕翻译服务。
+     */
+    constructor(
+        @inject(TYPES.FavouriteClips) private readonly favouriteClipsService: FavouriteClipsService,
+        @inject(TYPES.SubtitleTranslationService) private readonly subtitleTranslationService: SubtitleTranslationService,
+    ) {}
 
     public async addClip({ videoPath, srtKey, indexInSrt }: {
         videoPath: string,
@@ -74,27 +85,56 @@ export default class FavoriteClipsController implements Controller {
 
     /**
      * 从外部媒体库重新回灌收藏片段索引。
-     *
-     * 行为说明：
-     * - 回灌前先校验媒体库目录可访问；
-     * - 目录异常时直接抛错，避免静默清空数据库后又无法恢复。
      */
     public async syncFromOss(): Promise<void> {
-        await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.FAVORITE_CLIPS_COLLECTION);
         return this.favouriteClipsService.syncFromOss();
     }
 
     registerRoutes(): void {
-        registerRoute('favorite-clips/add', (p) => this.addClip(p));
-        registerRoute('favorite-clips/cancel-add', (p) => this.cancelAddClip(p));
-        registerRoute('favorite-clips/exists', (p) => this.exists(p));
-        registerRoute('favorite-clips/search', (p) => this.search(p));
-        registerRoute('favorite-clips/query-clip-tags', (p) => this.queryClipTags(p));
-        registerRoute('favorite-clips/add-clip-tag', (p) => this.addClipTag(p));
-        registerRoute('favorite-clips/delete-clip-tag', (p) => this.deleteClipTag(p));
+        registerRoute('favorite-clips/add', (p) => this.addClip(p), {
+            schema: z.object({
+                videoPath: nonEmptyStringSchema,
+                srtKey: nonEmptyStringSchema,
+                indexInSrt: z.number().int().min(0),
+            }),
+        });
+        registerRoute('favorite-clips/cancel-add', (p) => this.cancelAddClip(p), {
+            schema: z.object({
+                srtKey: nonEmptyStringSchema,
+                indexInSrt: z.number().int().min(0),
+            }),
+        });
+        registerRoute('favorite-clips/exists', (p) => this.exists(p), {
+            schema: z.object({
+                srtKey: nonEmptyStringSchema,
+                linesInSrt: z.array(z.number().int().min(0)),
+            }),
+        });
+        registerRoute('favorite-clips/search', (p) => this.search(p), {
+            schema: clipQuerySchema,
+        });
+        registerRoute('favorite-clips/query-clip-tags', (p) => this.queryClipTags(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('favorite-clips/add-clip-tag', (p) => this.addClipTag(p), {
+            schema: z.object({
+                key: nonEmptyStringSchema,
+                tagId: positiveIntSchema,
+            }),
+        });
+        registerRoute('favorite-clips/delete-clip-tag', (p) => this.deleteClipTag(p), {
+            schema: z.object({
+                key: nonEmptyStringSchema,
+                tagId: positiveIntSchema,
+            }),
+        });
         registerRoute('favorite-clips/task-info', () => this.taskInfo());
-        registerRoute('favorite-clips/delete', (p) => this.delete(p));
-        registerRoute('favorite-clips/translate', (p) => this.translate(p));
+        registerRoute('favorite-clips/delete', (p) => this.delete(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('favorite-clips/translate', (p) => this.translate(p), {
+            schema: z.array(z.string()),
+        });
         registerRoute('favorite-clips/sync-from-oss', () => this.syncFromOss());
     }
 

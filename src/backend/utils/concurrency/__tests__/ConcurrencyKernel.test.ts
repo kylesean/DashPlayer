@@ -89,4 +89,54 @@ describe('并发内核门面', () => {
 
         await expect(Promise.all([first, second])).resolves.toBeDefined();
     });
+
+    it('互斥锁外层持有后应允许按顺序获取内层资源信号量', async () => {
+        const kernel = createConcurrencyKernel();
+
+        const value = await kernel.withMutex('transcription', async () => {
+            return await kernel.withSemaphore('ffmpeg', async () => {
+                return await kernel.withSemaphore('whisper', async () => 'ok');
+            });
+        });
+
+        expect(value).toBe('ok');
+        expect(kernel.mutex('transcription').snapshot().locked).toBe(false);
+        expect(kernel.semaphore('ffmpeg').snapshot().inUse).toBe(0);
+        expect(kernel.semaphore('whisper').snapshot().inUse).toBe(0);
+    });
+
+    it('持有内层信号量时反向获取外层互斥锁应触发锁顺序违规', async () => {
+        const kernel = createConcurrencyKernel();
+
+        await expect(
+            kernel.withSemaphore('ffmpeg', async () => {
+                await kernel.withMutex('video-learning-sync', async () => {
+                    return;
+                });
+            }),
+        ).rejects.toBeInstanceOf(LockOrderViolationError);
+    });
+
+    it('互斥锁在启用重入选项时应允许同调用链重入且正确释放', async () => {
+        const kernel = createConcurrencyKernel();
+
+        const value = await kernel.withMutex('custom-sync', async () => {
+            return await kernel.withMutex('custom-sync', async () => 'nested', { reentrant: true });
+        }, { reentrant: true });
+
+        expect(value).toBe('nested');
+        expect(kernel.mutex('custom-sync').snapshot().locked).toBe(false);
+    });
+
+    it('未配置互斥锁之间逆序嵌套获取应触发锁顺序违规', async () => {
+        const kernel = createConcurrencyKernel();
+
+        await expect(
+            kernel.withMutex('beta', async () => {
+                await kernel.withMutex('alpha', async () => {
+                    return;
+                });
+            }),
+        ).rejects.toBeInstanceOf(LockOrderViolationError);
+    });
 });

@@ -102,13 +102,26 @@ export default interface SettingService {
  */
 @injectable()
 export class SettingServiceImpl implements SettingService {
-    @inject(TYPES.RendererEvents) private rendererEvents!: RendererEvents;
-    @inject(TYPES.AiProviderService) private aiProviderService!: AiProviderService;
-    @inject(TYPES.TencentClientProvider) private tencentProvider!: ClientProviderService<TencentTranslateClient>;
-    @inject(TYPES.SettingsStore) private settingsStore!: SettingsStore;
-    @inject(TYPES.StorageDirectoryProvider) private storageDirectoryProvider!: StorageDirectoryProvider;
-    @inject(TYPES.LocalAiService) private localAi!: LocalAiService;
     private logger = getMainLogger('SettingServiceImpl');
+
+    /**
+     * 构造设置业务服务。
+     *
+     * @param rendererEvents 渲染进程事件推送端口。
+     * @param aiProviderService 云端模型提供服务。
+     * @param tencentProvider 腾讯云翻译客户端提供器。
+     * @param settingsStore 设置持久化存储端口。
+     * @param storageDirectoryProvider 外部存储目录提供器。
+     * @param localAi 本地大模型推理服务。
+     */
+    constructor(
+        @inject(TYPES.RendererEvents) private readonly rendererEvents: RendererEvents,
+        @inject(TYPES.AiProviderService) private readonly aiProviderService: AiProviderService,
+        @inject(TYPES.TencentClientProvider) private readonly tencentProvider: ClientProviderService<TencentTranslateClient>,
+        @inject(TYPES.SettingsStore) private readonly settingsStore: SettingsStore,
+        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
+        @inject(TYPES.LocalAiService) private readonly localAi: LocalAiService,
+    ) {}
 
     /**
      * 写入设置，并仅向渲染进程推送非敏感运行时设置。
@@ -249,7 +262,7 @@ export class SettingServiceImpl implements SettingService {
         // 运行时快照承载渲染进程整体初始化（主题、语言、快捷键等），单个坏值
         // （常见于多分支开发后枚举残留）不允许阻断整份快照下发。
         // 非法值原样透传，由渲染进程窄化检查后显式提示用户去设置页修复。
-        this.warnInvalidEnum(values['appearance.theme'], ['dark', 'light'] as const, 'appearance.theme');
+        this.warnInvalidEnum(values['appearance.theme'], ['dark', 'light', 'system'] as const, 'appearance.theme');
         this.warnInvalidEnum(
             values['appearance.fontSize'],
             ['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge'] as const,
@@ -257,6 +270,7 @@ export class SettingServiceImpl implements SettingService {
         );
         this.warnInvalidEnum(values['i18n.language'], ['system', 'zh-CN', 'en-US'] as const, 'i18n.language');
         this.warnInvalidEnum(values['player.autoPlayNext'], ['true', 'false'] as const, 'player.autoPlayNext');
+        this.warnInvalidEnum(values['player.pauseOnWordHover'], ['true', 'false'] as const, 'player.pauseOnWordHover');
         this.warnInvalidEnum(
             values['providers.subtitleTranslation'],
             SUBTITLE_TRANSLATION_ENGINES,
@@ -285,9 +299,10 @@ export class SettingServiceImpl implements SettingService {
         let value = request.value;
         switch (request.key) {
             case 'appearance.theme':
-                value = this.requireEnumValue(value, ['dark', 'light'] as const, request.key);
+                value = this.requireEnumValue(value, ['dark', 'light', 'system'] as const, request.key);
                 break;
             case 'player.autoPlayNext':
+            case 'player.pauseOnWordHover':
                 value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
                 break;
             case 'userSelect.playbackRateStack':
@@ -608,6 +623,10 @@ export class SettingServiceImpl implements SettingService {
             aiChat: this.getValue('shortcut.aiChat'),
             addClip: this.getValue('shortcut.addClip'),
             openControlPanel: this.getValue('shortcut.openControlPanel'),
+            volumeUp: this.getValue('shortcut.volumeUp'),
+            volumeDown: this.getValue('shortcut.volumeDown'),
+            seekBackward: this.getValue('shortcut.seekBackward'),
+            seekForward: this.getValue('shortcut.seekForward'),
         };
     }
 
@@ -643,6 +662,10 @@ export class SettingServiceImpl implements SettingService {
         await this.setValue('shortcut.aiChat', settings.aiChat);
         await this.setValue('shortcut.addClip', settings.addClip);
         await this.setValue('shortcut.openControlPanel', settings.openControlPanel);
+        await this.setValue('shortcut.volumeUp', settings.volumeUp);
+        await this.setValue('shortcut.volumeDown', settings.volumeDown);
+        await this.setValue('shortcut.seekBackward', settings.seekBackward);
+        await this.setValue('shortcut.seekForward', settings.seekForward);
     }
 
     /**
@@ -652,7 +675,7 @@ export class SettingServiceImpl implements SettingService {
         return {
             theme: this.requireEnumValue(
                 this.getValue('appearance.theme'),
-                ['dark', 'light'] as const,
+                ['dark', 'light', 'system'] as const,
                 'appearance.theme',
             ),
             fontSize: this.requireEnumValue(
@@ -672,7 +695,7 @@ export class SettingServiceImpl implements SettingService {
      * 保存外观设置，枚举值非法时立即抛错。
      */
     public async saveAppearanceSettings(settings: AppearanceSettingVO): Promise<void> {
-        const theme = this.requireEnumValue(settings.theme, ['dark', 'light'] as const, 'appearance.theme');
+        const theme = this.requireEnumValue(settings.theme, ['dark', 'light', 'system'] as const, 'appearance.theme');
         const fontSize = this.requireEnumValue(
             settings.fontSize,
             ['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge'] as const,

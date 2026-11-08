@@ -47,8 +47,12 @@ import { AiProviderServiceImpl } from '../AiProviderService';
 import { ModelRoutingServiceImpl } from '../ModelRoutingService';
 import type DpTaskService from '../DpTaskService';
 import type AiProviderService from '../AiProviderService';
-import type ModelRoutingService from '../ModelRoutingService';
 import type SettingService from '../SettingService';
+import type LocalAiService from '../LocalAiService';
+import type SentenceLearningService from '../SentenceLearningService';
+import type CacheService from '../CacheService';
+import type ResourceFallbackService from '../ResourceFallbackService';
+import { InMemoryChatSessionStore } from '@/backend/services/chat/ChatSessionStore';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import type WordTranslatesRepository from '@/backend/services/repositories/WordTranslatesRepository';
 
@@ -179,10 +183,14 @@ const runTests = (): void => {
                     startRun: vi.fn(() => new AbortController().signal),
                     finishRun: vi.fn(),
                 };
-                const sessionService = new ChatSessionServiceImpl();
-                (sessionService as unknown as { aiProviderService: AiProviderService }).aiProviderService = provider;
-                (sessionService as unknown as { rendererGateway: RendererGateway }).rendererGateway = gateway;
-                (sessionService as unknown as { chatSessionStore: typeof store }).chatSessionStore = store as never;
+                const sessionService = new ChatSessionServiceImpl(
+                    provider,
+                    {} as LocalAiService,
+                    {} as SentenceLearningService,
+                    gateway,
+                    store as never,
+                    {} as CacheService,
+                );
 
                 await sessionService.startAnalysis({ sessionId: 's-analysis' });
                 // startAnalysis 是 fire-and-forget 模式，流式结果在后台异步回推，轮询等待 finish 事件。
@@ -215,14 +223,13 @@ const runTests = (): void => {
                     cancel: vi.fn(),
                     checkCancel: vi.fn(),
                     registerTask: vi.fn(),
+                    recoverInterruptedTasks: vi.fn(),
                 };
                 const provider: AiProviderService = {
                     getModel: vi.fn(() => buildMockTextModel('{"answer": "yes"}')),
                     createModelById: vi.fn(() => buildMockTextModel('{"answer": "yes"}')),
                 };
-                const chatService = new ChatServiceImpl();
-                (chatService as unknown as { dpTaskService: DpTaskService }).dpTaskService = dpTask;
-                (chatService as unknown as { aiProviderService: AiProviderService }).aiProviderService = provider;
+                const chatService = new ChatServiceImpl(dpTask, provider);
 
                 const schema = z.object({ answer: z.string() });
                 await chatService.run(1, schema, 'Reply with JSON matching the schema.');
@@ -250,14 +257,13 @@ const runTests = (): void => {
                     cancel: vi.fn(),
                     checkCancel: vi.fn(),
                     registerTask: vi.fn(),
+                    recoverInterruptedTasks: vi.fn(),
                 };
                 const provider: AiProviderService = {
                     getModel: vi.fn(() => buildErrorModel(new Error('模型流中断'))),
                     createModelById: vi.fn(() => buildErrorModel(new Error('模型流中断'))),
                 };
-                const chatService = new ChatServiceImpl();
-                (chatService as unknown as { dpTaskService: DpTaskService }).dpTaskService = dpTask;
-                (chatService as unknown as { aiProviderService: AiProviderService }).aiProviderService = provider;
+                const chatService = new ChatServiceImpl(dpTask, provider);
 
                 const schema = z.object({ answer: z.string() });
                 await chatService.run(1, schema, 'Reply with JSON matching the schema.');
@@ -325,8 +331,7 @@ const runTests = (): void => {
                 }
 
                 const routingService = new ModelRoutingServiceImpl();
-                const providerService = new AiProviderServiceImpl();
-                (providerService as unknown as { modelRoutingService: ModelRoutingService }).modelRoutingService = routingService;
+                const providerService = new AiProviderServiceImpl(routingService);
 
                 const model = providerService.getModel('sentenceLearning');
                 expect(model).not.toBeNull();
@@ -359,14 +364,13 @@ const runTests = (): void => {
                     cancel: vi.fn(),
                     checkCancel: vi.fn(),
                     registerTask: vi.fn(),
+                    recoverInterruptedTasks: vi.fn(),
                 };
                 provider = {
                     getModel: vi.fn(() => buildLiveModel(testConfig!.model)),
                     createModelById: vi.fn(() => buildLiveModel(testConfig!.model)),
                 };
-                chatService = new ChatServiceImpl();
-                (chatService as unknown as { dpTaskService: DpTaskService }).dpTaskService = dpTask;
-                (chatService as unknown as { aiProviderService: AiProviderService }).aiProviderService = provider;
+                chatService = new ChatServiceImpl(dpTask, provider);
             };
 
             beforeAll(() => {
@@ -407,15 +411,28 @@ const runTests = (): void => {
                         events.push({ event: chunk?.type ?? 'unknown', payload: params });
                     }) as RendererGateway['fireAndForget'],
                 };
-                sessionService = new ChatSessionServiceImpl();
-                (sessionService as unknown as { aiProviderService: AiProviderService }).aiProviderService = provider;
-                (sessionService as unknown as { rendererGateway: RendererGateway }).rendererGateway = gateway;
+                const store = new InMemoryChatSessionStore();
+                sessionService = new ChatSessionServiceImpl(
+                    provider,
+                    {} as LocalAiService,
+                    {} as SentenceLearningService,
+                    gateway,
+                    store,
+                    {} as CacheService,
+                );
             });
 
             it('真实连接：startAnalysis() 能产出结构化分析并通过事件回推', async () => {
+                const { sessionId } = sessionService.create({
+                    videoId: 'v1',
+                    subtitleFileHash: 'h1',
+                    anchorSentenceIndex: 0,
+                    originalTopic: 'Hello world',
+                    paragraphLines: ['Hello world'],
+                });
                 events.length = 0;
                 await sessionService.startAnalysis({
-                    sessionId: 's1',
+                    sessionId,
                 });
                 // startAnalysis 是 fire-and-forget 模式，流式结果在后台异步回推，轮询等待 done 事件。
                 const deadline = Date.now() + 45000;
@@ -485,17 +502,24 @@ const runTests = (): void => {
                 const builtinFixture = createBuiltinDictionaryFixture([
                     { word: 'serendipity', phonetic: '', translation: 'n. 意外发现珍奇事物的运气' },
                 ]);
+                const localAiService = {
+                    getActiveModelId: vi.fn().mockResolvedValue(''),
+                    generate: vi.fn().mockRejectedValue(new Error('未配置本地模型')),
+                } as unknown as LocalAiService;
+                const resourceFallback = {
+                    isFallbackActive: vi.fn().mockReturnValue(false),
+                    clear: vi.fn(),
+                    markFallback: vi.fn(),
+                } as unknown as ResourceFallbackService;
                 const service = new TranslateServiceImpl(
                     gateway,
                     aiProvider,
                     settingService,
                     wordRepo,
                     new BuiltinDictionaryStoreImpl(builtinFixture.dbPath),
+                    localAiService,
+                    resourceFallback,
                 );
-                (service as unknown as { rendererGateway: RendererGateway }).rendererGateway = gateway;
-                (service as unknown as { aiProviderService: AiProviderService }).aiProviderService = aiProvider;
-                (service as unknown as { settingService: SettingService }).settingService = settingService;
-                (service as unknown as { wordTranslatesRepository: WordTranslatesRepository }).wordTranslatesRepository = wordRepo;
                 return service;
             };
 

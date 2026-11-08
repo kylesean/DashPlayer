@@ -1,4 +1,16 @@
+import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import {
+    appearanceSettingSchema,
+    engineSelectionSaveSchema,
+    mobileAccessSettingSaveSchema,
+    proxySettingSaveSchema,
+    runtimeSettingSaveSchema,
+    serviceCredentialSaveSchema,
+    shortcutSettingSaveSchema,
+    storageSettingSchema,
+    transcriptionEngineSchema,
+} from '@/backend/controllers/ipc/routeSchemas';
 import type ResourceFallbackService from '@/backend/services/ResourceFallbackService';
 import type { ResourceFallbackSnapshot } from '@/common/contracts/resource-fallback';
 import type { ResourceStatusSnapshot } from '@/common/contracts/resource-status';
@@ -34,19 +46,34 @@ import type {
 } from '@/common/contracts/mobile-access-setting-vo';
 
 /**
- * 设置页 IPC 控制器：只负责接收参数并委托给 SettingService。
+ * 设置页 IPC 控制器：只负责接收参数并委托给对应设置及资源服务。
  */
 @injectable()
 export default class SettingsController implements Controller {
-    @inject(TYPES.SettingService) private settingService!: SettingService;
-    @inject(TYPES.ResourceFallbackService) private resourceFallback!: ResourceFallbackService;
-    @inject(TYPES.SherpaTtsModelService) private sherpaTtsModelService!: SherpaTtsModelService;
-    @inject(TYPES.WhisperCppModelService) private whisperCppModelService!: WhisperCppModelService;
-    @inject(TYPES.ParakeetModelService) private parakeetModelService!: ParakeetModelService;
-    @inject(TYPES.LocalAiService) private localAiService!: LocalAiService;
-    @inject(TYPES.TranscriptionEngineSelector) private transcriptionEngineSelector!: TranscriptionEngineSelector;
-    @inject(TYPES.MobileAccessService) private mobileAccessService!: MobileAccessService;
     private logger = getMainLogger('SettingsController');
+
+    /**
+     * 构造设置控制器。
+     *
+     * @param settingService 设置管理服务。
+     * @param resourceFallback 资源回退状态服务。
+     * @param sherpaTtsModelService Sherpa 语音合成模型服务。
+     * @param whisperCppModelService WhisperCpp 识别模型服务。
+     * @param parakeetModelService Parakeet 识别模型服务。
+     * @param localAiService 本地大模型推理服务。
+     * @param transcriptionEngineSelector 转录引擎选择器。
+     * @param mobileAccessService 手机端局域网访问服务。
+     */
+    constructor(
+        @inject(TYPES.SettingService) private readonly settingService: SettingService,
+        @inject(TYPES.ResourceFallbackService) private readonly resourceFallback: ResourceFallbackService,
+        @inject(TYPES.SherpaTtsModelService) private readonly sherpaTtsModelService: SherpaTtsModelService,
+        @inject(TYPES.WhisperCppModelService) private readonly whisperCppModelService: WhisperCppModelService,
+        @inject(TYPES.ParakeetModelService) private readonly parakeetModelService: ParakeetModelService,
+        @inject(TYPES.LocalAiService) private readonly localAiService: LocalAiService,
+        @inject(TYPES.TranscriptionEngineSelector) private readonly transcriptionEngineSelector: TranscriptionEngineSelector,
+        @inject(TYPES.MobileAccessService) private readonly mobileAccessService: MobileAccessService,
+    ) {}
 
     /**
      * 获取渲染进程启动所需的非敏感设置。
@@ -223,25 +250,45 @@ export default class SettingsController implements Controller {
 
     registerRoutes(): void {
         registerRoute('settings/runtime/detail', () => this.getRuntimeSettings());
-        registerRoute('settings/runtime/save', (p) => this.saveRuntimeSetting(p));
+        registerRoute('settings/runtime/save', (p) => this.saveRuntimeSetting(p), {
+            schema: runtimeSettingSaveSchema,
+        });
         registerRoute('settings/service-credentials/detail', () => this.getServiceCredentialsDetail());
-        registerRoute('settings/service-credentials/save', (p) => this.saveServiceCredentials(p));
-        registerRoute('settings/service-credentials/test-openai', (p) => this.testOpenAi(p));
+        registerRoute('settings/service-credentials/save', (p) => this.saveServiceCredentials(p), {
+            schema: serviceCredentialSaveSchema,
+        });
+        registerRoute('settings/service-credentials/test-openai', (p) => this.testOpenAi(p), {
+            schema: z.object({ model: z.string() }),
+        });
         registerRoute('settings/service-credentials/test-tencent', () => this.testTencent());
         registerRoute('settings/engine-selection/detail', () => this.getEngineSelectionDetail());
         registerRoute('settings/resource-fallback/detail', () => this.getResourceFallbackDetail());
         registerRoute('settings/resource-status/detail', () => this.getResourceStatusDetail());
-        registerRoute('settings/engine-selection/save', (p) => this.saveEngineSelection(p));
-        registerRoute('settings/transcription-engine/save', (p) => this.saveTranscriptionEngineDetail(p));
+        registerRoute('settings/engine-selection/save', (p) => this.saveEngineSelection(p), {
+            schema: engineSelectionSaveSchema,
+        });
+        registerRoute('settings/transcription-engine/save', (p) => this.saveTranscriptionEngineDetail(p), {
+            schema: transcriptionEngineSchema,
+        });
         registerRoute('settings/shortcuts/detail', () => this.getShortcutSettingsDetail());
-        registerRoute('settings/shortcuts/save', (p) => this.saveShortcutSettings(p));
+        registerRoute('settings/shortcuts/save', (p) => this.saveShortcutSettings(p), {
+            schema: shortcutSettingSaveSchema,
+        });
         registerRoute('settings/appearance/detail', () => this.getAppearanceSettingDetail());
-        registerRoute('settings/appearance/save', (p) => this.saveAppearanceSettings(p));
+        registerRoute('settings/appearance/save', (p) => this.saveAppearanceSettings(p), {
+            schema: appearanceSettingSchema,
+        });
         registerRoute('settings/storage/detail', () => this.getStorageSettingDetail());
-        registerRoute('settings/storage/save', (p) => this.saveStorageSettings(p));
+        registerRoute('settings/storage/save', (p) => this.saveStorageSettings(p), {
+            schema: storageSettingSchema,
+        });
         registerRoute('settings/proxy/detail', () => this.getProxySettingDetail());
-        registerRoute('settings/proxy/save', (p) => this.saveProxySettings(p));
+        registerRoute('settings/proxy/save', (p) => this.saveProxySettings(p), {
+            schema: proxySettingSaveSchema,
+        });
         registerRoute('settings/mobile-access/detail', () => this.getMobileAccessDetail());
-        registerRoute('settings/mobile-access/save', (p) => this.saveMobileAccessSettings(p));
+        registerRoute('settings/mobile-access/save', (p) => this.saveMobileAccessSettings(p), {
+            schema: mobileAccessSettingSaveSchema,
+        });
     }
 }

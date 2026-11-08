@@ -1,17 +1,27 @@
 import type {SubtitleTimestampAdjustmentInput} from '@/common/contracts/subtitle-timestamp-adjustment';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import {
+    nonEmptyStringSchema,
+    subtitleTimestampAdjustmentInputSchema,
+} from '@/backend/controllers/ipc/routeSchemas';
 import type Controller from '@/backend/controllers/Controller';
 import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import type SrtTimeAdjustService from '@/backend/services/SrtTimeAdjustService';
 
 /**
- * 调整字幕时间
+ * 字幕时间偏移调整 IPC 控制器。
  */
 @injectable()
 export default class SrtTimeAdjustController implements Controller {
-    @inject(TYPES.SrtTimeAdjustService)
-    private srtTimeAdjustService!: SrtTimeAdjustService;
+    /**
+     * 构造字幕时间调整控制器。
+     *
+     * @param srtTimeAdjustService 字幕时间调整业务服务。
+     */
+    constructor(
+        @inject(TYPES.SrtTimeAdjustService) private readonly srtTimeAdjustService: SrtTimeAdjustService,
+    ) {}
 
     /**
      * 记录调整时间
@@ -38,8 +48,14 @@ export default class SrtTimeAdjustController implements Controller {
     }
 
     registerRoutes(): void {
-        registerRoute('subtitle-timestamp/delete/by-file-hash', (p) => this.deleteByFile(p));
-        registerRoute('subtitle-timestamp/delete/by-key', (p) => this.deleteByKey(p));
-        registerRoute('subtitle-timestamp/update', (p) => this.record(p));
+        registerRoute('subtitle-timestamp/delete/by-file-hash', (p) => this.deleteByFile(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('subtitle-timestamp/delete/by-key', (p) => this.deleteByKey(p), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('subtitle-timestamp/update', (p) => this.record(p), {
+            schema: subtitleTimestampAdjustmentInputSchema,
+        });
     }
 }

@@ -172,18 +172,24 @@ export class SubtitleServiceImpl implements SubtitleService {
     /** 当前字幕加载会话 ID。 */
     private activePlaybackSessionId: string | null = null;
 
-    @inject(TYPES.SrtTimeAdjustService)
-    private srtTimeAdjustService!: SrtTimeAdjustService;
-    @inject(TYPES.CacheService)
-    private cacheService!: CacheService;
-    @inject(TYPES.SubtitleVocabularyAnalysisService)
-    private vocabularyAnalysisService!: SubtitleVocabularyAnalysisService;
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-    @inject(TYPES.FileSystemGateway)
-    private fileSystemGateway!: FileSystemGateway;
-    @inject(TYPES.SystemConfigService)
-    private systemConfigService!: SystemConfigService;
+    /**
+     * 构造字幕业务服务。
+     *
+     * @param srtTimeAdjustService 字幕时间调整服务。
+     * @param cacheService 内存缓存服务。
+     * @param vocabularyAnalysisService 共享字幕生词分析服务。
+     * @param storageDirectoryProvider 外部存储目录提供器。
+     * @param fileSystemGateway 文件系统访问端口。
+     * @param systemConfigService 系统配置服务。
+     */
+    constructor(
+        @inject(TYPES.SrtTimeAdjustService) private readonly srtTimeAdjustService: SrtTimeAdjustService,
+        @inject(TYPES.CacheService) private readonly cacheService: CacheService,
+        @inject(TYPES.SubtitleVocabularyAnalysisService) private readonly vocabularyAnalysisService: SubtitleVocabularyAnalysisService,
+        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
+        @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
+        @inject(TYPES.SystemConfigService) private readonly systemConfigService: SystemConfigService,
+    ) {}
 
     /**
      * 解析字幕文件并缓存后续生词匹配所需的纯文本。

@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import { nonEmptyStringSchema } from '@/backend/controllers/ipc/routeSchemas';
 import type { SrtSentence } from '@/common/types/SentenceC';
 import type { SentenceStruct } from '@/common/types/SentenceStruct';
 import { inject, injectable } from 'inversify';
@@ -8,11 +10,19 @@ import type SubtitleService from '@/backend/services/SubtitleService';
 import { type SubtitleVocabularyMatchResult } from '@/backend/services/SubtitleService';
 
 
+/**
+ * 字幕解析与生词匹配 IPC 控制器。
+ */
 @injectable()
 export default class SubtitleController implements Controller {
-
-    @inject(TYPES.SubtitleService)
-    private subtitleService!: SubtitleService;
+    /**
+     * 构造字幕控制器。
+     *
+     * @param subtitleService 字幕业务服务。
+     */
+    constructor(
+        @inject(TYPES.SubtitleService) private readonly subtitleService: SubtitleService,
+    ) {}
 
     /**
      * 为当前播放会话解析字幕。
@@ -64,8 +74,22 @@ export default class SubtitleController implements Controller {
      * 注册字幕相关 IPC 路由。
      */
     registerRoutes(): void {
-        registerRoute('subtitle/srt/parse-to-sentences', (p) => this.parseSrt(p));
-        registerRoute('subtitle/srt/match-vocabulary', (p) => this.matchVocabulary(p));
-        registerRoute('subtitle/text/parse-structs', (p) => this.parseStructs(p));
+        registerRoute('subtitle/srt/parse-to-sentences', (p) => this.parseSrt(p), {
+            schema: z.object({
+                subtitlePath: z.string().nullable(),
+                videoId: nonEmptyStringSchema,
+                playbackSessionId: nonEmptyStringSchema,
+            }),
+        });
+        registerRoute('subtitle/srt/match-vocabulary', (p) => this.matchVocabulary(p), {
+            schema: z.object({
+                fileHash: nonEmptyStringSchema,
+                videoId: nonEmptyStringSchema,
+                playbackSessionId: nonEmptyStringSchema,
+            }),
+        });
+        registerRoute('subtitle/text/parse-structs', (p) => this.parseStructs(p), {
+            schema: z.array(z.string()),
+        });
     }
 }

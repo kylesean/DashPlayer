@@ -25,16 +25,25 @@ const dropDeduper = createWindowedDeduper({
     },
 });
 
+/**
+ * 向渲染进程发送主进程主动事件的实现。
+ */
 @injectable()
 export default class RendererEventsImpl implements RendererEvents {
-    @inject(TYPES.MainWindowRegistry)
-    private mainWindowRegistry!: MainWindowRegistry;
-
     /** 各任务上次推送给渲染进程的状态，用来只在状态跃迁时记日志。 */
     private readonly lastPushedStatus = new Map<number, DpTaskState>();
 
     /** 各修复任务上次推送给渲染进程的状态，用来只在状态跃迁时记日志。 */
     private readonly lastPushedRepairStatus = new Map<string, RepairTaskState>();
+
+    /**
+     * 构造渲染进程事件推送器。
+     *
+     * @param mainWindowRegistry 主窗口注册表。
+     */
+    constructor(
+        @inject(TYPES.MainWindowRegistry) private readonly mainWindowRegistry: MainWindowRegistry,
+    ) {}
 
     /**
      * 解析可用的主窗口；不可用时显式记录丢弃原因。

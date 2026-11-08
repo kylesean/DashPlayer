@@ -16,15 +16,24 @@ const SIZE_WAIT_TIMEOUT_MS = 800;
 /** 锁死后的观察时长：窗口管理器若在这段时间内改走尺寸，说明几何归它管，锁死必须撤销。 */
 const LOCK_WATCH_MS = 800;
 
+/**
+ * 基于 Electron 主窗口控制窗口状态与按钮可见性的端口实现。
+ */
 @injectable()
 export default class WindowPortImpl implements WindowPort {
-    @inject(TYPES.MainWindowRegistry)
-    private mainWindowRegistry!: MainWindowRegistry;
-
     private readonly logger = getMainLogger('WindowPort');
 
     /** 首页尺寸判定的序号：每次状态切换都自增，用于作废尚未完成的异步收尾。 */
     private homeResolveToken = 0;
+
+    /**
+     * 构造窗口控制端口。
+     *
+     * @param mainWindowRegistry 主窗口注册表。
+     */
+    constructor(
+        @inject(TYPES.MainWindowRegistry) private readonly mainWindowRegistry: MainWindowRegistry,
+    ) {}
 
     private tryGetWindow() {
         return this.mainWindowRegistry.tryGetMainWindow();

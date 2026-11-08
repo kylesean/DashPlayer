@@ -30,38 +30,42 @@ dbLogger.info('database opened', {
  * 仅用于迁移失败后的重试或显式重置；会删除全部业务数据，调用前须明确意图。
  */
 export async function clearDB() {
-    // Get all tables
+    // 排除 SQLite 内部保留表（如 sqlite_sequence / sqlite_stat*）。
     const tables = await db
         .select({
             name: sql<string>`name`,
         })
         .from(sql`sqlite_master`)
-        .where(and(sql`type = 'table'`, sql`name != 'sqlite_sequence'`));
+        .where(and(sql`type = 'table'`, sql`name NOT LIKE 'sqlite_%'`));
 
-    // Drop all tables
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    for (const table of tables.map((e) => e.name)) {
-        sqlite.exec(`DROP TABLE ${table}`);
+    // 清表期间临时关闭外键约束，避免父子表删除顺序触发 RESTRICT 错误。
+    sqlite.pragma('foreign_keys = OFF');
+    try {
+        for (const { name } of tables) {
+            sqlite.exec(`DROP TABLE IF EXISTS "${name.replace(/"/g, '""')}"`);
+        }
+
+        const indexes = await db
+            .select({
+                name: sql<string>`name`,
+            })
+            .from(sql`sqlite_master`)
+            .where(and(sql`type = 'index'`, sql`name NOT LIKE 'sqlite_%'`));
+
+        for (const { name } of indexes) {
+            sqlite.exec(`DROP INDEX IF EXISTS "${name.replace(/"/g, '""')}"`);
+        }
+
+        const sequenceTables = await db
+            .select({ name: sql<string>`name` })
+            .from(sql`sqlite_master`)
+            .where(and(sql`type = 'table'`, sql`name = 'sqlite_sequence'`));
+        if (sequenceTables.length > 0) {
+            sqlite.exec('DELETE FROM sqlite_sequence');
+        }
+    } finally {
+        sqlite.pragma('foreign_keys = ON');
     }
-
-    // Get all indexes
-    const indexes = await db
-        .select({
-            name: sql<string>`name`,
-        })
-        .from(sql`sqlite_master`)
-        .where(sql`type = 'index'`);
-
-    // Drop all indexes
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    for (const index of indexes.map((e) => e.name)) {
-        sqlite.exec(`DROP INDEX ${index}`);
-    }
-
-    // Clear all sequences
-    sqlite.exec(`DELETE FROM sqlite_sequence WHERE 1=1`);
 }
 
 export default db;

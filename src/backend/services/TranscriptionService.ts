@@ -569,7 +569,7 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
         for (let attempt = 1; attempt <= MAX_CHUNK_RETRY; attempt++) {
             if (signal.aborted) throw new CancelByUserError('Transcription cancelled by user');
             try {
-                // whisper 信号量统一限制识别任务并发；未配置时跳过锁顺序校验。
+                // whisper 信号量统一限制识别任务并发；已在外层 lockOrder 中排在 transcription 互斥锁之后。
                 return await concurrency.withSemaphore('whisper', async () => {
                     return await gateway.transcribe({
                         audioPath: wavPath,
@@ -580,7 +580,7 @@ export class LocalTranscriptionServiceImpl implements TranscriptionService {
                             void this.sendProgress(0, filePath, TranscriptTaskState.IN_PROGRESS, progress);
                         },
                     });
-                }, { skipOrderCheck: true });
+                });
             } catch (error) {
                 if (signal.aborted) {
                     // 主动取消：不再重试。

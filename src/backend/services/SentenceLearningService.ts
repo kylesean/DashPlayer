@@ -55,11 +55,16 @@ export default interface SentenceLearningService {
 export class SentenceLearningServiceImpl implements SentenceLearningService {
     private logger = getMainLogger('SentenceLearningService');
 
-    @inject(TYPES.AiProviderService)
-    private aiProviderService!: AiProviderService;
-
-    @inject(TYPES.LocalAiService)
-    private localAiService!: LocalAiService;
+    /**
+     * 构造整句学习单次推理服务。
+     *
+     * @param aiProviderService 云端模型提供服务。
+     * @param localAiService 本地大模型推理服务。
+     */
+    constructor(
+        @inject(TYPES.AiProviderService) private readonly aiProviderService: AiProviderService,
+        @inject(TYPES.LocalAiService) private readonly localAiService: LocalAiService,
+    ) {}
 
     @WithRateLimit('gpt')
     public async completeSentence(params: CompleteSentenceParams): Promise<CompleteSentenceResult> {

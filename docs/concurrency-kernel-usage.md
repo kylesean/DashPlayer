@@ -12,6 +12,7 @@ import { concurrency } from '@/backend/utils/concurrency';
 
 核心能力：
 
+- `withMutex`：独占互斥锁（支持统一上下文、锁顺序校验与可选重入）。
 - `withSemaphore`：并发槽位控制。
 - `withRateLimit`：速率限制。
 - `scheduler().yieldIfNeeded()`：合作式让步。
@@ -66,16 +67,16 @@ await concurrency.withSemaphore('ffmpeg', async () => {
 
 ## 4. 锁顺序规则（防死锁）
 
-内核会校验同调用链下的锁获取顺序，逆序会抛 `LockOrderViolationError`。
+内核会在同一并发上下文中统一校验互斥锁与信号量的获取顺序，逆序会抛 `LockOrderViolationError`。
 
-当前默认顺序基于 key 字典序（由配置键集合生成）：
+默认顺序由 `defaultConcurrencyProfiles.lockOrder` 声明，外层业务互斥锁始终排在底层资源信号量之前：
 
-`ffmpeg < ffprobe < whisper`
+`favourite-clip-sync < video-learning-sync < transcription < localAi < yt-dlp < ffmpeg < ffprobe < whisper < tts`
 
 实践要求：
 
-- 同一调用链只允许按既定顺序获取。
-- 不要在持有高序锁时再获取低序锁。
+- 同一调用链只允许按既定顺序获取，先拿外层业务互斥锁，再拿底层资源信号量。
+- 禁止在持有底层信号量时反向获取外层互斥锁，或持有高序锁时再获取低序锁。
 
 ## 5. 装饰器用法
 

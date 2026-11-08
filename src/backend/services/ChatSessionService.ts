@@ -74,27 +74,31 @@ export default interface ChatSessionService {
 }
 
 
+/**
+ * 整句学习对话会话服务实现。
+ */
 @injectable()
 export class ChatSessionServiceImpl implements ChatSessionService {
     private logger = getMainLogger('ChatSessionService');
 
-    @inject(TYPES.AiProviderService)
-    private aiProviderService!: AiProviderService;
-
-    @inject(TYPES.LocalAiService)
-    private localAiService!: LocalAiService;
-
-    @inject(TYPES.SentenceLearningService)
-    private sentenceLearningService!: SentenceLearningService;
-
-    @inject(TYPES.RendererGateway)
-    private rendererGateway!: RendererGateway;
-
-    @inject(TYPES.ChatSessionStore)
-    private chatSessionStore!: ChatSessionStore;
-
-    @inject(TYPES.CacheService)
-    private cacheService!: CacheService;
+    /**
+     * 构造整句学习对话会话服务。
+     *
+     * @param aiProviderService AI 模型提供服务。
+     * @param localAiService 本地大模型推理服务。
+     * @param sentenceLearningService 整句补全与可用性服务。
+     * @param rendererGateway 渲染进程 API 网关。
+     * @param chatSessionStore 会话状态内存仓库。
+     * @param cacheService 内存缓存服务。
+     */
+    constructor(
+        @inject(TYPES.AiProviderService) private readonly aiProviderService: AiProviderService,
+        @inject(TYPES.LocalAiService) private readonly localAiService: LocalAiService,
+        @inject(TYPES.SentenceLearningService) private readonly sentenceLearningService: SentenceLearningService,
+        @inject(TYPES.RendererGateway) private readonly rendererGateway: RendererGateway,
+        @inject(TYPES.ChatSessionStore) private readonly chatSessionStore: ChatSessionStore,
+        @inject(TYPES.CacheService) private readonly cacheService: CacheService,
+    ) {}
 
     /**
      * 创建由 main 进程持有的内存会话。

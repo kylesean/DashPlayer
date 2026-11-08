@@ -157,7 +157,7 @@ interface SystemDef {
     'system/window-size/change': { params: WindowState, return: void };
     'system/window-size': { params: void, return: WindowState };
     'system/window-buttons/visibility': { params: boolean, return: void };
-    'system/check-update': { params: { mode?: 'toast' }, return: UpdateCheckResult };
+    'system/check-update': { params: { mode?: 'toast' } | undefined, return: UpdateCheckResult };
     'system/open-url': { params: string, return: void };
     'system/app-version': { params: void, return: string };
     /**
@@ -216,8 +216,8 @@ interface ChatAnalysisDef {
 }
 
 interface WatchHistoryDef {
-    'watch-history/list': { params: string, return: WatchHistoryVO[] };
-    'watch-history/list/basic': { params: string, return: WatchHistoryVO[] };
+    'watch-history/list': { params: string | undefined, return: WatchHistoryVO[] };
+    'watch-history/list/basic': { params: string | undefined, return: WatchHistoryVO[] };
     'watch-history/progress/update': {
         params: { file: string, currentPosition: number },
         return: void
@@ -367,7 +367,7 @@ interface PlaybackRepairDef {
 
 interface FavoriteClipsDef {
     'favorite-clips/add': { params: { videoPath: string, srtKey: string, indexInSrt: number }, return: void };
-    'favorite-clips/search': { params: ClipQuery, return: (ClipMeta & OssBaseMeta)[] };
+    'favorite-clips/search': { params: ClipQuery | undefined, return: (ClipMeta & OssBaseMeta)[] };
     'favorite-clips/query-clip-tags': { params: string, return: Tag[] };
     'favorite-clips/add-clip-tag': { params: { key: string, tagId: number }, return: void };
     'favorite-clips/delete-clip-tag': { params: { key: string, tagId: number }, return: void };

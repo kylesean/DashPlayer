@@ -1,6 +1,8 @@
 // src/backend/controllers/AiTransController.ts
 
+import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import { nonEmptyStringSchema } from '@/backend/controllers/ipc/routeSchemas';
 
 import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types'; // 使用接口定义
@@ -9,13 +11,21 @@ import type Controller from '@/backend/controllers/Controller';
 import type TranslateService from '@/backend/services/TranslateService';
 import type SubtitleTranslationService from '@/backend/services/subtitle-translation/SubtitleTranslationService';
 
+/**
+ * 单词词典查询与字幕翻译调度 IPC 控制器。
+ */
 @injectable()
 export default class AiTransController implements Controller {
-    @inject(TYPES.TranslateService)
-    private translateService!: TranslateService;
-
-    @inject(TYPES.SubtitleTranslationService)
-    private subtitleTranslationService!: SubtitleTranslationService;
+    /**
+     * 构造翻译控制器。
+     *
+     * @param translateService 单词词典服务。
+     * @param subtitleTranslationService 字幕翻译编排服务。
+     */
+    constructor(
+        @inject(TYPES.TranslateService) private readonly translateService: TranslateService,
+        @inject(TYPES.SubtitleTranslationService) private readonly subtitleTranslationService: SubtitleTranslationService,
+    ) {}
 
     /**
      * 单词词典查询：预置词典优先，未命中走 OpenAI 词典模型。
@@ -51,10 +61,29 @@ export default class AiTransController implements Controller {
      * 注册IPC路由
      */
     registerRoutes(): void {
-        registerRoute('ai-trans/word', (p) => this.transWord(p));
+        registerRoute('ai-trans/word', (p) => this.transWord(p), {
+            schema: z.object({
+                word: z.string(),
+                forceRefresh: z.boolean().optional(),
+                requestId: z.string().optional(),
+                context: z.string().optional(),
+            }),
+        });
 
-        registerRoute('ai-trans/update-subtitle-demand', (p) => this.updateSubtitleDemand(p));
-        registerRoute('ai-trans/release-subtitle-session', (p) => this.releaseSubtitleSession(p));
+        registerRoute('ai-trans/update-subtitle-demand', (p) => this.updateSubtitleDemand(p), {
+            schema: z.object({
+                fileHash: nonEmptyStringSchema,
+                currentIndex: z.number().int().min(0),
+                demandId: z.number().int().min(0),
+                rendererSessionId: nonEmptyStringSchema,
+            }),
+        });
+        registerRoute('ai-trans/release-subtitle-session', (p) => this.releaseSubtitleSession(p), {
+            schema: z.object({
+                fileHash: nonEmptyStringSchema,
+                rendererSessionId: nonEmptyStringSchema,
+            }),
+        });
         registerRoute('ai-trans/clear-subtitle-translation-cache', async () => ({
             deleted: await this.subtitleTranslationService.clearTranslationCache(),
         }));

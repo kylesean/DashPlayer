@@ -122,64 +122,61 @@ type SrtCache = SrtSentence;
 @injectable()
 export class VideoLearningServiceImpl implements VideoLearningService {
     private readonly logger = getMainLogger('VideoLearningServiceImpl');
-    @inject(TYPES.VideoLearningOssService)
-    private videoLearningOssService!: ClipOssService;
-
-    @inject(TYPES.CacheService)
-    private cacheService!: CacheService;
-
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-
-    @inject(TYPES.FileSystemGateway)
-    private fileSystemGateway!: FileSystemGateway;
-
-    @inject(TYPES.FfmpegService)
-    private ffmpegService!: FfmpegService;
-
-    @inject(TYPES.RendererGateway)
-    private rendererGateway!: RendererGateway;
-
-    @inject(TYPES.WordMatchService)
-    private wordMatchService!: WordMatchService;
-
-    @inject(TYPES.SubtitleService)
-    private subtitleService!: SubtitleService;
-
-    @inject(TYPES.VideoLearningClipRepository)
-    private videoLearningClipRepository!: VideoLearningClipRepository;
-
-    @inject(TYPES.VideoLearningClipWordRepository)
-    private videoLearningClipWordRepository!: VideoLearningClipWordRepository;
-
-    /**
-     * 共享字幕生词分析服务。
-     */
-    @inject(TYPES.SubtitleVocabularyAnalysisService)
-    private subtitleVocabularyAnalysisService!: SubtitleVocabularyAnalysisService;
 
     /**
      * 按字幕管理的候选片段转换器。
-     *
-     * 通过延迟回调读取属性注入的共享分析服务，避免字段初始化早于依赖注入。
      */
-    private readonly clipAnalysis = new VideoLearningClipAnalysis(
-        () => this.subtitleVocabularyAnalysisService,
-    );
+    private readonly clipAnalysis: VideoLearningClipAnalysis;
+
     /**
      * 管理实际裁切任务的等待与串行消费。
      */
-    private readonly clipTaskQueue = new VideoLearningClipTaskQueue({
-        execute: (task) => this.addLearningClip(task),
-        onTaskFinished: (result) => this.handleClipTaskFinished(result),
-        onQueueError: (error) => {
-            this.logger.error('视频学习片段队列消费异常', { error });
-        },
-    });
+    private readonly clipTaskQueue: VideoLearningClipTaskQueue;
+
     /** 各字幕最近一次片段状态。 */
     private clipStatusCache: Map<string, VideoLearningClipStatusVO> = new Map();
     /** 各字幕状态通知的递增序号。 */
     private clipStatusSeq: Map<string, number> = new Map();
+
+    /**
+     * 构造视频学习片段服务。
+     *
+     * @param videoLearningOssService 学习片段文件存储服务。
+     * @param cacheService 内存缓存服务。
+     * @param storageDirectoryProvider 外部存储目录提供器。
+     * @param fileSystemGateway 文件系统访问端口。
+     * @param ffmpegService FFmpeg 业务服务。
+     * @param rendererGateway 渲染进程 API 网关。
+     * @param wordMatchService 词表匹配服务。
+     * @param subtitleService 字幕业务服务。
+     * @param videoLearningClipRepository 学习片段仓储。
+     * @param videoLearningClipWordRepository 学习片段关联词仓储。
+     * @param subtitleVocabularyAnalysisService 共享字幕生词分析服务。
+     */
+    constructor(
+        @inject(TYPES.VideoLearningOssService) private readonly videoLearningOssService: ClipOssService,
+        @inject(TYPES.CacheService) private readonly cacheService: CacheService,
+        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
+        @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
+        @inject(TYPES.FfmpegService) private readonly ffmpegService: FfmpegService,
+        @inject(TYPES.RendererGateway) private readonly rendererGateway: RendererGateway,
+        @inject(TYPES.WordMatchService) private readonly wordMatchService: WordMatchService,
+        @inject(TYPES.SubtitleService) private readonly subtitleService: SubtitleService,
+        @inject(TYPES.VideoLearningClipRepository) private readonly videoLearningClipRepository: VideoLearningClipRepository,
+        @inject(TYPES.VideoLearningClipWordRepository) private readonly videoLearningClipWordRepository: VideoLearningClipWordRepository,
+        @inject(TYPES.SubtitleVocabularyAnalysisService) private readonly subtitleVocabularyAnalysisService: SubtitleVocabularyAnalysisService,
+    ) {
+        this.clipAnalysis = new VideoLearningClipAnalysis(
+            () => this.subtitleVocabularyAnalysisService,
+        );
+        this.clipTaskQueue = new VideoLearningClipTaskQueue({
+            execute: (task) => this.addLearningClip(task),
+            onTaskFinished: (result) => this.handleClipTaskFinished(result),
+            onQueueError: (error) => {
+                this.logger.error('视频学习片段队列消费异常', { error });
+            },
+        });
+    }
 
     /**
      * 从缓存读取字幕。
@@ -805,9 +802,11 @@ export class VideoLearningServiceImpl implements VideoLearningService {
     /**
      * 使用 OSS 中的片段完整重建本地索引。
      *
+     * 回灌前先校验学习片段目录可访问，目录异常时直接抛错，避免清空索引后无法恢复；
      * 同步与裁切任务共用互斥锁，避免重建索引时并发写入。
      */
     public async syncFromOss() {
+        await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.WORD_VIDEO);
         await concurrency.withMutex('video-learning-sync', async () => {
             const keys = await this.videoLearningOssService.list();
             const clips: InsertVideoLearningClip[] = [];

@@ -4,7 +4,7 @@ import ipaddr from 'ipaddr.js';
  * 代理直连规则（bypass）匹配器。
  *
  * 规则格式与 Electron `proxyBypassRules` 保持一致，在 Node 侧请求
- * （全局 fetch / axios / node-fetch）上执行同样的直连判断：
+ * （全局 fetch / node-fetch / SDK 客户端）上执行同样的直连判断：
  * - `<local>`：本机回环地址
  * - 具体 IP（如 `192.168.1.1`）或带通配符的 IP（如 `192.168.1.*`）
  * - CIDR（如 `10.0.0.0/8`、`169.254/16`）

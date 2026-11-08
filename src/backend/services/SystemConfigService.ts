@@ -1,7 +1,9 @@
 import { inject, injectable } from 'inversify';
 
 import type SysConfRepository from '@/backend/services/repositories/SysConfRepository';
-import TYPES from '@/backend/ioc/types';/**
+import TYPES from '@/backend/ioc/types';
+
+/**
  * SystemConfigService 的业务契约。
  */
 export default interface SystemConfigService {
@@ -29,8 +31,14 @@ export default interface SystemConfigService {
  */
 @injectable()
 export class SystemConfigServiceImpl implements SystemConfigService {
-    @inject(TYPES.SysConfRepository)
-    private sysConfRepository!: SysConfRepository;
+    /**
+     * 构造系统配置服务。
+     *
+     * @param sysConfRepository 系统配置仓储。
+     */
+    constructor(
+        @inject(TYPES.SysConfRepository) private readonly sysConfRepository: SysConfRepository,
+    ) {}
 
     /**
      * 读取指定系统配置。

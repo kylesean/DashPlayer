@@ -1,10 +1,11 @@
 import { asc, eq, or } from 'drizzle-orm';
-import { injectable } from 'inversify';
-import db from '@/backend/infrastructure/db';
+import { inject, injectable } from 'inversify';
+import type { Db } from '@/backend/infrastructure/db/createDb';
 import {
     transcriptionTask,
     type TranscriptionTaskRow,
 } from '@/backend/infrastructure/db/tables/transcriptionTask';
+import TYPES from '@/backend/ioc/types';
 import TimeUtil from '@/common/utils/TimeUtil';
 import {
     type TranscriptTask,
@@ -19,6 +20,13 @@ import { type CreateTranscriptionTaskParams, type TranscriptionTaskUpdatePatch }
  */
 @injectable()
 export default class TranscriptionTaskRepositoryImpl implements TranscriptionTaskRepository {
+    /**
+     * 初始化本地转录任务仓储实例。
+     *
+     * @param db 由依赖容器注入的数据库实例，测试中可替换为内存库。
+     */
+    constructor(@inject(TYPES.Database) private readonly db: Db) {}
+
     /**
      * 将数据库行转换为跨层转录任务，并拒绝未知状态或损坏的结果 JSON。
      *
@@ -51,7 +59,7 @@ export default class TranscriptionTaskRepositoryImpl implements TranscriptionTas
      * @returns 当前数据库中的转录任务列表。
      */
     public async list(): Promise<TranscriptTask[]> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(transcriptionTask)
             .orderBy(asc(transcriptionTask.id));
@@ -65,7 +73,7 @@ export default class TranscriptionTaskRepositoryImpl implements TranscriptionTas
      * @returns 已存在的任务；不存在时返回 null。
      */
     public async findByFilePath(filePath: string): Promise<TranscriptTask | null> {
-        const rows = await db
+        const rows = await this.db
             .select()
             .from(transcriptionTask)
             .where(eq(transcriptionTask.file_path, filePath));
@@ -79,7 +87,7 @@ export default class TranscriptionTaskRepositoryImpl implements TranscriptionTas
      * @returns 新建或已存在的任务。
      */
     public async createIfAbsent(params: CreateTranscriptionTaskParams): Promise<TranscriptTask> {
-        await db
+        await this.db
             .insert(transcriptionTask)
             .values({ file_path: params.filePath })
             .onConflictDoNothing({ target: transcriptionTask.file_path });
@@ -98,7 +106,7 @@ export default class TranscriptionTaskRepositoryImpl implements TranscriptionTas
      * @param patch 要写入的状态信息。
      */
     public async updateByFilePath(filePath: string, patch: TranscriptionTaskUpdatePatch): Promise<void> {
-        const result = await db
+        const result = await this.db
             .update(transcriptionTask)
             .set({
                 status: patch.status,
@@ -117,7 +125,7 @@ export default class TranscriptionTaskRepositoryImpl implements TranscriptionTas
      * @param filePath 任务文件路径。
      */
     public async deleteByFilePath(filePath: string): Promise<void> {
-        const result = await db
+        const result = await this.db
             .delete(transcriptionTask)
             .where(eq(transcriptionTask.file_path, filePath));
         if (result.changes !== 1) {
@@ -129,7 +137,7 @@ export default class TranscriptionTaskRepositoryImpl implements TranscriptionTas
      * 将应用重启前未结束的任务标记为中断。
      */
     public async markActiveAsInterrupted(): Promise<void> {
-        await db
+        await this.db
             .update(transcriptionTask)
             .set({
                 status: TranscriptTaskState.FAILED,

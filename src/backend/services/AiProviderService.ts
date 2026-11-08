@@ -28,10 +28,19 @@ export default interface AiProviderService {
 }
 
 
+/**
+ * AI 语言模型提供服务实现。
+ */
 @injectable()
 export class AiProviderServiceImpl implements AiProviderService {
-    @inject(TYPES.ModelRoutingService)
-    private modelRoutingService!: ModelRoutingService;
+    /**
+     * 构造 AI 语言模型提供服务。
+     *
+     * @param modelRoutingService 模型路由配置服务。
+     */
+    constructor(
+        @inject(TYPES.ModelRoutingService) private readonly modelRoutingService: ModelRoutingService,
+    ) {}
 
     /**
      * 获取指定场景当前配置的模型，并校验整句学习功能是否启用。

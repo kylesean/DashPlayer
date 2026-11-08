@@ -1,4 +1,11 @@
+import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import {
+    chapterParseResultSchema,
+    finiteNonNegativeNumberSchema,
+    nonEmptyStringSchema,
+    positiveIntSchema,
+} from '@/backend/controllers/ipc/routeSchemas';
 import { inject, injectable } from 'inversify';
 import type Controller from '@/backend/controllers/Controller';
 import TYPES from '@/backend/ioc/types';
@@ -77,10 +84,30 @@ export default class MediaController implements Controller {
      * 注册媒体相关 IPC 路由。
      */
     public registerRoutes(): void {
-        registerRoute('split-video/preview', (params) => this.previewSplit(params));
-        registerRoute('split-video/split', (params) => this.split(params));
-        registerRoute('media/thumbnail', (params) => this.thumbnail(params));
-        registerRoute('media/duration', (params) => this.duration(params));
-        registerRoute('media/info', (params) => this.info(params));
+        registerRoute('split-video/preview', (params) => this.previewSplit(params), {
+            schema: z.string(),
+        });
+        registerRoute('split-video/split', (params) => this.split(params), {
+            schema: z.object({
+                videoPath: nonEmptyStringSchema,
+                srtPath: z.string().nullable(),
+                chapters: z.array(chapterParseResultSchema),
+            }),
+        });
+        registerRoute('media/thumbnail', (params) => this.thumbnail(params), {
+            schema: z.object({
+                filePath: nonEmptyStringSchema,
+                time: finiteNonNegativeNumberSchema,
+                quality: z.enum(['low', 'medium', 'high', 'ultra']).optional(),
+                width: positiveIntSchema.optional(),
+                format: z.enum(['jpg', 'png']).optional(),
+            }),
+        });
+        registerRoute('media/duration', (params) => this.duration(params), {
+            schema: nonEmptyStringSchema,
+        });
+        registerRoute('media/info', (params) => this.info(params), {
+            schema: nonEmptyStringSchema,
+        });
     }
 }

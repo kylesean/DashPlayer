@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron';
+import { z } from 'zod';
 
-import type { ApiMap } from '@/common/api/api-def';
+import type { ApiDefinitions, ApiMap } from '@/common/api/api-def';
 import { isUserCancellation } from '@/common/utils/cancellation';
 import container from '@/backend/ioc/inversify.config';
 import TYPES from '@/backend/ioc/types';
@@ -19,18 +20,84 @@ const QUIET_PATH_POLICIES: Partial<Record<string, { logParam: boolean; logResult
 };
 
 /**
- * 注册 IPC 路由并统一记录调用日志。
+ * 无参 IPC 路由注册选项。
+ */
+export interface RegisterVoidRouteOptions<K extends keyof ApiMap> {
+    /** 可选入参校验架构。 */
+    schema?: z.ZodType<ApiDefinitions[K]['params']>;
+}
+
+/**
+ * 有参 IPC 路由注册选项；强制要求提供与路由契约匹配的 Zod 校验架构。
+ */
+export interface RegisterParameterizedRouteOptions<K extends keyof ApiMap> {
+    /** 跨进程边界的入参 Zod 校验架构；校验失败时直接抛出显式错误。 */
+    schema: z.ZodType<ApiDefinitions[K]['params']>;
+}
+
+/**
+ * 使用可选 Zod 架构校验 IPC 入参。
+ *
+ * @param path API 路径，用于构建可读错误上下文。
+ * @param param 渲染端传入的原始参数。
+ * @param schema 入参 Zod 校验架构；无参路由允许省略。
+ * @returns 校验通过后的强类型入参。
+ */
+function parseRouteParam<K extends keyof ApiMap>(
+    path: K,
+    param: unknown,
+    schema: z.ZodType<ApiDefinitions[K]['params']> | undefined,
+): ApiDefinitions[K]['params'] {
+    if (!schema) {
+        return undefined as ApiDefinitions[K]['params'];
+    }
+    const parsed = schema.safeParse(param);
+    if (!parsed.success) {
+        const detail = parsed.error.issues
+            .map((issue) => `${issue.path.length > 0 ? issue.path.join('.') : '<root>'}: ${issue.message}`)
+            .join('; ');
+        throw new Error(`IPC 请求参数校验失败 (${String(path)}): ${detail}`);
+    }
+    return parsed.data;
+}
+
+/**
+ * 注册无参 IPC 路由并统一记录调用日志。
+ *
+ * @param path API 路径。
+ * @param func 与路径匹配的无参处理函数。
+ * @param options 可选路由配置。
+ */
+export default function registerRoute<K extends keyof ApiMap>(
+    path: K,
+    func: [ApiDefinitions[K]['params']] extends [void] ? () => Promise<ApiDefinitions[K]['return']> : never,
+    options?: RegisterVoidRouteOptions<K>,
+): void;
+/**
+ * 注册有参 IPC 路由，并在进入业务处理器前执行 Zod 运行时校验。
  *
  * 行为说明：
  * - renderer 提供合法 trace ID 时沿用，否则在 main 边界生成；
+ * - 有参路由必须提供 schema，校验失败直接在 IPC 边界抛错，不静默回退；
  * - 普通路径在 info 级记录 param/result，统一日志出口负责脱敏与裁剪；
  * - 命中 QUIET_PATH_POLICIES 的高频/敏感路径降为 debug，并按策略跳过 param/result，避免噪音与密钥落盘；
  * - 异常统一记 error，并转发给渲染端事件总线。
+ *
  * @param path API 路径。
  * @param func 与路径匹配的处理函数。
+ * @param options 包含入参校验 schema 的路由配置。
  */
-export default function registerRoute<K extends keyof ApiMap>(path: K, func: ApiMap[K]) {
-    ipcMain.handle(path, async (_event, param, traceCarrier?: TraceCarrier) => {
+export default function registerRoute<K extends keyof ApiMap>(
+    path: K,
+    func: (params: ApiDefinitions[K]['params']) => Promise<ApiDefinitions[K]['return']>,
+    options: RegisterParameterizedRouteOptions<K>,
+): void;
+export default function registerRoute<K extends keyof ApiMap>(
+    path: K,
+    func: (params: ApiDefinitions[K]['params']) => Promise<ApiDefinitions[K]['return']>,
+    options?: { schema?: z.ZodType<ApiDefinitions[K]['params']> },
+): void {
+    ipcMain.handle(path, async (_event, param: unknown, traceCarrier?: TraceCarrier) => {
         const traceId = resolveTraceId(traceCarrier?.traceId);
         return runWithTrace(traceId, async () => {
             const start = Date.now();
@@ -46,9 +113,8 @@ export default function registerRoute<K extends keyof ApiMap>(path: K, func: Api
             }
 
             try {
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                const result = await func(param);
+                const validatedParam = parseRouteParam(path, param, options?.schema);
+                const result = await func(validatedParam);
                 const responseData = policy?.logResult === false
                     ? { path: String(path), durationMs: Date.now() - start }
                     : { path: String(path), durationMs: Date.now() - start, result };
