@@ -6,6 +6,8 @@ import { getMainLogger } from '@/backend/infrastructure/logger';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import TYPES from '@/backend/ioc/types';
 import type AiProviderService from '@/backend/services/AiProviderService';
+import type LocalAiService from '@/backend/services/LocalAiService';
+import type SentenceLearningService from '@/backend/services/SentenceLearningService';
 import { CLOUD_AI_NOT_CONFIGURED_MESSAGE } from '@/backend/services/AiProviderService';
 import type {
     ChatSessionCreateParams,
@@ -78,6 +80,12 @@ export class ChatSessionServiceImpl implements ChatSessionService {
     @inject(TYPES.AiProviderService)
     private aiProviderService!: AiProviderService;
 
+    @inject(TYPES.LocalAiService)
+    private localAiService!: LocalAiService;
+
+    @inject(TYPES.SentenceLearningService)
+    private sentenceLearningService!: SentenceLearningService;
+
     @inject(TYPES.RendererGateway)
     private rendererGateway!: RendererGateway;
 
@@ -121,8 +129,13 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         const sessionId = params.sessionId;
         const session = this.chatSessionStore.get(sessionId);
         const model = this.aiProviderService.getModel('sentenceLearning');
+        let localModelId: string | null = null;
         if (!model) {
-            throw new Error(CLOUD_AI_NOT_CONFIGURED_MESSAGE);
+            // 云端未配置时自动回退本地大模型:本地模型就绪即可用,无需额外设置
+            localModelId = await this.sentenceLearningService.resolveLocalModelId();
+            if (!localModelId) {
+                throw new Error(CLOUD_AI_NOT_CONFIGURED_MESSAGE);
+            }
         }
 
         const messageId = this.createMessageId();
@@ -133,9 +146,15 @@ export class ChatSessionServiceImpl implements ChatSessionService {
             messageId,
             chunk: { type: 'start', messageId },
         });
-        this.runAnalysisStream(sessionId, messageId, model, prompt, abortSignal)
-            .catch((error) => this.handleAnalysisError(sessionId, messageId, error))
-            .finally(() => this.chatSessionStore.finishRun(sessionId, messageId));
+        if (model) {
+            this.runAnalysisStream(sessionId, messageId, model, prompt, abortSignal)
+                .catch((error) => this.handleAnalysisError(sessionId, messageId, error))
+                .finally(() => this.chatSessionStore.finishRun(sessionId, messageId));
+        } else {
+            this.runAnalysisLocal(sessionId, messageId, localModelId as string, prompt, abortSignal)
+                .catch((error) => this.handleAnalysisError(sessionId, messageId, error))
+                .finally(() => this.chatSessionStore.finishRun(sessionId, messageId));
+        }
 
         return { messageId };
     }
@@ -426,6 +445,47 @@ export class ChatSessionServiceImpl implements ChatSessionService {
      * @param prompt 分析提示词。
      * @param abortSignal 会话生命周期对应的取消信号。
      */
+    /**
+     * 本地大模型执行整句分析:无逐字流,一次性生成后按同一 chunk 协议推送
+     * 最终对象与结束标记——渲染层卡片行为不变,只是从逐字呈现变为约 2s 后整卡出现。
+     */
+    private async runAnalysisLocal(
+        sessionId: string,
+        messageId: string,
+        modelId: string,
+        prompt: string,
+        abortSignal: AbortSignal,
+    ): Promise<void> {
+        const startedAt = Date.now();
+        this.logger.info('analysis local start', { sessionId, messageId, modelId });
+        const raw = (await this.localAiService.generate(
+            prompt,
+            z.toJSONSchema(AiUnifiedAnalysisSchema),
+            modelId,
+            abortSignal,
+        )) as string;
+        const parsed = AiUnifiedAnalysisSchema.safeParse(JSON.parse(raw));
+        if (!parsed.success) {
+            this.logger.error('analysis local 结构无效', {
+                modelId,
+                rawText: raw.slice(0, 500),
+                issues: parsed.error.issues,
+            });
+            throw new Error('本地模型分析输出不符合契约');
+        }
+        this.logger.info('analysis local done', { sessionId, messageId, durationMs: Date.now() - startedAt });
+        this.rendererGateway.fireAndForget('chat/analysis/stream', {
+            sessionId,
+            messageId,
+            chunk: { type: 'data-analysis', id: messageId, data: parsed.data },
+        });
+        this.rendererGateway.fireAndForget('chat/analysis/stream', {
+            sessionId,
+            messageId,
+            chunk: { type: 'finish', finishReason: 'stop' },
+        });
+    }
+
     private async runAnalysisStream(
         sessionId: string,
         messageId: string,

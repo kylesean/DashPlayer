@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import TYPES from '@/backend/ioc/types';
 import type AiProviderService from '@/backend/services/AiProviderService';
+import type LocalAiService from '@/backend/services/LocalAiService';
 import { CLOUD_AI_NOT_CONFIGURED_MESSAGE } from '@/backend/services/AiProviderService';
 import type {
     CompleteSentenceParams,
@@ -28,16 +29,22 @@ export default interface SentenceLearningService {
     /**
      * 判断当前字幕行是否被换行截断，并尽力补全为完整句子。
      *
-     * 说明：仅云端整句学习启用时可用（getModel 内部校验开关），
+     * 说明：云端模型已配置时走云端；未配置时自动回退本地大模型
+     * （本地模型就绪即可用，无需额外设置），两者都不可用才报错。
      * 补全结果作为学习会话的主题原文，让解析与对话都围绕完整句进行。
      */
     completeSentence(params: CompleteSentenceParams): Promise<CompleteSentenceResult>;
     /**
-     * 整句讲解当前是否可用：功能已启用且云端模型已配好。
+     * 整句讲解当前是否可用：功能已启用，且云端模型或本地模型至少一个就绪。
      *
      * 说明：供学习页决定解析与对话入口是否置灰，避免用户点下去才发现用不了。
      */
-    isLearningAvailable(): boolean;
+    isLearningAvailable(): Promise<boolean>;
+    /**
+     * 解析本地推理可用的模型 id：llama.cpp 运行时就绪且使用中模型已安装时返回
+     * 使用中模型 id，否则 null。供补全与分析的云端缺失回退共用。
+     */
+    resolveLocalModelId(): Promise<string | null>;
 }
 
 /**
@@ -50,11 +57,18 @@ export class SentenceLearningServiceImpl implements SentenceLearningService {
     @inject(TYPES.AiProviderService)
     private aiProviderService!: AiProviderService;
 
+    @inject(TYPES.LocalAiService)
+    private localAiService!: LocalAiService;
+
     @WithRateLimit('gpt')
     public async completeSentence(params: CompleteSentenceParams): Promise<CompleteSentenceResult> {
         const model = this.aiProviderService.getModel('sentenceLearning');
         if (!model) {
-            throw new Error(CLOUD_AI_NOT_CONFIGURED_MESSAGE);
+            const localModelId = await this.resolveLocalModelId();
+            if (!localModelId) {
+                throw new Error(CLOUD_AI_NOT_CONFIGURED_MESSAGE);
+            }
+            return this.completeSentenceWithLocal(params, localModelId);
         }
         const startedAt = Date.now();
         this.logger.info('complete sentence start', {
@@ -89,15 +103,58 @@ export class SentenceLearningServiceImpl implements SentenceLearningService {
     }
 
     /**
-     * 判定直接复用 getModel，界面上的「可用」因此不会与真实调用结果漂移；
-     * getModel 在功能未启用或模型配置失效时抛错，对界面而言这些都等价于「暂不可用」，
-     * 故折成 false——真正发起调用时仍走 getModel，具体原因照旧抛出。
+     * 本地大模型执行字幕完整句补全：与云端同提示词、同 JSON 契约，
+     * 结构化输出经 llama.cpp 的 json_object 约束解码，schema 校验失败显式报错。
      */
-    public isLearningAvailable(): boolean {
-        try {
-            return this.aiProviderService.getModel('sentenceLearning') !== null;
-        } catch {
-            return false;
+    private async completeSentenceWithLocal(
+        params: CompleteSentenceParams,
+        modelId: string,
+    ): Promise<CompleteSentenceResult> {
+        const startedAt = Date.now();
+        this.logger.info('complete sentence (local) start', { modelId, textLength: params.text.length });
+        const raw = (await this.localAiService.generate(
+            buildCompleteSentencePrompt(params),
+            z.toJSONSchema(CompleteSentenceSchema),
+            modelId,
+        )) as string;
+        const parsed = CompleteSentenceSchema.safeParse(JSON.parse(raw));
+        if (!parsed.success) {
+            this.logger.error('complete sentence (local) 结构无效', {
+                modelId,
+                rawText: raw.slice(0, 500),
+                issues: parsed.error.issues,
+            });
+            throw new Error('本地模型补全输出不符合契约');
         }
+        this.logger.info('complete sentence (local) done', {
+            durationMs: Date.now() - startedAt,
+            complete: parsed.data.complete,
+        });
+        return parsed.data;
+    }
+
+    /** 解析本地推理可用的模型 id；运行时缺失或使用中模型未安装时返回 null。 */
+    public async resolveLocalModelId(): Promise<string | null> {
+        try {
+            const status = await this.localAiService.getStatus();
+            if (!status.runtimeReady) return null;
+            return status.models.some((model) => model.ready) ? status.activeModelId : null;
+        } catch (error) {
+            this.logger.warn('local model resolve failed', { error });
+            return null;
+        }
+    }
+
+    /**
+     * 云端已配置即可用；未配置时本地模型就绪同样可用（自动回退，无需额外设置）。
+     * 判定与真实调用共用同一解析，避免界面「可用」与调用结果漂移。
+     */
+    public async isLearningAvailable(): Promise<boolean> {
+        try {
+            if (this.aiProviderService.getModel('sentenceLearning') !== null) return true;
+        } catch {
+            // 云端配置失效按未配置处理，继续看本地
+        }
+        return (await this.resolveLocalModelId()) !== null;
     }
 }
