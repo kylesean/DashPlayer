@@ -44,8 +44,12 @@ export interface ModelArchiveInstallerOptions {
     storageTarget?: StorageDirectoryTarget;
     /** 安装完成后必须存在的文件列表。 */
     requiredFiles: string[];
-    /** 向前端广播下载进度的事件名。 */
-    progressEventName: 'settings/parakeet-model-download-progress' | 'settings/sherpa-tts-model-download-progress' | 'settings/whisper-cpp-model-download-progress' | 'youtube-import/yt-dlp-binary-download-progress';
+    /**
+     * 向前端广播下载进度的事件名。
+     * 缺省时不广播：用户可见进度由其他渠道（如 dp-task 进度文本）承载，
+     * 避免向后端无人应答的死事件刷超时日志。
+     */
+    progressEventName?: 'settings/parakeet-model-download-progress' | 'settings/sherpa-tts-model-download-progress' | 'settings/whisper-cpp-model-download-progress';
     /** 下载被取消时抛出的错误信息。 */
     cancelledMessage: string;
     /** 模型显示名，用于结果消息和日志。 */
@@ -122,7 +126,7 @@ export class ModelArchiveInstaller {
             this.currentPhase = null;
             this.currentPercent = 0;
             // 广播终态，让已切页重挂载的页面也能复位下载状态。
-            this.rendererGateway.fireAndForget(this.options.progressEventName, {
+            this.emitProgress({
                 percent: 0,
                 downloaded: 0,
                 total: 0,
@@ -234,12 +238,25 @@ export class ModelArchiveInstaller {
         this.currentPercent = 100;
         this.currentPhase = phase;
         this.logger.info('model download phase', { model: this.options.modelDisplayName, phase });
-        this.rendererGateway.fireAndForget(this.options.progressEventName, {
+        this.emitProgress({
             percent: 100,
             downloaded: 0,
             total: 0,
             phase,
         });
+    }
+
+    /**
+     * 向渲染层广播下载进度。
+     *
+     * 未声明 progressEventName 的安装器不广播，避免向渲染层无消费方的
+     * 死事件发送后逐条挂到超时、以 warn 刷满故障归因日志流。
+     */
+    private emitProgress(payload: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase }): void {
+        if (!this.options.progressEventName) {
+            return;
+        }
+        this.rendererGateway.fireAndForget(this.options.progressEventName, payload);
     }
 
     /** @returns 固定模型安装目录。 */
@@ -330,7 +347,7 @@ export class ModelArchiveInstaller {
                 const percent = total > 0 ? Math.floor(downloaded / total * 100) : 0;
                 this.currentPercent = percent;
                 this.currentPhase = 'downloading';
-                this.rendererGateway.fireAndForget(this.options.progressEventName, {
+                this.emitProgress({
                     percent,
                     downloaded,
                     total,

@@ -37,10 +37,6 @@ interface UIRendererDef {
         params: { modelId: string; percent: number; downloaded: number; total: number; phase: 'idle' | 'downloading' | 'verifying' },
         return: void
     };
-    'youtube-import/yt-dlp-binary-download-progress': {
-        params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase },
-        return: void
-    };
 }
 
 // 翻译相关的前端API定义
