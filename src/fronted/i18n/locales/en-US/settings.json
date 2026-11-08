@@ -288,7 +288,7 @@
             "license": "Open Source License",
             "licenseDesc": "Free & open source under AGPLv3"
         },
-        "footer": "Crafted with care by solidSpoon",
+        "footer": "A deep customization of solidSpoon/DashPlayer",
         "version": "Version {{version}}"
     },
     "storage": {

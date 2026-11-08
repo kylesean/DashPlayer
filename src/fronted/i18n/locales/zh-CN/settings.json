@@ -288,7 +288,7 @@
             "license": "开源协议",
             "licenseDesc": "基于 AGPLv3 自由开源"
         },
-        "footer": "由 solidSpoon 用心打造",
+        "footer": "基于 solidSpoon/DashPlayer 深度定制",
         "version": "版本 {{version}}"
     },
     "storage": {

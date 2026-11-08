@@ -9,7 +9,7 @@ const UPDATE_CACHE_TTL_MS = 5 * 60 * 1000;
 const RATE_LIMIT_FAILURE_CACHE_MS = 10 * 60 * 1000;
 /** 更新检查请求超时（毫秒）。 */
 const UPDATE_REQUEST_TIMEOUT_MS = 15_000;
-const RELEASES_BASE_URL = 'https://api.github.com/repos/solidSpoon/DashPlayer/releases';
+const RELEASES_BASE_URL = 'https://api.github.com/repos/kylesean/DashPlayer/releases';
 
 let cache: UpdateCheckResult = { status: 'ok', releases: [] };
 /** 缓存过期时间（绝对时间戳）：到期前直接返回缓存，避免重复请求。 */
