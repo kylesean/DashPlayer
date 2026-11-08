@@ -5,6 +5,11 @@ export interface SrtSentence {
     fileHash: string;
     filePath: string;
     sentences: Sentence[];
+    /**
+     * 本组句子是否为意群重切分行。练习记录等按 (fileHash, index) 引用句子的功能
+     * 据此隔离键：开关切换后序号含义整体重排，键里缺开关状态会让历史挂到另一句话上。
+     */
+    resegmented: boolean;
 }
 
 export interface Sentence {

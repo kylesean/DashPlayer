@@ -1,7 +1,8 @@
 import { and, desc, eq } from 'drizzle-orm';
-import { injectable } from 'inversify';
+import { inject, injectable } from 'inversify';
 
-import db from '@/backend/infrastructure/db';
+import TYPES from '@/backend/ioc/types';
+import type { Db } from '@/backend/infrastructure/db/createDb';
 import {
     type InsertSentencePracticeRecord,
     sentencePracticeRecord,
@@ -14,19 +15,24 @@ import type SentencePracticeRecordRepository from '@/backend/services/repositori
  */
 @injectable()
 export default class SentencePracticeRecordRepositoryImpl implements SentencePracticeRecordRepository {
+    /**
+     * @param db 由依赖容器注入的 drizzle 实例；测试中可替换为内存库。
+     */
+    constructor(@inject(TYPES.Database) private readonly db: Db) {}
 
     public async insertOne(value: InsertSentencePracticeRecord): Promise<number> {
-        const [record] = await db.insert(sentencePracticeRecord).values(value).returning({ id: sentencePracticeRecord.id });
+        const [record] = await this.db.insert(sentencePracticeRecord).values(value).returning({ id: sentencePracticeRecord.id });
         return record.id;
     }
 
-    public async listBySentence(fileHash: string, sentenceIndex: number, limit = 20): Promise<SentencePracticeRecord[]> {
-        return db
+    public async listBySentence(fileHash: string, sentenceIndex: number, resegmented: boolean, limit = 20): Promise<SentencePracticeRecord[]> {
+        return this.db
             .select()
             .from(sentencePracticeRecord)
             .where(and(
                 eq(sentencePracticeRecord.file_hash, fileHash),
                 eq(sentencePracticeRecord.sentence_index, sentenceIndex),
+                eq(sentencePracticeRecord.resegmented, resegmented),
             ))
             .orderBy(desc(sentencePracticeRecord.id))
             .limit(limit);

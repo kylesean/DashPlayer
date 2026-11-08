@@ -486,7 +486,7 @@ interface PracticeDef {
     };
     /** 查询单个意群的练习历史,按时间倒序。 */
     'practice/list-by-sentence': {
-        params: { fileHash: string; sentenceIndex: number },
+        params: { fileHash: string; sentenceIndex: number; resegmented: boolean },
         return: SentencePracticeRecordVO[]
     };
 }

@@ -44,7 +44,7 @@ export default interface SentencePracticeService {
     /**
      * 查询单个意群的练习历史,按时间倒序。
      */
-    listBySentence(params: { fileHash: string; sentenceIndex: number }): Promise<SentencePracticeRecordVO[]>;
+    listBySentence(params: { fileHash: string; sentenceIndex: number; resegmented: boolean }): Promise<SentencePracticeRecordVO[]>;
 }
 
 /**
@@ -59,46 +59,40 @@ const SAFE_KEY_PATTERN = /^[A-Za-z0-9_.-]{1,128}$/;
 export class SentencePracticeServiceImpl implements SentencePracticeService {
     private readonly logger = getMainLogger('SentencePracticeServiceImpl');
 
-    @inject(TYPES.SentencePracticeRecordRepository)
-    private repository!: SentencePracticeRecordRepository;
-
-    @inject(TYPES.FfmpegService)
-    private ffmpegService!: FfmpegService;
-
-    @inject(TYPES.StorageDirectoryProvider)
-    private storageDirectoryProvider!: StorageDirectoryProvider;
-
-    @inject(TYPES.FileSystemGateway)
-    private fileSystemGateway!: FileSystemGateway;
-
-    @inject(TYPES.TranscriptionEngineSelector)
-    private transcriptionEngineSelector!: TranscriptionEngineSelector;
+    constructor(
+        @inject(TYPES.SentencePracticeRecordRepository) private readonly repository: SentencePracticeRecordRepository,
+        @inject(TYPES.FfmpegService) private readonly ffmpegService: FfmpegService,
+        @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
+        @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
+        @inject(TYPES.TranscriptionEngineSelector) private readonly transcriptionEngineSelector: TranscriptionEngineSelector,
+    ) {}
 
     public async scoreShadowing(params: SentencePracticeShadowingParams): Promise<SentencePracticeResultVO> {
-        const { fileHash, sentenceIndex, audio, expectedText } = params;
-        this.validateKeys(fileHash, sentenceIndex);
+        const { fileHash, sentenceIndex, resegmented, audio, expectedText } = params;
+        this.validateKeys(fileHash, sentenceIndex, resegmented);
         const { transcript, audioFile } = await this.transcribeRecording(fileHash, sentenceIndex, audio);
         const alignment = alignPracticeTokens(expectedText, transcript);
-        await this.persistRecord(fileHash, sentenceIndex, 'shadowing', alignment.score, transcript, alignment.words, audioFile);
+        await this.persistRecord(fileHash, sentenceIndex, resegmented, 'shadowing', alignment.score, transcript, alignment.words, audioFile);
         return { score: alignment.score, transcript, words: alignment.words, audioPath: await this.resolveAudioPath(audioFile) };
     }
 
     public async scoreDictation(params: SentencePracticeDictationParams): Promise<SentencePracticeResultVO> {
-        const { fileHash, sentenceIndex, typedText, expectedText } = params;
-        this.validateKeys(fileHash, sentenceIndex);
+        const { fileHash, sentenceIndex, resegmented, typedText, expectedText } = params;
+        this.validateKeys(fileHash, sentenceIndex, resegmented);
         const alignment = alignPracticeTokens(expectedText, typedText);
-        await this.persistRecord(fileHash, sentenceIndex, 'dictation', alignment.score, typedText, alignment.words, null);
+        await this.persistRecord(fileHash, sentenceIndex, resegmented, 'dictation', alignment.score, typedText, alignment.words, null);
         return { score: alignment.score, transcript: typedText, words: alignment.words, audioPath: null };
     }
 
-    public async listBySentence(params: { fileHash: string; sentenceIndex: number }): Promise<SentencePracticeRecordVO[]> {
-        const { fileHash, sentenceIndex } = params;
-        this.validateKeys(fileHash, sentenceIndex);
-        const records = await this.repository.listBySentence(fileHash, sentenceIndex);
+    public async listBySentence(params: { fileHash: string; sentenceIndex: number; resegmented: boolean }): Promise<SentencePracticeRecordVO[]> {
+        const { fileHash, sentenceIndex, resegmented } = params;
+        this.validateKeys(fileHash, sentenceIndex, resegmented);
+        const records = await this.repository.listBySentence(fileHash, sentenceIndex, resegmented);
         return Promise.all(records.map(async (record) => ({
             id: record.id,
             fileHash: record.file_hash,
             sentenceIndex: record.sentence_index,
+            resegmented: record.resegmented,
             mode: record.mode as SentencePracticeMode,
             score: record.score,
             transcript: record.transcript,
@@ -152,6 +146,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     private async persistRecord(
         fileHash: string,
         sentenceIndex: number,
+        resegmented: boolean,
         mode: SentencePracticeMode,
         score: number,
         transcript: string,
@@ -162,6 +157,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             await this.repository.insertOne({
                 file_hash: fileHash,
                 sentence_index: sentenceIndex,
+                resegmented,
                 mode,
                 score,
                 transcript: transcript || null,
@@ -174,12 +170,16 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         }
     }
 
-    private validateKeys(fileHash: string, sentenceIndex: number): void {
+    private validateKeys(fileHash: string, sentenceIndex: number, resegmented: boolean): void {
         if (!fileHash || !SAFE_KEY_PATTERN.test(fileHash)) {
             throw new Error(`非法的 fileHash: ${fileHash}`);
         }
         if (!Number.isInteger(sentenceIndex) || sentenceIndex < 0) {
             throw new Error(`非法的 sentenceIndex: ${sentenceIndex}`);
+        }
+        // IPC 类型只是编译期约束,外部输入进入业务前按约定做运行时校验
+        if (typeof resegmented !== 'boolean') {
+            throw new Error(`非法的 resegmented: ${resegmented}`);
         }
     }
 }

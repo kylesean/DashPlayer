@@ -16,6 +16,12 @@ export const sentencePracticeRecord = sqliteTable('dp_sentence_practice_record',
      */
     sentence_index: integer('sentence_index').notNull(),
     /**
+     * 记录是否在意群重切分行上产生;与 (file_hash, sentence_index) 共同构成查询键,
+     * 重切分开关切换后序号含义整体重排,键里缺开关状态会让历史挂到另一句话上。
+     * 修复前无此列:重切分默认开启,列默认 true 以保留存量历史的可见性。
+     */
+    resegmented: integer('resegmented', { mode: 'boolean' }).notNull().default(true),
+    /**
      * 练习模式:shadowing(跟读) | dictation(听写)
      */
     mode: text('mode').notNull(),

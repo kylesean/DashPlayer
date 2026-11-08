@@ -11,6 +11,7 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayerState } from '@/fronted/features/player/playerState';
+import useFile from '@/fronted/features/file-browser/fileStore';
 import usePracticePanel from './practiceStore';
 import { practiceApi } from './practiceApi';
 import { usePracticeRecorder } from './usePracticeRecorder';
@@ -107,6 +108,8 @@ const PracticePanel = () => {
     const asrReady = resourceStatus?.transcription?.ready ?? false;
 
     const sentenceKey = currentSentence?.key ?? null;
+    // 当前字幕是否意群重切分行:练习记录按 (fileHash, index, resegmented) 隔离,开关切换后序号重排不串档
+    const srtResegmented = useFile((s) => s.srtResegmented);
     // 换句即清空上一句的评分与输入:渲染期条件重置(React 官方推荐模式),面板总是从干净状态开始
     const [lastSentenceKey, setLastSentenceKey] = useState<string | null>(sentenceKey);
     if (sentenceKey !== lastSentenceKey) {
@@ -116,13 +119,14 @@ const PracticePanel = () => {
         setDictationRevealed(false);
     }
     const historyKey = currentSentence && visible
-        ? ['practice/list-by-sentence', currentSentence.fileHash, currentSentence.index]
+        ? ['practice/list-by-sentence', currentSentence.fileHash, currentSentence.index, srtResegmented]
         : null;
     const { data: history, mutate: mutateHistory } = useSWR(
         historyKey,
         () => practiceApi.listBySentence({
             fileHash: currentSentence!.fileHash,
             sentenceIndex: currentSentence!.index,
+            resegmented: srtResegmented,
         }),
     );
 
@@ -148,6 +152,7 @@ const PracticePanel = () => {
         const vo = await practiceApi.scoreShadowing({
             fileHash: currentSentence.fileHash,
             sentenceIndex: currentSentence.index,
+            resegmented: srtResegmented,
             audio,
             expectedText: currentSentence.text,
         });
@@ -165,6 +170,7 @@ const PracticePanel = () => {
             const vo = await practiceApi.scoreDictation({
                 fileHash: currentSentence.fileHash,
                 sentenceIndex: currentSentence.index,
+                resegmented: srtResegmented,
                 typedText: typed.trim(),
                 expectedText: currentSentence.text,
             });

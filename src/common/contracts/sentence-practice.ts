@@ -52,6 +52,8 @@ export interface SentencePracticeRecordVO {
     fileHash: string;
     /** 意群在字幕中的序号(Sentence.index)。 */
     sentenceIndex: number;
+    /** 记录是否在意群重切分行上产生;与序号共同构成查询键,隔离开关切换后的序号重排。 */
+    resegmented: boolean;
     mode: SentencePracticeMode;
     score: number;
     /** 语音转写文本或听写输入;shadowing 转写失败时为 null。 */
@@ -67,6 +69,8 @@ export interface SentencePracticeRecordVO {
 export interface SentencePracticeShadowingParams {
     fileHash: string;
     sentenceIndex: number;
+    /** 记录是否在意群重切分行上产生(与 Sentence 加载时的 resegmented 标志一致)。 */
+    resegmented: boolean;
     /** MediaRecorder 采集的 webm/opus 音频字节。 */
     audio: Uint8Array;
     /** 用于对齐评分的原句文本(前端当前意群原文)。 */
@@ -79,6 +83,8 @@ export interface SentencePracticeShadowingParams {
 export interface SentencePracticeDictationParams {
     fileHash: string;
     sentenceIndex: number;
+    /** 记录是否在意群重切分行上产生(与 Sentence 加载时的 resegmented 标志一致)。 */
+    resegmented: boolean;
     /** 用户键入的听写内容。 */
     typedText: string;
     /** 用于对齐评分的原句文本。 */

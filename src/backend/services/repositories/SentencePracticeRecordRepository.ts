@@ -16,7 +16,8 @@ export default interface SentencePracticeRecordRepository {
      *
      * @param fileHash 字幕内容 hash。
      * @param sentenceIndex 意群序号。
+     * @param resegmented 是否在意群重切分行上产生;与序号共同隔离开关切换后的序号重排。
      * @param limit 返回条数上限。
      */
-    listBySentence(fileHash: string, sentenceIndex: number, limit?: number): Promise<SentencePracticeRecord[]>;
+    listBySentence(fileHash: string, sentenceIndex: number, resegmented: boolean, limit?: number): Promise<SentencePracticeRecord[]>;
 }

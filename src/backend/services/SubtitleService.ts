@@ -216,7 +216,8 @@ export class SubtitleServiceImpl implements SubtitleService {
             return {
                 fileHash,
                 filePath: path,
-                sentences: adjustedSentence
+                sentences: adjustedSentence,
+                resegmented: cache.resegmented ?? false
             };
         }
         const lines: SrtLine[] = MediaUtil.isAss(path) ? parseAss(content) : parseSrt(content);
@@ -240,7 +241,8 @@ export class SubtitleServiceImpl implements SubtitleService {
         return {
             fileHash: res.fileHash,
             filePath: res.filePath,
-            sentences: adjustedSentence
+            sentences: adjustedSentence,
+            resegmented: resegment
         };
     }
 
@@ -268,6 +270,8 @@ export class SubtitleServiceImpl implements SubtitleService {
             fileHash: identityOverride,
             filePath: '',
             sentences: subtitles,
+            // 增量转录按行直建,不经过意群重切分
+            resegmented: false,
         };
         this.cacheService.set('cache:srt', identityOverride, res);
         return res;

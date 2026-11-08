@@ -13,6 +13,8 @@ type UseFileState = {
     videoLoaded: boolean;
     srtHash: string | null;
     subtitleSessionId: string | null;
+    /** 当前已加载字幕是否为意群重切分行(后端解析时判定);练习记录按它隔离查询键。 */
+    srtResegmented: boolean;
     /** 字幕重载令牌；递增时触发播放器按当前 subtitlePath 重建字幕上下文。 */
     subtitleReloadToken: number;
 };
@@ -35,6 +37,7 @@ const useFile = create(
         projectId: null,
         srtHash: null,
         subtitleSessionId: null,
+        srtResegmented: false,
         subtitleReloadToken: 0,
         updateFile: (ph: string) => {
             if (MediaUtil.isMedia(ph)) {
@@ -51,6 +54,7 @@ const useFile = create(
                     subtitlePath: ph,
                     srtHash: s.subtitlePath === ph ? s.srtHash : null,
                     subtitleSessionId: s.subtitlePath === ph ? s.subtitleSessionId : null,
+                    srtResegmented: s.subtitlePath === ph ? s.srtResegmented : false,
                 }));
             }
         },
@@ -69,6 +73,7 @@ const useFile = create(
                 videoId: null,
                 srtHash: null,
                 subtitleSessionId: null,
+                srtResegmented: false,
             });
         },
         clearSrt: () => {
@@ -76,6 +81,7 @@ const useFile = create(
                 subtitlePath: null,
                 srtHash: null,
                 subtitleSessionId: null,
+                srtResegmented: false,
             });
         },
         reloadSubtitles: () => {
