@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Clapperboard, Download, Loader2, PlayCircle } from 'lucide-react';
 import useSWR from 'swr';
 import { Button } from '@/fronted/components/ui/button';
@@ -22,7 +23,10 @@ const YoutubeImportHero = () => {
     const { t: tc } = useTranslation('common');
     const navigate = useNavigate();
     const changeSideBar = useLayout((s) => s.changeSideBar);
-    const { data: setting } = useSWR('youtube-import/setting-detail', () => youtubeImportApi.getSettingDetail());
+    const { data: setting } = useSWR('youtube-import/setting-detail', () => youtubeImportApi.getSettingDetail(), {
+        // 读取失败必须显式暴露：静默回退会让入口消失、退回旧空态，用户不知道功能其实已开启
+        onError: () => toast.error(t('settings.loadFailed'), { id: 'youtube-import-setting' }),
+    });
     const ytEnabled = setting?.enabled ?? false;
     const { url, setUrl, submitting, taskIds, startImport, playVideo } = useYoutubeImportTasks();
 

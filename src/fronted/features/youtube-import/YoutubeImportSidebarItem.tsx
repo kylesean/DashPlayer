@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Link2 } from 'lucide-react';
 import useSWR from 'swr';
 import { cn } from '@/fronted/lib/utils';
@@ -18,7 +19,11 @@ export interface YoutubeImportSidebarItemProps {
  */
 const YoutubeImportSidebarItem = ({ compact }: YoutubeImportSidebarItemProps) => {
     const { t } = useTranslation('nav');
-    const { data: setting } = useSWR('youtube-import/setting-detail', () => youtubeImportApi.getSettingDetail());
+    const { t: tYt } = useTranslation('youtubeImport');
+    const { data: setting } = useSWR('youtube-import/setting-detail', () => youtubeImportApi.getSettingDetail(), {
+        // 读取失败必须显式暴露：静默回退会让常驻入口消失，用户不知道功能其实已开启
+        onError: () => toast.error(tYt('settings.loadFailed'), { id: 'youtube-import-setting' }),
+    });
     const setOpen = useYoutubeImportUi((s) => s.setOpen);
 
     if (!setting?.enabled) return null;

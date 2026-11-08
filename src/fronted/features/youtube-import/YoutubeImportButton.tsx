@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 import { Link2 } from 'lucide-react';
 import useSWR from 'swr';
 import { Button } from '@/fronted/components/ui/button';
@@ -12,7 +13,10 @@ import useYoutubeImportUi from './youtubeImportUiStore';
  */
 const YoutubeImportButton = () => {
     const { t } = useTranslation('youtubeImport');
-    const { data: setting } = useSWR('youtube-import/setting-detail', () => youtubeImportApi.getSettingDetail());
+    const { data: setting } = useSWR('youtube-import/setting-detail', () => youtubeImportApi.getSettingDetail(), {
+        // 读取失败必须显式暴露：静默回退会让入口消失，用户不知道功能其实已开启
+        onError: () => toast.error(t('settings.loadFailed'), { id: 'youtube-import-setting' }),
+    });
     const setOpen = useYoutubeImportUi((s) => s.setOpen);
 
     if (!setting?.enabled) return null;
