@@ -88,13 +88,12 @@ interface WatchHistoryService {
      * 获取推荐的字幕文件
      * @param file 视频文件路径
      */
-    suggestSrt(file: string): Promise<string[]>;
-
     /**
      * 获取下一个视频
      * @param currentId 当前视频ID
      */
     getNextVideo(currentId: string): Promise<WatchHistoryVO | null>;
+
 
     /**
      * 保存用户手动设置的播客模式偏好。
@@ -590,22 +589,6 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
                 updated_at: TimeUtil.timeUtc(),
             });
         }
-    }
-
-    /**
-     * 推荐与视频文件名匹配的字幕文件。
-     *
-     * @param file 视频文件路径。
-     * @returns 按匹配度排序的字幕路径。
-     */
-    public async suggestSrt(file: string): Promise<string[]> {
-        file = await this.watchHistoryLibrary.preferHtml5VideoPath(file);
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(file);
-        const folder = path.dirname(file);
-        const files = await this.fileSystemGateway.listFileNames(folder);
-        const srtInFolder = files.filter(file => MediaUtil.isSubtitle(file))
-            .map(file => path.join(folder, file));
-        return MatchSrt.matchAll(file, srtInFolder);
     }
 
     @postConstruct()

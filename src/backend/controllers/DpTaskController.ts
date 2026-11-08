@@ -18,10 +18,6 @@ export default class DpTaskController implements Controller {
         return this.dpTaskService.detail(id);
     }
 
-    public async details(ids: number[]): Promise<Map<number, DpTask>> {
-        return this.dpTaskService.details(ids);
-    }
-
     public async cancel(id: number) {
         this.dpTaskService.cancel(id);
     }
@@ -29,7 +25,6 @@ export default class DpTaskController implements Controller {
     registerRoutes(): void {
         registerRoute('dp-task/detail', (p) => this.detail(p));
         registerRoute('dp-task/cancel', (p) => this.cancel(p));
-        registerRoute('dp-task/details', (p) => this.details(p));
     }
 
 }

@@ -16,8 +16,6 @@ import type RendererEvents from '@/backend/services/gateways/renderer/RendererEv
 export default interface DpTaskService {
     detail(id: number): Promise<DpTask | null>;
 
-    details(ids: number[]): Promise<Map<number, DpTask>>;
-
     create(): Promise<number>;
 
     update(task: DpTaskUpdate): void;
@@ -87,18 +85,6 @@ export class DpTaskServiceImpl implements DpTaskService {
         }
 
         return await this.dpTaskRepository.findById(id);
-    }
-
-    public async details(ids: number[]): Promise<Map<number, DpTask>> {
-        const map = new Map<number, DpTask>();
-        await Promise.all(ids.map(async id => {
-                const task = await this.detail(id);
-                if (task) {
-                    map.set(id, task);
-                }
-            }
-        ));
-        return map;
     }
 
 

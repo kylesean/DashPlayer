@@ -105,7 +105,6 @@ interface SherpaTtsModelDef {
 interface DpTaskDef {
     'dp-task/detail': { params: number, return: DpTask | null };
     'dp-task/cancel': { params: number, return: void };
-    'dp-task/details': { params: number[], return: Map<number, DpTask> };
 }
 
 interface SystemDef {
@@ -168,7 +167,6 @@ interface SystemDef {
         params: void,
         return: 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown';
     };
-    'system/test-renderer-api': { params: void, return: void };
     'system/config/get': { params: string, return: string | null };
     'system/config/set': { params: { key: string; value: string }, return: void };
 }
@@ -200,10 +198,6 @@ interface AiTransDef {
     'ai-trans/clear-subtitle-translation-cache': { params: void, return: { deleted: number } };
     /** 清除当前词典配置的查询缓存。 */
     'ai-trans/clear-dictionary-cache': { params: void, return: { deleted: number } };
-    // 测试腾讯翻译API
-    'ai-trans/test-tencent': { params: void, return: void };
-    // 测试新的翻译流程
-    'ai-trans/test-new-flow': { params: void, return: void };
 }
 
 interface ChatDef {
@@ -235,7 +229,6 @@ interface WatchHistoryDef {
     'watch-history/player-detail': { params: string, return: WatchHistoryVO | null };
     'watch-history/player-subtitle': { params: string, return: SubtitleResolution };
     'watch-history/attach-srt': { params: { videoPath: string, srtPath: string | 'same' }, return: void };
-    'watch-history/suggest-srt': { params: string, return: string[] };
     'watch-history/get-next-video': { params: string, return: WatchHistoryVO | null };
     'watch-history/set-podcast-mode-preference': {
         params: { videoId: string, podcastMode: boolean },

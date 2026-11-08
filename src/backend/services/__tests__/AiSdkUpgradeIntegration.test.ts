@@ -208,7 +208,6 @@ const runTests = (): void => {
                 const dpTask: DpTaskService = {
                     create: vi.fn().mockResolvedValue(1),
                     detail: vi.fn(),
-                    details: vi.fn(),
                     update: vi.fn(),
                     process: vi.fn((id, info) => calls.push({ type: 'process', id, info: info as Record<string, unknown> })),
                     finish: vi.fn((id, info) => calls.push({ type: 'finish', id, info: info as Record<string, unknown> })),
@@ -244,7 +243,6 @@ const runTests = (): void => {
                 const dpTask: DpTaskService = {
                     create: vi.fn().mockResolvedValue(1),
                     detail: vi.fn(),
-                    details: vi.fn(),
                     update: vi.fn(),
                     process: vi.fn((id, info) => calls.push({ type: 'process', id, info: info as Record<string, unknown> })),
                     finish: vi.fn((id, info) => calls.push({ type: 'finish', id, info: info as Record<string, unknown> })),
@@ -354,7 +352,6 @@ const runTests = (): void => {
                 dpTask = {
                     create: vi.fn().mockResolvedValue(1),
                     detail: vi.fn(),
-                    details: vi.fn(),
                     update: vi.fn(),
                     process: vi.fn((id, info) => calls.push({ type: 'process', id, info: info as Record<string, unknown> })),
                     finish: vi.fn((id, info) => calls.push({ type: 'finish', id, info: info as Record<string, unknown> })),

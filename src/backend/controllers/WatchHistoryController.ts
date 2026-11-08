@@ -25,10 +25,6 @@ export default class WatchHistoryController implements Controller {
         await this.watchHistoryService.attachSrt(videoPath, srtPath);
     }
 
-    public async suggestSrt(file: string): Promise<string[]> {
-        return this.watchHistoryService.suggestSrt(file);
-    }
-
     public async groupDelete(id: string): Promise<void> {
         return this.watchHistoryService.groupDelete(id);
     }
@@ -86,7 +82,6 @@ export default class WatchHistoryController implements Controller {
         registerRoute('watch-history/player-detail', (p) => this.playerDetail(p));
         registerRoute('watch-history/player-subtitle', (p) => this.playerSubtitle(p));
         registerRoute('watch-history/attach-srt', (p) => this.attachSrt(p));
-        registerRoute('watch-history/suggest-srt', (p) => this.suggestSrt(p));
         registerRoute('watch-history/get-next-video', (p) => this.getNextVideo(p));
         registerRoute('watch-history/set-podcast-mode-preference', (p) => this.setPodcastModePreference(p));
     }
