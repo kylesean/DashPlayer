@@ -7,8 +7,6 @@ import TimeUtil from '@/common/utils/TimeUtil';
 import CollUtil from '@/common/utils/CollUtil';
 import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
 import StrUtil from '@/common/utils/str-util';
-import MatchSrt from '@/backend/utils/MatchSrt';
-import MediaUtil from '@/common/utils/MediaUtil';
 import type WatchHistoryRepository from '@/backend/services/repositories/WatchHistoryRepository';
 import { WatchHistoryProjectType, type WatchHistoryRecord } from '@/backend/services/repositories/WatchHistoryRepository';
 import type WatchHistoryExtRepository from '@/backend/services/repositories/WatchHistoryExtRepository';
