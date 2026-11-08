@@ -55,4 +55,11 @@ describe('alignPracticeTokens 词级对齐评分', () => {
     it('normalizePracticeTokens 只留词 token 且小写', () => {
         expect(normalizePracticeTokens("It's fine, don't worry.")).toEqual(['it', 's', 'fine', 'don', 't', 'worry']);
     });
+
+    it('孤立连字符（破折号）不进词序列，连字符合成词保留', () => {
+        // 字幕里 "oh - really" 的空格包围连字符经 isWordToken 存活，但 ASR 与
+        // 听写输入都不可能产出它，留在期望序列只会虚增分母造成固定扣分
+        expect(normalizePracticeTokens('oh - really')).toEqual(['oh', 'really']);
+        expect(normalizePracticeTokens('a well-known fact')).toEqual(['a', 'well-known', 'fact']);
+    });
 });

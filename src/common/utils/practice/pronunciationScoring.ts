@@ -53,12 +53,17 @@ const charSimilarity = (a: string, b: string): number => {
 /**
  * 规范化文本为比对词序列:统一分词、只留词 token、小写去标点。
  * 跟读转写与听写输入两侧使用同一套规范化,缩读 it's 等形态天然对齐。
+ *
+ * 额外剔除不含字母/数字/中文的 token:字幕里空格包围的孤立连字符
+ * （"oh - really" 的破折号）会通过 isWordToken，但 ASR 与听写输入都
+ * 不可能产出它,留在期望序列里只会虚增分母造成固定扣分。
  */
 export const normalizePracticeTokens = (text: string): string[] =>
     splitWords(text)
         .filter(isWordToken)
         .map(cleanWord)
-        .filter((word) => word.length > 0);
+        .filter((word) => word.length > 0)
+        .filter((word) => /[\p{L}\p{N}]/u.test(word));
 
 /**
  * 词级加权编辑距离对齐。替换代价取 1 - 词对相似度,使"听岔的音"
