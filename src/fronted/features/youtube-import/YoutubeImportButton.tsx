@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import { Link2 } from 'lucide-react';
 import useSWR from 'swr';
-import { Button } from '@/fronted/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
 import { youtubeImportApi } from '@/fronted/features/youtube-import/youtubeImportApi';
 import useYoutubeImportUi from './youtubeImportUiStore';
 
@@ -22,13 +22,12 @@ const YoutubeImportButton = () => {
     if (!setting?.enabled) return null;
     return (
         <Button
-            variant="outline"
-            className="w-36 rounded-xl h-10 gap-2"
+            variant="secondary"
+            label={t('entry.button')}
+            icon={<Link2 className="h-4 w-4" />}
             onClick={() => setOpen(true)}
-        >
-            <Link2 className="h-4 w-4" />
-            {t('entry.button')}
-        </Button>
+            width={144}
+        />
     );
 };
 

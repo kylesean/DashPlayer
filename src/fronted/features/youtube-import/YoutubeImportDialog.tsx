@@ -1,15 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, Loader2 } from 'lucide-react';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/fronted/components/ui/dialog';
-import { Button } from '@/fronted/components/ui/button';
-import { Input } from '@/fronted/components/ui/input';
+import { Download } from 'lucide-react';
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { Button } from '@astryxdesign/core/Button';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
+import { StackItem } from '@astryxdesign/core/Stack';
 import useYoutubeImportTasks from './useYoutubeImportTasks';
 import YoutubeImportTaskRow from './YoutubeImportTaskRow';
 
@@ -33,30 +30,43 @@ const YoutubeImportDialog = ({ open, onOpenChange }: YoutubeImportDialogProps) =
     });
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                    <DialogTitle>{t('dialog.title')}</DialogTitle>
-                    <DialogDescription>{t('dialog.description')}</DialogDescription>
-                </DialogHeader>
-                <div className="flex items-center gap-2">
-                    <Input
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder={t('dialog.placeholder')}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                void startImport();
-                            }
-                        }}
+        <Dialog
+            isOpen={open}
+            onOpenChange={onOpenChange}
+            purpose="form"
+            width={520}
+            padding={4}
+        >
+            <DialogHeader
+                title={t('dialog.title')}
+                subtitle={t('dialog.description')}
+                onOpenChange={onOpenChange}
+            />
+            <VStack gap={4} width="100%">
+                <HStack vAlign="center" gap={2} width="100%">
+                    <StackItem size="fill">
+                        <TextInput
+                            label={t('dialog.placeholder')}
+                            isLabelHidden
+                            value={url}
+                            onChange={(val) => setUrl(val)}
+                            placeholder={t('dialog.placeholder')}
+                            onEnter={() => void startImport()}
+                            type="url"
+                            width="100%"
+                        />
+                    </StackItem>
+                    <Button
+                        label={t('dialog.start')}
+                        variant="primary"
+                        icon={<Download className="h-4 w-4" />}
+                        isLoading={submitting}
+                        isDisabled={!url.trim()}
+                        onClick={() => void startImport()}
                     />
-                    <Button onClick={() => void startImport()} disabled={submitting || !url.trim()} className="shrink-0">
-                        {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                        {t('dialog.start')}
-                    </Button>
-                </div>
+                </HStack>
                 {taskIds.length > 0 && (
-                    <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+                    <VStack gap={2} isScrollable className="max-h-72">
                         {taskIds.map((taskId) => (
                             <YoutubeImportTaskRow
                                 key={taskId}
@@ -64,9 +74,9 @@ const YoutubeImportDialog = ({ open, onOpenChange }: YoutubeImportDialogProps) =
                                 onPlay={(result) => void playVideo(result)}
                             />
                         ))}
-                    </div>
+                    </VStack>
                 )}
-            </DialogContent>
+            </VStack>
         </Dialog>
     );
 };

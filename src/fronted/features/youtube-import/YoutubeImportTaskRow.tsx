@@ -1,7 +1,14 @@
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleX, PlayCircle } from 'lucide-react';
-import { Button } from '@/fronted/components/ui/button';
-import { Progress } from '@/fronted/components/ui/progress';
+import { Card } from '@astryxdesign/core/Card';
+import { HStack } from '@astryxdesign/core/HStack';
+import { VStack } from '@astryxdesign/core/VStack';
+import { StackItem } from '@astryxdesign/core/Stack';
+import { Text } from '@astryxdesign/core/Text';
+import { Button } from '@astryxdesign/core/Button';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
 import useDpTaskCenter from '@/fronted/app/stores/dpTaskStore';
 import { DpTaskState } from '@/common/contracts/dp-task';
 import type { YoutubeImportTaskResult } from '@/common/contracts/youtube-import';
@@ -20,8 +27,6 @@ interface YoutubeImportTaskRowProps {
  */
 const YoutubeImportTaskRow = ({ taskId, onPlay }: YoutubeImportTaskRowProps) => {
     const { t } = useTranslation('youtubeImport');
-    // 只订阅本任务的对象引用：任务中心任意任务 tick 重建 Map，但不改变未更新任务的对象，
-    // Object.is 比较跳过，避免整表订阅让所有行跟着别人的进度重渲染
     const task = useDpTaskCenter((state) => state.tasks.get(taskId));
     const taskView = task && task !== 'init' ? task : null;
     const percent = taskView ? parsePercent(taskView.progress) : null;
@@ -29,55 +34,106 @@ const YoutubeImportTaskRow = ({ taskId, onPlay }: YoutubeImportTaskRowProps) => 
     const isDone = taskView?.status === DpTaskState.DONE;
     const isFailed = taskView?.status === DpTaskState.FAILED;
     const isCancelled = taskView?.status === DpTaskState.CANCELLED;
+    const isInProgress = taskView?.status === DpTaskState.IN_PROGRESS;
+
+    const statusVariant = isDone
+        ? 'success'
+        : isFailed
+          ? 'error'
+          : isInProgress
+            ? 'accent'
+            : 'neutral';
+
+    const statusLabel = isDone
+        ? t('dialog.completed', '已完成')
+        : isFailed
+          ? t('dialog.failed', '失败')
+          : isInProgress
+            ? t('dialog.inProgress', '下载中')
+            : t('dialog.pending');
+
     return (
-        <div className="rounded-xl border border-border/70 p-3 flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-medium text-foreground truncate">
-                    {taskView?.progress ?? t('dialog.pending')}
-                </span>
-                <div className="flex items-center gap-1 shrink-0">
-                    {isDone && result && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs gap-1"
-                            onClick={() => onPlay(result)}
-                        >
-                            <PlayCircle className="h-3.5 w-3.5" />
-                            {t('dialog.play')}
-                        </Button>
-                    )}
-                    {taskView?.status === DpTaskState.IN_PROGRESS && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                            onClick={() => void youtubeImportApi.cancel(taskId)}
-                        >
-                            <CircleX className="h-3.5 w-3.5" />
-                            {t('dialog.cancel')}
-                        </Button>
-                    )}
-                </div>
-            </div>
-            {percent !== null && !isDone && !isFailed && !isCancelled && (
-                <Progress value={percent} className="h-1.5" />
-            )}
-            {isFailed && (
-                <span className="text-xs text-destructive break-all line-clamp-3">
-                    {taskView?.result ?? t('dialog.failed')}
-                </span>
-            )}
-            {isCancelled && (
-                <span className="text-xs text-muted-foreground">{t('dialog.cancelled')}</span>
-            )}
-            {isDone && result && (
-                <span className="text-xs text-muted-foreground truncate">
-                    {result.fileName}
-                    {result.attachedSrtFileName ? '' : ` · ${t('dialog.noSubtitle')}`}
-                </span>
-            )}
-        </div>
+        <Card variant="default" padding={3}>
+            <VStack gap={1.5}>
+                <HStack vAlign="center" hAlign="between" gap={2}>
+                    <HStack vAlign="center" gap={2} className="min-w-0 flex-1">
+                        <StatusDot
+                            variant={statusVariant}
+                            label={statusLabel}
+                            isPulsing={isInProgress}
+                        />
+                        <StackItem size="fill">
+                            <Text
+                                type="body"
+                                weight="medium"
+                                maxLines={1}
+                            >
+                                {taskView?.progress ?? t('dialog.pending')}
+                            </Text>
+                        </StackItem>
+                    </HStack>
+                    <HStack vAlign="center" gap={1}>
+                        {isDone && result && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                label={t('dialog.play')}
+                                icon={<PlayCircle className="h-3.5 w-3.5" />}
+                                onClick={() => onPlay(result)}
+                            />
+                        )}
+                        {isInProgress && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                label={t('dialog.cancel')}
+                                icon={<CircleX className="h-3.5 w-3.5" />}
+                                onClick={() => void youtubeImportApi.cancel(taskId)}
+                            />
+                        )}
+                    </HStack>
+                </HStack>
+
+                {percent !== null && !isDone && !isFailed && !isCancelled && (
+                    <ProgressBar
+                        label={taskView?.progress ?? t('dialog.pending')}
+                        isLabelHidden
+                        value={percent}
+                        variant="accent"
+                    />
+                )}
+
+                {isFailed && (
+                    <Text
+                        type="supporting"
+                        maxLines={3}
+                        className="text-error"
+                    >
+                        {taskView?.result ?? t('dialog.failed')}
+                    </Text>
+                )}
+
+                {isCancelled && (
+                    <Text
+                        type="supporting"
+                        color="secondary"
+                    >
+                        {t('dialog.cancelled')}
+                    </Text>
+                )}
+
+                {isDone && result && (
+                    <Text
+                        type="supporting"
+                        color="secondary"
+                        maxLines={1}
+                    >
+                        {result.fileName}
+                        {result.attachedSrtFileName ? '' : ` · ${t('dialog.noSubtitle')}`}
+                    </Text>
+                )}
+            </VStack>
+        </Card>
     );
 };
 
