@@ -306,6 +306,20 @@ export class TranslateServiceImpl implements TranslateService {
     }
 
     /**
+     * 词典持久化缓存词条键。
+     *
+     * 语境参与键：同一个词在不同句子里义项不同，语境解释按句隔离缓存，
+     * 语境哈希编进词条 word 列（不动表结构）。读与写必须共用本函数，
+     * 否则会出现「语境查询永不命中持久缓存」与「语境释义污染无语境缓存」。
+     * @param word 查询单词。
+     * @param context 单词所在整句字幕文本。
+     * @returns 可用于 word_translates 表 word 列的稳定键。
+     */
+    private buildWordCacheTerm(word: string, context?: string): string {
+        return context?.trim() ? `${word}#ctx:${ObjUtil.hash(context.trim())}` : word;
+    }
+
+    /**
      * 执行单词词典查询，并优先复用持久化缓存结果。
      *
      * @param str 查询单词。
@@ -321,9 +335,7 @@ export class TranslateServiceImpl implements TranslateService {
         requestId?: string,
         context?: string
     ): Promise<OpenAIDictionaryResult | null> {
-        // 语境解释的持久化键把语境哈希编进词条 word 列(不动表结构),
-        // 同词异句的义项各自独立缓存。
-        const cacheTerm = context?.trim() ? `${str}#ctx:${ObjUtil.hash(context.trim())}` : str;
+        const cacheTerm = this.buildWordCacheTerm(str, context);
 
         // 如果不是强制刷新，先检查缓存
         if (!forceRefresh) {
@@ -442,7 +454,9 @@ export class TranslateServiceImpl implements TranslateService {
                 if (requestId) {
                     await this.emitOpenAIDictionaryUpdate(streamId, finalResult.word, finalResult, true);
                 }
-                await this.wordRecordOpenAI(word, finalResult);
+                // 写回必须与读取同键（含语境哈希），否则语境查询永不命中，
+                // 且语境特化释义会覆盖裸词的无语境缓存。
+                await this.wordRecordOpenAI(this.buildWordCacheTerm(word, context), finalResult);
                 return finalResult;
             }
 
