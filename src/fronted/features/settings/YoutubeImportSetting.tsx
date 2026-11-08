@@ -1,5 +1,6 @@
 import React from 'react';
 import useSWR from 'swr';
+import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Link2 } from 'lucide-react';
 import {
@@ -40,6 +41,9 @@ const YoutubeImportSetting = () => {
                 optimisticData: saved,
                 rollbackOnError: true,
             });
+        } catch (error) {
+            // 保存失败必须显式暴露：开关弹回、路径未保存，不能让用户误以为已生效
+            toast.error(error instanceof Error ? error.message : String(error), { id: 'youtube-import-setting-save' });
         } finally {
             setSaving(false);
         }
