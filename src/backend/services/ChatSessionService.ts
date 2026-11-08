@@ -514,14 +514,6 @@ export class ChatSessionServiceImpl implements ChatSessionService {
 
 
     /**
-     * 生成结构化分析，partial 仅用于即时展示，最终校验结果才写入会话。
-     * @param sessionId 会话 ID。
-     * @param messageId 分析消息 ID。
-     * @param model 本次分析使用的语言模型。
-     * @param prompt 分析提示词。
-     * @param abortSignal 会话生命周期对应的取消信号。
-     */
-    /**
      * 本地大模型执行整句分析:无逐字流,一次性生成后按同一 chunk 协议推送
      * 最终对象与结束标记——渲染层卡片行为不变,只是从逐字呈现变为约 2s 后整卡出现。
      */
