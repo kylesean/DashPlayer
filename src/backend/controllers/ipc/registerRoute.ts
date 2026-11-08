@@ -38,6 +38,10 @@ export interface RegisterParameterizedRouteOptions<K extends keyof ApiMap> {
 /**
  * 使用可选 Zod 架构校验 IPC 入参。
  *
+ * 契约外顶层字段直接报错而非依赖 zod 默认的 strip 行为：schema 漏写可选
+ * 字段时，渲染端多传的内容会被静默丢弃，契约漂移无从察觉，与「尽早失败」
+ * 约定相悖。顶层键比对即可覆盖该场景；嵌套对象的深漂移仍由各自 schema 约束。
+ *
  * @param path API 路径，用于构建可读错误上下文。
  * @param param 渲染端传入的原始参数。
  * @param schema 入参 Zod 校验架构；无参路由允许省略。
@@ -57,6 +61,16 @@ function parseRouteParam<K extends keyof ApiMap>(
             .map((issue) => `${issue.path.length > 0 ? issue.path.join('.') : '<root>'}: ${issue.message}`)
             .join('; ');
         throw new Error(`IPC 请求参数校验失败 (${String(path)}): ${detail}`);
+    }
+    if (param && typeof param === 'object' && !Array.isArray(param)) {
+        const unknownKeys = Object.keys(param as Record<string, unknown>)
+            .filter((key) => !(key in (parsed.data as Record<string, unknown>)));
+        if (unknownKeys.length > 0) {
+            throw new Error(
+                `IPC 请求参数包含未声明字段 (${String(path)}): ${unknownKeys.join(', ')}`
+                + '（schema 漏写或渲染端多传，请核对契约）',
+            );
+        }
     }
     return parsed.data;
 }
