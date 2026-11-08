@@ -71,7 +71,7 @@ export const SettingCard: React.FC<SettingCardProps> = ({
                             <HStack gap={2} align="center">
                                 {IconComp && <Icon icon={IconComp} size="sm" color="primary" />}
                                 {typeof title === 'string' ? (
-                                    <Text type="supporting" weight="semibold" color="secondary">
+                                    <Text size="base" weight="semibold">
                                         {title}
                                     </Text>
                                 ) : (
@@ -81,7 +81,7 @@ export const SettingCard: React.FC<SettingCardProps> = ({
                         )}
                         {description && (
                             typeof description === 'string' ? (
-                                <Text type="supporting" color="secondary">
+                                <Text size="xsm" color="secondary">
                                     {description}
                                 </Text>
                             ) : (
@@ -93,7 +93,7 @@ export const SettingCard: React.FC<SettingCardProps> = ({
                 </HStack>
             )}
 
-            <Card padding={0} width="100%" variant="muted">
+            <Card padding={0} width="100%" variant="default">
                 <VStack as="ul" role="list" gap={0}>
                     {rows.map((rowItem, index) => (
                         <VStack key={index} as="li" gap={0} width="100%">

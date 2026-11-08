@@ -40,12 +40,12 @@ const SettingsPageShell: React.FC<SettingsPageShellProps> = ({
     contentClassName,
 }) => {
     return (
-        <VStack gap={4} width="100%" height="fill" className={className}>
+        <VStack gap={4} width="100%" className={className}>
             <VStack gap={1}>
-                <Heading level={2}>{title}</Heading>
+                <Heading level={2} weight="bold">{title}</Heading>
                 {description ? (
                     typeof description === 'string' ? (
-                        <Text type="supporting" color="secondary">
+                        <Text size="sm" color="secondary">
                             {description}
                         </Text>
                     ) : (
@@ -59,7 +59,6 @@ const SettingsPageShell: React.FC<SettingsPageShellProps> = ({
             <VStack
                 gap={5}
                 width="100%"
-                isScrollable
                 className={contentClassName}
             >
                 {children}

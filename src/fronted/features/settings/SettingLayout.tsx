@@ -14,11 +14,14 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 import {
     Layout,
     LayoutContent,
-    LayoutHeader,
     LayoutPanel,
 } from '@astryxdesign/core/Layout';
 import { SideNav, SideNavItem } from '@astryxdesign/core/SideNav';
 import { Breadcrumbs, BreadcrumbItem } from '@astryxdesign/core/Breadcrumbs';
+import { Divider } from '@astryxdesign/core/Divider';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { VStack } from '@astryxdesign/core/VStack';
 
 /** 设置页面各分区键名联合类型。 */
@@ -78,13 +81,27 @@ const SettingLayout: React.FC = () => {
         <Layout
             height="fill"
             start={
-                <LayoutPanel width={220} hasDivider padding={2}>
-                    <SideNav>
+                <LayoutPanel width={220} isScrollable={false} hasDivider padding={2}>
+                    <SideNav
+                        header={
+                            <HStack align="center" paddingInline={2} minHeight={36}>
+                                <Heading level={3} weight="bold">
+                                    {t('layoutTitle')}
+                                </Heading>
+                            </HStack>
+                        }
+                    >
                         {SETTING_ITEMS.map((item) => (
                             <SideNavItem
                                 key={item.key}
                                 label={t(item.labelKey)}
-                                icon={item.icon}
+                                icon={
+                                    <Icon
+                                        icon={item.icon as unknown as IconType}
+                                        size="sm"
+                                        color={currentKey === item.key ? 'primary' : 'secondary'}
+                                    />
+                                }
                                 isSelected={currentKey === item.key}
                                 onClick={() => navigate(`/settings/${item.key}`)}
                             />
@@ -92,24 +109,25 @@ const SettingLayout: React.FC = () => {
                     </SideNav>
                 </LayoutPanel>
             }
-            header={
-                <LayoutHeader hasDivider padding={3}>
-                    <Breadcrumbs label={t('layoutTitle')} variant="supporting">
-                        <BreadcrumbItem onClick={() => navigate('/settings/shortcut')}>
-                            {t('layoutTitle')}
-                        </BreadcrumbItem>
-                        <BreadcrumbItem isCurrent>
-                            {t(activeItem.labelKey)}
-                        </BreadcrumbItem>
-                    </Breadcrumbs>
-                </LayoutHeader>
-            }
             content={
-                <LayoutContent padding={4} isScrollable>
-                    <VStack maxWidth={960} width="100%" height="fill">
-                        <Outlet />
-                    </VStack>
-                </LayoutContent>
+                <VStack height="fill" width="100%" gap={0}>
+                    <HStack minHeight={48} align="center" paddingInline={6} paddingBlock={2}>
+                        <Breadcrumbs label={t('layoutTitle')} variant="supporting">
+                            <BreadcrumbItem onClick={() => navigate('/settings/shortcut')}>
+                                {t('layoutTitle')}
+                            </BreadcrumbItem>
+                            <BreadcrumbItem isCurrent>
+                                {t(activeItem.labelKey)}
+                            </BreadcrumbItem>
+                        </Breadcrumbs>
+                    </HStack>
+                    <Divider variant="subtle" />
+                    <LayoutContent padding={6} isScrollable>
+                        <VStack maxWidth={840} width="100%" gap={6} paddingBlockEnd={8}>
+                            <Outlet />
+                        </VStack>
+                    </LayoutContent>
+                </VStack>
             }
         />
     );

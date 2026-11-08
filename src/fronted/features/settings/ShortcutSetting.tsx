@@ -23,7 +23,6 @@ import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Kbd } from '@astryxdesign/core/Kbd';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Table, TableBody, TableCell, TableRow } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { Token } from '@astryxdesign/core/Token';
@@ -31,7 +30,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 
 import { SettingKeyObj } from '@/common/types/store_schema';
 import type { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
-import { SettingCard, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
+import { SettingCard, SettingRow, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
 import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
@@ -547,8 +546,10 @@ const ShortcutSetting: React.FC = () => {
                     value={searchQuery}
                     onChange={(val) => setSearchQuery(val)}
                     hasClear
+                    size="sm"
+                    width="100%"
                     placeholder={t('shortcut.searchPlaceholder')}
-                    startIcon={<Icon icon={Search as unknown as IconType} size="sm" />}
+                    startIcon={Search as unknown as IconType}
                 />
 
                 {filteredGroups.length === 0 ? (
@@ -563,43 +564,39 @@ const ShortcutSetting: React.FC = () => {
                             key={group.id}
                             title={group.title}
                             description={group.description}
-                            icon={group.icon}
+                            icon={group.icon as unknown as IconType}
                         >
-                            <Table density="compact" dividers="rows">
-                                <TableBody>
-                                    {group.items.map((item) => (
-                                        <Controller
-                                            key={item.key}
-                                            name={item.key}
-                                            control={control}
-                                            render={({ field }) => (
-                                                <ShortcutRow
-                                                    title={item.title}
-                                                    description={item.description}
-                                                    value={field.value ?? ''}
-                                                    defaultValue={SettingKeyObj[toShortcutStoreKey(item.key)]}
-                                                    onChange={(val) => {
-                                                        field.onChange(val);
-                                                        flush().catch(() => null);
-                                                    }}
-                                                    editLabel={t('shortcut.edit')}
-                                                    resetDefaultLabel={t('shortcut.resetDefault')}
-                                                    dialogTitle={t('shortcut.dialogTitle')}
-                                                    dialogDescription={t('shortcut.dialogDescription')}
-                                                    saveChangesLabel={t('shortcut.saveChanges')}
-                                                    currentShortcutsLabel={t('shortcut.dialogCurrentShortcuts')}
-                                                    emptyShortcutsLabel={t('shortcut.dialogNoShortcuts')}
-                                                    addRecordedLabel={t('shortcut.dialogAddRecorded')}
-                                                    removeShortcutLabel={t('shortcut.dialogRemoveShortcut')}
-                                                    dialogResetDefaultLabel={t('shortcut.dialogResetDefault')}
-                                                    listeningPrompt={t('shortcut.listeningPrompt')}
-                                                    clearAllLabel={t('shortcut.clearAll')}
-                                                />
-                                            )}
+                            {group.items.map((item) => (
+                                <Controller
+                                    key={item.key}
+                                    name={item.key}
+                                    control={control}
+                                    render={({ field }) => (
+                                        <ShortcutRow
+                                            title={item.title}
+                                            description={item.description}
+                                            value={field.value ?? ''}
+                                            defaultValue={SettingKeyObj[toShortcutStoreKey(item.key)]}
+                                            onChange={(val) => {
+                                                field.onChange(val);
+                                                flush().catch(() => null);
+                                            }}
+                                            editLabel={t('shortcut.edit')}
+                                            resetDefaultLabel={t('shortcut.resetDefault')}
+                                            dialogTitle={t('shortcut.dialogTitle')}
+                                            dialogDescription={t('shortcut.dialogDescription')}
+                                            saveChangesLabel={t('shortcut.saveChanges')}
+                                            currentShortcutsLabel={t('shortcut.dialogCurrentShortcuts')}
+                                            emptyShortcutsLabel={t('shortcut.dialogNoShortcuts')}
+                                            addRecordedLabel={t('shortcut.dialogAddRecorded')}
+                                            removeShortcutLabel={t('shortcut.dialogRemoveShortcut')}
+                                            dialogResetDefaultLabel={t('shortcut.dialogResetDefault')}
+                                            listeningPrompt={t('shortcut.listeningPrompt')}
+                                            clearAllLabel={t('shortcut.clearAll')}
                                         />
-                                    ))}
-                                </TableBody>
-                            </Table>
+                                    )}
+                                />
+                            ))}
                         </SettingCard>
                     ))
                 )}
@@ -652,63 +649,63 @@ const ShortcutRow: React.FC<{
     const isDefault = value === defaultValue;
 
     return (
-        <TableRow>
-            <TableCell>
-                <VStack gap={0.5} width={260}>
-                    <Text size="sm" weight="medium">{title}</Text>
-                    <Text size="xsm" color="secondary" maxLines={1}>{description}</Text>
-                </VStack>
-            </TableCell>
+        <SettingRow
+            title={title}
+            description={description}
+        >
+            <HStack gap={2} align="center" justify="end">
+                <Button
+                    label={value || editLabel}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsDialogOpen(true)}
+                    tooltip={editLabel}
+                >
+                    <KeyBadge keys={value} />
+                </Button>
 
-            <TableCell>
-                <KeyBadge keys={value} />
-            </TableCell>
+                <IconButton
+                    label={editLabel}
+                    tooltip={editLabel}
+                    size="sm"
+                    variant="ghost"
+                    icon={<Icon icon={Pencil as unknown as IconType} size="sm" />}
+                    onClick={() => setIsDialogOpen(true)}
+                />
 
-            <TableCell>
-                <HStack justify="end" vAlign="center" gap={1}>
-                    <IconButton
-                        label={editLabel}
-                        tooltip={editLabel}
-                        size="sm"
-                        variant="ghost"
-                        icon={<Icon icon={Pencil as unknown as IconType} size="sm" />}
-                        onClick={() => setIsDialogOpen(true)}
+                <IconButton
+                    label={resetDefaultLabel}
+                    tooltip={resetDefaultLabel}
+                    size="sm"
+                    variant="ghost"
+                    isDisabled={isDefault}
+                    icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
+                    onClick={() => onChange(defaultValue)}
+                />
+            </HStack>
+
+            <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} width={500}>
+                {isDialogOpen && (
+                    <RecordDialogBody
+                        title={title}
+                        initialShortcuts={parseShortcutList(value)}
+                        defaultValue={defaultValue}
+                        dialogTitle={dialogTitle}
+                        dialogDescription={dialogDescription}
+                        saveChangesLabel={saveChangesLabel}
+                        currentShortcutsLabel={currentShortcutsLabel}
+                        emptyShortcutsLabel={emptyShortcutsLabel}
+                        addRecordedLabel={addRecordedLabel}
+                        removeShortcutLabel={removeShortcutLabel}
+                        resetDefaultLabel={dialogResetDefaultLabel}
+                        listeningPrompt={listeningPrompt}
+                        clearAllLabel={clearAllLabel}
+                        onSubmit={onChange}
+                        onClose={() => setIsDialogOpen(false)}
                     />
-
-                    <IconButton
-                        label={resetDefaultLabel}
-                        tooltip={resetDefaultLabel}
-                        size="sm"
-                        variant="ghost"
-                        isDisabled={isDefault}
-                        icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
-                        onClick={() => onChange(defaultValue)}
-                    />
-                </HStack>
-
-                <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} width={500}>
-                    {isDialogOpen && (
-                        <RecordDialogBody
-                            title={title}
-                            initialShortcuts={parseShortcutList(value)}
-                            defaultValue={defaultValue}
-                            dialogTitle={dialogTitle}
-                            dialogDescription={dialogDescription}
-                            saveChangesLabel={saveChangesLabel}
-                            currentShortcutsLabel={currentShortcutsLabel}
-                            emptyShortcutsLabel={emptyShortcutsLabel}
-                            addRecordedLabel={addRecordedLabel}
-                            removeShortcutLabel={removeShortcutLabel}
-                            resetDefaultLabel={dialogResetDefaultLabel}
-                            listeningPrompt={listeningPrompt}
-                            clearAllLabel={clearAllLabel}
-                            onSubmit={onChange}
-                            onClose={() => setIsDialogOpen(false)}
-                        />
-                    )}
-                </Dialog>
-            </TableCell>
-        </TableRow>
+                )}
+            </Dialog>
+        </SettingRow>
     );
 };
 
