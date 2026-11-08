@@ -12,7 +12,6 @@ export default tseslint.config(
         ignores: [
             'vite.*.config.ts',
             'src/fronted/components/ui/**',
-            'my-new-app/**',
             'node_modules/**',
             '.vite/**',
             'out/**',

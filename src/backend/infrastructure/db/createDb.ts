@@ -101,6 +101,10 @@ export function createDb(dbPath: string, options: CreateDbOptions = {}): DbHandl
         sqlite.pragma('synchronous = NORMAL');
     }
     sqlite.pragma('busy_timeout = 5000');
+    // foreign_keys 只在表声明了 references() 后才产生约束，当前全库 schema
+    // 尚无外键声明，此开关处于空转。给表补第一个外键前必须先审计存量孤儿行
+    // （老库不经迁移直接写数据可能已有孤儿），否则历史数据会在运行时随机炸
+    // SQLITE_CONSTRAINT。
     sqlite.pragma('foreign_keys = ON');
     wrapTimingDatabase(sqlite, options.onSlowQuery);
     const db = drizzle(sqlite, { logger: options.logger ?? false });
