@@ -2,6 +2,12 @@
     "entry": {
         "button": "链接导入"
     },
+    "hero": {
+        "title": "从 YouTube 开始沉浸学习",
+        "description": "粘贴精选英文视频链接，下载完成后自动进入播放页。",
+        "start": "开始导入",
+        "orLocal": "或从本地视频开始"
+    },
     "dialog": {
         "title": "从 YouTube 导入视频",
         "description": "粘贴视频观看地址，下载完成后自动进入视频库并挂载字幕。",

@@ -2,6 +2,12 @@
     "entry": {
         "button": "Import URL"
     },
+    "hero": {
+        "title": "Start immersive learning from YouTube",
+        "description": "Paste a curated English video link; when the download finishes you'll jump straight into the player.",
+        "start": "Import",
+        "orLocal": "or start from a local video"
+    },
     "dialog": {
         "title": "Import from YouTube",
         "description": "Paste a video watch URL. The video and its subtitles will be downloaded into your library automatically.",

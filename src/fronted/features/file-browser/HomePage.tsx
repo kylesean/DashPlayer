@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
-import { cn } from '@/fronted/lib/utils';
 import useLayout from '@/fronted/hooks/useLayout';
 import useFile from '@/fronted/features/file-browser/fileStore';
 import ProjectListCard from '@/fronted/features/file-browser/components/project-list-card';
@@ -15,9 +14,6 @@ import {
     Captions,
     ChevronsDown,
     Clock,
-    Film,
-    FolderOpen,
-    PlayCircle,
     Rotate3D,
     Scissors,
     Settings,
@@ -28,6 +24,7 @@ import FileSelector, { FileAction } from '@/fronted/features/file-browser/compon
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import YoutubeImportButton from '@/fronted/features/youtube-import/YoutubeImportButton';
+import YoutubeImportHero from '@/fronted/features/youtube-import/YoutubeImportHero';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 const logger = getRendererLogger('HomePage');
@@ -219,38 +216,9 @@ const HomePage = () => {
                             )}
                         </div>
                     ) : (
-                        /* 无播放历史时的专属初始场景 (Empty State) */
+                        /* 无播放历史时的专属初始场景：YouTube 优先动线（导入完成自动跳转播放） */
                         <div className="flex flex-col items-center justify-center h-full min-h-[420px] text-center p-8">
-                            <div className="flex flex-col items-center max-w-md w-full">
-                                <div className="h-16 w-16 rounded-3xl bg-primary/10 flex items-center justify-center text-primary mb-5 shadow-xs">
-                                    <PlayCircle className="h-8 w-8 stroke-[1.75]" />
-                                </div>
-                                <h2 className="text-lg font-semibold text-foreground mb-1.5">
-                                    {tc('emptyWatchTitle')}
-                                </h2>
-                                <p className="text-xs text-muted-foreground leading-relaxed mb-6">
-                                    {tc('emptyWatchDesc')}
-                                </p>
-                                
-                                <div className="flex items-center gap-3 w-full justify-center">
-                                    <div className="w-36">
-                                        <FileSelector
-                                            onSelected={FileAction.playerAction2(navigate)}
-                                            withMkv
-                                        />
-                                    </div>
-                                    <div className="w-36">
-                                        <FolderSelector
-                                            onSelected={FolderSelectAction.defaultAction2(async (vid) => {
-                                                await fileBrowserApi.changeWindowSize('player');
-                                                changeSideBar(false);
-                                                navigate(`/player/${vid}`);
-                                            })}
-                                        />
-                                    </div>
-                                    <YoutubeImportButton />
-                                </div>
-                            </div>
+                            <YoutubeImportHero />
                         </div>
                     )}
                 </div>
