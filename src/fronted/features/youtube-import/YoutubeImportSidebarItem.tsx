@@ -42,7 +42,7 @@ const YoutubeImportSidebarItem = ({ compact }: YoutubeImportSidebarItemProps) =>
             <Link2 className="w-5 h-5 text-yellow-600 text-yellow-500 flex-shrink-0" />
             {!compact && (
                 <div className={cn('text-base text-foreground truncate w-0 flex-1')}>
-                    {t('sidebarEntry')}
+                    {t('youtubeImport')}
                 </div>
             )}
         </div>
