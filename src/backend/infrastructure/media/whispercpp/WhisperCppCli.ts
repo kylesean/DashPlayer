@@ -92,6 +92,8 @@ export interface WhisperCppRunRequest {
     numThreads: number;
     /** 所属后台任务身份标识。 */
     job?: string;
+    /** 禁用 Vulkan（GGML_VK_DISABLE=1），强制 CPU 推理；用于 GPU 崩溃后的重试。 */
+    disableGpu?: boolean;
     /** 取消判定；返回 true 时立即终止识别。 */
     isCancelled?: () => boolean;
     /** 识别进程存活期间的心跳回调。 */
@@ -200,6 +202,8 @@ export class WhisperCppCli {
                 ], {
                     cwd: path.dirname(executablePath),
                     stdio: ['ignore', 'pipe', 'pipe'],
+                    // GPU 崩溃后的 CPU 重试路径：禁用 Vulkan 后二进制走"枚举不到设备 → 静默回退 CPU"既有路径
+                    ...(request.disableGpu ? { env: { ...process.env, GGML_VK_DISABLE: '1' } } : {}),
                 });
                 this.activeProcess = child;
                 this.logger.info('spawned whisper.cpp parakeet-cli', {
@@ -207,6 +211,7 @@ export class WhisperCppCli {
                     pid: child.pid,
                     audioPath: request.audioPath,
                     modelPath: request.modelPath,
+                    disableGpu: request.disableGpu ?? false,
                 });
                 // stdout 需整体拼接识别文本；stderr 含 token 时间轴调试行，识别成功时按全量解析，
                 // 失败时日志只取尾部行，避免错误日志被刷屏。
