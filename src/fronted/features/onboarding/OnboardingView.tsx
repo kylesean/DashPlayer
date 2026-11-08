@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { create as createConfetti } from 'canvas-confetti';
-import { Button } from '@/fronted/components/ui/button';
-import { Progress } from '@/fronted/components/ui/progress';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Center } from '@astryxdesign/core/Center';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
 import {
     CheckCircle2,
@@ -531,15 +538,13 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                         {storagePath || t('steps.storage.pathLoading')}
                                     </span>
                                     <Button
+                                        label={t('steps.storage.chooseFolder')}
                                         variant="secondary"
                                         size="sm"
-                                        className="h-7 shrink-0 gap-1.5 px-3 text-xs"
-                                        disabled={choosingStorage}
+                                        isLoading={choosingStorage}
+                                        isDisabled={choosingStorage}
                                         onClick={() => { void handleChooseStorage(); }}
-                                    >
-                                        {choosingStorage && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                                        {t('steps.storage.chooseFolder')}
-                                    </Button>
+                                    />
                                 </div>
                             </div>
 
@@ -554,13 +559,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                         </div>
 
                         <Button
+                            label={t('nextStep')}
+                            variant="primary"
                             size="lg"
-                            className="h-12 gap-2 rounded-full px-10 text-sm shadow-lg shadow-primary/20"
+                            endContent={<Icon icon={ArrowRight as unknown as IconType} size="sm" />}
                             onClick={() => setScreen('download')}
-                        >
-                            {t('nextStep')}
-                            <ArrowRight className="h-4 w-4" />
-                        </Button>
+                        />
                     </div>
                 </main>
             )}
@@ -570,28 +574,24 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                     {/* 返回：左上角小元素 */}
                     <div className="absolute top-11 left-6 z-20">
                         <Button
+                            label={t('steps.manual.back')}
                             variant="ghost"
                             size="sm"
-                            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                            disabled={downloadingBundle}
+                            isDisabled={downloadingBundle}
+                            icon={<Icon icon={ArrowLeft as unknown as IconType} size="sm" />}
                             onClick={() => setScreen('storage')}
-                        >
-                            <ArrowLeft className="h-3.5 w-3.5" />
-                            {t('steps.manual.back')}
-                        </Button>
+                        />
                     </div>
 
                     {/* 跳过：右上角小元素 */}
                     <div className="absolute top-11 right-6 z-20">
                         <Button
+                            label={t('steps.download.skip')}
                             variant="ghost"
                             size="sm"
-                            className="text-xs text-muted-foreground hover:text-foreground"
-                            disabled={finishing || downloadingBundle}
+                            isDisabled={finishing || downloadingBundle}
                             onClick={() => { void finishOnboarding(); }}
-                        >
-                            {t('steps.download.skip')}
-                        </Button>
+                        />
                     </div>
 
                     <main className="relative z-10 flex flex-1 items-center justify-center px-8 pb-14">
@@ -614,20 +614,23 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                         <span className="text-4xl font-semibold tabular-nums tracking-tight">{overallPercent}</span>
                                         <span className="text-lg text-muted-foreground">%</span>
                                     </div>
-                                    <Progress value={overallPercent} className="h-1.5" />
+                                    <ProgressBar
+                                        label={t('steps.download.progressLabel', { defaultValue: '下载进度' })}
+                                        isLabelHidden
+                                        value={overallPercent}
+                                        variant="accent"
+                                    />
                                     <p className="text-xs text-muted-foreground">
                                         {progressLabel}
                                         {live.speed > 0 ? ` · ${formatSpeed(live.speed)}` : ''}
                                         {remainingLabel ? ` · ${remainingLabel}` : ''}
                                     </p>
                                     <Button
+                                        label={t('steps.download.cancel')}
                                         variant="ghost"
                                         size="sm"
-                                        className="text-xs text-muted-foreground hover:text-foreground"
                                         onClick={() => { void cancelBundleDownload(); }}
-                                    >
-                                        {t('steps.download.cancel')}
-                                    </Button>
+                                    />
                                 </div>
                             ) : allReady ? (
                                 <div className="flex flex-col items-center gap-4">
@@ -636,28 +639,29 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                         {t('steps.download.ready')}
                                     </span>
                                     <Button
+                                        label={t('steps.download.finish')}
+                                        variant="primary"
                                         size="lg"
-                                        className="h-12 rounded-full px-10 text-sm gap-2"
-                                        disabled={finishing}
+                                        isLoading={finishing}
+                                        isDisabled={finishing}
+                                        icon={<Icon icon={Check as unknown as IconType} size="sm" />}
                                         onClick={() => { void finishOnboarding(); }}
-                                    >
-                                        {finishing
-                                            ? <Loader2 className="h-4 w-4 animate-spin" />
-                                            : <Check className="h-4 w-4" />}
-                                        {t('steps.download.finish')}
-                                    </Button>
+                                    />
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-3">
                                     <Button
+                                        label={bundleError ? t('steps.download.retry') : t('steps.download.action')}
+                                        variant="primary"
                                         size="lg"
-                                        className="h-12 rounded-full px-9 text-sm gap-2.5 shadow-lg shadow-primary/20"
-                                        disabled={finishing}
+                                        isDisabled={finishing}
+                                        icon={<Icon icon={Download as unknown as IconType} size="sm" />}
                                         onClick={() => { void downloadBundle(); }}
                                     >
-                                        <Download className="h-4 w-4" />
-                                        {bundleError ? t('steps.download.retry') : t('steps.download.action')}
-                                        <span className="text-xs font-normal opacity-75">{t('steps.download.packSize')}</span>
+                                        <HStack gap={1.5} align="center">
+                                            <span>{bundleError ? t('steps.download.retry') : t('steps.download.action')}</span>
+                                            <span className="text-xs font-normal opacity-75">{t('steps.download.packSize')}</span>
+                                        </HStack>
                                     </Button>
                                     {bundleError && (
                                         <span className="flex items-center gap-1.5 text-xs text-destructive">
@@ -670,14 +674,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
 
                             {/* 手动下载入口：单独一页，避免在这里挤 */}
                             <Button
+                                label={t('steps.models.manualGuideTitle')}
                                 variant="ghost"
                                 size="sm"
-                                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                icon={<Icon icon={HelpCircle as unknown as IconType} size="sm" />}
                                 onClick={() => { void openManualGuide(); }}
-                            >
-                                <HelpCircle className="h-3.5 w-3.5" />
-                                {t('steps.models.manualGuideTitle')}
-                            </Button>
+                            />
                         </div>
                     </main>
 
@@ -690,14 +692,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                     <div className="w-full max-w-2xl space-y-6">
                         <div>
                             <Button
+                                label={t('steps.manual.back')}
                                 variant="ghost"
                                 size="sm"
-                                className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                icon={<Icon icon={ArrowLeft as unknown as IconType} size="sm" />}
                                 onClick={() => setScreen('download')}
-                            >
-                                <ArrowLeft className="h-3.5 w-3.5" />
-                                {t('steps.manual.back')}
-                            </Button>
+                            />
                         </div>
 
                         <div className="space-y-2 text-center">
@@ -707,54 +707,72 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
 
                         <div className="space-y-4">
                             {bundleEntries.map((entry) => (
-                                <div key={entry.key} className="space-y-4 rounded-2xl border border-border/70 bg-card/80 p-5">
-                                    <div className="text-sm font-semibold text-foreground">{entry.title}</div>
+                                <Card key={entry.key} variant="default" padding={4}>
+                                    <VStack gap={4} width="100%">
+                                        <Text type="body" weight="semibold">{entry.title}</Text>
 
-                                    <div className="space-y-2">
-                                        <div className="text-xs text-muted-foreground">{t('steps.manual.addressLabel')}</div>
-                                        {(entry.urls ?? []).map((url, index) => (
-                                            <div key={url} className="space-y-2 rounded-lg border border-border/50 bg-background/60 p-3">
-                                                <div className="flex items-start gap-2">
-                                                    {index > 0 && (
-                                                        <span className="mt-0.5 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                                                            {t('steps.models.backupSource')}
-                                                        </span>
-                                                    )}
-                                                    <span className="font-mono text-[11px] break-all text-muted-foreground">{url}</span>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { void copyText(url); }}>
-                                                        <Copy className="mr-1 w-3 h-3" />
-                                                        {t('steps.models.copyLink')}
-                                                    </Button>
-                                                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { void openUrl(url); }}>
-                                                        <ExternalLink className="mr-1 w-3 h-3" />
-                                                        {t('steps.models.openInBrowser')}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                        <VStack gap={2} width="100%">
+                                            <Text type="supporting" color="secondary">{t('steps.manual.addressLabel')}</Text>
+                                            {(entry.urls ?? []).map((url, index) => (
+                                                <Card key={url} variant="muted" padding={3}>
+                                                    <VStack gap={2} width="100%">
+                                                        <HStack gap={2} align="start">
+                                                            {index > 0 && (
+                                                                <span className="mt-0.5 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                                                    {t('steps.models.backupSource')}
+                                                                </span>
+                                                            )}
+                                                            <span className="font-mono text-[11px] break-all text-muted-foreground">{url}</span>
+                                                        </HStack>
+                                                        <HStack gap={2} align="center">
+                                                            <Button
+                                                                label={t('steps.models.copyLink')}
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                icon={<Icon icon={Copy as unknown as IconType} size="sm" />}
+                                                                onClick={() => { void copyText(url); }}
+                                                            />
+                                                            <Button
+                                                                label={t('steps.models.openInBrowser')}
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                icon={<Icon icon={ExternalLink as unknown as IconType} size="sm" />}
+                                                                onClick={() => { void openUrl(url); }}
+                                                            />
+                                                        </HStack>
+                                                    </VStack>
+                                                </Card>
+                                            ))}
+                                        </VStack>
 
-                                    {entry.targetPath && (
-                                        <div className="space-y-2">
-                                            <div className="text-xs text-muted-foreground">{t('steps.manual.targetLabel')}</div>
-                                            <div className="space-y-2 rounded-lg border border-border/50 bg-background/60 p-3">
-                                                <div className="font-mono text-[11px] break-all text-muted-foreground">{entry.targetPath}</div>
-                                                <div className="flex items-center gap-2">
-                                                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { void copyText(entry.targetPath as string); }}>
-                                                        <Copy className="mr-1 w-3 h-3" />
-                                                        {t('steps.models.copyPath')}
-                                                    </Button>
-                                                    <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => { void openFolder(entry.targetPath as string); }}>
-                                                        <FolderOpen className="mr-1 w-3 h-3" />
-                                                        {t('steps.models.openFolder')}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                        {entry.targetPath && (
+                                            <VStack gap={2} width="100%">
+                                                <Text type="supporting" color="secondary">{t('steps.manual.targetLabel')}</Text>
+                                                <Card variant="muted" padding={3}>
+                                                    <VStack gap={2} width="100%">
+                                                        <span className="font-mono text-[11px] break-all text-muted-foreground">{entry.targetPath}</span>
+                                                        <HStack gap={2} align="center">
+                                                            <Button
+                                                                label={t('steps.models.copyPath')}
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                icon={<Icon icon={Copy as unknown as IconType} size="sm" />}
+                                                                onClick={() => { void copyText(entry.targetPath as string); }}
+                                                            />
+                                                            <Button
+                                                                label={t('steps.models.openFolder')}
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                icon={<Icon icon={FolderOpen as unknown as IconType} size="sm" />}
+                                                                onClick={() => { void openFolder(entry.targetPath as string); }}
+                                                            />
+                                                        </HStack>
+                                                    </VStack>
+                                                </Card>
+                                            </VStack>
+                                        )}
+                                    </VStack>
+                                </Card>
                             ))}
                         </div>
 
@@ -815,13 +833,12 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
 
                         <div className="flex justify-end">
                             <Button
+                                label={t('startUsing')}
+                                variant="primary"
                                 size="sm"
-                                className="h-8.5 gap-1.5 rounded-lg px-4 text-xs"
+                                endContent={<Icon icon={ArrowRight as unknown as IconType} size="sm" />}
                                 onClick={onCompleted}
-                            >
-                                {t('startUsing')}
-                                <ArrowRight className="w-3.5 h-3.5" />
-                            </Button>
+                            />
                         </div>
                     </div>
                 </main>
