@@ -4,7 +4,6 @@ import {contextBridge, ipcRenderer, type IpcRendererEvent} from 'electron';
 import type {RuntimeSettingKey} from './common/contracts/runtime-settings';
 import type {ApiDefinitions, ApiMap} from '@/common/api/api-def';
 import type {DpTask} from '@/common/contracts/dp-task';
-import type {RepairTaskEvent} from '@/common/contracts/playback-repair';
 import type {RendererApiDefinitions, RendererApiMap} from '@/common/api/renderer-api-def';
 import type { SimpleEvent, TraceCarrier } from '@/common/log/simple-types';
 import type { WindowState } from '@/common/types/Types';
@@ -14,7 +13,6 @@ export type Channels =
     | 'error-msg'
     | 'info-msg'
     | 'dp-task-update'
-    | 'repair-task-update'
     | 'window-state-update';
 const on = (channel: Channels, func: (...args: unknown[]) => void) => {
     const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
@@ -46,9 +44,6 @@ const electronHandler = {
     },
     onTaskUpdate: (func: (task: DpTask) => void) => {
         return on('dp-task-update', func as never);
-    },
-    onRepairTaskUpdate: (func: (event: RepairTaskEvent) => void) => {
-        return on('repair-task-update', func as never);
     },
     onWindowStateUpdate: (func: (state: WindowState) => void) => {
         return on('window-state-update', func as never);

@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import type FfmpegGateway from '@/backend/services/gateways/media/FfmpegGateway';
-import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type RepairArgs, type SplitVideoByTimesArgs, type SplitVideoRangeArgs, type TrimAudioArgs, type TrimVideoArgs, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
+import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type SplitVideoByTimesArgs, type SplitVideoRangeArgs, type TrimAudioArgs, type TrimVideoArgs, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
 import type { VideoInfo } from '@/common/types/video-info';
 import fs from 'fs';
 import path from 'path';
@@ -205,16 +205,6 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
         return (preferred ?? textSubtitles[0])?.index;
     }
 
-    /**
-     * 按配方修复媒体文件。
-     */
-    public async repair(args: RepairArgs, options: FfmpegRunOptions = {}): Promise<void> {
-        await this.runCommand(
-            args,
-            (a) => this.commandBuilder.buildRepair(a),
-            options,
-        );
-    }
 
     /**
      * 裁剪视频。

@@ -6,7 +6,6 @@ import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import type { VideoInfo } from '@/common/types/video-info';
 import { CancelByUserError } from '@/backend/utils/errors/errors';
-import type { RepairRecipe } from '@/common/contracts/playback-repair';
 import type FfmpegGateway from '@/backend/services/gateways/media/FfmpegGateway';
 import { FfmpegExecutionError, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
@@ -61,33 +60,7 @@ export default interface FfmpegService {
         }
     }): Promise<void>;
 
-    /**
-     * 按配方修复媒体文件，返回修复产物路径。
-     *
-     * @param args.job 日志检索键，把一次修复的子进程日志串起来。
-     * @param args.inputFile 输入媒体绝对路径。
-     * @param args.outputFile 修复产物绝对路径。
-     * @param args.recipe 修复配方。
-     * @param args.onProgress ffmpeg 进度回调，单位为百分比。
-     * @param args.registerCancel 取消句柄注册回调；调用方收到 cancel 后可终止本次执行。
-     * @returns 修复产物路径。
-     */
-    repair({
-               job,
-               inputFile,
-               outputFile,
-               recipe,
-               onProgress,
-               registerCancel
-           }: {
-        job: string,
-        inputFile: string,
-        outputFile: string,
-        recipe: RepairRecipe,
-        onProgress?: (progress: number) => void,
-        registerCancel?: (cancel: () => void) => void
-    }): Promise<string>;
-
+    
     /**
      * 提取文本字幕；英语学习场景优先英文字幕轨，无匹配时回退第一条文本字幕。
      *
@@ -291,38 +264,6 @@ export class FfmpegServiceImpl implements FfmpegService {
      * @param args.registerCancel 取消句柄注册回调；调用方收到 cancel 后可终止本次执行。
      * @returns 修复产物路径。
      */
-    @WithSemaphore('ffmpeg')
-    public async repair({
-                            job,
-                            inputFile,
-                            outputFile,
-                            recipe,
-                            onProgress,
-                            registerCancel,
-                        }: {
-        job: string,
-        inputFile: string,
-        outputFile: string,
-        recipe: RepairRecipe,
-        onProgress?: (progress: number) => void,
-        registerCancel?: (cancel: () => void) => void,
-    }): Promise<string> {
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(inputFile);
-        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(outputFile);
-
-        await this.runCancelableTask(job, registerCancel, async (onCancelable) => {
-            await this.ffmpegGateway.repair(
-                { inputFile, outputFile, recipe },
-                {
-                    onProgress,
-                    onCancelable,
-                    job,
-                },
-            );
-        });
-
-        return outputFile;
-    }
 
     /**
      * 提取文本字幕；优先英文字幕轨，无匹配时由网关回退第一条文本字幕，返回是否提取到。

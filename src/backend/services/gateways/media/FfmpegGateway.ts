@@ -1,5 +1,4 @@
 import type { VideoInfo } from '@/common/types/video-info';
-import type { RepairRecipe } from '@/common/contracts/playback-repair';
 
 /**
  * FFmpeg 进程非零退出错误。
@@ -51,7 +50,7 @@ export interface FfmpegRunOptions {
     onCancelable?: (cancel: () => void) => void;
     /**
      * 子进程身份标识，用于把同一次后台任务的日志串起来。
-     * 约定取值：`transcription:<filePath>` / `clip:<clipKey>` / `split:<folder>` / `repair:<filePath>`。
+     * 约定取值：`clip:<clipKey>` / `split:<folder>` / `practice:<hash>:<idx>`。
      */
     job?: string;
 }
@@ -201,18 +200,6 @@ export interface ConvertToWavArgs {
 }
 
 /**
- * 播放修复参数。
- */
-export interface RepairArgs {
-    /** 输入媒体文件路径。 */
-    inputFile: string;
-    /** 修复产物输出路径；文件名与容器后缀由业务层决定。 */
-    outputFile: string;
-    /** 修复配方。 */
-    recipe: RepairRecipe;
-}
-
-/**
  * FFmpeg 基础设施网关。
  */
 export default interface FfmpegGateway {
@@ -233,10 +220,7 @@ export default interface FfmpegGateway {
     /** 生成缩略图。 */
     createThumbnail(args: CreateThumbnailArgs, options?: FfmpegRunOptions): Promise<void>;
 
-    /**
-     * 按配方修复媒体文件，使其在当前播放器上可正常播放。
-     */
-    repair(args: RepairArgs, options?: FfmpegRunOptions): Promise<void>;
+
 
     /**
      * 提取文本字幕；优先匹配 preferLanguage 的文本字幕轨，无匹配时取第一条。

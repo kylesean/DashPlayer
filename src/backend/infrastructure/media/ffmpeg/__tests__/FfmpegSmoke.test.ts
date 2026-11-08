@@ -205,27 +205,7 @@ describe.skipIf(!binariesReady)('ffmpeg 网关冒烟测试（真实执行）', (
         expect(Number(probe.format.duration)).toBeLessThan(1.3);
     });
 
-    it('full-transcode 配方应转出含音视频流的 mp4', { timeout: 60_000 }, async () => {
-        const outputFile = path.join(workDir, 'to-mp4.mp4');
 
-        await gateway.repair({ inputFile: sampleVideo, outputFile, recipe: 'full-transcode' });
-
-        const probe = await probeJson(outputFile);
-        expect(probe.streams.some(stream => stream.codec_type === 'video')).toBe(true);
-        expect(probe.streams.some(stream => stream.codec_type === 'audio')).toBe(true);
-    });
-
-    it('remux-copy 配方应把 mkv 原样搬成含音视频流的 mp4', { timeout: 60_000 }, async () => {
-        const mkvFile = path.join(workDir, 'plain.mkv');
-        await exec(ffmpegPath, ['-y', '-i', sampleVideo, '-c', 'copy', mkvFile]);
-        const outputFile = path.join(workDir, 'mkv-to-mp4.mp4');
-
-        await gateway.repair({ inputFile: mkvFile, outputFile, recipe: 'remux-copy' });
-
-        const probe = await probeJson(outputFile);
-        expect(probe.streams.some(stream => stream.codec_type === 'video')).toBe(true);
-        expect(probe.streams.some(stream => stream.codec_type === 'audio')).toBe(true);
-    });
 
     it('extractSubtitles 应从带字幕的 mkv 中提取出 srt 文本', { timeout: 30_000 }, async () => {
         // 先把一条测试字幕混流进 mkv，作为提取输入。

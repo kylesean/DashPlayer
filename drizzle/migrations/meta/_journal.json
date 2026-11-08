@@ -85,6 +85,13 @@
       "when": 1794156006766,
       "tag": "0011_optimal_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1794156405726,
+      "tag": "0012_sloppy_imperial_guard",
+      "breakpoints": true
     }
   ]
 }

@@ -3,13 +3,6 @@ import { z } from 'zod';
 import type { ClipQuery, SimpleClipQuery } from '@/common/api/dto';
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
 import type { MobileAccessSettingSaveVO } from '@/common/contracts/mobile-access-setting-vo';
-import type {
-    PlaybackEvidenceInput,
-    PlaybackRepairDiscardRequest,
-    PlaybackRepairStartRequest,
-    RepairEnqueueRequest,
-    RepairRecipe,
-} from '@/common/contracts/playback-repair';
 import type { ProxySettingSaveVO } from '@/common/contracts/proxy-setting-vo';
 import type { RuntimeSettingSaveRequest } from '@/common/contracts/runtime-settings';
 import type {
@@ -49,14 +42,6 @@ export const finiteNonNegativeNumberSchema = z.number().finite().min(0);
 const aiApiFormatSchema: z.ZodType<AiApiFormat> = z.enum(
     AI_API_FORMATS as unknown as [AiApiFormat, ...AiApiFormat[]],
 );
-
-/** 修复配方枚举校验。 */
-const repairRecipeSchema: z.ZodType<RepairRecipe> = z.enum([
-    'remux-copy',
-    'video-copy-audio-transcode',
-    'full-transcode',
-    'audio-transcode',
-]);
 
 /** 主窗口目标状态校验。 */
 export const windowStateSchema: z.ZodType<WindowState> = z.enum([
@@ -249,34 +234,6 @@ export const simpleClipQuerySchema: z.ZodType<SimpleClipQuery> = z.object({
 
 /** 收藏/视频学习片段字幕行集合校验架构。 */
 export const clipContentLinesSchema = z.array(ClipSrtLineSchema);
-
-/** 播放修复入队请求校验架构。 */
-export const repairEnqueueSchema: z.ZodType<RepairEnqueueRequest> = z.object({
-    source: z.enum(['folder', 'files']),
-    path: z.string().optional(),
-    filePaths: z.array(nonEmptyStringSchema),
-});
-
-/** 启动播放修复请求校验架构。 */
-export const playbackRepairStartSchema: z.ZodType<PlaybackRepairStartRequest> = z.object({
-    filePath: nonEmptyStringSchema,
-    forceRecipe: repairRecipeSchema.optional(),
-});
-
-/** 丢弃修复产物请求校验架构。 */
-export const playbackRepairDiscardSchema: z.ZodType<PlaybackRepairDiscardRequest> = z.object({
-    outputPath: nonEmptyStringSchema,
-    filePath: nonEmptyStringSchema,
-});
-
-/** 上报真实播放能力证据校验架构。 */
-export const playbackEvidenceSchema: z.ZodType<PlaybackEvidenceInput> = z.object({
-    codec: nonEmptyStringSchema,
-    kind: z.enum(['video', 'audio']),
-    playable: z.boolean(),
-    conclusive: z.boolean(),
-    sourceFile: nonEmptyStringSchema,
-});
 
 /** 字幕时间戳调整写入请求校验架构。 */
 export const subtitleTimestampAdjustmentInputSchema: z.ZodType<SubtitleTimestampAdjustmentInput> = z.object({

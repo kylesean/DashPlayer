@@ -17,13 +17,8 @@ import MediaUtil from '@/common/utils/MediaUtil';
 import {getRendererLogger} from '@/fronted/log/simple-logger';
 import toast, { type Toast } from 'react-hot-toast';
 import {ModeSwitchToast} from '@/fronted/components/shared/toasts/ModeSwitchToast';
-import {
-    PlaybackRepairToast,
-    type RepairToastVariant,
-} from '@/fronted/components/shared/toasts/PlaybackRepairToast';
 import useSystem from '@/fronted/app/stores/systemStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
-import { diagnosePlayback, probeAndRecordPlaybackCapability, repairPlayback } from '@/fronted/features/player/repairPlayback';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSubtitleTranslation from '@/fronted/features/player/translationStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
@@ -33,17 +28,6 @@ import { useDevPlayerEntry } from '@/fronted/features/player/dev/useDevPlayerEnt
 
 const logger = getRendererLogger('PlayerWithControlsPage');
 const MODE_SWITCH_TOAST_ID = 'mode-switch-toast';
-const PLAYBACK_ISSUE_TOAST_ID = 'playback-issue-toast';
-
-/**
- * 生成播放修复提示的 toast ID：同一条提示只允许存在一个，不同场景互不覆盖。
- *
- * @param variant 触发场景。
- * @returns toast ID。
- */
-function playbackRepairToastId(variant: RepairToastVariant): string {
-    return `playback-repair-toast-${variant}`;
-}
 const PlayerWithControlsPage = () => {
     const { t } = useI18nTranslation('player');
     const {videoId} = useParams();
@@ -76,45 +60,9 @@ const PlayerWithControlsPage = () => {
     const referrer = location.state && location.state.referrer;
     logger.debug('page referrer', {referrer});
     const windowButtonsVisibleRef = useRef<boolean | null>(null);
-    // 播放问题提示去重：同一文件同一场景只提示一次
-    const repairToastShownRef = useRef<Set<string>>(new Set());
-    // 音频兼容预检去重：会话内每个文件只探测一次
-    const audioProbeDoneRef = useRef<Set<string>>(new Set());
-    // 卡死提示的"暂时忽略"：记录被忽略的视频 id，本次运行内该视频不再提示（不持久化）
-    const stallIgnoreVideoIdRef = useRef<string | null>(null);
     const mediaErrorCode = usePlayer((s) => s.mediaErrorCode);
     const playbackStallCount = usePlayer((s) => s.playbackStallCount);
-    /**
-     * 弹出播放问题提示（按「文件 + 场景」去重），按钮直接启动一键修复。
-     * @param videoPath 媒体绝对路径
-     * @param variant 触发场景，决定提示文案
-     */
-    const showRepairToast = useCallback((videoPath: string, variant: RepairToastVariant) => {
-        const dedupeKey = `${videoPath}::${variant}`;
-        if (repairToastShownRef.current.has(dedupeKey)) {
-            return;
-        }
-        repairToastShownRef.current.add(dedupeKey);
-        toast(
-            (tState: Toast) => (
-                <PlaybackRepairToast
-                    variant={variant}
-                    onRepair={() => {
-                        toast.dismiss(tState.id);
-                        void repairPlayback(videoPath);
-                    }}
-                    onIgnore={() => {
-                        toast.dismiss(tState.id);
-                    }}
-                />
-            ),
-            {
-                id: playbackRepairToastId(variant),
-                duration: 10000,
-            }
-        );
-    }, []);
-    useEffect(() => {
+        useEffect(() => {
         if (!isMac) {
             return;
         }
@@ -206,31 +154,6 @@ const PlayerWithControlsPage = () => {
                 usePlaybackSession.getState().updateFile(videoPath);
             }
 
-            // 播放兼容预检：容器/编码层面能提前看出来的问题，等播放报错就太晚了
-            setTimeout(() => {
-                (async () => {
-                    if (!videoPath || audioProbeDoneRef.current.has(videoPath)) {
-                        return;
-                    }
-                    // 先登记再探测，保证会话内每个文件只探测一次
-                    audioProbeDoneRef.current.add(videoPath);
-                    try {
-                        const diagnosis = await diagnosePlayback(videoPath);
-                        if (!diagnosis.needsRepair) {
-                            // 白名单认为可直接播放：对从未实测过的编码做一次静默探测；
-                            // 实测解不出时学习该结论并直接给出修复提示，避免「无需修复 → 播放黑屏」死胡同。
-                            const learnedReason = await probeAndRecordPlaybackCapability(diagnosis);
-                            if (learnedReason) {
-                                showRepairToast(videoPath, learnedReason);
-                            }
-                            return;
-                        }
-                        showRepairToast(videoPath, diagnosis.reason);
-                    } catch (error) {
-                        logger.debug('compat probe failed', { error: error instanceof Error ? error.message : String(error) });
-                    }
-                })().then();
-            }, 800);
 
             if (video) {
                 const mediaType: 'audio' | 'video' = MediaUtil.isAudio(video.fileName) ? 'audio' : 'video';
@@ -288,7 +211,7 @@ const PlayerWithControlsPage = () => {
             }
         };
         runEffect();
-    }, [video, showRepairToast]);
+    }, [video]);
     // dev/qa 入口：视频就绪后跳到 `?seek=` 指定的位置（打包版 seekSeconds 恒为 null）
     useEffect(() => {
         if (devEntry.seekSeconds === null || !videoLoaded) {
@@ -296,39 +219,6 @@ const PlayerWithControlsPage = () => {
         }
         playerActions.seekTo({ time: devEntry.seekSeconds, play: false });
     }, [devEntry.seekSeconds, videoLoaded]);
-    useEffect(() => {
-        // 卡死提示 / 播放错误提示：媒体报错或看门狗判定卡死触发
-        if (mediaErrorCode === null && playbackStallCount === 0) {
-            return;
-        }
-        const { videoId, videoPath } = usePlaybackSession.getState();
-        if (!videoId || !videoPath) {
-            return;
-        }
-        if (stallIgnoreVideoIdRef.current === videoId) {
-            return;
-        }
-
-        toast(
-            (tState: Toast) => (
-                <PlaybackRepairToast
-                    variant="stall"
-                    onRepair={() => {
-                        toast.dismiss(tState.id);
-                        void repairPlayback(videoPath);
-                    }}
-                    onIgnore={() => {
-                        stallIgnoreVideoIdRef.current = videoId;
-                        toast.dismiss(tState.id);
-                    }}
-                />
-            ),
-            {
-                id: PLAYBACK_ISSUE_TOAST_ID,
-                duration: 8000,
-            }
-        );
-    }, [mediaErrorCode, playbackStallCount]);
     useEffect(() => {
         let cancelled = false;
 

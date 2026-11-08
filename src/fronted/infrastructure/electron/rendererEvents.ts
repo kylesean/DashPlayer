@@ -1,6 +1,5 @@
 import type { DpTask } from '@/common/contracts/dp-task';
 import type { RuntimeSettingKey } from '@/common/contracts/runtime-settings';
-import type { RepairTaskEvent } from '@/common/contracts/playback-repair';
 import type { WindowState } from '@/common/types/Types';
 
 /**
@@ -17,15 +16,6 @@ export const rendererEvents = {
         return window.electron.onTaskUpdate(handler);
     },
 
-    /**
-     * 订阅修复任务实时事件。
-     *
-     * @param handler 修复事件处理函数。
-     * @returns 取消订阅函数。
-     */
-    onRepairTaskUpdate(handler: (event: RepairTaskEvent) => void): () => void {
-        return window.electron.onRepairTaskUpdate(handler);
-    },
 
     /**
      * 订阅运行时设置变化。

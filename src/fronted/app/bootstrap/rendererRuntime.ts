@@ -7,10 +7,6 @@ import {
     startListeningToDpTasks,
     stopListeningToDpTasks,
 } from '@/fronted/app/stores/dpTaskStore';
-import {
-    startListeningToRepairEvents,
-    stopListeningToRepairEvents,
-} from '@/fronted/features/repair/repairEvents';
 import { syncStatus } from '@/fronted/app/stores/systemStore';
 import { initPlayerDebug } from '@/fronted/features/player/dev/playerDebug';
 import { resolveDevMode } from '@/fronted/lib/devMode';
@@ -77,7 +73,6 @@ export function startRendererRuntime(): () => void {
         cleanups.push(initIpcMessageToasts());
         cleanups.push(initMouseFocusCleanup());
         startListeningToDpTasks();
-        startListeningToRepairEvents();
         syncStatus();
         // 开发态判定与播放器调试面：启动时各查一次，后续所有 dev/qa 能力读缓存
         void resolveDevMode();
@@ -85,7 +80,6 @@ export function startRendererRuntime(): () => void {
     } catch (error) {
         cleanups.reverse().forEach((cleanup) => cleanup());
         stopListeningToDpTasks();
-        stopListeningToRepairEvents();
         logger.error('renderer runtime initialization failed', {
             error: error instanceof Error ? error.message : String(error),
         });
@@ -97,7 +91,6 @@ export function startRendererRuntime(): () => void {
     cleanupRuntime = () => {
         cleanups.reverse().forEach((cleanup) => cleanup());
         stopListeningToDpTasks();
-        stopListeningToRepairEvents();
         cleanupRuntime = null;
         logger.info('renderer runtime stopped');
     };

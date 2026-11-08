@@ -3,7 +3,6 @@ import type {
     ConvertToWavArgs,
     CreateThumbnailArgs,
     ExtractSubtitleCommandArgs,
-    RepairArgs,
     SplitVideoByTimesArgs,
     SplitVideoRangeArgs,
     TrimAudioArgs,
@@ -57,16 +56,7 @@ export interface FfmpegCommandBuilder {
      */
     buildExtractSubtitle(args: ExtractSubtitleCommandArgs): string[];
 
-    /**
-     * 构建播放修复命令参数。
-     *
-     * 各配方的取舍：
-     * - `remux-copy` / `video-copy-audio-transcode` 只搬流，不重编码视频；
-     * - `full-transcode` 强制 8bit yuv420p，避免在无硬解的设备上出现黑屏；
-     * - `audio-transcode` 只映射第一条音轨，顺带丢弃 MP3 的封面图视频流。
-     */
-    buildRepair(args: RepairArgs): string[];
-
+    
     /**
      * 构建音频转 WAV 命令参数。
      */
@@ -205,72 +195,7 @@ export class DefaultFfmpegCommandBuilder implements FfmpegCommandBuilder {
         ];
     }
 
-    /**
-     * 构建播放修复命令参数。
-     *
-     * 输出封装格式显式声明：修复产物先写到不带媒体扩展名的临时文件（避免写在中途的
-     * 产物被播放与元数据探测选中），ffmpeg 无法再按扩展名推断格式。
-     * 音频产物用 `ipod`（即 `.m4a` 扩展名对应的封装器），实测与按扩展名推断的字节一致。
-     */
-    public buildRepair(args: RepairArgs): string[] {
-        const { inputFile, outputFile, recipe } = args;
-        switch (recipe) {
-            case 'remux-copy':
-                return [
-                    '-y',
-                    '-i', inputFile,
-                    '-map', '0:v:0',
-                    '-map', '0:a:0?',
-                    '-c', 'copy',
-                    '-movflags', '+faststart',
-                    '-f', 'mp4',
-                    outputFile,
-                ];
-            case 'video-copy-audio-transcode':
-                return [
-                    '-y',
-                    '-i', inputFile,
-                    '-map', '0:v:0',
-                    '-map', '0:a:0',
-                    '-c:v', 'copy',
-                    ...AUDIO_TRANSCODE_ARGS,
-                    '-movflags', '+faststart',
-                    '-f', 'mp4',
-                    outputFile,
-                ];
-            case 'full-transcode':
-                return [
-                    '-y',
-                    '-i', inputFile,
-                    '-map', '0:v:0',
-                    '-map', '0:a:0?',
-                    // veryfast + crf 23：修复场景优先让用户少等，画质仍明显优于源素材。
-                    '-c:v', 'libx264',
-                    '-preset', 'veryfast',
-                    '-crf', '23',
-                    '-vf', `scale=min(${MAX_TRANSCODE_WIDTH}\\,iw):-2`,
-                    '-pix_fmt', 'yuv420p',
-                    '-profile:v', 'high',
-                    ...AUDIO_TRANSCODE_ARGS,
-                    '-movflags', '+faststart',
-                    '-f', 'mp4',
-                    outputFile,
-                ];
-            case 'audio-transcode':
-                return [
-                    '-y',
-                    '-i', inputFile,
-                    '-map', '0:a:0',
-                    ...AUDIO_TRANSCODE_ARGS,
-                    '-movflags', '+faststart',
-                    '-f', 'ipod',
-                    outputFile,
-                ];
-            default:
-                throw new Error(`未知的修复配方：${recipe satisfies never}`);
-        }
-    }
-
+    
     /**
      * 构建音频转 WAV 命令参数。
      */

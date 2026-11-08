@@ -103,12 +103,6 @@ const SideBar = ({ compact = false }: SideBarProps) => {
                     <SquareSplitHorizontal />
                 )}
                 {item(
-                    t('playbackRepair'),
-                    '/repair',
-                    'repair',
-                    <Rotate3D />
-                )}
-                {item(
                     t('vocabularyStudio'),
                     '/vocabulary',
                     'vocabulary',

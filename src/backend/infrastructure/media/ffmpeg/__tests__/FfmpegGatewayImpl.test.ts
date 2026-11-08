@@ -52,7 +52,6 @@ function createGateway(probeStdout = JSON.stringify({ format: { duration: 66.6 }
         buildTrimVideo: vi.fn(() => ['-trim-video']),
         buildThumbnail: vi.fn(() => ['-thumbnail']),
         buildExtractSubtitle: vi.fn(() => ['-extract-sub']),
-        buildRepair: vi.fn(() => ['-repair']),
         buildConvertToWav: vi.fn(() => ['-to-wav']),
         buildTrimAudio: vi.fn(() => ['-trim-audio']),
     } as unknown as FfmpegCommandBuilder;
@@ -198,30 +197,7 @@ describe('FfmpegGatewayImpl', () => {
         });
     });
 
-    it('上层只传进度回调时应自动探测输入时长', async () => {
-        const { gateway, deps } = createGateway();
-        const onProgress = vi.fn();
 
-        await gateway.repair(
-            { inputFile: inputFilePath, outputFile: path.join(workDir, 'out.mp4'), recipe: 'full-transcode' },
-            { onProgress },
-        );
-
-        expect(deps.runMock).toHaveBeenCalledTimes(1);
-        expect(deps.startMock.mock.calls[0][0].inputDurationSecond).toBe(66.6);
-    });
-
-    it('上层显式传入时长时应跳过探测并透传给 runner', async () => {
-        const { gateway, deps } = createGateway();
-
-        await gateway.repair(
-            { inputFile: inputFilePath, outputFile: path.join(workDir, 'out.mp4'), recipe: 'remux-copy' },
-            { inputDurationSecond: 99 },
-        );
-
-        expect(deps.runMock).not.toHaveBeenCalled();
-        expect(deps.startMock.mock.calls[0][0].inputDurationSecond).toBe(99);
-    });
 
     it('extractSubtitles 有偏好语言的文本字幕时应优先选它并返回 true', async () => {
         const { gateway, deps } = createGateway(JSON.stringify({
@@ -288,20 +264,6 @@ describe('FfmpegGatewayImpl', () => {
         );
     });
 
-    it('应把 runner 进度回调映射为向下取整的百分比', async () => {
-        const { gateway } = createGateway();
-        const onProgress = vi.fn();
-
-        await gateway.repair(
-            { inputFile: inputFilePath, outputFile: path.join(workDir, 'out.mp4'), recipe: 'full-transcode' },
-            {
-                onProgress,
-                inputDurationSecond: 100,
-            },
-        );
-
-        expect(onProgress).toHaveBeenCalledWith(10);
-    });
 
     it('应把取消函数透传给上层并触发 runner.cancel', async () => {
         const { gateway, deps } = createGateway();

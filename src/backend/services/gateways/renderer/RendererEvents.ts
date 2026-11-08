@@ -1,6 +1,5 @@
 import type { RuntimeSettingKey } from '@/common/contracts/runtime-settings';
 import type { DpTask } from '@/common/contracts/dp-task';
-import type { RepairTaskEvent } from '@/common/contracts/playback-repair';
 import type { WindowState } from '@/common/types/Types';
 
 /**
@@ -9,7 +8,6 @@ import type { WindowState } from '@/common/types/Types';
 export default interface RendererEvents {
     storeUpdate(key: RuntimeSettingKey, value: string): void;
     dpTaskUpdate(task: DpTask): void;
-    repairTaskUpdate(event: RepairTaskEvent): void;
     windowStateUpdate(state: WindowState): void;
     error(error: Error): void;
     info(message: string): void;

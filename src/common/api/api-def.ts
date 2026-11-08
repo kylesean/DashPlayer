@@ -13,17 +13,6 @@ import type {SentenceStruct} from '@/common/types/SentenceStruct';
 import type {WindowState} from '@/common/types/Types';
 import type {SubtitleTimestampAdjustmentInput} from '@/common/contracts/subtitle-timestamp-adjustment';
 import type { UpdateCheckResult } from '@/common/types/update-check';
-import type {
-    FolderVideos,
-    PlaybackEvidenceInput,
-    PlaybackRepairDiagnosis,
-    PlaybackRepairDiscardRequest,
-    PlaybackRepairStartRequest,
-    PlaybackRepairStartResult,
-    RepairEnqueueRequest,
-    RepairEnqueueResult,
-    RepairGroup,
-} from '@/common/contracts/playback-repair';
 
 import type {Tag} from '@/common/contracts/tag';
 import type {ClipQuery, SimpleClipQuery} from '@/common/api/dto';
@@ -83,7 +72,6 @@ interface AiFuncDef {
     'ai-func/tts': { params: string, return: string };
     'ai-func/format-split': { params: string, return: number };
 }
-
 
 interface SherpaTtsModelDef {
     'sherpa-tts/models/status': { params: void, return: ModelInstallationStatusVO };
@@ -340,21 +328,6 @@ interface MediaDef {
     'media/info': { params: string, return: VideoInfo };
 }
 
-interface PlaybackRepairDef {
-    'repair/diagnose': { params: string, return: PlaybackRepairDiagnosis };
-    'repair/start': { params: PlaybackRepairStartRequest, return: PlaybackRepairStartResult };
-    'repair/cancel': { params: string, return: void };
-    'repair/list-folder-videos': { params: string[], return: FolderVideos[] };
-    'repair/enqueue': { params: RepairEnqueueRequest, return: RepairEnqueueResult };
-    'repair/groups': { params: void, return: RepairGroup[] };
-    'repair/probe': { params: string, return: PlaybackRepairDiagnosis };
-    'repair/remove-group': { params: string, return: void };
-    'repair/remove-task': { params: string, return: void };
-    'repair/discard': { params: PlaybackRepairDiscardRequest, return: boolean };
-    'repair/should-probe-capability': { params: { videoCodec: string | null; audioCodec: string | null }, return: boolean };
-    'repair/record-playback-evidence': { params: PlaybackEvidenceInput, return: void };
-}
-
 interface FavoriteClipsDef {
     'favorite-clips/add': { params: { videoPath: string, srtKey: string, indexInSrt: number }, return: void };
     'favorite-clips/search': { params: ClipQuery | undefined, return: (ClipMeta & OssBaseMeta)[] };
@@ -455,7 +428,6 @@ interface VideoLearningDef {
     };
 }
 
-
 interface PracticeDef {
     /** 跟读评分:录音上传 → 本地 ASR 转写 → 词级对齐评分,结果同时落库。 */
     'practice/score-shadowing': {
@@ -493,7 +465,6 @@ export type ApiDefinitions = ApiDefinition
     & ParakeetModelDef
     & YoutubeImportDef
     & WhisperCppModelDef
-    & PlaybackRepairDef
     & FavoriteClipsDef
     & TagDef
     & VocabularyDef

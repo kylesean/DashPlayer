@@ -20,7 +20,6 @@ import toast, { Toaster as HotToaster, type Toast } from 'react-hot-toast';
 
 import SplitPage from '@/fronted/features/split/SplitPage';
 import GlobalShortCut from '@/fronted/components/shared/shortcuts/GlobalShortCut';
-import RepairPage from '@/fronted/features/repair/RepairPage';
 import Eb from '@/fronted/components/shared/common/Eb';
 import FavouritePage from '@/fronted/features/favourite/FavouritePage';
 import VideoLearningPage from '@/fronted/features/video-learning/VideoLearningPage';
@@ -196,10 +195,6 @@ export const App = () => {
                                     <Route
                                         path="split"
                                         element={<Eb key="split"><SplitPage /></Eb>}
-                                    />
-                                    <Route
-                                        path="repair"
-                                        element={<Eb key="repair"><RepairPage /></Eb>}
                                     />
                                     <Route
                                         path="vocabulary"

@@ -20,7 +20,6 @@ import SrtTimeAdjustController from '@/backend/controllers/SrtTimeAdjustControll
 import AiFuncController from '@/backend/controllers/AiFuncController';
 import ChatStreamController from '@/backend/controllers/ChatStreamController';
 import AiTransController from '@/backend/controllers/AiTransController';
-import PlaybackRepairController from '@/backend/controllers/PlaybackRepairController';
 import DpTaskController from '@/backend/controllers/DpTaskController';
 import MediaController from '@/backend/controllers/MediaController';
 import MigrationFailureController from '@/backend/controllers/MigrationFailureController';
@@ -64,10 +63,6 @@ import type AiProviderService from '@/backend/services/AiProviderService';
 import { AiProviderServiceImpl } from '@/backend/services/AiProviderService';
 import type ModelRoutingService from '@/backend/services/ModelRoutingService';
 import { ModelRoutingServiceImpl } from '@/backend/services/ModelRoutingService';
-import type PlaybackRepairService from '@/backend/services/PlaybackRepairService';
-import { PlaybackRepairServiceImpl } from '@/backend/services/PlaybackRepairService';
-import type PlaybackCapabilityService from '@/backend/services/PlaybackCapabilityService';
-import { PlaybackCapabilityServiceImpl } from '@/backend/services/PlaybackCapabilityService';
 import type SplitVideoService from '@/backend/services/SplitVideoService';
 import { SplitVideoServiceImpl } from '@/backend/services/SplitVideoService';
 import type MediaService from '@/backend/services/MediaService';
@@ -134,10 +129,6 @@ import type WordsRepository from '@/backend/services/repositories/WordsRepositor
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
 import type DpTaskRepository from '@/backend/services/repositories/DpTaskRepository';
 import DpTaskRepositoryImpl from '@/backend/infrastructure/db/repositories/DpTaskRepositoryImpl';
-import type RepairTaskRepository from '@/backend/services/repositories/RepairTaskRepository';
-import type RepairGroupRepository from '@/backend/services/repositories/RepairGroupRepository';
-import RepairTaskRepositoryImpl from '@/backend/infrastructure/db/repositories/RepairTaskRepositoryImpl';
-import RepairGroupRepositoryImpl from '@/backend/infrastructure/db/repositories/RepairGroupRepositoryImpl';
 import type VideoLearningClipRepository from '@/backend/services/repositories/VideoLearningClipRepository';
 import VideoLearningClipRepositoryImpl from '@/backend/infrastructure/db/repositories/VideoLearningClipRepositoryImpl';
 import type VideoLearningClipWordRepository from '@/backend/services/repositories/VideoLearningClipWordRepository';
@@ -205,7 +196,6 @@ container.bind<Controller>(TYPES.Controller).to(SrtTimeAdjustController).inSingl
 container.bind<Controller>(TYPES.Controller).to(AiFuncController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(ChatStreamController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(AiTransController).inSingletonScope();
-container.bind<Controller>(TYPES.Controller).to(PlaybackRepairController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(DpTaskController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(MediaController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(StorageController).inSingletonScope();
@@ -245,8 +235,6 @@ container.bind<SherpaTtsModelService>(TYPES.SherpaTtsModelService).to(SherpaTtsM
 container.bind<LocalTtsService>(TYPES.LocalTtsService).to(LocalTtsServiceImpl).inSingletonScope();
 container.bind<WordsRepository>(TYPES.WordsRepository).to(WordsRepositoryImpl).inSingletonScope();
 container.bind<DpTaskRepository>(TYPES.DpTaskRepository).to(DpTaskRepositoryImpl).inSingletonScope();
-container.bind<RepairTaskRepository>(TYPES.RepairTaskRepository).to(RepairTaskRepositoryImpl).inSingletonScope();
-container.bind<RepairGroupRepository>(TYPES.RepairGroupRepository).to(RepairGroupRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipRepository>(TYPES.VideoLearningClipRepository).to(VideoLearningClipRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipWordRepository>(TYPES.VideoLearningClipWordRepository).to(VideoLearningClipWordRepositoryImpl).inSingletonScope();
 container.bind<WatchHistoryRepository>(TYPES.WatchHistoryRepository).to(WatchHistoryRepositoryImpl).inSingletonScope();
@@ -282,8 +270,6 @@ container.bind<ChatService>(TYPES.ChatService).to(ChatServiceImpl).inSingletonSc
 container.bind<ChatSessionStore>(TYPES.ChatSessionStore).to(InMemoryChatSessionStore).inSingletonScope();
 container.bind<ChatSessionService>(TYPES.ChatSessionService).to(ChatSessionServiceImpl).inSingletonScope();
 container.bind<SentenceLearningService>(TYPES.SentenceLearningService).to(SentenceLearningServiceImpl).inSingletonScope();
-container.bind<PlaybackRepairService>(TYPES.PlaybackRepairService).to(PlaybackRepairServiceImpl).inSingletonScope();
-container.bind<PlaybackCapabilityService>(TYPES.PlaybackCapabilityService).to(PlaybackCapabilityServiceImpl).inSingletonScope();
 container.bind<SplitVideoService>(TYPES.SplitVideoService).to(SplitVideoServiceImpl).inSingletonScope();
 container.bind<MediaService>(TYPES.MediaService).to(MediaServiceImpl).inSingletonScope();
 container.bind<TranslateService>(TYPES.TranslateService).to(TranslateServiceImpl).inSingletonScope();

@@ -54,7 +54,7 @@ const WatchPlayer = ({ detail }: { detail: MobileWatchDetail }) => {
                         <div className="video-note-text">
                             {t(
                                 '可以回到电脑上，用 DashPlayer 的「播放修复」生成 MP4 后再试。',
-                                'Run Playback Repair in DashPlayer on your computer to make an MP4, then try again.',
+                                'This format cannot play in the browser. Convert it to MP4 on your computer and try again.',
                             )}
                         </div>
                     </div>
