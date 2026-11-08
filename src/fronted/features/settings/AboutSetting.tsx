@@ -102,9 +102,9 @@ const AboutSetting: React.FC = () => {
                 defaultValue: '专为语言学习与长视频精听打造的智能双语播放器',
             })}
         >
-            <VStack gap={6} maxWidth={768}>
+            <VStack gap={6} width="100%">
                 {/* 核心卡片：应用信息与版本状态 */}
-                <Card variant="muted" padding={4}>
+                <Card variant="default" padding={4}>
                     <VStack gap={4}>
                         {/* 顶部主信息栏 */}
                         <HStack vAlign="center" justify="between" wrap="wrap" gap={4}>

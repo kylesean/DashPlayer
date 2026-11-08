@@ -26,9 +26,6 @@
  * ```
  */
 
-import '@astryxdesign/core/reset.css';
-import '@astryxdesign/core/astryx.css';
-import '@astryxdesign/theme-neutral/theme.css';
 import './index.css';
 import { startRendererRuntime } from './fronted/app/bootstrap/rendererRuntime';
 import { mountApp } from './fronted/app/App';

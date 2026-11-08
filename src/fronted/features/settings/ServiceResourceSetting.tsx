@@ -490,7 +490,7 @@ const ServiceResourceSetting: React.FC = () => {
             title={t('resources.title')}
             description={t('resources.description')}
         >
-            <VStack gap={6} maxWidth={768}>
+            <VStack gap={6} width="100%">
                 {credentialSaveStatus === 'error' && credentialSaveError && (
                     <Banner
                         status="error"

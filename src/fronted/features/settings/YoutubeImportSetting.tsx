@@ -75,7 +75,7 @@ const YoutubeImportSetting: React.FC = () => {
 
     return (
         <SettingsPageShell title={t('settings.title')} description={t('settings.description')}>
-            <VStack gap={6} maxWidth={768}>
+            <VStack gap={6} width="100%">
                 {loadError ? (
                     <Banner
                         status="error"

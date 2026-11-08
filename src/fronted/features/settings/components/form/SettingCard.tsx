@@ -4,6 +4,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { StackItem } from '@astryxdesign/core/Layout';
 import { Divider } from '@astryxdesign/core/Divider';
+import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 
@@ -71,9 +72,9 @@ export const SettingCard: React.FC<SettingCardProps> = ({
                             <HStack gap={2} align="center">
                                 {IconComp && <Icon icon={IconComp} size="sm" color="primary" />}
                                 {typeof title === 'string' ? (
-                                    <Text size="base" weight="semibold">
+                                    <Heading level={3} weight="semibold">
                                         {title}
-                                    </Text>
+                                    </Heading>
                                 ) : (
                                     title
                                 )}
@@ -81,7 +82,7 @@ export const SettingCard: React.FC<SettingCardProps> = ({
                         )}
                         {description && (
                             typeof description === 'string' ? (
-                                <Text size="xsm" color="secondary">
+                                <Text type="supporting" color="secondary">
                                     {description}
                                 </Text>
                             ) : (
@@ -127,19 +128,16 @@ export const SettingRow: React.FC<SettingRowProps> = ({
                 gap={3}
                 align={alignTop ? 'start' : 'center'}
                 justify="between"
-                wrap="wrap"
                 width="100%"
             >
                 <StackItem size="fill">
-                    <HStack gap={2} align="start">
+                    <HStack gap={2} align="center">
                         {IconComp && (
-                            <VStack paddingBlockStart={0.5}>
-                                <Icon icon={IconComp} size="sm" color="secondary" />
-                            </VStack>
+                            <Icon icon={IconComp} size="sm" color="secondary" />
                         )}
                         <VStack gap={0.5}>
                             {typeof title === 'string' ? (
-                                <Text type="label">{title}</Text>
+                                <Text type="body" weight="medium">{title}</Text>
                             ) : (
                                 title
                             )}

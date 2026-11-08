@@ -32,7 +32,7 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { applyLanguageSetting } from '@/fronted/i18n';
 import { Theme } from '@astryxdesign/core/theme';
-import { neutralTheme } from '@astryxdesign/theme-neutral/built';
+import { themes, defaultThemeSlug } from '../../astryx-themes';
 
 const UPDATE_CHECK_DELAY_MS = 6000;
 const UPDATE_TOAST_ID = 'update-available';
@@ -172,7 +172,7 @@ export const App = () => {
         theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'system';
 
     return (
-        <Theme theme={neutralTheme} mode={effectiveThemeMode}>
+        <Theme theme={themes[defaultThemeSlug]} mode={effectiveThemeMode}>
             <div className="w-full h-screen text-foreground overflow-hidden select-none font-sans">
                 {gate?.kind === 'migration-failure' && (
                     <MigrationFailureGate failure={gate.failure} />

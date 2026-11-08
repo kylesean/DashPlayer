@@ -141,7 +141,7 @@ const MobileAccessSetting: React.FC = () => {
             title={t('mobile.title')}
             description={t('mobile.description')}
         >
-            <VStack gap={6} maxWidth={768}>
+            <VStack gap={6} width="100%">
                 {errorText && (
                     <Banner
                         status="error"

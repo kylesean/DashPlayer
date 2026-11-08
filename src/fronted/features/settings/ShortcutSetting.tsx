@@ -530,7 +530,7 @@ const ShortcutSetting: React.FC = () => {
             title={t('shortcut.title')}
             description={t('shortcut.description')}
         >
-            <VStack gap={6} maxWidth={768}>
+            <VStack gap={6} width="100%">
                 {autoSaveStatus === 'error' && autoSaveError && (
                     <Banner
                         status="error"
