@@ -233,7 +233,10 @@ export const resegmentIntoMeaningGroups = (lines: SrtLine[]): SrtLine[] => {
                 bufferChars = piece.text.length;
             } else {
                 buffer.text = `${buffer.text} ${piece.text}`.trim();
-                buffer.end = piece.end;
+                // 重叠 cue 的后片段终点可能早于缓冲当前终点，取 max 防止意群
+                // 结束时间被收缩：下游单句循环/AutoPause 以该值为右边界，
+                // 收缩会让句尾语音被截断，还会虚增下一段的封句间隔。
+                buffer.end = Math.max(buffer.end, piece.end);
                 bufferChars += piece.text.length;
             }
         }
@@ -241,11 +244,16 @@ export const resegmentIntoMeaningGroups = (lines: SrtLine[]): SrtLine[] => {
     closeBuffer();
 
     // 输出前做跨组单调钳制：滚动式 cue 的相邻片段在时间轴上重叠，终端/上限封句
-    // 后下一组的起点可能早于上一组终点；把它对齐到上一组终点（组内 end 必然
-    // 不早于首片段起点，钳制不会产生空区间），保证整条时间轴严格递增。
+    // 后下一组的起点可能早于上一组终点，保证整条时间轴严格递增。
+    // 常规重叠把下一组起点对齐到上一组终点（组内 end 必然不早于首片段起点，
+    // 钳制不会产生空区间）；反向包含（上一组归并取了更大的终点、下一组整体
+    // 落在其中，典型如重叠 cue 里句末标点后另起组）则把上一组终点收缩到
+    // 下一组起点——终点取 max 是为保住归并组的语音，封组后为整体单调让路。
     for (let i = 1; i < buffers.length; i++) {
         if (buffers[i].start < buffers[i - 1].end && buffers[i - 1].end < buffers[i].end) {
             buffers[i].start = buffers[i - 1].end;
+        } else if (buffers[i].end <= buffers[i - 1].end && buffers[i].start > buffers[i - 1].start) {
+            buffers[i - 1].end = buffers[i].start;
         }
     }
     return buffers.map((item, index) => ({

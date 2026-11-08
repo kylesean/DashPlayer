@@ -71,6 +71,18 @@ describe('意群重切分', () => {
         expect(result).toHaveLength(2);
     });
 
+    it('重叠 cue 终点非单调时归并不收缩结束时间，句尾语音不被截断', () => {
+        // 插话/音效行完全落在长对白行时间区间内（粉丝字幕常见），归并后
+        // 意群终点必须取 max：单句循环与 AutoPause 以该值为右边界
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 10, 'hello there friend'),
+            line(2, 1, 2, 'ok'),
+        ]);
+        expect(result).toHaveLength(1);
+        expect(result[0].contentEn).toBe('hello there friend ok');
+        expect(result[0].end).toBe(10);
+    });
+
     it('缓冲超过 250 字符仍无标点时在 cue 边界强制封句', () => {
         const longA = 'a'.repeat(140);
         const longB = 'b'.repeat(140);
