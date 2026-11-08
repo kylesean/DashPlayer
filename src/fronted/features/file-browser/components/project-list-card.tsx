@@ -1,11 +1,12 @@
 import useSWR from 'swr';
-import { cn } from '@/fronted/lib/utils';
 import React from 'react';
 import { SWR_KEY, swrApiMutate } from '@/fronted/lib/swr-util';
 import { Film, ListVideo, Trash2 } from 'lucide-react';
-import { Button } from '@/fronted/components/ui/button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
 import TimeUtil from '@/common/utils/TimeUtil';
-import { Progress } from '@/fronted/components/ui/progress';
 import {
     ContextMenu,
     ContextMenuContent,
@@ -22,12 +23,12 @@ import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import useInView from '@/fronted/hooks/useInView';
 import i18n from '@/fronted/i18n';
 
-    const logger = getRendererLogger('ProjectListCard');
+const logger = getRendererLogger('ProjectListCard');
 
-    const ProjectListCard = ({
-                             video,
-                             onSelected
-                         }: {
+const ProjectListCard = ({
+    video,
+    onSelected
+}: {
     video: WatchHistoryVO;
     className?: string;
     onSelected: () => void;
@@ -50,6 +51,10 @@ import i18n from '@/fronted/i18n';
 
     const [hover, setHover] = React.useState(false);
     const [contextMenu, setContextMenu] = React.useState(false);
+
+    const percent = showDuration
+        ? Math.floor(((video?.current_position || 0) / (video?.duration || 1)) * 100)
+        : 0;
 
     return (
         <ContextMenu
@@ -74,24 +79,19 @@ import i18n from '@/fronted/i18n';
                     className="group flex flex-col gap-2.5 text-left cursor-pointer outline-none transition-transform duration-200 hover:-translate-y-0.5"
                     onClick={onSelected}
                 >
-                    <div
-                        className={cn(
-                            'relative w-full rounded-2xl overflow-hidden bg-muted/60 border border-border/60 shadow-2xs transition-shadow duration-200 group-hover:shadow-md group-hover:border-border'
-                        )}
-                    >
+                    <div className="relative w-full rounded-2xl overflow-hidden bg-card border border-border/60 shadow-2xs transition-shadow duration-200 group-hover:shadow-md group-hover:border-border">
                         {/* 3. 判断如果是 mp3，优先展示 Music 图标，否则还是原先逻辑 */}
                         {isAudio ? (
-                            <MusicCard fileName={video.fileName}/>
+                            <MusicCard fileName={video.fileName} />
                         ) : url ? (
                             <img
                                 src={UrlUtil.toUrl(url)}
                                 style={{
                                     aspectRatio: '16/9'
                                 }}
-                                className={cn(
-                                    'w-full object-cover transition-transform duration-300 group-hover:scale-105',
-                                    (hover || contextMenu) && 'brightness-90'
-                                )}
+                                className={`w-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+                                    hover || contextMenu ? 'brightness-90' : ''
+                                }`}
                                 alt={video.fileName}
                             />
                         ) : (
@@ -99,19 +99,14 @@ import i18n from '@/fronted/i18n';
                                 style={{
                                     aspectRatio: '16/9'
                                 }}
-                                className="w-full bg-muted/80 flex items-center justify-center text-muted-foreground/60"
+                                className="w-full bg-muted flex items-center justify-center text-muted-foreground/60"
                             >
                                 <Film className="w-8 h-8 stroke-1" />
                             </div>
                         )}
 
                         {(showDuration || video.isFolder) && (
-                            <div
-                                className={cn(
-                                    'absolute bottom-2.5 right-2.5 text-white/95 bg-black/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 shadow-2xs'
-                                )}
-                            >
-                                {/* 如果是文件夹，就用 ListVideo 图标；如果不是文件夹，就展示时长 */}
+                            <div className="absolute bottom-2.5 right-2.5 text-white/95 bg-black/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 shadow-2xs">
                                 {!video.isFolder ? (
                                     TimeUtil.secondToTimeStrCompact(video?.duration)
                                 ) : (
@@ -122,46 +117,50 @@ import i18n from '@/fronted/i18n';
 
                         {/* 进度条 */}
                         {showDuration && (
-                            <Progress
-                                className={cn('absolute bottom-0 left-0 w-full rounded-none h-1 bg-black/30')}
-                                value={Math.floor(
-                                    ((video?.current_position || 0) / (video?.duration || 1)) * 100
-                                )}
-                            />
+                            <div className="absolute bottom-0 left-0 w-full">
+                                <ProgressBar
+                                    label={video.fileName}
+                                    isLabelHidden
+                                    value={percent}
+                                    variant="accent"
+                                />
+                            </div>
                         )}
 
                         {/* 悬浮时展示删除按钮 */}
                         {hover && (
-                            <Button
-                                className="absolute top-2.5 right-2.5 w-7 h-7 rounded-lg bg-black/60 hover:bg-destructive text-white backdrop-blur-sm transition-colors shadow-2xs"
-                                size="icon"
-                                variant="ghost"
-                                onClick={async (e) => {
-                                    e.stopPropagation();
-                                    logger.debug('Deleting video from watch history', { id: video.id });
-                                    await fileBrowserApi.deleteWatchHistoryGroup(video.id);
-                                    await swrApiMutate('watch-history/list');
-                                }}
-                            >
-                                <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
+                            <div className="absolute top-2.5 right-2.5">
+                                <IconButton
+                                    label={i18n.t('common:delete')}
+                                    icon={<Trash2 className="w-3.5 h-3.5" />}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        logger.debug('Deleting video from watch history', { id: video.id });
+                                        await fileBrowserApi.deleteWatchHistoryGroup(video.id);
+                                        await swrApiMutate('watch-history/list');
+                                    }}
+                                />
+                            </div>
                         )}
                     </div>
 
-                    <div
-                        className={cn(
-                            'w-full text-xs font-medium text-foreground line-clamp-2 break-words leading-relaxed group-hover:text-foreground/80 transition-colors'
-                        )}
-                        title={video.fileName}
-                    >
-                        {video.fileName}
-                    </div>
+                    <VStack gap={0.5} width="100%">
+                        <Text
+                            type="body"
+                            weight="medium"
+                            maxLines={2}
+                        >
+                            {video.fileName}
+                        </Text>
+                    </VStack>
                 </div>
             </ContextMenuTrigger>
             <ContextMenuContent>
                 <ContextMenuItem
                     onClick={async () => {
-                                    await fileBrowserApi.openFolder(video.basePath);
+                        await fileBrowserApi.openFolder(video.basePath);
                     }}
                 >
                     {i18n.t('common:showInExplorer')}

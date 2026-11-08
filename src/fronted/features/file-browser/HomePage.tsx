@@ -4,19 +4,23 @@ import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import ProjectListCard from '@/fronted/features/file-browser/components/project-list-card';
-import { Button } from '@/fronted/components/ui/button';
+import ProjectListItem from '@/fronted/features/file-browser/components/project-list-item';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Layout, LayoutContent, LayoutPanel } from '@astryxdesign/core/Layout';
+import { HStack } from '@astryxdesign/core/HStack';
+import { VStack } from '@astryxdesign/core/VStack';
+import { Grid } from '@astryxdesign/core/Grid';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { Center } from '@astryxdesign/core/Center';
 import useSWR from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
-import ProjectListItem from '@/fronted/features/file-browser/components/project-list-item';
 import {
     BookOpen,
-    Captions,
     ChevronsDown,
     Clock,
-    Rotate3D,
-    Scissors,
     Settings,
-    Star
 } from 'lucide-react';
 import FolderSelector, { FolderSelectAction } from '@/fronted/features/file-browser/components/FolderSelector';
 import FileSelector, { FileAction } from '@/fronted/features/file-browser/components/FileSelector';
@@ -28,6 +32,9 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 const logger = getRendererLogger('HomePage');
 
+/**
+ * 应用主页：展示最近观看记录、快速文件导入入口与功能导航。
+ */
 const HomePage = () => {
     const { t } = useI18nTranslation('nav');
     const { t: tc } = useI18nTranslation('common');
@@ -88,85 +95,91 @@ const HomePage = () => {
     const hasHistory = vps && vps.length > 0;
 
     return (
-        <div className="flex h-screen w-full flex-col text-foreground bg-background select-none">
-            <header className="top-0 flex h-9 items-center shrink-0">
-                <TitleBar
-                    maximizable={false}
-                    className="top-0 left-0 w-full h-9 z-50"
-                />
-            </header>
-            <main className="flex h-0 flex-1 gap-10 pl-8 pr-12 pb-6 pt-6 overflow-hidden">
-                {/* 左侧导航栏 */}
-                <nav className="w-52 shrink-0 flex flex-col justify-between py-1">
-                    <div className="flex flex-col gap-6">
-                        <div className="px-3 pt-1">
-                            <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+        <Layout
+            height="fill"
+            header={
+                <div className="w-full h-9 shrink-0">
+                    <TitleBar maximizable={false} className="w-full h-9" />
+                </div>
+            }
+            start={
+                <LayoutPanel width={220} padding={3} hasDivider={false}>
+                    <VStack gap={6} height="100%" justify="between">
+                        <VStack gap={6}>
+                            <Heading level={1} weight="bold">
                                 DashPlayer
-                            </h1>
-                        </div>
-
-                        <div className="flex flex-col gap-1">
-                            {navItems.map((item) => {
-                                const Icon = item.icon;
-                                return (
-                                    <Link
-                                        key={item.path}
-                                        onClick={() => fileBrowserApi.changeWindowSize('player')}
-                                        to={item.path}
-                                        className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all duration-150"
-                                    >
-                                        <Icon className="h-4 w-4 stroke-[1.8] text-muted-foreground/80 group-hover:text-primary transition-colors shrink-0" />
-                                        <span>{item.title}</span>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </div>
-                </nav>
-
-                {/* 右侧内容流 */}
-                <div className="flex-1 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-none px-2 pr-6">
-                    {/* 有播放历史时的布局 */}
+                            </Heading>
+                            <VStack gap={1}>
+                                {navItems.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <Link
+                                            key={item.path}
+                                            onClick={() => fileBrowserApi.changeWindowSize('player')}
+                                            to={item.path}
+                                            className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-secondary hover:text-primary hover:bg-muted/70 transition-all duration-150"
+                                        >
+                                            <Icon className="h-4 w-4 stroke-[1.8] text-secondary group-hover:text-accent transition-colors shrink-0" />
+                                            <span>{item.title}</span>
+                                        </Link>
+                                    );
+                                })}
+                            </VStack>
+                        </VStack>
+                    </VStack>
+                </LayoutPanel>
+            }
+            content={
+                <LayoutContent isScrollable padding={6}>
                     {hasHistory ? (
-                        <div className="flex flex-col gap-8 pb-8">
-                            {/* 顶部快速打开区域：简洁优雅的圆角栏 */}
-                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 px-6 rounded-2xl border border-border/70 bg-card shadow-2xs">
-                                <div className="flex flex-col gap-0.5 text-center sm:text-left">
-                                    <span className="text-sm font-semibold text-foreground">{tc('quickStartTitle')}</span>
-                                    <span className="text-xs text-muted-foreground">{tc('quickStartDesc')}</span>
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0">
-                                    <div className="w-36">
-                                        <FileSelector
-                                            onSelected={FileAction.playerAction2(navigate)}
-                                            withMkv
-                                        />
-                                    </div>
-                                    <div className="w-36">
-                                        <FolderSelector
-                                            onSelected={FolderSelectAction.defaultAction2(async (vid) => {
-                                                await fileBrowserApi.changeWindowSize('player');
-                                                changeSideBar(false);
-                                                navigate(`/player/${vid}`);
-                                            })}
-                                        />
-                                    </div>
-                                    <YoutubeImportButton />
-                                </div>
-                            </div>
+                        <VStack gap={8} width="100%">
+                            {/* 顶部快速打开区域：简洁优雅的卡片 */}
+                            <Card variant="default" padding={4}>
+                                <HStack vAlign="center" hAlign="between" gap={4} width="100%">
+                                    <VStack gap={0.5}>
+                                        <Text type="body" weight="semibold">
+                                            {tc('quickStartTitle')}
+                                        </Text>
+                                        <Text type="supporting" color="secondary">
+                                            {tc('quickStartDesc')}
+                                        </Text>
+                                    </VStack>
+                                    <HStack vAlign="center" gap={3}>
+                                        <div className="w-36">
+                                            <FileSelector
+                                                onSelected={FileAction.playerAction2(navigate)}
+                                                withMkv
+                                            />
+                                        </div>
+                                        <div className="w-36">
+                                            <FolderSelector
+                                                onSelected={FolderSelectAction.defaultAction2(async (vid) => {
+                                                    await fileBrowserApi.changeWindowSize('player');
+                                                    changeSideBar(false);
+                                                    navigate(`/player/${vid}`);
+                                                })}
+                                            />
+                                        </div>
+                                        <YoutubeImportButton />
+                                    </HStack>
+                                </HStack>
+                            </Card>
 
                             {/* 最近观看区 */}
-                            <div className="flex flex-col gap-3">
-                                <div className="flex items-center justify-between px-1">
-                                    <div className="flex items-center gap-2">
-                                        <Clock className="h-4 w-4 text-muted-foreground" />
-                                        <h2 className="text-sm font-semibold text-foreground">{tc('recentWatch')}</h2>
-                                    </div>
-                                    <span className="text-xs text-muted-foreground/80">{tc('pickUpWhereLeftOff')}</span>
-                                </div>
+                            <VStack gap={3} width="100%">
+                                <HStack vAlign="center" hAlign="between" width="100%">
+                                    <HStack vAlign="center" gap={2}>
+                                        <Clock className="h-4 w-4 text-secondary" />
+                                        <Heading level={3}>
+                                            {tc('recentWatch')}
+                                        </Heading>
+                                    </HStack>
+                                    <Text type="supporting" color="secondary">
+                                        {tc('pickUpWhereLeftOff')}
+                                    </Text>
+                                </HStack>
 
-                                {/* 自动流式网格：每张卡片保持最小 240px、最大 1fr 宽度，少卡片时自适应且不空洞 */}
-                                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5">
+                                <Grid columns={{ minWidth: 240, max: 4 }} gap={5}>
                                     {vps?.slice(0, 3).map((v) => (
                                         <ProjectListCard
                                             key={v.id}
@@ -174,16 +187,16 @@ const HomePage = () => {
                                             video={v}
                                         />
                                     ))}
-                                </div>
-                            </div>
+                                </Grid>
+                            </VStack>
 
                             {/* 历史记录列表区 */}
                             {rest && rest.length > 0 && (
-                                <div className="flex flex-col gap-2 pt-2">
-                                    <div className="flex items-center justify-between px-1">
-                                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{tc('earlierRecords')}</h3>
-                                    </div>
-                                    <div className="flex flex-col divide-y divide-border/40">
+                                <VStack gap={2} width="100%">
+                                    <Heading level={4} color="secondary">
+                                        {tc('earlierRecords')}
+                                    </Heading>
+                                    <VStack gap={1} width="100%">
                                         {rest.map((v) => (
                                             <ProjectListItem
                                                 key={v.id}
@@ -191,33 +204,31 @@ const HomePage = () => {
                                                 video={v}
                                             />
                                         ))}
-                                    </div>
-                                </div>
+                                    </VStack>
+                                </VStack>
                             )}
 
                             {vps && (num + 3 < vps.length) && (
-                                <div className="flex justify-center pt-1">
+                                <HStack hAlign="center" width="100%">
                                     <Button
-                                        onClick={() => setNum(num + 10)}
+                                        label={tc('loadMore')}
                                         variant="ghost"
                                         size="sm"
-                                        className="h-8 px-4 rounded-xl text-xs text-muted-foreground hover:text-foreground gap-1"
-                                    >
-                                        <span>{tc('loadMore')}</span>
-                                        <ChevronsDown className="h-3.5 w-3.5" />
-                                    </Button>
-                                </div>
+                                        icon={<ChevronsDown className="h-3.5 w-3.5" />}
+                                        onClick={() => setNum(num + 10)}
+                                    />
+                                </HStack>
                             )}
-                        </div>
+                        </VStack>
                     ) : (
-                        /* 无播放历史时的专属初始场景：YouTube 优先动线（导入完成自动跳转播放） */
-                        <div className="flex flex-col items-center justify-center h-full min-h-[420px] text-center p-8">
+                        /* 无播放历史时的专属初始场景：YouTube 优先动线 */
+                        <Center height="100%" minHeight={420}>
                             <YoutubeImportHero />
-                        </div>
+                        </Center>
                     )}
-                </div>
-            </main>
-        </div>
+                </LayoutContent>
+            }
+        />
     );
 };
 

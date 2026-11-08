@@ -1,9 +1,8 @@
 import { SWR_KEY, swrApiMutate, swrMutate } from '@/fronted/lib/swr-util';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { Button } from '@astryxdesign/core/Button';
 import React from 'react';
 import { emptyFunc } from '@/common/utils/Util';
-import { cn } from '@/fronted/lib/utils';
-import { Button } from '@/fronted/components/ui/button';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import { useTranslation } from 'react-i18next';
@@ -50,23 +49,16 @@ const FolderSelector = ({ onSelected, className }: FolderSelectorProps) => {
     };
 
     return (
-        <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        onClick={() => handleClick()}
-                        variant="outline"
-                        className={cn('w-full rounded-xl flex items-center justify-center gap-2 h-10', className)}
-                    >
-                        <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span>{t('openFolder')}</span>
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                    {t('folderPairingHint')}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        <Tooltip content={t('folderPairingHint')} placement="below">
+            <Button
+                variant="secondary"
+                label={t('openFolder')}
+                icon={<Folder className="h-4 w-4" />}
+                onClick={() => void handleClick()}
+                width="100%"
+                className={className}
+            />
+        </Tooltip>
     );
 };
 

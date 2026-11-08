@@ -1,7 +1,6 @@
 import React from 'react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/fronted/components/ui/tooltip';
-import { cn } from '@/fronted/lib/utils';
-import { Button } from '@/fronted/components/ui/button';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { Button } from '@astryxdesign/core/Button';
 import MediaUtil, {
     AllFormats,
     SupportedFormats,
@@ -15,7 +14,6 @@ import { useTranslation } from 'react-i18next';
 import { FileVideo } from 'lucide-react';
 
 export class FileAction {
-
     public static playerAction(navigate: (s: string) => void) {
         return async (ps: string[]) => {
             if (ps.length === 1 && MediaUtil.isSubtitle(ps[0])) {
@@ -34,7 +32,6 @@ export class FileAction {
             await swrApiMutate('watch-history/list');
             await swrMutate(SWR_KEY.WATCH_PROJECT_DETAIL);
         };
-
     }
 
     public static playerAction2(navigate: (s: string) => void) {
@@ -55,7 +52,6 @@ export class FileAction {
             await swrApiMutate('watch-history/list');
             await swrMutate(SWR_KEY.WATCH_PROJECT_DETAIL);
         };
-
     }
 }
 
@@ -85,22 +81,15 @@ export default function FileSelector({
     };
 
     return (
-        <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        onClick={() => handleClick()}
-                        variant={'outline'}
-                        className={cn('w-full rounded-xl flex items-center justify-center gap-2 h-10', className)}
-                    >
-                        <FileVideo className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <span>{t('openFile')}</span>
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                    {t('fileSelectorHint')}
-                </TooltipContent>
-            </Tooltip>
-        </TooltipProvider>
+        <Tooltip content={t('fileSelectorHint')} placement="below">
+            <Button
+                variant="secondary"
+                label={t('openFile')}
+                icon={<FileVideo className="h-4 w-4" />}
+                onClick={() => void handleClick()}
+                width="100%"
+                className={className}
+            />
+        </Tooltip>
     );
 }
