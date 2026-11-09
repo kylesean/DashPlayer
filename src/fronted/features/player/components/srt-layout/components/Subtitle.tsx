@@ -15,6 +15,7 @@ import { useSideTranslationHold } from '@/fronted/features/player/hooks/useSideT
 import { PLAYER_SIDEBAR_SCROLLER_TESTID } from '@/fronted/features/player/dev/scrollWriteLog';
 import useBoundary from '@/fronted/features/player/hooks/useBoundary';
 import useChatPanel from '@/fronted/features/chat/chatStore';
+import useSetting from '@/fronted/features/settings/settingsStore';
 import type { Sentence } from '@/common/types/SentenceC';
 
 export default function Subtitle() {
@@ -26,6 +27,9 @@ export default function Subtitle() {
     const { t } = useI18nTranslation('player');
     // 「随英文字幕隐藏」把侧栏收起时，卡片文案是 opacity-0，chip 是这块空白唯一的解释
     const sidebarHiddenByEnglish = isSidebarHiddenByEnglish(syncSide, showEn);
+    const toggleEnglishShortcut = useSetting(
+        (state) => state.values.get('shortcut.toggleEnglishDisplay') ?? 'e',
+    );
     const { currentSentence, subtitle, singleRepeat, hoverRepeat, virtualGroup } = usePlayerState(
         useShallow((s) => ({
             currentSentence: s.currentSentence,
@@ -342,6 +346,21 @@ export default function Subtitle() {
                         Header: () => <div className={cn('h-0.5')} />,
                     }}
                 />
+
+                {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
+                {sidebarHiddenByEnglish && (
+                    <div className="absolute inset-x-0 top-4 z-10 flex justify-center pointer-events-none">
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/85 px-3 py-1 text-[11px] leading-tight text-muted-foreground backdrop-blur shadow-xs">
+                            <span>{t('controlBox.sidebarHiddenByEnglish')}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-medium">
+                                {t('controlBox.sidebarHiddenByEnglishAction', {
+                                    shortcut: toggleEnglishShortcut.toUpperCase(),
+                                })}
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 {/* 侧栏译文被关掉后就地提示并给回开按钮。
                     放在 Virtuoso 之外（absolute，不设 Header/Footer）：既不占列表行高，

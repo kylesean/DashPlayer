@@ -105,6 +105,8 @@
         "sidebarFollowsEnglish": "Hide with English",
         "sidebarFollowsEnglishHint": "Hide the sidebar together with English subtitles; hover the sidebar to peek.",
         "sidebarHiddenNow": "The sidebar is hidden right now — this switch takes effect once it shows.",
+        "sidebarHiddenByEnglish": "English subtitles hidden",
+        "sidebarHiddenByEnglishAction": "Press {{shortcut}} to show",
         "singleRepeat": "Replay current line",
         "autoPause": "Auto-pause",
         "pauseOnWordHover": "Pause on word hover",

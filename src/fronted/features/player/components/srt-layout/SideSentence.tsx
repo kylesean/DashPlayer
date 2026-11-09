@@ -95,6 +95,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
         const srtHash = usePlaybackSession((s) => s.srtHash);
         const [hover, setHover] = React.useState(false);
         const show = !syncSide ? true : showEn;
+        // 「随英文字幕隐藏」生效且未悬停时：连卡片底色一起收掉，避免只剩一排灰条
+        const concealed = !show && !hover;
         const { isVocabularyWord } = useVocabularyState(
             useShallow((s) => ({
                 isVocabularyWord: s.isVocabularyWord,
@@ -188,6 +190,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                             ? 'bg-stone-200/90 dark:bg-neutral-800/85 border-stone-400/60 dark:border-neutral-600/70 shadow-xs text-stone-900 dark:text-neutral-100'
                             : 'bg-stone-200/70 dark:bg-neutral-800/60 border-stone-300/60 dark:border-neutral-700/50 shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:bg-stone-200/90 dark:hover:bg-neutral-800/80 hover:border-stone-400/50 dark:hover:border-neutral-600 text-stone-700 dark:text-neutral-300'
                     ),
+                    // 被英文开关收起时整体隐去：悬停卡片仍会恢复文字与底色
+                    concealed && 'bg-transparent border-transparent shadow-none',
                     selectionClass
                 )}
                 onClick={() => {
@@ -208,7 +212,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                 ref={ref}
             >
                 {/* 选区卡片之间的向下无缝连接桥（my-1.5 为 6px，上下两张卡片间距刚好是 12px，高度填满 14px 覆盖上下接缝） */}
-                {selectionState?.isMember && !selectionState.isGroupEnd && (
+                {selectionState?.isMember && !selectionState.isGroupEnd && !concealed && (
                     <div
                         aria-hidden="true"
                         className="absolute -bottom-[13px] -left-[1px] -right-[1px] h-[14px] bg-stone-200/90 dark:bg-neutral-800/90 border-l border-r border-stone-400/70 dark:border-neutral-600/80 z-0 pointer-events-none"
@@ -216,7 +220,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                 )}
 
                 {/* 选区内句间分割线 */}
-                {selectionState?.isMember && !selectionState.isGroupEnd && (
+                {selectionState?.isMember && !selectionState.isGroupEnd && !concealed && (
                     <div
                         aria-hidden="true"
                         className="absolute -bottom-[6px] left-4 right-4 h-[1px] bg-stone-300/80 dark:bg-neutral-600/80 z-[1] pointer-events-none"
@@ -229,7 +233,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                     <div
                         className={cn(
                             'flex items-center justify-center w-4 h-4 transition-opacity duration-200',
-                            isCurrent ? 'opacity-100' : 'opacity-0'
+                            isCurrent && !concealed ? 'opacity-100' : 'opacity-0'
                         )}
                     >
                         {renderStatusIcon()}
