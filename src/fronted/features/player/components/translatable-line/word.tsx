@@ -203,13 +203,15 @@ export default function Word({
     });
 
     const hover = useHover(context, {
-        enabled: pop,
+        // 交互必须始终启用：pop 只有在 requestPop 之后才为 true，
+        // 若用 pop 作为启用条件，悬停/点击都无法发起第一次 requestPop（死锁）。
+        enabled: true,
         handleClose: safePolygon({ buffer: 2 }),
         restMs: 40,
         delay: { open: 40, close: 140 },
     });
-    const focus = useFocus(context, { enabled: pop });
-    const dismiss = useDismiss(context, { enabled: pop });
+    const focus = useFocus(context, { enabled: true });
+    const dismiss = useDismiss(context, { enabled: true });
     const role = useRole(context, { role: 'dialog' });
 
     const { getReferenceProps, getFloatingProps } = useInteractions([
@@ -349,19 +351,15 @@ export default function Word({
                 e.preventDefault();
                 pause();
                 void playWordAudio();
-                if (pop) {
-                    setIsOpen(true);
-                    requestPop();
-                }
+                setIsOpen(true);
+                requestPop();
             }
         },
         onClick: (e: React.MouseEvent<HTMLSpanElement>) => {
             pause();
             void handleWordClick(e);
-            if (pop) {
-                setIsOpen(true);
-                requestPop();
-            }
+            setIsOpen(true);
+            requestPop();
         },
     });
 
