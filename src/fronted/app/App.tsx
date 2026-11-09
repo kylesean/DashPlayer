@@ -32,7 +32,22 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { applyLanguageSetting } from '@/fronted/i18n';
 import { Theme } from '@astryxdesign/core/theme';
-import { themes, defaultThemeSlug } from '../../astryx-themes';
+import { themes, type ThemeSlug } from '../../astryx-themes';
+import type { AppearanceThemeFamily } from '@/common/contracts/appearance-setting-vo';
+
+/**
+ * 持久化的主题家族值 → 本地主题 slug。
+ *
+ * 本地主题在官方主题基础上补了中文回退与浅色卡片层级，slug 带 `dp-` 前缀；
+ * 但后端存储仍沿用 neutral/stone/matcha/butter，避免改历史数据。
+ * 用 `satisfies` 保证四套家族都有对应主题，新增家族时编译期就会报错。
+ */
+const THEME_SLUG_BY_FAMILY = {
+    neutral: 'dp-neutral',
+    stone: 'dp-stone',
+    matcha: 'dp-matcha',
+    butter: 'dp-butter',
+} as const satisfies Record<AppearanceThemeFamily, ThemeSlug>;
 
 const UPDATE_CHECK_DELAY_MS = 6000;
 const UPDATE_TOAST_ID = 'update-available';
@@ -73,7 +88,7 @@ const StartupLoading: React.FC = () => {
 export const App = () => {
     const { t } = useI18nTranslation('toast');
     const theme = useSetting((s) => s.values.get('appearance.theme'));
-    const themeFamily = (useSetting((s) => s.values.get('appearance.themeFamily')) || 'neutral') as keyof typeof themes;
+    const themeFamily = useSetting((s) => s.values.get('appearance.themeFamily')) || 'neutral';
     const languageSetting = useSetting((s) => s.values.get('i18n.language'));
     /** 当前生效的启动门槛；null 表示两个门槛都还没读出结果。 */
     const [gate, setGate] = React.useState<StartupGate | null>(null);
@@ -172,7 +187,12 @@ export const App = () => {
 
     const effectiveThemeMode: 'light' | 'dark' | 'system' =
         theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'system';
-    const activeTheme = themes[themeFamily] || themes[defaultThemeSlug];
+    // 主题家族由后端枚举校验过；这里再显式收窄一次，避免非法值静默落到默认主题
+    const themeSlug: ThemeSlug | undefined = THEME_SLUG_BY_FAMILY[themeFamily as AppearanceThemeFamily];
+    if (!themeSlug) {
+        throw new Error(`未知的主题家族：${themeFamily}`);
+    }
+    const activeTheme = themes[themeSlug];
 
     return (
         <Theme theme={activeTheme} mode={effectiveThemeMode}>
@@ -259,14 +279,8 @@ export const App = () => {
             <HotToaster
                 position="top-center"
                 toastOptions={{
+                    // 只用 token 类：react-hot-toast 会挂到 body 下，内联旧 shadcn HSL 变量会绕过 Astryx 主题
                     className: 'border border-border/80 bg-background/95 text-foreground shadow-lg backdrop-blur-md text-xs font-medium rounded-xl',
-                    style: {
-                        background: 'hsl(var(--background))',
-                        color: 'hsl(var(--foreground))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '0.75rem',
-                        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
-                    },
                 }}
             />
             <GlobalShortCut />

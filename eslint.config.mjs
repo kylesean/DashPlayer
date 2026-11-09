@@ -12,6 +12,9 @@ export default tseslint.config(
         ignores: [
             'vite.*.config.ts',
             'src/fronted/components/ui/**',
+            // astryx theme build 的产物（.js / .d.ts / variants），由主题源文件编译生成，不参与源码 lint
+            'src/themes/**/*.js',
+            'src/themes/**/*.d.ts',
             'node_modules/**',
             '.vite/**',
             'out/**',
