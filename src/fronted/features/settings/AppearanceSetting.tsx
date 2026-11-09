@@ -193,22 +193,15 @@ const AppearanceSetting: React.FC = () => {
             >
                 <SettingCard
                     title={t('appearance.cardTitle')}
-                    description={t('appearance.cardDescription')}
                     icon={Palette}
                 >
-                    {/* 设计主题：只保留统一的色点 + 名称，说明放到网格下方一行，
-                        避免每张卡各写一段说明导致卡片高度参差、换行错位 */}
+                    {/* 设计主题：只保留统一的色点 + 名称，说明放到网格下方一行 */}
                     <VStack paddingInline={4} paddingBlock={3} gap={2} width="100%">
                         <HStack gap={2} align="center">
                             <Icon icon={Palette} size="sm" color="secondary" />
-                            <VStack gap={0.5}>
-                                <Text type="body" weight="medium">
-                                    {t('appearance.themeFamilyTitle')}
-                                </Text>
-                                <Text type="supporting" color="secondary">
-                                    {t('appearance.themeFamilyDescription')}
-                                </Text>
-                            </VStack>
+                            <Text type="body" weight="medium">
+                                {t('appearance.themeFamilyTitle')}
+                            </Text>
                         </HStack>
                         <Grid
                             columns={{ minWidth: 120, max: 4 }}
@@ -260,11 +253,7 @@ const AppearanceSetting: React.FC = () => {
                     {/* 浅色/深色模式切换行 */}
                     <SettingRow
                         title={t('appearance.themeTitle')}
-                        description={
-                            isDarkOnlyTheme
-                                ? t('appearance.darkOnlyThemeHint')
-                                : t('appearance.themeDescription')
-                        }
+                        description={isDarkOnlyTheme ? t('appearance.darkOnlyThemeHint') : undefined}
                         icon={Palette}
                     >
                         <Grid
@@ -308,7 +297,6 @@ const AppearanceSetting: React.FC = () => {
                     {/* 界面语言行 */}
                     <SettingRow
                         title={t('appearance.languageTitle')}
-                        description={t('appearance.languageDescription')}
                         icon={Globe}
                     >
                         <Selector
@@ -349,7 +337,6 @@ const AppearanceSetting: React.FC = () => {
                     {/* 伴读剧本流停靠方位行 */}
                     <SettingRow
                         title={t('appearance.transcriptPositionTitle')}
-                        description={t('appearance.transcriptPositionDescription')}
                         icon={Columns2}
                     >
                         <Grid

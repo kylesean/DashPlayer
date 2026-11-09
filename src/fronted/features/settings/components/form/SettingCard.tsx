@@ -54,47 +54,35 @@ export interface SettingRowProps {
  */
 export const SettingCard: React.FC<SettingCardProps> = ({
     title,
-    description,
     icon: IconComp,
     headerAction,
     children,
     className,
 }) => {
-    const hasHeader = Boolean(title || description || headerAction);
+    const hasHeader = Boolean(title || headerAction);
     const rows = Children.toArray(children);
 
     return (
-        <VStack gap={2} width="100%" className={className}>
+        <VStack gap={1.5} width="100%" className={className}>
             {hasHeader && (
                 <HStack justify="between" align="center" paddingInline={1}>
-                    <VStack gap={0.5}>
-                        {title && (
-                            <HStack gap={2} align="center">
-                                {IconComp && <Icon icon={IconComp} size="sm" color="primary" />}
-                                {typeof title === 'string' ? (
-                                    <Heading level={3} weight="semibold">
-                                        {title}
-                                    </Heading>
-                                ) : (
-                                    title
-                                )}
-                            </HStack>
-                        )}
-                        {description && (
-                            typeof description === 'string' ? (
-                                <Text type="supporting" color="secondary">
-                                    {description}
+                    {title && (
+                        <HStack gap={1.5} align="center">
+                            {IconComp && <Icon icon={IconComp} size="sm" color="secondary" />}
+                            {typeof title === 'string' ? (
+                                <Text type="supporting" weight="semibold" color="secondary">
+                                    {title}
                                 </Text>
                             ) : (
-                                description
-                            )
-                        )}
-                    </VStack>
+                                title
+                            )}
+                        </HStack>
+                    )}
                     {headerAction && <HStack align="center" gap={2}>{headerAction}</HStack>}
                 </HStack>
             )}
 
-            <Card padding={0} width="100%" variant="transparent">
+            <Card padding={0} width="100%" variant="muted">
                 <VStack as="ul" role="list" gap={0}>
                     {rows.map((rowItem, index) => (
                         <VStack key={index} as="li" gap={0} width="100%">
@@ -137,9 +125,11 @@ export const SettingRow: React.FC<SettingRowProps> = ({
                 width="100%"
             >
                 <StackItem size="fill">
-                    <HStack gap={2} align="center">
+                    <HStack gap={2} align={alignTop ? 'start' : 'center'}>
                         {IconComp && (
-                            <Icon icon={IconComp} size="sm" color="secondary" />
+                            <VStack paddingBlockStart={alignTop ? 0.5 : 0}>
+                                <Icon icon={IconComp} size="sm" color="secondary" />
+                            </VStack>
                         )}
                         <VStack gap={0.5}>
                             {typeof title === 'string' ? (

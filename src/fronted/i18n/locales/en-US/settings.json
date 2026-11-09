@@ -35,8 +35,8 @@
     "appearance": {
         "title": "Appearance",
         "description": "Theme, text size, and language preferences",
-        "cardTitle": "Interface & Display Preferences",
-        "cardDescription": "Color mode, design theme, language, and subtitle font sizes",
+        "cardTitle": "Display",
+        "cardDescription": "Visual style and display preferences",
         "themeTitle": "Color Mode",
         "themeDescription": "Light or dark style",
         "themeSystem": "Follow System",

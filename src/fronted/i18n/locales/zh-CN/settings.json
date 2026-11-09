@@ -35,8 +35,8 @@
     "appearance": {
         "title": "外观",
         "description": "主题风格、字号与语言偏好",
-        "cardTitle": "界面与显示偏好",
-        "cardDescription": "色彩模式、设计主题、界面语言与字幕字体大小",
+        "cardTitle": "界面显示",
+        "cardDescription": "全局视觉风格与显示偏好",
         "themeTitle": "色彩模式",
         "themeDescription": "明亮或暗色风格",
         "themeSystem": "跟随系统",
