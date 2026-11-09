@@ -266,6 +266,26 @@ describe('YouTube 导入服务', () => {
             expect(parseYoutubeVideoId('https://www.youtube.com/shorts/dQw4w9WgXcQ')).toBe(VIDEO_ID);
         });
 
+        it('可以解析移动端域名地址', () => {
+            expect(parseYoutubeVideoId('https://m.youtube.com/watch?v=dQw4w9WgXcQ')).toBe(VIDEO_ID);
+        });
+
+        it('拒绝仅与 youtube.com 后缀相似的仿冒域名', () => {
+            expect(parseYoutubeVideoId('https://evil-youtube.com/watch?v=dQw4w9WgXcQ')).toBeNull();
+            expect(parseYoutubeVideoId('https://notyoutube.com/watch?v=dQw4w9WgXcQ')).toBeNull();
+            expect(parseYoutubeVideoId('https://youtube.com.evil.com/watch?v=dQw4w9WgXcQ')).toBeNull();
+        });
+
+        it('拒绝非 http(s) 链接', () => {
+            expect(parseYoutubeVideoId('file:///etc/passwd')).toBeNull();
+        });
+
+        it('拒绝非法长度的视频 ID', () => {
+            expect(parseYoutubeVideoId('https://www.youtube.com/watch?v=short')).toBeNull();
+            expect(parseYoutubeVideoId('https://www.youtube.com/watch?v=')).toBeNull();
+            expect(parseYoutubeVideoId('https://youtu.be/short')).toBeNull();
+        });
+
         it('无法识别非 YouTube 链接', () => {
             expect(parseYoutubeVideoId('https://example.com/watch?v=dQw4w9WgXcQ')).toBeNull();
             expect(parseYoutubeVideoId('不是链接')).toBeNull();

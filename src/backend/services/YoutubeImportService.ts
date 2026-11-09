@@ -38,6 +38,15 @@ const BINARY_DOWNLOAD_CANCELLED_MESSAGE = 'yt-dlp 组件下载已取消';
 const ENGLISH_SRT_PATTERN = /\.en(?:-[A-Za-z0-9-]+)?\.srt$/i;
 
 /**
+ * 允许导入的 YouTube 主机名白名单（精确匹配）。
+ *
+ * 必须精确匹配而非按后缀匹配：后缀匹配会误收 evil-youtube.com、notyoutube.com
+ * 这类仿冒域名，进而把链接交给 yt-dlp 下载任意站点的内容。
+ * www. 前缀在解析时统一剥除，因此 www.youtube.com 天然命中。
+ */
+const YOUTUBE_ALLOWED_HOSTS = new Set(['youtube.com', 'm.youtube.com', 'youtu.be']);
+
+/**
  * 从 YouTube URL 中提取视频 ID；支持 watch?v=、youtu.be/、shorts/、embed/ 四种形态。
  * @param url 用户粘贴的地址。
  * @returns 11 位视频 ID；无法识别时返回 null。
@@ -48,11 +57,11 @@ export function parseYoutubeVideoId(url: string): string | null {
     try {
         const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
         const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+        if (!YOUTUBE_ALLOWED_HOSTS.has(host)) return null;
         if (host === 'youtu.be') {
             const id = parsed.pathname.split('/').filter(Boolean)[0];
             return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
         }
-        if (!host.endsWith('youtube.com')) return null;
         const vParam = parsed.searchParams.get('v');
         if (vParam && /^[A-Za-z0-9_-]{11}$/.test(vParam)) return vParam;
         const segments = parsed.pathname.split('/').filter(Boolean);
