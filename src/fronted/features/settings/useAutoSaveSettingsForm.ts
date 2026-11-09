@@ -6,6 +6,7 @@ import type { FieldValues, UseFormReturn } from 'react-hook-form';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import { showNotification } from '@/fronted/components/shared/toasts/notification';
+import { canApplyServerSnapshot } from '@/fronted/features/settings/lib/auto-save-machine';
 
 /**
  * 自动保存状态。
@@ -158,12 +159,24 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
      */
     const initialize = React.useCallback((values: TFormValues) => {
         const nextSnapshot = snapshotOf(values);
+        // 保存成功后 hook 会 mutate 详情缓存，页面随即把新快照交回这里。
+        // 若用户已经在输入下一个改动，直接 reset 会把他刚敲的字擦掉
+        // （表现为「打字打到一半被回退」），因此只有本地与快照一致时才应用。
+        const localSnapshot = snapshotOf(getValues());
+        if (!canApplyServerSnapshot(
+            ready,
+            localSnapshot,
+            baselineSnapshotRef.current,
+            nextSnapshot
+        )) {
+            return;
+        }
         baselineSnapshotRef.current = nextSnapshot;
         reset(values, { keepFieldsRef: true });
         setReady(true);
         setStatus('idle');
         setError(null);
-    }, [reset]);
+    }, [getValues, ready, reset]);
 
     /**
      * 手动触发保存并等待完成。

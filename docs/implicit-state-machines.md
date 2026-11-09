@@ -217,15 +217,31 @@
 - **建议**：把 `applyHomeWindowMode` 的三种结局显式返回
   （`locked | yielded-size | yielded-late-resize`），日志与测试都能直接断言。
 
-### 10. 设置自动保存（`useAutoSaveSettingsForm`）
+### 10. 设置自动保存（`useAutoSaveSettingsForm`，已收敛并修掉一处丢字缺陷）
 
 - **位置**：`src/fronted/features/settings/useAutoSaveSettingsForm.ts`
-- **隐式状态**：`AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error'`，
+  + `src/fronted/features/settings/lib/auto-save-machine.ts`
+- **原隐式状态**：`AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error'`，
   叠加 `ready`、`saveInFlightRef`、`saveQueuedRef`、`baselineSnapshotRef` 四个内部标志。
-- **现状**：串行提交 + 排队一轮 + 卸载时补提交，逻辑正确但难以在脑中模拟。
-- **建议**：把「是否有脏数据 / 是否在飞 / 是否已排队」合并成一个显式
-  `saveMachine = idle | dirty | saving | saving-dirty | error`。
-  这是纯 DX 收益：状态从 4 个布尔收敛为 1 个枚举。
+- **已确认的真实缺陷（本轮修复）**：保存成功后 hook 会 `mutate(detailKey)` 重取详情，
+  设置页的 `useEffect` 随即把服务端快照交回 `initialize`，而 `initialize` 无条件
+  `reset()`。若用户**在保存请求在途时已经输入了下一个改动**，这次回放会把刚敲的字擦掉。
+  `SETTINGS_DETAIL_SWR_OPTIONS` 是 `dedupingInterval: 0`，所以这条重取是必然发生的，
+  不是理论竞态；慢后端（代理/存储路径校验可达数百毫秒）会把这个窗口拉宽。
+  用 `renderHook` + 受控 Promise 复现：输入 b → 保存 b 在途 → 输入 c →
+  保存 b 成功 → 回放 b → 表单值退回 b，c 丢失。
+- **本次处理**：
+  - `deriveAutoSavePhase({dirty, inFlight, failed})` 把四个布尔收敛成
+    `idle | dirty | saving | saving-dirty | error`，判定顺序显式（失败最优先）。
+  - `canApplyServerSnapshot(ready, localSnapshot, baselineSnapshot, incoming)` 是
+    「服务端快照能否覆盖本地」的唯一判据：首次初始化放行、本地已是目标值放行、
+    本地无未保存改动放行，否则拒绝。
+- **测试**：`__tests__/useAutoSaveSettingsForm.test.tsx`（5 例，含真实时序回归）
+  + `lib/__tests__/auto-save-machine.test.ts`（10 例）。
+  同时验证了「失败后继续编辑仍会再次落盘」与「初始化后无改动不产生请求」。
+  变异验证：去掉 `canApplyServerSnapshot` 守卫 → 丢字回归用例转红。
+- **复核记录**：我最初怀疑「保存失败后排队会丢」并写了探针，**结果被证伪**——
+  基线未推进，用户继续编辑会正常触发新一轮保存。该假设已撤回，未作为缺陷计入。
 
 ---
 
