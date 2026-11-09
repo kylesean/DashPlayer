@@ -91,6 +91,34 @@ const mainWindowRef = {
 };
 
 /**
+ * 单实例锁：同一时刻只允许一个应用实例运行。
+ *
+ * 为什么必须在任何数据库迁移之前获取：两个实例并行启动会各自跑一遍启动迁移、
+ * 各自拉起本地推理子进程、争抢手机访问端口，并互相覆盖设置写入，
+ * 结果是迁移冲突、端口占用与设置来回翻转。
+ * 抢不到锁的实例立刻退出，把启动意图交还给先启动的那个实例。
+ */
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+    logger.info('another instance is already running, quit current one');
+    app.quit();
+} else {
+    // 第二个实例启动时把已有实例的窗口带到前台，避免用户以为应用没反应。
+    app.on('second-instance', () => {
+        const window = mainWindowRef.current;
+        if (!window || window.isDestroyed()) {
+            return;
+        }
+        if (window.isMinimized()) {
+            window.restore();
+        }
+        window.show();
+        window.focus();
+    });
+}
+
+/**
  * 判断本次启动是否由“重置数据库”触发。
  * @returns 命令行参数中是否包含重同步标记。
  */
@@ -278,6 +306,10 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
+    // 没拿到单实例锁的进程不进入任何启动流程：迁移、后台任务与窗口创建全部跳过。
+    if (!hasSingleInstanceLock) {
+        return;
+    }
     // 本地媒体协议处理器：渲染端通过 media:// 读取媒体库文件，
     // 必须在建窗之前注册，否则首屏加载视频会直接失败。
     registerMediaProtocol(
@@ -392,6 +424,11 @@ app.on('before-quit', (event) => {
     if (shutdownPhase === 'ready') {
         return;
     }
+    // 没拿到单实例锁的进程从未启动任何服务，直接放行退出。
+    if (!hasSingleInstanceLock) {
+        shutdownPhase = 'ready';
+        return;
+    }
     event.preventDefault();
     if (shutdownPhase === 'stopping') {
         logger.info('app quit requested while shutting down');
@@ -423,6 +460,9 @@ app.on('before-quit', (event) => {
 app.on('activate', () => {
     // On OS X it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
+    if (!hasSingleInstanceLock) {
+        return;
+    }
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
     }
