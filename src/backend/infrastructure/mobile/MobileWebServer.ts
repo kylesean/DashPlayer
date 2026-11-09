@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import { timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Stats } from 'node:fs';
 
@@ -39,7 +40,85 @@ export interface MobileWebServerOptions {
     staticDirectory: string;
     /** 业务数据来源。 */
     source: MobileWebDataSource;
+    /**
+     * 访问令牌。
+     *
+     * 手机页服务监听在局域网可达的地址上，没有令牌的话同一网络里的任何设备
+     * 都能拉走字幕与视频、写入播放进度，甚至驱动用户的付费翻译接口。
+     */
+    token: string;
 }
+
+/**
+ * 手机页的 Content-Security-Policy。
+ *
+ * 手机页只跟同源的后端接口打交道，不加载任何外部资源，因此可以收得很紧。
+ * `style-src` 允许 unsafe-inline 是因为页面大量使用行内 style 属性。
+ */
+const MOBILE_CONTENT_SECURITY_POLICY = [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "media-src 'self' blob:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+].join('; ');
+
+/**
+ * 访问令牌的传递方式，按优先级排列：
+ * 1. 查询参数 `?t=`：用于「把带令牌的地址粘贴到手机浏览器」这一首次访问；
+ * 2. 请求头 `X-DashPlayer-Token`：用于原生客户端（iOS）逐次携带；
+ * 3. Cookie `dp_mobile_token`：用于浏览器在拿到令牌后自动带上后续请求。
+ */
+const TOKEN_QUERY_KEY = 't';
+const TOKEN_HEADER_NAME = 'x-dashplayer-token';
+const TOKEN_COOKIE_NAME = 'dp_mobile_token';
+
+/**
+ * 常量时间比较两个字符串，避免通过响应时间逐字节猜测令牌。
+ *
+ * 长度不同直接判否：timingSafeEqual 要求等长输入。
+ *
+ * @param provided 调用方提供的值。
+ * @param expected 期望值。
+ * @returns 相等时为 true。
+ */
+const safeTokenEquals = (provided: string, expected: string): boolean => {
+    const providedBuffer = Buffer.from(provided, 'utf8');
+    const expectedBuffer = Buffer.from(expected, 'utf8');
+    if (providedBuffer.length !== expectedBuffer.length) {
+        return false;
+    }
+    return timingSafeEqual(providedBuffer, expectedBuffer);
+};
+
+/**
+ * 从 Cookie 头里取出指定名字的 Cookie 值。
+ *
+ * @param cookieHeader Cookie 头。
+ * @param name Cookie 名。
+ * @returns Cookie 值；不存在时返回 null。
+ */
+const readCookie = (cookieHeader: string | undefined, name: string): string | null => {
+    if (!cookieHeader) {
+        return null;
+    }
+    for (const part of cookieHeader.split(';')) {
+        const separator = part.indexOf('=');
+        if (separator < 0) {
+            continue;
+        }
+        if (part.slice(0, separator).trim() === name) {
+            return decodeURIComponent(part.slice(separator + 1).trim());
+        }
+    }
+    return null;
+};
 
 /** 静态构建产物的扩展名到 Content-Type 映射。 */
 const STATIC_CONTENT_TYPES: Record<string, string> = {
@@ -214,16 +293,32 @@ export default class MobileWebServer {
     private readonly logger = getMainLogger('MobileWebServer');
     private readonly staticDirectory: string;
     private readonly source: MobileWebDataSource;
+    /** 当前访问令牌；用户重新生成后由 setToken 热更新，无需重启服务。 */
+    private token: string;
     private server: http.Server | null = null;
 
     /**
      * 创建服务实例；此时还没有开始监听。
      *
-     * @param options 静态目录与业务数据来源。
+     * @param options 静态目录、业务数据来源与访问令牌。
      */
     public constructor(options: MobileWebServerOptions) {
         this.staticDirectory = options.staticDirectory;
         this.source = options.source;
+        this.token = options.token;
+    }
+
+    /**
+     * 热更新访问令牌。
+     *
+     * 用户在设置页点「重新生成令牌」后调用：旧地址立刻失效，
+     * 正在运行的服务不需要重启。
+     *
+     * @param token 新令牌。
+     */
+    public setToken(token: string): void {
+        this.token = token;
+        this.logger.info('mobile web server token rotated');
     }
 
     /**
@@ -294,6 +389,94 @@ export default class MobileWebServer {
     }
 
     /**
+     * 读取实际监听的端口。
+     *
+     * 监听 0 号端口时由系统分配空闲端口，此时拿到的才是真实端口。
+     *
+     * @returns 监听端口；未启动时为 null。
+     */
+    public boundPort(): number | null {
+        if (this.server === null) {
+            return null;
+        }
+        const address = this.server.address();
+        return typeof address === 'object' && address !== null ? address.port : null;
+    }
+
+    /**
+     * 校验访问令牌。
+     *
+     * 服务监听在局域网可达的地址上，缺令牌等于把用户的媒体库、字幕和付费额度
+     * 暴露给同一网络里的任何人。令牌可以三种方式携带：
+     * - `?t=` 查询参数：用户把设置页展示的完整地址粘到手机浏览器时用；
+     * - `X-DashPlayer-Token` 请求头：原生客户端逐次携带；
+     * - `dp_mobile_token` Cookie：浏览器首次访问后由服务端下发，后续请求自动带上。
+     *
+     * 用查询参数或请求头通过时补发 Cookie，让页面里的静态资源与接口请求
+     * 不必再各自带令牌。
+     *
+     * @param request HTTP 请求。
+     * @param url 解析后的请求地址。
+     * @param response HTTP 响应。
+     * @returns 通过时为 true；不通过时已经写过 401 响应。
+     */
+    private authorize(request: IncomingMessage, url: URL, response: ServerResponse): boolean {
+        const expected = this.token;
+        const headerValue = typeof request.headers[TOKEN_HEADER_NAME] === 'string'
+            ? request.headers[TOKEN_HEADER_NAME] as string
+            : null;
+        const queryValue = url.searchParams.get(TOKEN_QUERY_KEY);
+        const cookieValue = readCookie(request.headers.cookie, TOKEN_COOKIE_NAME);
+
+        const provided = queryValue ?? headerValue ?? cookieValue;
+        if (provided === null || !safeTokenEquals(provided, expected)) {
+            this.logger.warn('mobile web request rejected: invalid access token', {
+                method: request.method,
+                pathname: url.pathname,
+            });
+            this.sendUnauthorized(request, response);
+            return false;
+        }
+
+        // 通过查询参数或请求头进来的，补发 Cookie 让后续请求免带令牌。
+        if (queryValue !== null || headerValue !== null) {
+            response.setHeader(
+                'Set-Cookie',
+                `${TOKEN_COOKIE_NAME}=${encodeURIComponent(expected)}; Path=/; HttpOnly; SameSite=Strict`,
+            );
+        }
+        return true;
+    }
+
+    /**
+     * 返回 401。
+     *
+     * 浏览器直接打开页面时回一个可读的 HTML 提示页，接口请求才回 JSON，
+     * 免得用户在地址栏里看到一坨原始 JSON 不知道发生了什么。
+     *
+     * @param request HTTP 请求。
+     * @param response HTTP 响应。
+     */
+    private sendUnauthorized(request: IncomingMessage, response: ServerResponse): void {
+        const accept = typeof request.headers.accept === 'string' ? request.headers.accept : '';
+        if (accept.includes('text/html')) {
+            const body = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" />'
+                + '<meta name="viewport" content="width=device-width, initial-scale=1" />'
+                + '<title>需要访问令牌</title></head><body style="font-family:system-ui;padding:2rem;line-height:1.6">'
+                + '<h1 style="font-size:1.25rem">需要访问令牌</h1>'
+                + '<p>这个地址缺少有效的访问令牌，或者令牌已经被重新生成。</p>'
+                + '<p>请回到电脑上的 DashPlayer「设置 → 手机访问」，重新复制一条访问地址到手机浏览器打开。</p>'
+                + '</body></html>';
+            response.writeHead(401, { 'Content-Type': 'text/html; charset=utf-8' });
+            response.end(body);
+            return;
+        }
+        this.sendJson(response, 401, {
+            error: '访问令牌无效或缺失，请在桌面端重新复制访问地址',
+        });
+    }
+
+    /**
      * 处理单个 HTTP 请求。
      *
      * @param request HTTP 请求。
@@ -301,10 +484,20 @@ export default class MobileWebServer {
      */
     private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
         response.setHeader('X-Content-Type-Options', 'nosniff');
+        // 手机页跑在局域网可达的地址上，这几道响应头把「能不能被套进别的页面、
+        // 能不能被嗅探出访问来源」一并关掉。
+        response.setHeader('X-Frame-Options', 'DENY');
+        response.setHeader('Referrer-Policy', 'no-referrer');
+        response.setHeader('Content-Security-Policy', MOBILE_CONTENT_SECURITY_POLICY);
 
         try {
             const url = new URL(request.url ?? '/', 'http://127.0.0.1');
             const pathname = decodeURIComponent(url.pathname);
+
+            // 鉴权放在最前面：连静态资源也要令牌，否则未授权设备至少能拿到页面骨架。
+            if (!this.authorize(request, url, response)) {
+                return;
+            }
 
             if (pathname === '/favicon.ico') {
                 // 手机页的图标由 index.html 里的 <link rel="icon"> 指定为 /favicon-32.png；

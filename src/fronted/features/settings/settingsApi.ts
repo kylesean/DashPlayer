@@ -55,6 +55,13 @@ export const settingsApi = {
         backendClient.call('settings/mobile-access/save', settings),
 
     /**
+     * 重新生成手机访问令牌；此前复制出去的访问地址会立即失效。
+     *
+     * @returns 新令牌。
+     */
+    regenerateMobileAccessToken: () => backendClient.call('settings/mobile-access/regenerate-token'),
+
+    /**
      * 保存运行时设置。
      *
      * @param setting 待保存的设置键和值。

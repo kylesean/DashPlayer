@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { randomBytes } from 'node:crypto';
 import { inject, injectable } from 'inversify';
 
 import TYPES from '@/backend/ioc/types';
@@ -43,6 +44,15 @@ export default interface MobileAccessService {
      * @param settings 待保存的设置。
      */
     saveSettings(settings: MobileAccessSettingSaveVO): Promise<void>;
+
+    /**
+     * 重新生成访问令牌。
+     *
+     * 旧地址（含旧令牌）会立刻失效；正在运行的服务会热更新，不需要重启。
+     *
+     * @returns 新令牌。
+     */
+    regenerateToken(): string;
 
     /**
      * 按已持久化的设置启动服务；应用启动时调用。
@@ -96,9 +106,10 @@ const assertValidPort = (port: number): void => {
  * 过滤回环、链路本地和重复项；虚拟网卡地址也会保留，由用户自行选择能连通的那个。
  *
  * @param port 当前监听端口。
- * @returns 形如 http://192.168.1.2:27182 的地址列表。
+ * @param token 访问令牌；会以查询参数形式附在地址上，让复制出来的链接直接可用。
+ * @returns 形如 http://192.168.1.2:27182/?t=<token> 的地址列表。
  */
-const collectLanUrls = (port: number): string[] => {
+const collectLanUrls = (port: number, token: string): string[] => {
     const urls = new Set<string>();
     for (const addresses of Object.values(os.networkInterfaces())) {
         for (const address of addresses ?? []) {
@@ -108,7 +119,7 @@ const collectLanUrls = (port: number): string[] => {
             if (address.address.startsWith('169.254.')) {
                 continue;
             }
-            urls.add(`http://${address.address}:${port}`);
+            urls.add(`http://${address.address}:${port}/?t=${encodeURIComponent(token)}`);
         }
     }
     return [...urls];
@@ -166,13 +177,43 @@ export class MobileAccessServiceImpl implements MobileAccessService {
         const runningPort = this.server !== null ? this.serverPort : null;
         const running = runningPort !== null;
         const port = runningPort ?? settings.port;
+        const token = this.getOrCreateToken();
         return {
             enabled: settings.enabled,
             port,
             running,
-            lanUrls: running ? collectLanUrls(port) : [],
+            lanUrls: running ? collectLanUrls(port, token) : [],
+            accessToken: token,
             lastError: this.lastError ?? settings.error,
         };
+    }
+
+    /** {@inheritDoc MobileAccessService.regenerateToken} */
+    public regenerateToken(): string {
+        const token = randomBytes(24).toString('base64url');
+        this.settingsStore.set('mobileAccess.token', token);
+        // 正在运行的服务热更新，旧地址立刻失效。
+        this.server?.setToken(token);
+        this.logger.info('mobile access token regenerated');
+        return token;
+    }
+
+    /**
+     * 读取访问令牌；没有落盘过就生成一个并写回。
+     *
+     * 令牌一经生成就保持稳定，用户保存过的访问地址不会因为重启而失效；
+     * 想让旧地址失效需要在设置页显式点「重新生成令牌」。
+     *
+     * @returns 访问令牌。
+     */
+    private getOrCreateToken(): string {
+        const raw = this.settingsStore.get('mobileAccess.token');
+        if (typeof raw === 'string' && raw.length >= 32) {
+            return raw;
+        }
+        const token = randomBytes(24).toString('base64url');
+        this.settingsStore.set('mobileAccess.token', token);
+        return token;
     }
 
     /** {@inheritDoc MobileAccessService.saveSettings} */
@@ -273,6 +314,7 @@ export class MobileAccessServiceImpl implements MobileAccessService {
 
         const server = new MobileWebServer({
             staticDirectory,
+            token: this.getOrCreateToken(),
             source: {
                 listRecent: () => this.listRecent(),
                 getWatchDetail: (id) => this.getWatchDetail(id),

@@ -234,6 +234,15 @@ export default class SettingsController implements Controller {
     }
 
     /**
+     * 重新生成手机访问令牌，让此前复制出去的访问地址立即失效。
+     *
+     * @returns 新令牌。
+     */
+    public async regenerateMobileAccessToken(): Promise<string> {
+        return this.mobileAccessService.regenerateToken();
+    }
+
+    /**
      * 测试指定 OpenAI 模型的连通性。
      *
      * @param request 待测试的模型标识。
@@ -290,5 +299,6 @@ export default class SettingsController implements Controller {
         registerRoute('settings/mobile-access/save', (p) => this.saveMobileAccessSettings(p), {
             schema: mobileAccessSettingSaveSchema,
         });
+        registerRoute('settings/mobile-access/regenerate-token', () => this.regenerateMobileAccessToken());
     }
 }

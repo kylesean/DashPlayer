@@ -101,6 +101,19 @@ const MobileAccessSetting: React.FC = () => {
         }
     };
 
+    /**
+     * 重新生成访问令牌，让此前复制出去的地址立刻失效。
+     */
+    const regenerateToken = async (): Promise<void> => {
+        try {
+            await settingsApi.regenerateMobileAccessToken();
+            await mutate();
+            toast.success(t('mobile.tokenRegenerated'));
+        } catch (regenErr) {
+            toast.error(regenErr instanceof Error ? regenErr.message : String(regenErr));
+        }
+    };
+
     if (loadError && !detail) {
         return (
             <SettingsPageShell title={t('mobile.title')} description={t('mobile.description')}>
@@ -220,6 +233,14 @@ const MobileAccessSetting: React.FC = () => {
                                     mutate().catch(() => undefined);
                                 }}
                             />
+                            <Button
+                                label={t('mobile.regenerateToken')}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    regenerateToken().catch(() => undefined);
+                                }}
+                            />
                         </HStack>
                     )}
                 >
@@ -230,7 +251,12 @@ const MobileAccessSetting: React.FC = () => {
                                     <VStack key={url} gap={0} width="100%">
                                         {index > 0 && <Divider variant="subtle" />}
                                         <HStack vAlign="center" justify="between" gap={3} paddingBlock={2}>
-                                            <Text type="body" hasTabularNumbers wordBreak="break-all">
+                                            <Text
+                                                type="body"
+                                                hasTabularNumbers
+                                                wordBreak="break-all"
+                                                data-testid="mobile-access-url"
+                                            >
                                                 {url}
                                             </Text>
                                             <HStack vAlign="center" gap={1}>

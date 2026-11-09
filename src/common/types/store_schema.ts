@@ -62,6 +62,11 @@ export const SettingKeyObj = {
     'proxy.bypass_rules': '',
     'mobileAccess.enabled': 'false',
     'mobileAccess.port': '27182',
+    /**
+     * 手机访问令牌：为空表示尚未生成，首次开启手机访问时由主进程生成并落盘。
+     * 一旦生成就保持稳定，重新生成需要用户显式触发。
+     */
+    'mobileAccess.token': '',
     'youtubeImport.enabled': 'true',
     'youtubeImport.cookiesFilePath': '',
 }

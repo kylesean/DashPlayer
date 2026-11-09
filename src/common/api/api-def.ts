@@ -308,6 +308,7 @@ interface SettingsDef {
     'settings/proxy/save': { params: ProxySettingSaveVO, return: void };
     'settings/mobile-access/detail': { params: void, return: MobileAccessSettingDetailVO };
     'settings/mobile-access/save': { params: MobileAccessSettingSaveVO, return: void };
+    'settings/mobile-access/regenerate-token': { params: void, return: string };
 }
 
 interface ParakeetModelDef {

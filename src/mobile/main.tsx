@@ -3,10 +3,13 @@ import { createRoot } from 'react-dom/client';
 import MobileApp from './MobileApp';
 import { watchAppHeight } from './appHeight';
 import { ensureListHistory, seedListHistory } from './lib';
+import { stripAccessTokenFromUrl } from './stripToken';
 import { applyTheme, readTheme } from './theme';
 import './mobile.css';
 
 applyTheme(readTheme());
+// 服务端已经在首个响应里下发 Cookie，地址栏里的令牌不必再留着。
+stripAccessTokenFromUrl();
 // 先定外壳高度再渲染，避免首帧按 dvh 画一次再跳一下。
 watchAppHeight();
 
