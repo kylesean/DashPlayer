@@ -227,5 +227,8 @@
         "done": "字幕生成完成",
         "failed": "字幕生成失败：{{message}}"
     },
+    "mediaError": {
+        "hint": "视频无法播放（错误码 {{code}}）。本地视频建议转成 H.264 + AAC 的 MP4 后重试；YouTube 导入的视频不受影响。"
+    },
     "translationFailed": "字幕翻译失败"
 }

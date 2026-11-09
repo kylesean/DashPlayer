@@ -22,7 +22,6 @@ import { playerApi } from '@/fronted/features/player/playerApi';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSubtitleTranslation from '@/fronted/features/player/translationStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
-import { usePlayer } from '@/fronted/features/player/playerStore';
 import {Button} from "@/fronted/components/ui/button";
 import { useDevPlayerEntry } from '@/fronted/features/player/dev/useDevPlayerEntry';
 
@@ -61,8 +60,6 @@ const PlayerWithControlsPage = () => {
     const referrer = location.state && location.state.referrer;
     logger.debug('page referrer', {referrer});
     const windowButtonsVisibleRef = useRef<boolean | null>(null);
-    const mediaErrorCode = usePlayer((s) => s.mediaErrorCode);
-    const playbackStallCount = usePlayer((s) => s.playbackStallCount);
         useEffect(() => {
         if (!isMac) {
             return;

@@ -227,5 +227,8 @@
         "done": "Subtitles generated",
         "failed": "Subtitle generation failed: {{message}}"
     },
+    "mediaError": {
+        "hint": "This video cannot be played (error code {{code}}). For local videos, convert to H.264 + AAC MP4 and retry; YouTube imports are unaffected."
+    },
     "translationFailed": "Subtitle translation failed"
 }

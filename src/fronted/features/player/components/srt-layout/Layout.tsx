@@ -21,12 +21,17 @@ import PracticeModeButton from '@/fronted/features/player/components/srt-layout/
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import LearningModeButton from './LearningModeButton';
 import SubtitleGenerationPanel from './SubtitleGenerationPanel';
+import { usePlayer } from '@/fronted/features/player/playerStore';
+import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { CAPTION_CARD_ANCHOR_CLASS, CAPTION_CARD_CLASS } from '@/fronted/features/player/components/captionCardShell';
 
 const logger = getRendererLogger('PlaybackLayout');
 
 const PlaybackLayout = () => {
+    const { t } = useI18nTranslation('player');
     const hasSubTitle = usePlaybackSession((s) => StrUtil.isNotBlank(s.subtitlePath));
+    /** 底层媒体错误码；null 表示无错误。用于在旧播放修复链路删除后给出最小诊断提示。 */
+    const mediaErrorCode = usePlayer((s) => s.mediaErrorCode);
     const showSideBar = useLayout((state) => state.showSideBar);
     const fullScreen = useLayout((s) => s.fullScreen);
     const podcastMode = useLayout(s => s.podcastMode);
@@ -131,6 +136,12 @@ const PlaybackLayout = () => {
 
     return (
         <div ref={rootContainerRef} className={containerClass}>
+            {/* 媒体错误最小诊断：播放修复链路已删除，本地视频兼容性问题在这里给出明确出口 */}
+            {mediaErrorCode !== null && (
+                <div className="absolute inset-x-0 top-3 z-30 mx-auto w-fit max-w-[90%] rounded-lg bg-amber-500/95 px-4 py-2 text-sm font-medium text-black shadow-lg">
+                    {t('mediaError.hint', { code: mediaErrorCode })}
+                </div>
+            )}
             {/* 顶层全局真实空间环境光 Canvas：覆盖整个播放器窗口 */}
             <canvas
                 ref={ambientCanvasRef}
