@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
     CirclePause,
     Dumbbell,
+    Eraser,
     FastForward,
     Gauge,
     Languages,
@@ -14,11 +15,13 @@ import {
     Settings2,
     SkipBack,
     SkipForward,
+    SlidersHorizontal,
     Sparkles,
     SquareDashedBottom,
 } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSWR, { useSWRConfig } from 'swr';
+import toast from 'react-hot-toast';
 
 import { playerApi } from '@/fronted/features/player/playerApi';
 
@@ -42,6 +45,9 @@ import { TrainingSettingsDialog } from '@/fronted/features/player/components/Tra
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { isSidebarHiddenByEnglish } from '@/fronted/features/player/components/sidePanelVisibility';
 import useSetting from '@/fronted/features/settings/settingsStore';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
+import { swrMutate, SWR_KEY } from '@/fronted/lib/swr-util';
+import { useShallow } from 'zustand/react/shallow';
 
 /**
  * 深色控制条上按钮的 hover 外观。
@@ -160,10 +166,22 @@ export function PlaybackModeControls({
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [trainingMenuOpen, setTrainingMenuOpen] = useState(false);
     const [tracksMenuOpen, setTracksMenuOpen] = useState(false);
+    const [preferencesMenuOpen, setPreferencesMenuOpen] = useState(false);
 
     useEffect(() => {
-        onMenuOpenChange?.(trainingMenuOpen || tracksMenuOpen || settingsOpen);
-    }, [trainingMenuOpen, tracksMenuOpen, settingsOpen, onMenuOpenChange]);
+        onMenuOpenChange?.(trainingMenuOpen || tracksMenuOpen || settingsOpen || preferencesMenuOpen);
+    }, [trainingMenuOpen, tracksMenuOpen, settingsOpen, preferencesMenuOpen, onMenuOpenChange]);
+
+    const pauseOnWordHover = useSetting((state) => state.values.get('player.pauseOnWordHover')) === 'true';
+    const autoPlayNext = usePlayer((state) => state.autoPlayNext);
+    const setSetting = useSetting((state) => state.setSetting);
+    const { podcastMode, setPodcastMode, changeFullScreen } = useLayout(
+        useShallow((s) => ({
+            podcastMode: s.podcastMode,
+            setPodcastMode: s.setPodcastMode,
+            changeFullScreen: s.changeFullScreen,
+        }))
+    );
 
     const playbackRate = usePlayerState((s) => s.playbackRate);
     // 句末行为与训练开关的写入统一走 PlayerActions，此处只订阅展示用的值
@@ -485,6 +503,82 @@ export function PlaybackModeControls({
 
                 {/* 硬字幕遮挡：一键开关，位置与大小在画面里直接拖贴片 */}
                 <HardsubMaskButton />
+
+                {/* 播放与学习偏好设置下拉菜单 */}
+                <Popover open={preferencesMenuOpen} onOpenChange={setPreferencesMenuOpen}>
+                    <Tooltip content={t('controlBox.title')} placement="above">
+                        <PopoverTrigger asChild>
+                            <button
+                                className={cn(TEXT_BUTTON_CLASS, 'text-white/80', DARK_BAR_BUTTON_HOVER)}
+                                aria-label={t('controlBox.title')}
+                            >
+                                <SlidersHorizontal className="w-3.5 h-3.5" />
+                                <span className="font-sans hidden lg:inline">{t('controlBox.title')}</span>
+                            </button>
+                        </PopoverTrigger>
+                    </Tooltip>
+                    <PopoverContent
+                        side="top"
+                        align="end"
+                        sideOffset={popoverOffset}
+                        className={cn('w-60', CONTROL_POPOVER_PANEL)}
+                    >
+                        <div className={CONTROL_POPOVER_LABEL}>
+                            {t('controlBox.description', { defaultValue: '精听与学习偏好' })}
+                        </div>
+                        <div className={CONTROL_POPOVER_SEPARATOR} />
+                        <ControlPopoverRow
+                            checked={pauseOnWordHover}
+                            label={t('controlBox.pauseOnWordHover')}
+                            title={t('controlBox.pauseOnWordHoverHint')}
+                            onActivate={async () => {
+                                const next = !pauseOnWordHover;
+                                await setSetting('player.pauseOnWordHover', next ? 'true' : 'false');
+                            }}
+                        />
+                        <ControlPopoverRow
+                            checked={autoPlayNext}
+                            label={t('controlBox.autoPlayNext')}
+                            title={t('controlBox.autoPlayNextHint')}
+                            onActivate={async () => {
+                                const next = !autoPlayNext;
+                                playerActions.setAutoPlayNext(next);
+                                await setSetting('player.autoPlayNext', next ? 'true' : 'false');
+                            }}
+                        />
+                        <ControlPopoverRow
+                            checked={podcastMode}
+                            label={t('controlBox.podcastMode')}
+                            title={t('controlBox.podcastModeHint')}
+                            onActivate={() => {
+                                const next = !podcastMode;
+                                setPodcastMode(next);
+                                changeFullScreen(false);
+                                const videoId = usePlaybackSession.getState().videoId;
+                                if (videoId) {
+                                    void playerApi.setPodcastModePreference(videoId, next);
+                                    void swrMutate(SWR_KEY.PLAYER_P);
+                                }
+                            }}
+                        />
+                        <div className={CONTROL_POPOVER_SEPARATOR} />
+                        <div className={CONTROL_POPOVER_LABEL}>
+                            {t('clearAdjust.tooltipTitle', { defaultValue: '字幕时间微调' })}
+                        </div>
+                        <ControlPopoverRow
+                            icon={<Eraser className={CONTROL_POPOVER_ICON} />}
+                            label={t('clearAdjust.button')}
+                            title={t('clearAdjust.tooltipSubtitle')}
+                            onActivate={async () => {
+                                const fileHash = usePlaybackSession.getState().srtHash;
+                                if (!fileHash) return;
+                                await playerApi.deleteTimestampAdjustment(fileHash);
+                                usePlaybackSession.getState().reloadSubtitles();
+                                toast(t('clearAdjust.done'), { icon: '👏' });
+                            }}
+                        />
+                    </PopoverContent>
+                </Popover>
 
                 {/* 训练模式参数配置弹窗 */}
                 <TrainingSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
