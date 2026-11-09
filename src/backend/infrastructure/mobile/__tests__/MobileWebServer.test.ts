@@ -120,13 +120,24 @@ describe('MobileWebServer 访问令牌鉴权', () => {
 describe('手机页的浏览器访问链路', () => {
     let server: MobileWebServer | null = null;
     let baseUrl = '';
+    let staticDirectory = '';
 
     beforeEach(async () => {
-        // 用真实的手机页产物做静态目录：这条链路要验证的正是「页面能起来」。
-        const staticDirectory = path.resolve(__dirname, '../../../../../resources/mobile');
-        if (!fs.existsSync(path.join(staticDirectory, 'index.html'))) {
-            throw new Error(`手机页产物缺失：${staticDirectory}`);
-        }
+        // 这里**不**读 `resources/mobile`：那是 `pnpm run build:mobile` 的产物，
+        // 在 `.gitignore` 里被排除。直接依赖它会让本组用例变成「本地有产物就绿、
+        // 干净 clone / CI 上必红」——CI 第一次真跑时就因此挂了 3 条
+        // （`手机页产物缺失：/home/runner/work/DashPlayer/DashPlayer/resources/mobile`）。
+        //
+        // 本组要验证的是 HTTP 层的行为：令牌换 Cookie、Cookie 鉴权、安全响应头、
+        // 以及「静态文件能按路径发出去」。这些与 Vite 产物的具体内容无关，
+        // 只需要一个含 `#root` 的 index.html 和一个可取的静态文件。
+        // 与同文件第一个 describe 用 `mkdtemp` 的做法保持一致（那组也是自造目录）。
+        staticDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'dp-mobile-page-test-'));
+        fs.writeFileSync(
+            path.join(staticDirectory, 'index.html'),
+            '<!doctype html><html><body><div id="root"></div></body></html>',
+        );
+        fs.writeFileSync(path.join(staticDirectory, 'favicon-32.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
         server = new MobileWebServer({
             staticDirectory,
             source: createSource(),
@@ -139,6 +150,7 @@ describe('手机页的浏览器访问链路', () => {
     afterEach(async () => {
         await server?.stop();
         server = null;
+        fs.rmSync(staticDirectory, { recursive: true, force: true });
     });
 
     it('带令牌打开页面会下发 Cookie，之后去令牌也能靠 Cookie 继续访问', async () => {
