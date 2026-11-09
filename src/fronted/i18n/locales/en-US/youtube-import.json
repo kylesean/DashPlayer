@@ -30,6 +30,7 @@
         "cookiesTitle": "Cookies file",
         "cookiesDescription": "Configure cookies.txt (Netscape format) to bypass bot checks; leave empty to connect directly",
         "cookiesPlaceholder": "/path/to/cookies.txt",
-        "chooseCookiesFile": "Choose cookies.txt file"
+        "chooseCookiesFile": "Choose cookies.txt file",
+        "featureDescription": "Paste a link to download the video and subtitles into your library"
     }
 }

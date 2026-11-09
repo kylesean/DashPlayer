@@ -89,13 +89,15 @@
         "urlDescription": "Supports http://, https:// and socks5://",
         "bypassRulesTitle": "Bypass Rules",
         "bypassRulesDescription": "Comma-separated domains/IPs/CIDRs that bypass proxy (e.g. localhost, 127.0.0.1)",
-        "directConnectionWarning": "No effective proxy detected: network requests such as YouTube downloads will go direct and are likely to fail on this network. Switch to Custom and fill in a proxy address if you need one."
+        "directConnectionWarning": "No effective proxy detected: network requests such as YouTube downloads will go direct and are likely to fail on this network. Switch to Custom and fill in a proxy address if you need one.",
+        "sections": {
+            "connection": "Connection",
+            "connectionDesc": "How DashPlayer reaches the network"
+        }
     },
     "mobile": {
         "title": "Mobile Access",
         "description": "Browse videos and subtitles from mobile browsers on local network",
-        "cardTitle": "Service Status",
-        "cardDescription": "Runs only while enabled; turns off immediately when disabled",
         "enabledTitle": "Enable mobile access",
         "enabledDescription": "Devices on the same Wi-Fi can directly open the access URL",
         "portTitle": "Port",
@@ -106,15 +108,18 @@
         "statusFailed": "Failed to start",
         "statusNotRunning": "Enabled, but the service is not running",
         "addressEmpty": "Enable the service to see the addresses here.",
-        "lanLabel": "LAN",
         "lanEmpty": "No LAN address detected.",
         "remoteHint": "To access it from outside your network, use a remote networking tool.",
         "securityHint": "The page has no password. Any device that can reach this port can open it, so only enable it on networks you trust.",
-        "portInvalid": "The port must be between 1 and 65535.",
         "copy": "Copy address",
         "copied": "Address copied",
         "open": "Open in browser",
-        "refresh": "Refresh"
+        "refresh": "Refresh",
+        "sections": {
+            "service": "Service",
+            "serviceDesc": "Toggle and listening port",
+            "addressDesc": "Open one of these addresses in a phone browser"
+        }
     },
     "checkUpdate": {
         "title": "Version Updates",
@@ -262,21 +267,17 @@
     "about": {
         "title": "About & Updates",
         "slogan": "The intelligent bilingual media player built for language learners",
-        "description": "DashPlayer combines on-device offline speech recognition with modern LLMs to help you master languages through real video content.",
         "appInfoTitle": "Product Information",
-        "appInfoDescription": "Explore DashPlayer version and feature highlights",
+        "appInfoDescription": "Version and update status",
         "resourcesTitle": "Resources",
         "resourcesDescription": "Read documentation, report issues, or contribute",
         "update": {
             "title": "Check for Updates",
-            "subtitle": "Keep DashPlayer updated with the latest features and fixes",
             "checkNow": "Check for Updates",
             "retry": "Retry",
             "newVersionFound": "New version available",
             "downloadNow": "Download New Release",
             "upToDateTitle": "You're up to date",
-            "upToDateDesc": "DashPlayer v{{version}} is running. No updates available.",
-            "failedTitle": "Failed to check for updates",
             "failedDescription": "Unable to fetch release details right now. Please try again later.",
             "errors": {
                 "rate_limited": "GitHub request limit reached. Please try again in a few minutes.",
@@ -285,28 +286,16 @@
             },
             "checking": "Checking for updates..."
         },
-        "features": {
-            "asrTitle": "Offline Speech Recognition",
-            "asrDesc": "Built-in neural ASR model generates bilingual subtitles in seconds without network connections.",
-            "aiTitle": "Context-Aware AI Assistant",
-            "aiDesc": "Breaks down complex sentences and grammar rules with rich context and authentic pronunciations.",
-            "listenTitle": "Intensive Listening Lab",
-            "listenDesc": "Supports single-line looping, AB repeating, auto-pausing, and clip bookmarking.",
-            "privacyTitle": "Local-First Privacy",
-            "privacyDesc": "Vocabulary notes, transcription history, and saved clips stay completely on your machine."
-        },
         "links": {
             "docs": "Official Documentation",
             "docsDesc": "Explore tutorials, workflows, and shortcut guides",
             "github": "GitHub Repository",
             "githubDesc": "Submit issues, suggest features, or star the project",
             "releases": "Release Notes",
-            "releasesDesc": "Check latest updates and changelogs",
             "license": "Open Source License",
             "licenseDesc": "Free & open source under AGPLv3"
         },
-        "footer": "A deep customization of solidSpoon/DashPlayer",
-        "version": "Version {{version}}"
+        "footer": "A deep customization of solidSpoon/DashPlayer"
     },
     "storage": {
         "title": "Storage",

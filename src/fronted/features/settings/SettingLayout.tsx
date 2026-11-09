@@ -3,13 +3,13 @@ import React, { useMemo } from 'react';
 import {
     Boxes,
     Command,
-    Compass,
     Globe,
     HardDrive,
-    Link2,
+    Info,
     Palette,
     Settings,
     Smartphone,
+    SquarePlay,
 } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import {
@@ -50,8 +50,8 @@ const SETTING_ITEMS: SettingNavDef[] = [
     { key: 'storage', icon: HardDrive, labelKey: 'sections.storage' },
     { key: 'proxy', icon: Globe, labelKey: 'sections.proxy' },
     { key: 'mobile', icon: Smartphone, labelKey: 'sections.mobile' },
-    { key: 'import', icon: Link2, labelKey: 'sections.import' },
-    { key: 'about', icon: Compass, labelKey: 'sections.about' },
+    { key: 'import', icon: SquarePlay, labelKey: 'sections.import' },
+    { key: 'about', icon: Info, labelKey: 'sections.about' },
 ];
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, within } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import React from 'react';
 import ProxySetting from '@/fronted/features/settings/ProxySetting';
@@ -17,6 +17,12 @@ beforeAll(() => {
 });
 
 afterEach(() => cleanup());
+
+/** 代理模式分段控件里的某个档位。 */
+const findModeRadio = async (name: string) => {
+    const group = await screen.findByRole('radiogroup', { name: 'proxy.modeTitle' }, { timeout: 3000 });
+    return within(group).getByRole('radio', { name });
+};
 
 const renderPage = () => {
     return render(
@@ -38,9 +44,8 @@ describe('ProxySetting（SWR 版本）', () => {
         } as never;
 
         renderPage();
-        const combo = await screen.findByRole('combobox', {}, { timeout: 3000 });
+        expect(await findModeRadio('proxy.modeCustom')).toBeChecked();
         await sleep(200);
-        expect(combo.textContent).toContain('proxy.modeCustom');
         expect(calls).toHaveLength(0);
     });
 
@@ -53,9 +58,8 @@ describe('ProxySetting（SWR 版本）', () => {
         } as never;
 
         renderPage();
-        const combo = await screen.findByRole('combobox', {}, { timeout: 3000 });
+        expect(await findModeRadio('proxy.modeNone')).toBeChecked();
         await sleep(200);
-        expect(combo.textContent).toContain('proxy.modeNone');
     });
 
     it('system 模式未探测到系统代理时显示直连警告', async () => {
@@ -84,7 +88,7 @@ describe('ProxySetting（SWR 版本）', () => {
         } as never;
 
         renderPage();
-        await screen.findByRole('combobox', {}, { timeout: 3000 });
+        await findModeRadio('proxy.modeSystem');
         await sleep(200);
         expect(screen.queryByText('proxy.directConnectionWarning')).toBeNull();
     });

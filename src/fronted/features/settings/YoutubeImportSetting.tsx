@@ -2,9 +2,10 @@ import React from 'react';
 import useSWR from 'swr';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { FileText, Link2 } from 'lucide-react';
+import { FileText, SquarePlay } from 'lucide-react';
 
 import { Banner } from '@astryxdesign/core/Banner';
+import { Divider } from '@astryxdesign/core/Divider';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -13,8 +14,8 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 
 import {
-    SettingCard,
-    SettingRow,
+    SettingField,
+    SettingSection,
     SettingsLoadingSkeleton,
 } from '@/fronted/features/settings/components/form';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
@@ -88,11 +89,12 @@ const YoutubeImportSetting: React.FC = () => {
                 ) : isLoading || !detail ? (
                     <SettingsLoadingSkeleton title={t('settings.title')} />
                 ) : (
-                    <SettingCard
+                    <SettingSection
                         title={t('settings.featureTitle')}
-                        icon={Link2 as unknown as IconType}
+                        description={t('settings.featureDescription')}
+                        icon={SquarePlay as unknown as IconType}
                     >
-                        <SettingRow
+                        <SettingField
                             title={t('settings.enableTitle')}
                             description={t('settings.enableDescription')}
                         >
@@ -103,13 +105,15 @@ const YoutubeImportSetting: React.FC = () => {
                                 isDisabled={saving}
                                 onChange={(checked) => void save({ enabled: checked })}
                             />
-                        </SettingRow>
+                        </SettingField>
 
-                        <SettingRow
+                        <Divider variant="subtle" />
+
+                        <SettingField
                             title={t('settings.cookiesTitle')}
                             description={t('settings.cookiesDescription')}
                         >
-                            <HStack gap={2} align="center">
+                            <HStack gap={2} vAlign="center">
                                 <TextInput
                                     label={t('settings.cookiesTitle')}
                                     isLabelHidden
@@ -119,11 +123,11 @@ const YoutubeImportSetting: React.FC = () => {
                                     onBlur={() => void commitCookiesPath()}
                                     placeholder={t('settings.cookiesPlaceholder')}
                                     size="sm"
-                                    width={260}
+                                    width={280}
                                 />
                                 <IconButton
-                                    label={t('settings.chooseCookiesFile', { defaultValue: '选择 cookies 文件' })}
-                                    tooltip={t('settings.chooseCookiesFile', { defaultValue: '选择 cookies 文件' })}
+                                    label={t('settings.chooseCookiesFile')}
+                                    tooltip={t('settings.chooseCookiesFile')}
                                     size="sm"
                                     variant="secondary"
                                     icon={<Icon icon={FileText as unknown as IconType} size="sm" />}
@@ -141,8 +145,8 @@ const YoutubeImportSetting: React.FC = () => {
                                     }}
                                 />
                             </HStack>
-                        </SettingRow>
-                    </SettingCard>
+                        </SettingField>
+                    </SettingSection>
                 )}
             </VStack>
         </SettingsPageShell>

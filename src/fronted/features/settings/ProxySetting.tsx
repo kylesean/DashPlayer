@@ -2,11 +2,11 @@ import React, { useEffect } from 'react';
 import useSWR from 'swr';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
 import {
-    SettingCard,
-    SettingRow,
+    SettingField,
+    SettingSection,
     SettingsLoadingSkeleton,
 } from '@/fronted/features/settings/components/form';
-import { Globe, Shield, Wifi } from 'lucide-react';
+import { Globe } from 'lucide-react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 import {
@@ -15,10 +15,11 @@ import {
 } from '@/fronted/features/settings/settingsApi';
 import type { ProxySettingDetailVO } from '@/common/contracts/proxy-setting-vo';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import { Selector } from '@astryxdesign/core/Selector';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { TextArea } from '@astryxdesign/core/TextArea';
 import { Banner } from '@astryxdesign/core/Banner';
+import { Divider } from '@astryxdesign/core/Divider';
 
 /** 网络代理表单数据结构。 */
 type ProxyFormValues = {
@@ -144,37 +145,42 @@ const ProxySetting: React.FC = () => {
                     />
                 )}
 
-                <SettingCard
-                    title={t('proxy.modeTitle')}
+                <SettingSection
+                    title={t('proxy.sections.connection')}
+                    description={t('proxy.sections.connectionDesc')}
                     icon={Globe}
                 >
-                    <SettingRow
+                    <SettingField
                         title={t('proxy.modeTitle')}
                         description={t('proxy.modeDescription')}
-                        icon={Wifi}
                     >
-                        <Selector
+                        <SegmentedControl
                             label={t('proxy.modeTitle')}
-                            isLabelHidden
                             value={currentMode}
-                            options={modeOptions}
-                            width={192}
-                            size="sm"
                             onChange={(value) => {
                                 setValue('mode', value as ProxyFormValues['mode'], {
                                     shouldDirty: true,
                                     shouldTouch: true,
                                 });
                             }}
-                        />
-                    </SettingRow>
+                            size="sm"
+                        >
+                            {modeOptions.map((option) => (
+                                <SegmentedControlItem
+                                    key={option.value}
+                                    value={option.value}
+                                    label={option.label}
+                                />
+                            ))}
+                        </SegmentedControl>
+                    </SettingField>
 
                     {currentMode === 'custom' && (
                         <>
-                            <SettingRow
+                            <Divider variant="subtle" />
+                            <SettingField
                                 title={t('proxy.urlTitle')}
                                 description={t('proxy.urlDescription')}
-                                icon={Globe}
                             >
                                 <TextInput
                                     label={t('proxy.urlTitle')}
@@ -182,19 +188,20 @@ const ProxySetting: React.FC = () => {
                                     value={url ?? ''}
                                     placeholder="http://127.0.0.1:7890"
                                     size="sm"
-                                    width={240}
-                                    onChange={(val) => {
-                                        setValue('url', val, {
+                                    width={320}
+                                    onChange={(value) => {
+                                        setValue('url', value, {
                                             shouldDirty: true,
                                             shouldTouch: true,
                                         });
                                     }}
                                 />
-                            </SettingRow>
-                            <SettingRow
+                            </SettingField>
+
+                            <Divider variant="subtle" />
+                            <SettingField
                                 title={t('proxy.bypassRulesTitle')}
                                 description={t('proxy.bypassRulesDescription')}
-                                icon={Shield}
                                 alignTop
                             >
                                 <TextArea
@@ -204,18 +211,18 @@ const ProxySetting: React.FC = () => {
                                     placeholder="localhost,127.0.0.1"
                                     rows={2}
                                     size="sm"
-                                    width={240}
-                                    onChange={(val) => {
-                                        setValue('bypassRules', val, {
+                                    width={320}
+                                    onChange={(value) => {
+                                        setValue('bypassRules', value, {
                                             shouldDirty: true,
                                             shouldTouch: true,
                                         });
                                     }}
                                 />
-                            </SettingRow>
+                            </SettingField>
                         </>
                     )}
-                </SettingCard>
+                </SettingSection>
             </SettingsPageShell>
         </form>
     );

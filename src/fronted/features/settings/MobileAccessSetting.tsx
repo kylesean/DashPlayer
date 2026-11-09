@@ -3,10 +3,10 @@ import useSWR from 'swr';
 import { useForm, useWatch } from 'react-hook-form';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
-import { Copy, ExternalLink, Link2, Smartphone, Wifi } from 'lucide-react';
+import { Copy, ExternalLink, Smartphone, Wifi } from 'lucide-react';
 
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
+import { Divider } from '@astryxdesign/core/Divider';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -18,8 +18,8 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { Banner } from '@astryxdesign/core/Banner';
 
 import {
-    SettingCard,
-    SettingRow,
+    SettingField,
+    SettingSection,
     SettingsLoadingSkeleton,
 } from '@/fronted/features/settings/components/form';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
@@ -149,15 +149,14 @@ const MobileAccessSetting: React.FC = () => {
                     />
                 )}
 
-                <SettingCard
-                    title={t('mobile.cardTitle')}
-                    description={t('mobile.cardDescription')}
+                <SettingSection
+                    title={t('mobile.sections.service')}
+                    description={t('mobile.sections.serviceDesc')}
                     icon={Smartphone as unknown as IconType}
                 >
-                    <SettingRow
+                    <SettingField
                         title={t('mobile.enabledTitle')}
                         description={t('mobile.enabledDescription')}
-                        icon={Wifi as unknown as IconType}
                     >
                         <Switch
                             label={t('mobile.enabledTitle')}
@@ -170,12 +169,13 @@ const MobileAccessSetting: React.FC = () => {
                                 });
                             }}
                         />
-                    </SettingRow>
+                    </SettingField>
 
-                    <SettingRow
+                    <Divider variant="subtle" />
+
+                    <SettingField
                         title={t('mobile.portTitle')}
                         description={t('mobile.portDescription')}
-                        icon={Wifi as unknown as IconType}
                     >
                         <NumberInput
                             label={t('mobile.portTitle')}
@@ -195,25 +195,23 @@ const MobileAccessSetting: React.FC = () => {
                                 }
                             }}
                         />
-                    </SettingRow>
-                </SettingCard>
+                    </SettingField>
+                </SettingSection>
 
-                <SettingCard
+                <Divider />
+
+                <SettingSection
                     title={t('mobile.addressTitle')}
-                    icon={Link2 as unknown as IconType}
-                >
-                    <VStack gap={4} padding={4}>
-                        <HStack vAlign="center" justify="between" gap={3}>
-                            <HStack vAlign="center" gap={2}>
-                                <StatusDot
-                                    variant={statusDotVariant}
-                                    label={statusText}
-                                    isPulsing={detail.running}
-                                />
-                                <Text weight="medium" size="sm">
-                                    {statusText}
-                                </Text>
-                            </HStack>
+                    description={t('mobile.sections.addressDesc')}
+                    icon={Wifi as unknown as IconType}
+                    action={(
+                        <HStack vAlign="center" gap={2}>
+                            <StatusDot
+                                variant={statusDotVariant}
+                                label={statusText}
+                                isPulsing={detail.running}
+                            />
+                            <Text size="sm" weight="medium">{statusText}</Text>
                             <Button
                                 label={t('mobile.refresh')}
                                 variant="ghost"
@@ -223,70 +221,64 @@ const MobileAccessSetting: React.FC = () => {
                                 }}
                             />
                         </HStack>
-
-                        {detail.running ? (
-                            <VStack gap={2}>
-                                <Text size="sm" weight="medium" color="secondary">
-                                    {t('mobile.lanLabel')}
-                                </Text>
-                                {detail.lanUrls.length > 0 ? (
-                                    <VStack gap={2}>
-                                        {detail.lanUrls.map((url) => (
-                                            <Card key={url} variant="default" padding={2}>
-                                                <HStack vAlign="center" justify="between" gap={3}>
-                                                    <Text size="xsm" hasTabularNumbers wordBreak="break-all">
-                                                        {url}
-                                                    </Text>
-                                                    <HStack vAlign="center" gap={1}>
-                                                        <IconButton
-                                                            label={t('mobile.copy')}
-                                                            tooltip={t('mobile.copy')}
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            icon={<Icon icon={Copy as unknown as IconType} size="sm" />}
-                                                            onClick={() => {
-                                                                copyText(url).catch(() => undefined);
-                                                            }}
-                                                        />
-                                                        <IconButton
-                                                            label={t('mobile.open')}
-                                                            tooltip={t('mobile.open')}
-                                                            size="sm"
-                                                            variant="ghost"
-                                                            icon={<Icon icon={ExternalLink as unknown as IconType} size="sm" />}
-                                                            onClick={() => {
-                                                                openUrl(url).catch(() => undefined);
-                                                            }}
-                                                        />
-                                                    </HStack>
-                                                </HStack>
-                                            </Card>
-                                        ))}
+                    )}
+                >
+                    {detail.running ? (
+                        detail.lanUrls.length > 0 ? (
+                            <VStack gap={0} width="100%">
+                                {detail.lanUrls.map((url, index) => (
+                                    <VStack key={url} gap={0} width="100%">
+                                        {index > 0 && <Divider variant="subtle" />}
+                                        <HStack vAlign="center" justify="between" gap={3} paddingBlock={2}>
+                                            <Text type="body" hasTabularNumbers wordBreak="break-all">
+                                                {url}
+                                            </Text>
+                                            <HStack vAlign="center" gap={1}>
+                                                <IconButton
+                                                    label={t('mobile.copy')}
+                                                    tooltip={t('mobile.copy')}
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon={<Icon icon={Copy as unknown as IconType} size="sm" />}
+                                                    onClick={() => {
+                                                        copyText(url).catch(() => undefined);
+                                                    }}
+                                                />
+                                                <IconButton
+                                                    label={t('mobile.open')}
+                                                    tooltip={t('mobile.open')}
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon={<Icon icon={ExternalLink as unknown as IconType} size="sm" />}
+                                                    onClick={() => {
+                                                        openUrl(url).catch(() => undefined);
+                                                    }}
+                                                />
+                                            </HStack>
+                                        </HStack>
                                     </VStack>
-                                ) : (
-                                    <Text size="xsm" color="secondary">
-                                        {t('mobile.lanEmpty')}
-                                    </Text>
-                                )}
+                                ))}
                             </VStack>
                         ) : (
-                            <Text size="xsm" color="secondary">
-                                {t('mobile.addressEmpty')}
+                            <Text type="supporting" color="secondary">
+                                {t('mobile.lanEmpty')}
                             </Text>
-                        )}
+                        )
+                    ) : (
+                        <Text type="supporting" color="secondary">
+                            {t('mobile.addressEmpty')}
+                        </Text>
+                    )}
 
-                        <Card variant="transparent" padding={2} className="border border-border/40 rounded-lg">
-                            <VStack gap={1}>
-                                <Text size="2xs" color="secondary">
-                                    • {t('mobile.remoteHint')}
-                                </Text>
-                                <Text size="2xs" color="secondary">
-                                    • {t('mobile.securityHint')}
-                                </Text>
-                            </VStack>
-                        </Card>
+                    <VStack gap={1}>
+                        <Text size="2xs" color="secondary">
+                            • {t('mobile.remoteHint')}
+                        </Text>
+                        <Text size="2xs" color="secondary">
+                            • {t('mobile.securityHint')}
+                        </Text>
                     </VStack>
-                </SettingCard>
+                </SettingSection>
             </VStack>
         </SettingsPageShell>
     );

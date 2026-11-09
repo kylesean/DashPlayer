@@ -30,6 +30,7 @@
         "cookiesTitle": "Cookies 文件",
         "cookiesDescription": "配置 cookies.txt（Netscape 格式）绕过风控验证，留空则直连",
         "cookiesPlaceholder": "/path/to/cookies.txt",
-        "chooseCookiesFile": "选择 cookies.txt 文件"
+        "chooseCookiesFile": "选择 cookies.txt 文件",
+        "featureDescription": "粘贴链接即可下载视频与字幕到本地"
     }
 }
