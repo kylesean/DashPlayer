@@ -13,6 +13,7 @@ import {
     MEDIA_MATTE_CLASS,
     MEDIA_VIGNETTE_CLASS,
 } from '@/fronted/features/player/components/mediaSurface';
+import { computePictureRect } from '@/fronted/features/player/components/hardsubMaskGeometry';
 import { cn } from '@/fronted/lib/utils';
 
 /**
@@ -66,7 +67,14 @@ export default function PlaybackStage({ className = '', onReady, onEnded }: Play
                 return;
             }
             const rootRect = rootContainer.getBoundingClientRect();
-            const videoRect = videoElement.getBoundingClientRect();
+            // 环境光对齐的是对象在画面里真实渲染的那块（contain 之后的矩形），
+            // 不是铺满面板的 <video> 盒子，否则光晕会被拉成面板比例。
+            const picture = computePictureRect(
+                rootRect.width,
+                rootRect.height,
+                videoElement.videoWidth,
+                videoElement.videoHeight
+            );
 
             const ratio = window.devicePixelRatio || 1;
             const resolutionFactor = 0.2; // 高性能低分辨率缓冲绘制
@@ -81,10 +89,10 @@ export default function PlaybackStage({ className = '', onReady, onEnded }: Play
             }
 
             // 动态计算视频在根容器中的真实绝对坐标与尺寸（自动适应普通分栏拖拽与全屏居中）
-            const relX = (videoRect.left - rootRect.left) / rootRect.width;
-            const relY = (videoRect.top - rootRect.top) / rootRect.height;
-            const relW = videoRect.width / rootRect.width;
-            const relH = videoRect.height / rootRect.height;
+            const relX = picture.left / rootRect.width;
+            const relY = picture.top / rootRect.height;
+            const relW = picture.width / rootRect.width;
+            const relH = picture.height / rootRect.height;
 
             // 柔和向外溢出延伸（Padding Expansion），让光晕自然蔓延渗透到右侧和下方
             const expandFactor = 0.25;
