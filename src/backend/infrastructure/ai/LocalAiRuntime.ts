@@ -35,6 +35,28 @@ import type RendererGateway from '@/backend/services/gateways/renderer/RendererG
 const MAX_COMPLETION_TOKENS = 2048;
 
 /**
+ * 完整性标记文件后缀。
+ *
+ * 校验通过的模型文件旁会留下 `<模型文件>.sha256.ok`，记录这次校验的
+ * 模型 id、SHA256 摘要以及当时的文件大小与修改时间。
+ */
+export const LOCAL_AI_INTEGRITY_MARKER_SUFFIX = '.sha256.ok';
+
+/**
+ * 模型完整性标记文件的内容：把一次成功的 SHA256 校验结果记忆下来。
+ */
+interface ModelIntegrityMarker {
+    /** 模型标识，避免同一个文件被当成其它模型的缓存复用。 */
+    modelId: string;
+    /** 校验通过的 SHA256 摘要。 */
+    sha256: string;
+    /** 校验时的文件字节数。 */
+    size: number;
+    /** 校验时的文件修改时间（毫秒时间戳）。 */
+    mtimeMs: number;
+}
+
+/**
  * 默认采样温度：通用对话档，与词典讲解等链路的生成特性匹配。
  * 翻译等近确定性任务由调用方通过 LocalGenerateTextOptions.temperature 调低。
  */
@@ -303,6 +325,111 @@ export class LocalAiRuntime implements LocalAiService {
         }
     }
 
+    /** 计算文件的 SHA256 摘要；大文件按流读取，避免整块载入内存。 */
+    private async sha256(file: string, signal?: AbortSignal): Promise<string> {
+        const hash = createHash('sha256');
+        const stream = fs.createReadStream(file, signal ? { signal } : {});
+        for await (const chunk of stream) hash.update(chunk);
+        return hash.digest('hex');
+    }
+
+    /**
+     * 读取完整性标记文件。
+     *
+     * @param markerPath 标记文件路径。
+     * @returns 合法标记内容；文件缺失或内容损坏时返回 `null`，按“需要重新校验”处理。
+     */
+    private async readIntegrityMarker(markerPath: string): Promise<ModelIntegrityMarker | null> {
+        try {
+            const raw = await fs.promises.readFile(markerPath, 'utf-8');
+            const parsed = JSON.parse(raw) as Partial<ModelIntegrityMarker>;
+            if (typeof parsed?.modelId !== 'string' || typeof parsed.sha256 !== 'string'
+                || typeof parsed.size !== 'number' || typeof parsed.mtimeMs !== 'number') {
+                return null;
+            }
+            return parsed as ModelIntegrityMarker;
+        } catch {
+            // 标记缺失或损坏都按“需要重新校验”处理。
+            return null;
+        }
+    }
+
+    /** 写入完整性标记文件；写入失败只记日志，不影响本次校验结论。 */
+    private async writeIntegrityMarker(markerPath: string, marker: ModelIntegrityMarker): Promise<void> {
+        try {
+            await fs.promises.writeFile(markerPath, JSON.stringify(marker), 'utf-8');
+        } catch (error) {
+            this.logger.warn('model integrity marker write failed', { markerPath, error });
+        }
+    }
+
+    /**
+     * 为已安装的模型文件补写完整性标记，让下次启动不必重新哈希整个模型。
+     *
+     * @param model 模型定义。
+     * @param modelPath 模型文件路径。
+     */
+    private async markModelVerified(model: LocalAiModelDefinition, modelPath: string): Promise<void> {
+        if (!model.sha256) {
+            return;
+        }
+        try {
+            const stat = await fs.promises.stat(modelPath);
+            await this.writeIntegrityMarker(`${modelPath}${LOCAL_AI_INTEGRITY_MARKER_SUFFIX}`, {
+                modelId: model.id,
+                sha256: model.sha256,
+                size: stat.size,
+                mtimeMs: stat.mtimeMs,
+            });
+        } catch (error) {
+            this.logger.warn('model integrity marker write failed', { model: model.id, error });
+        }
+    }
+
+    /**
+     * 校验已安装模型文件的 SHA256 完整性。
+     *
+     * 为什么必须有这一步：模型文件有 1.28GB，只比对字节数分不清“完整”与
+     * “恰好同尺寸的损坏文件”，损坏文件会被当成已安装模型直接加载进推理进程。
+     * 但每次启动都重算一遍 SHA256 又太慢（等于每次启动重读 1.28GB），
+     * 所以把校验结果记忆在模型文件旁的标记文件里：标记记录的 size 与 mtimeMs
+     * 与当前文件一致、且摘要等于期望摘要时，说明文件自上次校验以来没有被改动，
+     * 直接复用结论；否则重新计算摘要。
+     *
+     * 摘要不符时删除损坏文件并抛出明确错误，避免它继续被当作“已安装”。
+     *
+     * @param model 模型定义。
+     * @param modelPath 模型文件路径。
+     * @param signal 可选的取消信号。
+     */
+    private async verifyModelIntegrity(model: LocalAiModelDefinition, modelPath: string, signal?: AbortSignal): Promise<void> {
+        // 自定义模型没有可信摘要（来源由用户自行保证），只能做存在性检查。
+        if (!model.sha256) {
+            return;
+        }
+        const markerPath = `${modelPath}${LOCAL_AI_INTEGRITY_MARKER_SUFFIX}`;
+        const stat = await fs.promises.stat(modelPath);
+        const marker = await this.readIntegrityMarker(markerPath);
+        if (marker && marker.modelId === model.id && marker.sha256 === model.sha256
+            && marker.size === stat.size && marker.mtimeMs === stat.mtimeMs) {
+            // 文件自上次校验以来未变化，复用标记里的结论，不再读取整个模型。
+            return;
+        }
+        const digest = await this.sha256(modelPath, signal);
+        if (digest !== model.sha256) {
+            // 损坏文件留着只会被反复当成“已安装”，删除并作废标记后由用户重新下载。
+            await fs.promises.rm(markerPath, { force: true });
+            await fs.promises.rm(modelPath, { force: true });
+            throw new Error(`模型「${model.name}」SHA256 校验失败，文件已损坏并被删除，请重新下载`);
+        }
+        await this.writeIntegrityMarker(markerPath, {
+            modelId: model.id,
+            sha256: model.sha256,
+            size: stat.size,
+            mtimeMs: stat.mtimeMs,
+        });
+    }
+
     /** 返回完整的安装和下载快照，页面重新进入时可以恢复进度。 */
     public async getStatus(): Promise<LocalAiStatus> {
         const models = await Promise.all(LOCAL_AI_MODELS.map(async (model) => {
@@ -315,6 +442,8 @@ export class LocalAiRuntime implements LocalAiService {
                 bytes: model.bytes,
                 sizeLabel: model.sizeLabel,
                 memoryEstimateGb: this.memoryEstimateGb(model.bytes),
+                // 就绪状态只做体积判断：完整性需要整文件哈希，成本高且不适合在状态轮询里做，
+                // 真正的完整性关卡在安装与加载时的 SHA256 校验。
                 ready: await this.fileSize(modelPath) === model.bytes,
                 phase: downloading ? this.phase : 'idle',
                 downloaded: downloading ? this.downloaded : await this.fileSize(`${modelPath}.part`),
@@ -432,7 +561,12 @@ export class LocalAiRuntime implements LocalAiService {
     /** 下载固定版本，验证长度和 SHA256 后再原子重命名；损坏数据显式报错。 */
     protected async install(model: LocalAiModelDefinition, signal: AbortSignal): Promise<void> {
         const modelPath = await this.modelPath(model);
-        if (await this.fileSize(modelPath) === model.bytes) return;
+        if (await this.fileSize(modelPath) === model.bytes) {
+            // 已安装的文件不能只看体积：同尺寸的损坏文件会被当成已安装模型继续使用。
+            // 这里补一次 SHA256 校验；校验结论由标记文件记忆，重复安装不会反复读整个模型。
+            await this.verifyModelIntegrity(model, modelPath, signal);
+            return;
+        }
         const partial = `${modelPath}.part`;
         await fs.promises.mkdir(path.dirname(modelPath), { recursive: true });
         const existing = await this.fileSize(partial);
@@ -470,12 +604,12 @@ export class LocalAiRuntime implements LocalAiService {
         if (await this.fileSize(partial) !== model.bytes) throw new Error('模型下载不完整，请继续下载');
         this.phase = 'verifying';
         this.emitProgress(model.id, true);
-        const hash = createHash('sha256');
-        const stream = fs.createReadStream(partial, { signal });
-        for await (const chunk of stream) hash.update(chunk);
-        if (hash.digest('hex') !== model.sha256) throw new Error('模型 SHA256 校验失败，请删除模型后重新下载');
+        const digest = await this.sha256(partial, signal);
+        if (digest !== model.sha256) throw new Error('模型 SHA256 校验失败，请删除模型后重新下载');
         signal.throwIfAborted();
         await fs.promises.rename(partial, modelPath);
+        // 记录本次已通过的校验，下次启动不必重新哈希整个模型。
+        await this.markModelVerified(model, modelPath);
         this.logger.info('local model installed', { model: model.id });
     }
 
@@ -510,6 +644,8 @@ export class LocalAiRuntime implements LocalAiService {
             } else {
                 await fs.promises.rm(modelPath, { force: true });
                 await fs.promises.rm(`${modelPath}.part`, { force: true });
+                // 完整性标记与模型文件同目录，自定义模型需单独清理。
+                await fs.promises.rm(`${modelPath}${LOCAL_AI_INTEGRITY_MARKER_SUFFIX}`, { force: true });
             }
             this.modelErrors.delete(modelId);
             this.downloaded = 0;
@@ -564,6 +700,8 @@ export class LocalAiRuntime implements LocalAiService {
         if (await this.fileSize(modelPath) !== model.bytes) {
             throw new Error(`本地模型「${model.name}」未安装，请前往设置-服务凭据下载`);
         }
+        // 加载前必须通过完整性校验：同尺寸的损坏文件不得进入推理进程。
+        await this.verifyModelIntegrity(model, modelPath, signal);
         if (!(await this.runtimeReady())) {
             throw new Error('llama.cpp 运行时缺失，请重新执行 yarn run download 或重新安装应用');
         }
