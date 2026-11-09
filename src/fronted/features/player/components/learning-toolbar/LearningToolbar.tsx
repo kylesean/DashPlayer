@@ -72,9 +72,9 @@ export default function LearningToolbar() {
         <div
             ref={rootRef}
             className={cn(
-                'flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-t border-border/50 px-2',
+                'flex h-12 shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/40 px-3 bg-surface/30',
                 'text-muted-foreground transition-opacity duration-200',
-                'opacity-75 focus-within:opacity-100 group-hover/subtitles:opacity-100',
+                'opacity-90 focus-within:opacity-100 group-hover/subtitles:opacity-100',
                 '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             )}
         >
@@ -97,7 +97,7 @@ export default function LearningToolbar() {
                         singleRepeat ? style.accent.amber : style.idle
                     )}
                 >
-                    <Repeat1 className="w-3.5 h-3.5 stroke-[2.2]" />
+                    <Repeat1 className="w-4 h-4 stroke-[2]" />
                 </button>
             </Tooltip>
 
@@ -115,7 +115,7 @@ export default function LearningToolbar() {
                         autoPause ? style.accent.emerald : style.idle
                     )}
                 >
-                    <CirclePause className="w-3.5 h-3.5 stroke-[2.2]" />
+                    <CirclePause className="w-4 h-4 stroke-[2]" />
                 </button>
             </Tooltip>
 

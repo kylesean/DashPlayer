@@ -5,7 +5,7 @@ import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { LocateFixed, Repeat, X } from 'lucide-react';
+import { BookOpen, LocateFixed, Repeat, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
@@ -327,15 +327,17 @@ export default function Subtitle() {
 
     const render = () => {
         return (
-            <div className="w-full h-full flex flex-col relative" ref={setBoundaryRef}>
+            <div className="w-full h-full flex flex-col relative select-none" ref={setBoundaryRef}>
                 {/* 伴读剧本流状态栏 */}
-                <div className="shrink-0 px-3 py-1.5 flex items-center justify-between border-b border-border/30 bg-background/50 backdrop-blur-md z-10 text-xs select-none">
-                    <div className="flex items-center gap-2">
-                        <span className="font-medium text-muted-foreground">{t('subtitleScript', { defaultValue: '伴读剧本' })}</span>
+                <div className="shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <BookOpen className="w-3.5 h-3.5 text-accent shrink-0" />
+                        <span className="font-medium text-foreground tracking-tight">{t('subtitleScript', { defaultValue: '伴读剧本' })}</span>
                         {subtitle.length > 0 && (
-                            <span className="text-[11px] font-mono text-muted-foreground/70">
-                                {subtitle.length} 句
-                            </span>
+                            <Badge
+                                variant="neutral"
+                                label={`${subtitle.length} 句`}
+                            />
                         )}
                         {virtualGroup.active && virtualGroup.sentences.length > 1 && (
                             <div className="flex items-center gap-1">
@@ -357,7 +359,7 @@ export default function Subtitle() {
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <Tooltip
                             content={showSideTranslation ? t('hideSideTranslation', { defaultValue: '隐藏侧栏译文' }) : t('showSideTranslation', { defaultValue: '显示侧栏译文' })}
                             placement="below"
@@ -366,10 +368,10 @@ export default function Subtitle() {
                                 type="button"
                                 onClick={() => changeShowSideTranslation()}
                                 className={twJoin(
-                                    'px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer',
+                                    'px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer border',
                                     showSideTranslation
-                                        ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                                        : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                                        ? 'bg-accent-muted/20 text-accent border-accent/30 hover:bg-accent-muted/30'
+                                        : 'bg-muted/60 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
                                 )}
                             >
                                 {t('sideTranslation', { defaultValue: '译' })}
@@ -381,7 +383,7 @@ export default function Subtitle() {
                                 <button
                                     type="button"
                                     onClick={() => syncIntoView(currentListPosition)}
-                                    className="p-1 rounded-md text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                                    className="p-1 rounded-md text-accent hover:bg-accent-muted/20 transition-colors cursor-pointer"
                                     aria-label={t('controlButton.backToPlayhead')}
                                 >
                                     <LocateFixed className="w-3.5 h-3.5 animate-pulse" />
@@ -397,7 +399,7 @@ export default function Subtitle() {
                         scrollerRef={handleScrollerRef}
                         increaseViewportBy={200}
                         minOverscanItemCount={{ top: 3, bottom: 6 }}
-                        defaultItemHeight={55}
+                        defaultItemHeight={60}
                         ref={setVirtuoso}
                         className={twJoin(
                             'h-full w-full overflow-y-auto text-primary py-2',
@@ -409,10 +411,24 @@ export default function Subtitle() {
                         rangeChanged={handleRangeChanged}
                         itemContent={renderItem}
                         components={{
-                            Footer: () => <div className="h-52" />,
-                            Header: () => <div className={cn('h-0.5')} />,
+                            Footer: () => <div className="h-28" />,
+                            Header: () => <div className={cn('h-1')} />,
                         }}
                     />
+
+                    {/* 浏览离开播放点时的悬浮提示胶囊：平滑回到当前句 */}
+                    {scrollState === 'USER_BROWSING' && currentListPosition >= 0 && (
+                        <div className="absolute bottom-5 inset-x-0 z-20 flex justify-center pointer-events-none">
+                            <button
+                                type="button"
+                                onClick={() => syncIntoView(currentListPosition)}
+                                className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/90 border border-border/80 shadow-md backdrop-blur-md text-xs font-medium text-accent hover:bg-surface hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
+                            >
+                                <LocateFixed className="w-3.5 h-3.5 animate-pulse" />
+                                <span>{t('controlButton.backToPlayhead', { defaultValue: '回到当前播放行' })}</span>
+                            </button>
+                        </div>
+                    )}
 
                     {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
                     {sidebarHiddenByEnglish && (
@@ -429,9 +445,7 @@ export default function Subtitle() {
                         </div>
                     )}
 
-                    {/* 侧栏译文被关掉后就地提示并给回开按钮。
-                        放在 Virtuoso 之外（absolute，不设 Header/Footer）：既不占列表行高，
-                        也不会随句子卡片一起淡出——侧栏被收起时它必须还在，否则用户看不出发生了什么。 */}
+                    {/* 侧栏译文被关掉后就地提示并给回开按钮 */}
                     {!showSideTranslation && (
                         <div className="absolute right-2 top-2 z-10 pointer-events-none">
                             <button

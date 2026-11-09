@@ -11,7 +11,7 @@ import {
     type ToolbarTone,
 } from './toolbarStyles';
 
-const SEGMENT_CLASS = 'rounded px-2 text-[11px] font-medium transition-colors cursor-pointer';
+const SEGMENT_CLASS = 'rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer';
 
 /**
  * 字幕轨道三段开关：EN / 中 / 双语。

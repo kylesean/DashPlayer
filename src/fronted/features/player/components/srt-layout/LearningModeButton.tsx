@@ -51,7 +51,7 @@ export default function LearningModeButton({ variant = 'capsule' }: { variant?: 
                     learningVisible ? captionCardActiveClass('emerald') : CAPTION_CARD_IDLE_CLASS
                 )}
             >
-                <GraduationCap className="w-3.5 h-3.5" />
+                <GraduationCap className="w-4 h-4" />
             </button>
         </Tooltip>
     );

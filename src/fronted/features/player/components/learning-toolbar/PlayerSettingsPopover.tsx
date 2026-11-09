@@ -131,11 +131,10 @@ export default function PlayerSettingsPopover({
                         aria-label={t('controlBox.title')}
                         className={cn(
                             TOOLBAR_ICON_BUTTON,
-                            tone === 'overlay' && 'h-8 w-8',
                             style.idle
                         )}
                     >
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                        <SlidersHorizontal className="w-4 h-4" />
                     </button>
                 </PopoverTrigger>
             </Tooltip>

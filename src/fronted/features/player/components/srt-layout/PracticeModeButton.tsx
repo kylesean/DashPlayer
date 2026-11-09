@@ -53,7 +53,7 @@ export default function PracticeModeButton({ variant = 'capsule' }: { variant?: 
                     visible ? captionCardActiveClass('emerald') : CAPTION_CARD_IDLE_CLASS
                 )}
             >
-                <Mic className="w-3.5 h-3.5" />
+                <Mic className="w-4 h-4" />
             </button>
         </Tooltip>
     );

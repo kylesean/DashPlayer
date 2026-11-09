@@ -15,24 +15,24 @@ export type ToolbarTone = 'panel' | 'overlay';
 /** 激活态语义色：琥珀=循环/时间、翠绿=暂停/跟读/学习、中性=普通开关。 */
 export type ToolbarAccent = 'amber' | 'emerald' | 'neutral';
 
-/** 图标按钮基础形状（尺寸与圆角），配色由 tone 决定。 */
+/** 图标按钮基础形状（尺寸与圆角），升级为标准 32px 舒适触达网格。 */
 export const TOOLBAR_ICON_BUTTON =
-    'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors';
+    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer';
 
 /** 带文字/徽章的按钮基础形状，与同一行的图标按钮同高同圆角。 */
 export const TOOLBAR_TEXT_BUTTON =
-    'flex h-7 shrink-0 items-center gap-1 rounded-md px-2 text-xs font-medium leading-none transition-colors';
+    'flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium leading-none transition-all duration-150 cursor-pointer';
 
 /** 分段控件（EN / 中 / 双语）的外壳。 */
 export const TOOLBAR_SEGMENTED =
-    'flex shrink-0 items-center gap-0.5 rounded-md border p-0.5';
+    'flex shrink-0 items-center gap-0.5 rounded-lg border p-0.5 bg-surface/50';
 
 /** 分隔线：两种底色共用形状，颜色由 tone 决定。 */
-export const TOOLBAR_DIVIDER = 'mx-0.5 h-3.5 w-px shrink-0';
+export const TOOLBAR_DIVIDER = 'mx-1 h-4 w-px shrink-0';
 
 /** 普通开关按钮上挂徽章时的样式（进度、倍速、倒计时）。 */
 export const TOOLBAR_BADGE =
-    'rounded-sm px-1 py-0.5 font-mono text-[10px] font-semibold leading-none';
+    'rounded px-1.5 py-0.5 font-mono text-[10.5px] font-semibold leading-none';
 
 interface ToneClasses {
     /** 未激活图标按钮的 hover 外观。 */

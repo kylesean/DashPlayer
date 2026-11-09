@@ -258,21 +258,15 @@ export default function MainSubtitle() {
                 ref={subtitleContainerRef}
                 className="relative h-full w-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
-                <div className="flex min-h-full w-full flex-col items-center px-12 pt-3 pb-3 text-center text-textColor select-none">
-                    {/* 顶部弹性占位：比底部占位少，让文字动态停留在“中上”黄金位置（约 40% 高度） */}
-                    <div className="w-full flex-[2] min-h-0 pointer-events-none" />
-
-                    {/* 字幕内容区：永远受到外层 pt-3 顶距保护，绝不削顶 */}
+                <div className="flex min-h-full w-full flex-col items-center justify-center px-8 py-3 text-center text-textColor select-none">
+                    {/* 字幕内容区：受 py-3 保护，自然居中 */}
                     <div
                         ref={subtitleContentRef}
                         data-subtitle-active={block ? undefined : 'true'}
-                        className="flex flex-col justify-start items-center gap-1.5 w-full min-w-0 shrink-0"
+                        className="flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto"
                     >
                         {ele()}
                     </div>
-
-                    {/* 底部弹性占位：比顶部占位更多 */}
-                    <div className="w-full flex-[3] min-h-0 pointer-events-none" />
                 </div>
             </div>
         );

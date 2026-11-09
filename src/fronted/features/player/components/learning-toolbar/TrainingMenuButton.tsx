@@ -146,14 +146,12 @@ export default function TrainingMenuButton({
                         <button
                             className={cn(
                                 TOOLBAR_TEXT_BUTTON,
-                                // 画面控制条上倍速/音量是 32px，这里必须同高；字幕面板里跟 28px 图标对齐
-                                tone === 'overlay' && 'h-8',
                                 trainingActive
                                     ? style.accent.emerald
                                     : style.idle
                             )}
                         >
-                            <Dumbbell className="w-3.5 h-3.5" />
+                            <Dumbbell className="w-4 h-4" />
                             {showLabel ? <span className="font-sans">{trainingLabel}</span> : null}
 
                             {/* 进度徽章槽位：宽度按模式最长内容钉死、常驻（内容缺失时透明占位），

@@ -206,15 +206,15 @@ const PlaybackLayout = () => {
                                 <>
                                     <ResizableHandle
                                         className={cn(
-                                            'group relative h-2 w-full flex items-center justify-center',
-                                            'bg-border/60 hover:bg-border',
+                                            'group relative h-1.5 w-full flex items-center justify-center',
+                                            'bg-border/30 hover:bg-accent/40',
                                             'after:hidden transition-colors duration-150 cursor-row-resize z-20'
                                         )}
                                     >
-                                        <div className="w-10 h-1 rounded-full bg-muted-foreground/40 group-hover:bg-accent-bg group-hover:w-14 transition-all duration-200 shadow-xs" />
+                                        <div className="w-10 h-1 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:w-14 transition-all duration-200" />
                                     </ResizableHandle>
                                     <ResizablePanel
-                                        className={cn('overflow-hidden bg-surface/85 backdrop-blur-2xl')}
+                                        className={cn('overflow-hidden bg-surface/70 backdrop-blur-2xl')}
                                         minSize={0}
                                         defaultSize={sizeIb}
                                         onResize={(e) => {
@@ -275,20 +275,19 @@ const PlaybackLayout = () => {
                     <>
                         <ResizableHandle
                             className={cn(
-                                'group relative w-2 h-full flex items-center justify-center',
-                                'bg-border/60 hover:bg-border',
+                                'group relative w-1.5 h-full flex items-center justify-center',
+                                'bg-border/30 hover:bg-accent/40',
                                 'after:hidden transition-colors duration-150 cursor-col-resize z-20'
                             )}
                         >
-                            <div className="w-1 h-10 rounded-full bg-muted-foreground/40 group-hover:bg-accent-bg group-hover:h-14 transition-all duration-200 shadow-xs" />
+                            <div className="w-1 h-12 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:h-16 transition-all duration-200" />
                         </ResizableHandle>
                         <ResizablePanel
                             className={cn(
-                                'relative overflow-hidden backdrop-blur-2xl shadow-[inset_1px_1px_6px_rgba(0,0,0,0.06)] dark:shadow-[inset_1px_1px_8px_rgba(0,0,0,0.4)]',
-                                'transition-colors duration-300',
+                                'relative overflow-hidden backdrop-blur-2xl transition-colors duration-300',
                                 learningVisible
-                                    ? 'bg-surface/90 border-l border-default'
-                                    : 'bg-body/70 border-l border-default'
+                                    ? 'bg-surface/90 border-l border-border/40'
+                                    : 'bg-body/60 dark:bg-body/40 border-l border-border/40'
                             )}
                             defaultSize={sizeOb}
                             onResize={(e) => {
