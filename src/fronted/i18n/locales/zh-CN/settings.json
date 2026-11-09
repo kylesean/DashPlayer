@@ -468,6 +468,21 @@
             "step3Title": "3. 完成安装",
             "step3Hint": "文件放好后，回到这里点击上方的「下载全部」，应用会自动完成校验与安装。"
         },
+        "dictionaryPack": {
+            "title": "本地词典包（自备）",
+            "description": "导入你自己合法持有的词典文件；应用不内置、不下载任何版权词典。",
+            "import": "导入词典",
+            "formats": "支持 StarDict(.ifo)、CSV(word, phonetic, translation)、SQLite(entries 表)",
+            "empty": "还没有导入任何词典，查词会使用内置离线词典。",
+            "loading": "正在读取词典列表…",
+            "meta": "{{count}} 个词条 · {{format}}",
+            "remove": "删除",
+            "removeConfirm": "删除词典「{{name}}」？文件会一并移除。",
+            "imported": "词典导入完成",
+            "importFailed": "词典导入失败：{{message}}",
+            "removeFailed": "删除词典失败：{{message}}",
+            "saveFailed": "保存词典状态失败：{{message}}"
+        },
         "preference": {
             "title": "翻译与查词偏好",
             "description": "字幕翻译与词典用哪一档资源，以及翻译风格。",

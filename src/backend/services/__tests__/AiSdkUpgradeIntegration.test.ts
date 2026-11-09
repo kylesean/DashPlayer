@@ -47,6 +47,7 @@ import type DpTaskService from '../DpTaskService';
 import type AiProviderService from '../AiProviderService';
 import type SettingService from '../SettingService';
 import type LocalAiService from '../LocalAiService';
+import type ImportedDictionaryService from '../ImportedDictionaryService';
 import type SentenceLearningService from '../SentenceLearningService';
 import type CacheService from '../CacheService';
 import type ResourceFallbackService from '../ResourceFallbackService';
@@ -389,6 +390,9 @@ const runTests = (): void => {
                 const builtinFixture = createBuiltinDictionaryFixture([
                     { word: 'serendipity', phonetic: '', translation: 'n. 意外发现珍奇事物的运气' },
                 ]);
+                const importedDictionaryService = {
+                    lookup: vi.fn().mockReturnValue(null),
+                } as unknown as ImportedDictionaryService;
                 const localAiService = {
                     getActiveModelId: vi.fn().mockResolvedValue(''),
                     generate: vi.fn().mockRejectedValue(new Error('未配置本地模型')),
@@ -404,6 +408,7 @@ const runTests = (): void => {
                     settingService,
                     wordRepo,
                     new BuiltinDictionaryStoreImpl(builtinFixture.dbPath),
+                    importedDictionaryService,
                     localAiService,
                     resourceFallback,
                 );

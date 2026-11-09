@@ -6,6 +6,7 @@ import type { ResourceStatusSnapshot } from '@/common/contracts/resource-status'
 import type { MigrationFailureDetail } from '@/common/contracts/migration-failure';
 import type { GpuAcceleration } from '@/common/contracts/system-info';
 import type { SubtitleResolution } from '@/common/contracts/subtitle-resolution';
+import type { ImportedDictionaryVO } from '@/common/contracts/imported-dictionary';
 import type {OpenAIDictionaryResult} from '@/common/types/DictionaryResult';
 import type {SrtSentence, Sentence} from '@/common/types/SentenceC';
 import type {SentenceStruct} from '@/common/types/SentenceStruct';
@@ -253,6 +254,17 @@ interface SubtitleGenerationDef {
     'subtitle-generation/cancel': { params: { taskId: number }, return: void };
 }
 
+interface DictionaryImportDef {
+    /** 列出用户导入的词典。 */
+    'dictionary/list': { params: void, return: ImportedDictionaryVO[] };
+    /** 导入一个用户自备的词典文件。 */
+    'dictionary/import': { params: { filePath: string }, return: ImportedDictionaryVO };
+    /** 删除一个导入词典。 */
+    'dictionary/remove': { params: { id: string }, return: void };
+    /** 启用或停用导入词典。 */
+    'dictionary/set-enabled': { params: { id: string, enabled: boolean }, return: void };
+}
+
 interface StorageDef {
     'storage/usage': { params: void, return: StorageUsageVO };
     'storage/status': { params: void, return: StorageStatusVO };
@@ -433,6 +445,7 @@ export type ApiDefinitions = ApiDefinition
     & MediaDef
     & SubtitleTimestampAdjustmentControllerDef
     & SubtitleGenerationDef
+    & DictionaryImportDef
     & StorageDef
     & SettingsDef
     & ParakeetModelDef

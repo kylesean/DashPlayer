@@ -8,6 +8,7 @@ import { getEnvironmentSuffix } from '@/backend/utils/runtimeEnv';
 export enum AppStateDirectoryType {
     DATA = 'data',
     LOGS = 'logs',
+    DICTIONARIES = 'dictionaries',
 }
 
 /**

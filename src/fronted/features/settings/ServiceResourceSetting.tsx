@@ -31,6 +31,7 @@ import SettingsPageShell from '@/fronted/features/settings/components/form/Setti
 import { SettingCard, SettingRow, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
 import { ResourcePackCard } from '@/fronted/features/settings/components/ResourcePackCard';
 import { LocalLlmCard } from '@/fronted/features/settings/components/LocalLlmCard';
+import ImportedDictionaryCard from '@/fronted/features/settings/components/ImportedDictionaryCard';
 import { OpenAiCredentialCard } from '@/fronted/features/settings/components/OpenAiCredentialCard';
 import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
@@ -730,6 +731,15 @@ const ServiceResourceSetting: React.FC = () => {
                             />
                         </SettingRow>
                     )}
+                </SettingCard>
+
+                {/* ⑤ 用户自备词典包：只做导入，不内置版权内容 */}
+                <SettingCard
+                    title={t('resources.dictionaryPack.title')}
+                    description={t('resources.dictionaryPack.description')}
+                    icon={BookA as unknown as IconType}
+                >
+                    <ImportedDictionaryCard />
                 </SettingCard>
             </VStack>
         </SettingsPageShell>

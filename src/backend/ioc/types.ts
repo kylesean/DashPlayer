@@ -48,6 +48,7 @@ const TYPES = {
     WhisperCppGateway: Symbol('WhisperCppGateway'),
     TranscriptionEngineSelector: Symbol('TranscriptionEngineSelector'),
     SubtitleGenerationService: Symbol('SubtitleGenerationService'),
+    ImportedDictionaryService: Symbol('ImportedDictionaryService'),
     WhisperCppModelService: Symbol('WhisperCppModelService'),
     SherpaTtsModelService: Symbol('SherpaTtsModelService'),
     SherpaOnnxTtsCli: Symbol('SherpaOnnxTtsCli'),

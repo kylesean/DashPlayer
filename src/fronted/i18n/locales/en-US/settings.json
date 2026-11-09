@@ -468,6 +468,21 @@
             "step3Title": "3. Finish installation",
             "step3Hint": "Once the file is in place, come back and click \"Download all\" above — the app verifies and installs it for you."
         },
+        "dictionaryPack": {
+            "title": "Local dictionaries (bring your own)",
+            "description": "Import dictionary files you legally own. The app bundles and downloads no copyrighted dictionary content.",
+            "import": "Import dictionary",
+            "formats": "Supports StarDict(.ifo), CSV(word, phonetic, translation), SQLite(entries table)",
+            "empty": "No dictionaries imported yet; lookups use the built-in offline dictionary.",
+            "loading": "Loading dictionaries…",
+            "meta": "{{count}} entries · {{format}}",
+            "remove": "Remove",
+            "removeConfirm": "Remove dictionary \"{{name}}\"? Its files will be deleted.",
+            "imported": "Dictionary imported",
+            "importFailed": "Failed to import dictionary: {{message}}",
+            "removeFailed": "Failed to remove dictionary: {{message}}",
+            "saveFailed": "Failed to save dictionary state: {{message}}"
+        },
         "preference": {
             "title": "Translation & Lookup Preferences",
             "description": "Which resource handles subtitle translation and dictionary lookups, and the translation style.",

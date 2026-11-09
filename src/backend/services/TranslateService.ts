@@ -13,6 +13,7 @@ import type RendererGateway from '@/backend/services/gateways/renderer/RendererG
 import type AiProviderService from '@/backend/services/AiProviderService';
 import type SettingService from '@/backend/services/SettingService';
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
+import type ImportedDictionaryService from '@/backend/services/ImportedDictionaryService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type ResourceFallbackService from '@/backend/services/ResourceFallbackService';
@@ -222,6 +223,7 @@ export class TranslateServiceImpl implements TranslateService {
     private readonly settingService: SettingService;
     private readonly wordTranslatesRepository: WordTranslatesRepository;
     private readonly builtinDictionaryStore: BuiltinDictionaryStore;
+    private readonly importedDictionaryService: ImportedDictionaryService;
     private readonly localAiService: LocalAiService;
     private readonly resourceFallback: ResourceFallbackService;
 
@@ -233,6 +235,7 @@ export class TranslateServiceImpl implements TranslateService {
      * @param settingService 设置业务服务。
      * @param wordTranslatesRepository 单词翻译缓存仓储。
      * @param builtinDictionaryStore 预置本地词典存储端口。
+     * @param importedDictionaryService 用户导入词典服务。
      * @param localAiService 本地大模型推理服务。
      * @param resourceFallback 资源回退状态服务。
      */
@@ -242,6 +245,7 @@ export class TranslateServiceImpl implements TranslateService {
         @inject(TYPES.SettingService) settingService: SettingService,
         @inject(TYPES.WordTranslatesRepository) wordTranslatesRepository: WordTranslatesRepository,
         @inject(TYPES.BuiltinDictionaryStore) builtinDictionaryStore: BuiltinDictionaryStore,
+        @inject(TYPES.ImportedDictionaryService) importedDictionaryService: ImportedDictionaryService,
         @inject(TYPES.LocalAiService) localAiService: LocalAiService,
         @inject(TYPES.ResourceFallbackService) resourceFallback: ResourceFallbackService,
     ) {
@@ -250,6 +254,7 @@ export class TranslateServiceImpl implements TranslateService {
         this.settingService = settingService;
         this.wordTranslatesRepository = wordTranslatesRepository;
         this.builtinDictionaryStore = builtinDictionaryStore;
+        this.importedDictionaryService = importedDictionaryService;
         this.localAiService = localAiService;
         this.resourceFallback = resourceFallback;
     }
@@ -270,6 +275,12 @@ export class TranslateServiceImpl implements TranslateService {
         // 引擎失败时在 executeWordLookup 内回退预置词典。
         const builtinFirst = !forceRefresh && (!hasContext || !currentProvider);
         if (builtinFirst) {
+            // 用户导入的词典优先于内置 ECDICT：导入通常是为了更完整/更权威的释义。
+            const importedResult = this.importedDictionaryService.lookup(str);
+            if (importedResult) {
+                this.logger.info('命中导入词典', { word: str });
+                return importedResult;
+            }
             const builtinResult = this.builtinDictionaryStore.lookup(str);
             if (builtinResult) {
                 this.logger.info('命中预置词典', { word: str });
@@ -379,7 +390,8 @@ export class TranslateServiceImpl implements TranslateService {
                     error instanceof Error ? error.message : String(error)
                 );
                 // 引擎失败回预置词典:静态义项虽可能不合语境,也比空卡片强
-                return this.builtinDictionaryStore.lookup(str);
+                return this.importedDictionaryService.lookup(str)
+                    ?? this.builtinDictionaryStore.lookup(str);
             }
         }
         return await this.translateWordWithOpenAI(str, requestId, context);
