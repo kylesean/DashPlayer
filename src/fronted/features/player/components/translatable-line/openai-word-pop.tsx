@@ -1,5 +1,6 @@
 import React from 'react';
 import { RefreshCw, Star, Loader2 } from 'lucide-react';
+import { Badge } from '@astryxdesign/core/Badge';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import Playable from '@/fronted/components/shared/common/Playable';
 import { cn } from '@/fronted/lib/utils';
@@ -95,43 +96,30 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             </span>
                         )}
                         {hasMeta && (
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1.5 select-none">
+                            <div className="flex flex-wrap items-center gap-1.5 mt-2 select-none">
                                 {data.collins ? (
                                     <span
-                                        className="text-[11px] font-medium text-amber-500 tracking-tight"
+                                        className="text-[11px] font-semibold text-amber-500 tracking-tight"
                                         title={t('collinsRating')}
                                     >
                                         {`Collins ${'★'.repeat(data.collins)}`}
                                     </span>
                                 ) : null}
                                 {data.oxford ? (
-                                    <span className="text-[11px] leading-none px-1.5 py-1 rounded bg-muted/70 text-muted-foreground">
-                                        Oxford
-                                    </span>
+                                    <Badge variant="teal" label="Oxford" />
                                 ) : null}
                                 {data.bnc ? (
-                                    <span
-                                        className="text-[11px] leading-none px-1.5 py-1 rounded bg-muted/70 text-muted-foreground"
-                                        title="BNC"
-                                    >
-                                        {`BNC #${data.bnc}`}
-                                    </span>
+                                    <Badge variant="neutral" label={`BNC #${data.bnc}`} />
                                 ) : null}
                                 {data.frq ? (
-                                    <span
-                                        className="text-[11px] leading-none px-1.5 py-1 rounded bg-muted/70 text-muted-foreground"
-                                        title="COCA"
-                                    >
-                                        {`COCA #${data.frq}`}
-                                    </span>
+                                    <Badge variant="cyan" label={`COCA #${data.frq}`} />
                                 ) : null}
                                 {dictTags.map((tag) => (
-                                    <span
+                                    <Badge
                                         key={tag}
-                                        className="text-[11px] leading-none px-1.5 py-1 rounded bg-muted/70 text-muted-foreground"
-                                    >
-                                        {t(DICT_TAG_I18N_KEYS[tag])}
-                                    </span>
+                                        variant="neutral"
+                                        label={t(DICT_TAG_I18N_KEYS[tag])}
+                                    />
                                 ))}
                             </div>
                         )}
@@ -149,15 +137,15 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onFavorite}
                                 disabled={isFavoriting}
                                 className={cn(
-                                    'p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer',
-                                    isFavorited && 'text-amber-500 hover:text-amber-500',
+                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer',
+                                    isFavorited && 'text-amber-400 hover:text-amber-400 scale-105',
                                     isFavoriting && 'cursor-default'
                                 )}
                                 title={isFavorited ? t('unfavoriteWord') : t('favoriteWord')}
                             >
                                 {isFavoriting
-                                    ? <Loader2 size={14} className="animate-spin" />
-                                    : <Star size={14} fill={isFavorited ? 'currentColor' : 'none'} />}
+                                    ? <Loader2 size={15} className="animate-spin" />
+                                    : <Star size={15} className={cn('transition-transform duration-150', isFavorited ? 'fill-amber-400 scale-110' : '')} />}
                             </button>
                         )}
                         {onRefresh && (
@@ -241,7 +229,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
     return (
         <div
             className={cn(
-                'w-[360px] h-[400px] bg-popover text-popover-foreground shadow-lg border border-border/80 rounded-xl overflow-hidden text-left relative flex flex-col',
+                'w-[360px] h-[400px] bg-popover/95 backdrop-blur-2xl text-popover-foreground shadow-2xl border border-border/70 rounded-2xl overflow-hidden text-left relative flex flex-col',
                 className
             )}
         >

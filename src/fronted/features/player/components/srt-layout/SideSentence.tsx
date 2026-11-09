@@ -133,10 +133,10 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                         <span
                             key={part.id}
                             className={cn(
-                                'underline decoration-dotted underline-offset-[0.2em] transition-colors',
+                                'underline decoration-dotted decoration-amber-500/80 dark:decoration-amber-400/80 underline-offset-[0.25em] transition-colors',
                                 isCurrent
-                                    ? 'decoration-stone-900/60 dark:decoration-white/70'
-                                    : 'decoration-stone-400/50 dark:decoration-neutral-500/50'
+                                    ? 'text-amber-600 dark:text-amber-300'
+                                    : 'text-foreground'
                             )}
                         >
                             {part.content}
