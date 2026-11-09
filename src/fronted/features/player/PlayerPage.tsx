@@ -295,7 +295,10 @@ const PlayerWithControlsPage = () => {
             {showSideBar && (
                 <div
                     className={cn(
-                        'shrink-0 h-full z-20 transition-all duration-200 border-r border-border/40 bg-surface/50 backdrop-blur-md',
+                        // overflow-hidden：Astryx SideNav 折叠/展开时会短暂保留一份旧宽度的副本，
+                        // 容器不裁剪就会把它漏到旁边的字幕面板上（表现为浮空按钮压住“伴读剧本”标题）
+                        // 宽度切换交给 SideNav 自己的布局动画，外层不要再加 transition，否则两者互相打架
+                        'shrink-0 h-full z-20 overflow-hidden border-r border-border/40 bg-surface/50 backdrop-blur-md',
                         isCompact ? 'w-14' : 'w-52',
                     )}
                 >

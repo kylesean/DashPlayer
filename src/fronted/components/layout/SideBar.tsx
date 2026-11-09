@@ -60,7 +60,9 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
 
     return (
         <SideNav
-            collapsible={isCompact ? { isCollapsed: true } : false}
+            // hasButton: false —— 折叠/展开按钮由下方 footerIcons 自己提供一份；
+            // 交给 SideNav 再渲染一颗，会出现两颗重复的折叠控件
+            collapsible={isCompact ? { isCollapsed: true, hasButton: false } : false}
             header={
                 isCompact ? (
                     <Center width="100%" paddingBlock={2}>
