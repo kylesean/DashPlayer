@@ -259,6 +259,8 @@ app.on('ready', async () => {
     logStartupPhase('controllers');
     await seedDefaultVocabularyIfNeeded();
     await container.get<DpTaskService>(TYPES.DpTaskService).recoverInterruptedTasks();
+    // 清理超过保留期的终态任务：遗留的活动任务刚被标记为取消，同时清掉更早的历史行。
+    await container.get<DpTaskService>(TYPES.DpTaskService).cleanupExpiredTasks();
     logStartupPhase('background recovery');
     await runResyncAfterResetDbIfNeeded();
     await initProxyFeature();

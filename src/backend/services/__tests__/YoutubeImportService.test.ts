@@ -103,6 +103,8 @@ class FakeDpTaskService implements DpTaskService {
     }
 
     public async recoverInterruptedTasks(): Promise<void> {}
+
+    public async cleanupExpiredTasks(): Promise<void> {}
 }
 
 /**

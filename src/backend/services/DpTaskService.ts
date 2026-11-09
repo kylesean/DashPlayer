@@ -9,6 +9,23 @@ import TYPES from '@/backend/ioc/types';
 import type DpTaskRepository from '@/backend/services/repositories/DpTaskRepository';
 import { type DpTaskUpdatePatch } from '@/backend/services/repositories/DpTaskRepository';
 import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
+import { concurrency } from '@/backend/utils/concurrency';
+
+/**
+ * 终态任务保留时长：7 天。
+ *
+ * 终态任务（成功、失败、取消）只用于回溯执行结果，保留一周足够排查问题；
+ * 再久只是让 dp_task 表无限膨胀，没有任何收益。
+ */
+const TERMINAL_TASK_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * 机会式清理的最小间隔：1 小时。
+ *
+ * 清理本身很轻，但没必要在每次任务落库时都跑一遍；限流后长会话里
+ * 最多每小时清理一次，任务表不会无界增长。
+ */
+const TERMINAL_TASK_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * 后台任务业务服务。
@@ -36,6 +53,11 @@ export default interface DpTaskService {
      * 应用启动时将数据库中遗留的活动任务统一标记为已取消。
      */
     recoverInterruptedTasks(): Promise<void>;
+
+    /**
+     * 删除超过保留期的终态任务；活动任务不受影响。
+     */
+    cleanupExpiredTasks(): Promise<void>;
 }
 
 
@@ -68,6 +90,8 @@ export class DpTaskServiceImpl implements DpTaskService {
         }
     });
     private readonly taskMapping = new Map<number, Cancelable[]>();
+    /** 上次发起终态任务清理的时刻；用于把清理频率限制在每小时一次以内。 */
+    private lastCleanupAt = 0;
 
     /**
      * 构造后台任务业务服务。
@@ -328,6 +352,8 @@ export class DpTaskServiceImpl implements DpTaskService {
                     return;
                 }
             }
+            // 有任务落库后顺带清理过期终态任务，长会话里任务表不会无界增长。
+            this.maybeCleanupExpiredTasks();
         } finally {
             this.isFlushingUpdates = false;
             if (this.pendingUpdates.size > 0) {
@@ -344,6 +370,50 @@ export class DpTaskServiceImpl implements DpTaskService {
     public async recoverInterruptedTasks(): Promise<void> {
         this.logger.info('cancel all active tasks on startup');
         await this.dpTaskRepository.cancelAllActive();
+    }
+
+    /**
+     * 删除超过保留期的终态任务；应用启动时调用一次。
+     */
+    public async cleanupExpiredTasks(): Promise<void> {
+        this.lastCleanupAt = Date.now();
+        await this.runTerminalTaskCleanup();
+    }
+
+    /**
+     * 删除早于保留期截止点的终态任务。
+     *
+     * 互斥锁保证启动清理与机会式清理不会并发跑；活动任务由仓储的状态白名单挡住。
+     *
+     * 这里跳过内核的锁顺序校验：清理可能由任务落库触发，而任务落库可能发生在
+     * 资源信号量上下文里（例如 yt-dlp 下载过程中更新任务进度），
+     * 按“互斥锁必须先于信号量获取”的规则会被判成违规。
+     * 清理本身是叶子操作：只删一行数据，不再获取任何锁，不存在死锁风险。
+     */
+    private async runTerminalTaskCleanup(): Promise<void> {
+        await concurrency.withMutex('dp-task-cleanup', async () => {
+            const cutoff = TimeUtil.dateToUtc(new Date(Date.now() - TERMINAL_TASK_RETENTION_MS));
+            const removed = await this.dpTaskRepository.deleteTerminalBefore(cutoff);
+            if (removed > 0) {
+                this.logger.info('expired terminal tasks pruned', { removed, cutoff });
+            }
+        }, { skipOrderCheck: true });
+    }
+
+    /**
+     * 任务落库后机会式触发清理；距上次清理不足一小时时直接跳过。
+     *
+     * 失败只记日志：清理是后台维护动作，不能影响任务本身的写入与状态流转。
+     */
+    private maybeCleanupExpiredTasks(): void {
+        const now = Date.now();
+        if (now - this.lastCleanupAt < TERMINAL_TASK_CLEANUP_INTERVAL_MS) {
+            return;
+        }
+        this.lastCleanupAt = now;
+        void this.runTerminalTaskCleanup().catch((error) => {
+            this.logger.error('expired task cleanup failed', { error });
+        });
     }
 
     /**

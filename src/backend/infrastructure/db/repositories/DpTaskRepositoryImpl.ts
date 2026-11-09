@@ -1,4 +1,4 @@
-import { eq, or } from 'drizzle-orm';
+import { and, eq, inArray, lt, or } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 
 import type { Db } from '@/backend/infrastructure/db/createDb';
@@ -85,5 +85,24 @@ export default class DpTaskRepositoryImpl implements DpTaskRepository {
                 updated_at: TimeUtil.timeUtc(),
             })
             .where(or(eq(dpTask.status, DpTaskState.INIT), eq(dpTask.status, DpTaskState.IN_PROGRESS)));
+    }
+
+    /**
+     * 删除早于给定截止时间的终态任务。
+     *
+     * 状态白名单是硬约束：活动任务（init / in_progress）即使时间很旧也不会被删。
+     * `updated_at` 与 `created_at` 同为 `YYYY-MM-DD HH:mm:ss` 文本，字典序即时间序。
+     *
+     * @param cutoff 截止时间，数据库 UTC 时间字符串。
+     * @returns 被删除的行数。
+     */
+    public async deleteTerminalBefore(cutoff: string): Promise<number> {
+        const result = await this.db
+            .delete(dpTask)
+            .where(and(
+                inArray(dpTask.status, [DpTaskState.DONE, DpTaskState.FAILED, DpTaskState.CANCELLED]),
+                lt(dpTask.updated_at, cutoff),
+            ));
+        return result.changes ?? 0;
     }
 }
