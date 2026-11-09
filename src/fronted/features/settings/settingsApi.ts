@@ -341,4 +341,12 @@ export const settingsApi = {
     selectStorageFolder: (options: { defaultPath?: string; createDirectory?: boolean }) =>
         backendClient.call('system/select-folder', options),
 
+    /**
+     * 选择文件。
+     *
+     * @param formats 允许的文件扩展名列表，如 ['.txt']。
+     * @returns 用户选择的文件路径列表。
+     */
+    selectFile: (formats: string[]) =>
+        backendClient.call('system/select-file', formats),
 };

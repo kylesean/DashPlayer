@@ -2,10 +2,12 @@ import React from 'react';
 import useSWR from 'swr';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { Link2 } from 'lucide-react';
+import { FileText, Link2 } from 'lucide-react';
 
 import { Banner } from '@astryxdesign/core/Banner';
-import { type IconType } from '@astryxdesign/core/Icon';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
 import { Switch } from '@astryxdesign/core/Switch';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
@@ -16,6 +18,7 @@ import {
     SettingsLoadingSkeleton,
 } from '@/fronted/features/settings/components/form';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
+import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { youtubeImportApi } from '@/fronted/features/youtube-import/youtubeImportApi';
 
 /**
@@ -106,17 +109,38 @@ const YoutubeImportSetting: React.FC = () => {
                             title={t('settings.cookiesTitle')}
                             description={t('settings.cookiesDescription')}
                         >
-                            <TextInput
-                                label={t('settings.cookiesTitle')}
-                                isLabelHidden
-                                value={cookiesText}
-                                onChange={(value) => setCookiesDraft(value)}
-                                onEnter={() => void commitCookiesPath()}
-                                onBlur={() => void commitCookiesPath()}
-                                placeholder={t('settings.cookiesPlaceholder')}
-                                size="sm"
-                                width={288}
-                            />
+                            <HStack gap={2} align="center">
+                                <TextInput
+                                    label={t('settings.cookiesTitle')}
+                                    isLabelHidden
+                                    value={cookiesText}
+                                    onChange={(value) => setCookiesDraft(value)}
+                                    onEnter={() => void commitCookiesPath()}
+                                    onBlur={() => void commitCookiesPath()}
+                                    placeholder={t('settings.cookiesPlaceholder')}
+                                    size="sm"
+                                    width={260}
+                                />
+                                <IconButton
+                                    label={t('settings.chooseCookiesFile', { defaultValue: '选择 cookies 文件' })}
+                                    tooltip={t('settings.chooseCookiesFile', { defaultValue: '选择 cookies 文件' })}
+                                    size="sm"
+                                    variant="secondary"
+                                    icon={<Icon icon={FileText as unknown as IconType} size="sm" />}
+                                    onClick={async () => {
+                                        try {
+                                            const files = await settingsApi.selectFile(['.txt']);
+                                            if (files && files.length > 0) {
+                                                const selectedPath = files[0];
+                                                setCookiesDraft(selectedPath);
+                                                await save({ cookiesFilePath: selectedPath });
+                                            }
+                                        } catch {
+                                            // 忽略取消
+                                        }
+                                    }}
+                                />
+                            </HStack>
                         </SettingRow>
                     </SettingCard>
                 )}

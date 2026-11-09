@@ -131,13 +131,13 @@
         "searchPlaceholder": "搜索快捷键或功能名称...",
         "groups": {
             "playback": "播放与控制",
-            "playbackDesc": "控制视频播放、单句复读与跳转导航。",
+            "playbackDesc": "播放、复读与跳转",
             "subtitles": "字幕显示",
-            "subtitlesDesc": "控制英文字幕、中文字幕与逐词高亮的显示模式。",
+            "subtitlesDesc": "字幕与高亮显示",
             "timing": "时间轴微调",
-            "timingDesc": "微调当前句字幕的起始与结束时间点。",
+            "timingDesc": "微调时间轴",
             "tools": "界面与工具",
-            "toolsDesc": "呼出 AI 助手、收藏片段与打开控制面板。"
+            "toolsDesc": "AI 助手与控制面板"
         },
         "record": "录制快捷键",
         "edit": "编辑快捷键",
@@ -435,10 +435,10 @@
     },
     "resources": {
         "title": "服务与资源",
-        "description": "下载本地运行所需资源，按需安装本地增强资源包或接入云端服务。",
+        "description": "端侧离线模型与云端服务资源配置",
         "pack": {
             "title": "本地基础资源包",
-            "description": "发音与字幕识别，装一次即可离线使用。",
+            "description": "内置语音识别与发音引擎",
             "sizeHint": "约 1 GB",
             "ready": "已就绪",
             "notReady": "未下载",
@@ -513,7 +513,7 @@
         },
         "preference": {
             "title": "翻译与查词偏好",
-            "description": "字幕翻译与词典用哪一档资源，以及翻译风格。",
+            "description": "字幕翻译与词典引擎首选项",
             "subtitleLabel": "字幕翻译",
             "subtitleDesc": "翻译视频字幕时使用哪一档资源。",
             "dictionaryLabel": "词典查询",

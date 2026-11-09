@@ -131,13 +131,13 @@
         "searchPlaceholder": "Search shortcuts or action names...",
         "groups": {
             "playback": "Playback & Control",
-            "playbackDesc": "Control video playback, loop repetitions, and navigation.",
+            "playbackDesc": "Playback, loop, and navigation",
             "subtitles": "Subtitles Display",
-            "subtitlesDesc": "Toggle English, Chinese, and word-level highlighted subtitles.",
+            "subtitlesDesc": "Subtitle and word highlight modes",
             "timing": "Timeline Adjustment",
-            "timingDesc": "Fine-tune start and end timestamps for the current sentence.",
+            "timingDesc": "Fine-tune subtitle timing",
             "tools": "Interface & Tools",
-            "toolsDesc": "Trigger AI assistant, save favorite clips, and open control panel."
+            "toolsDesc": "AI assistant and control panel"
         },
         "record": "Record Shortcut",
         "edit": "Edit Shortcut",
@@ -435,10 +435,10 @@
     },
     "resources": {
         "title": "Services & Resources",
-        "description": "Download the resources needed to run locally, and install the local enhancement pack or connect cloud services as needed.",
+        "description": "On-device offline models and cloud service resources",
         "pack": {
             "title": "Local base resource pack",
-            "description": "Speech and subtitle recognition, offline after one install.",
+            "description": "Built-in speech synthesis and transcription engines",
             "sizeHint": "about 1 GB",
             "ready": "Ready",
             "notReady": "Not downloaded",
@@ -513,7 +513,7 @@
         },
         "preference": {
             "title": "Translation & Lookup Preferences",
-            "description": "Which resource handles subtitle translation and dictionary lookups, and the translation style.",
+            "description": "Subtitle translation and dictionary engine preferences",
             "subtitleLabel": "Subtitle translation",
             "subtitleDesc": "Which resource translates video subtitles.",
             "dictionaryLabel": "Dictionary lookup",

@@ -22,13 +22,14 @@
     },
     "settings": {
         "title": "YouTube 导入",
-        "description": "粘贴 YouTube 链接即可下载视频与字幕到视频库，离线精听学习。",
+        "description": "下载 YouTube 视频与字幕到本地进行精听学习",
         "loadFailed": "设置加载失败，请稍后重试。",
-        "featureTitle": "功能开关",
+        "featureTitle": "导入设置",
         "enableTitle": "启用 YouTube 链接导入",
-        "enableDescription": "关闭后隐藏首页入口，并停止接受新的导入请求；进行中的任务不受影响。首次使用会自动下载 yt-dlp 组件（约 40MB）。",
+        "enableDescription": "关闭后隐藏首页导入入口",
         "cookiesTitle": "Cookies 文件",
-        "cookiesDescription": "代理出口 IP 常触发 YouTube 人机验证，配置已登录账号导出的 cookies.txt（Netscape 格式，可用浏览器扩展 Get cookies.txt LOCALLY 导出）即可绕过；留空则不带 cookies。",
-        "cookiesPlaceholder": "/home/xxx/cookies.txt"
+        "cookiesDescription": "配置 cookies.txt（Netscape 格式）绕过风控验证，留空则直连",
+        "cookiesPlaceholder": "/path/to/cookies.txt",
+        "chooseCookiesFile": "选择 cookies.txt 文件"
     }
 }

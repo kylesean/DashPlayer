@@ -275,13 +275,16 @@ const MobileAccessSetting: React.FC = () => {
                             </Text>
                         )}
 
-                        <Text size="xsm" color="secondary">
-                            {t('mobile.remoteHint')}
-                        </Text>
-
-                        <Text size="xsm" color="secondary">
-                            {t('mobile.securityHint')}
-                        </Text>
+                        <Card variant="muted" padding={2}>
+                            <VStack gap={1}>
+                                <Text size="2xs" color="secondary">
+                                    • {t('mobile.remoteHint')}
+                                </Text>
+                                <Text size="2xs" color="secondary">
+                                    • {t('mobile.securityHint')}
+                                </Text>
+                            </VStack>
+                        </Card>
                     </VStack>
                 </SettingCard>
             </VStack>

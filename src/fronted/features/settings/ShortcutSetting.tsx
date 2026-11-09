@@ -572,7 +572,6 @@ const ShortcutSetting: React.FC = () => {
                         <SettingCard
                             key={group.id}
                             title={group.title}
-                            description={group.description}
                             icon={group.icon as unknown as IconType}
                         >
                             <Table density="compact" dividers="rows">
