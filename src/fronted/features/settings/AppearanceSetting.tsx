@@ -160,6 +160,11 @@ const AppearanceSetting: React.FC = () => {
         },
     ];
 
+    /** 当前选中的主题；用于在网格下方展示一行说明，避免每张卡都塞说明导致高度不一。 */
+    const selectedThemeFamily = themeFamilyOptions.find(
+        (opt) => opt.value === (currentThemeFamily || 'neutral'),
+    );
+
     /** Gothic 是深色专用主题：色彩模式选项禁用，避免用户以为浅色没生效。 */
     const isDarkOnlyTheme = currentThemeFamily === 'gothic';
     /** 深色专用主题下，色彩模式始终显示为深色（保存值不变，切回其他主题后恢复）。 */
@@ -189,7 +194,8 @@ const AppearanceSetting: React.FC = () => {
                     description={t('appearance.cardDescription')}
                     icon={Palette}
                 >
-                    {/* 设计主题：四张卡必须整行展开，不能塞进 SettingRow 右侧的操作槽 */}
+                    {/* 设计主题：只保留统一的色点 + 名称，说明放到网格下方一行，
+                        避免每张卡各写一段说明导致卡片高度参差、换行错位 */}
                     <VStack paddingInline={4} paddingBlock={3} gap={2} width="100%">
                         <HStack gap={2} align="center">
                             <Icon icon={Palette} size="sm" color="secondary" />
@@ -203,8 +209,8 @@ const AppearanceSetting: React.FC = () => {
                             </VStack>
                         </HStack>
                         <Grid
-                            columns={{ minWidth: 150, max: 4 }}
-                            gap={3}
+                            columns={{ minWidth: 120, max: 4 }}
+                            gap={2}
                             width="100%"
                         >
                             {themeFamilyOptions.map((opt) => {
@@ -214,6 +220,7 @@ const AppearanceSetting: React.FC = () => {
                                         key={opt.value}
                                         label={opt.label}
                                         isSelected={isSelected}
+                                        height={64}
                                         padding={2}
                                         onChange={() => {
                                             if (!isSelected) {
@@ -224,28 +231,28 @@ const AppearanceSetting: React.FC = () => {
                                             }
                                         }}
                                     >
-                                        <VStack gap={1} align="start">
-                                            <HStack vAlign="center" gap={2}>
-                                                <span
-                                                    className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs ring-1 ring-border"
-                                                    style={{ backgroundColor: opt.previewColor }}
-                                                />
-                                                <Text
-                                                    type="body"
-                                                    weight={isSelected ? 'bold' : 'medium'}
-                                                    color={isSelected ? 'primary' : 'secondary'}
-                                                >
-                                                    {opt.label}
-                                                </Text>
-                                            </HStack>
-                                            <Text type="supporting" color="secondary">
-                                                {opt.desc}
+                                        <HStack vAlign="center" justify="center" gap={2} height="100%">
+                                            <span
+                                                className="h-3.5 w-3.5 shrink-0 rounded-[50%] shadow-xs ring-1 ring-border"
+                                                style={{ backgroundColor: opt.previewColor }}
+                                            />
+                                            <Text
+                                                type="body"
+                                                weight={isSelected ? 'bold' : 'medium'}
+                                                color={isSelected ? 'primary' : 'secondary'}
+                                            >
+                                                {opt.label}
                                             </Text>
-                                        </VStack>
+                                        </HStack>
                                     </SelectableCard>
                                 );
                             })}
                         </Grid>
+                        {selectedThemeFamily && (
+                            <Text type="supporting" color="secondary">
+                                {selectedThemeFamily.desc}
+                            </Text>
+                        )}
                     </VStack>
 
                     {/* 浅色/深色模式切换行 */}
