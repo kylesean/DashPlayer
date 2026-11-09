@@ -4,10 +4,34 @@
  */
 
 /**
- * 敏感字段名：命中即整体掩码。
- * 除常见密钥字段外，单独匹配独立 key 字段（如 openai.key），避免 apiKeys.openAi.key 漏过。
+ * 敏感字段名匹配规则：命中即整体掩码。
+ *
+ * - 前半段按「包含」匹配凭据关键词，覆盖 apiKey / api_key / API-KEY 等命名变体；
+ * - `^key` 覆盖独立 key 字段（openai.key、key-store、keystore）以及 key1 这类变体；
+ * - `key$` 覆盖 privateKey、session_key 这类以 key 结尾的复合名。
+ *
+ * 规则对原始字段名与归一化后的字段名都成立（分隔符可选），
+ * 因此直接测试原始字段名也不会漏判。
+ *
+ * 刻意选择「宁可多掩码」：key1、monkey 这类不含真实凭据的字段被一并掩掉，
+ * 只是日志里多几颗星，换来的是任何以 key 开头/结尾的命名都不会漏。
  */
-export const SENSITIVE_KEY_RE = /(apiKey|accessKey|secret|token|password|authorization|cookie|\bkey\b)/i;
+export const SENSITIVE_KEY_RE = /(api[-_]?key|access[-_]?key|pass[-_]?word|secret|token|passwd|pwd|authorization|auth|cookie|credential)|^key|key$/i;
+
+/**
+ * 归一化敏感字段名：转小写并去掉 `_`、`-` 分隔符。
+ *
+ * 为什么先归一化再匹配：旧实现直接用 `/\bkey\b/` 这类正则，靠词边界识别独立字段，
+ * 但真实配置里的键名大多是复合写法（snake_case 的 api_key、camelCase 的 privateKey），
+ * 词边界根本不成立，凭据字段会整条漏进日志。归一化把所有命名形态折叠成同一形状，
+ * 规则才不会随命名风格漏网——请勿为了“简化”把这里改回按词边界匹配。
+ *
+ * @param key 原始字段名。
+ * @returns 归一化后的字段名（小写且不含 `_`、`-`）。
+ */
+export function normalizeSensitiveKey(key: string): string {
+    return key.toLowerCase().replace(/[_-]/g, '');
+}
 
 /** 敏感值模式：字符串中命中即替换为掩码占位。 */
 const SENSITIVE_VALUE_PATTERNS: RegExp[] = [
@@ -21,7 +45,7 @@ const SENSITIVE_VALUE_PATTERNS: RegExp[] = [
  * @returns 命中敏感字段名返回 true。
  */
 export function isSensitiveKey(key: string): boolean {
-    return SENSITIVE_KEY_RE.test(key);
+    return SENSITIVE_KEY_RE.test(normalizeSensitiveKey(key));
 }
 
 /**
