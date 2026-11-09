@@ -85,6 +85,14 @@ const TRAINING_BADGE_CLASS =
     'font-mono text-[10px] font-semibold leading-none bg-white/20 text-white px-1 py-0.5 rounded-sm';
 
 /**
+ * 弹层里紧跟某个开关的一行白话说明。
+ *
+ * 打在行下方而不是只塞 title：像「碎句合并」「随英文字幕隐藏」这类开关，
+ * 光看勾选变化看不出它改的是显示还是数据，先给一句解释才不会点完一脸问号。
+ */
+const POPOVER_ROW_HINT = '-mt-1 px-2 pb-1.5 text-[10px] leading-snug text-neutral-400';
+
+/**
  * 把快捷键配置渲染成提示后缀。
  * @param key 快捷键文本，空表示未配置
  */
@@ -198,6 +206,7 @@ export function PlaybackModeControls({
 
     const repeatShortcut = useSetting((s) => s.setting('shortcut.repeatSingleSentence'));
     const autoPauseShortcut = useSetting((s) => s.setting('shortcut.autoPause'));
+    const englishTrackShortcut = useSetting((s) => s.setting('shortcut.toggleEnglishDisplay'));
 
     const showEn = usePlayerUi((state) => state.showEn);
     const showCn = usePlayerUi((state) => state.showCn);
@@ -223,6 +232,8 @@ export function PlaybackModeControls({
         void mutateGlobalConfig('player/getMeaningGroupResegmentation', next ? 'true' : 'false', {
             revalidate: false,
         });
+        // 这个开关改的是解析结果，当次播放不会变；不给提示会被当成“点了没反应”
+        toast(t('controlBox.meaningGroupResegmentationChanged'));
     };
     const changeShowSideTranslation = usePlayerUi((state) => state.changeShowSideTranslation);
     const changeSyncSide = usePlayerUi((state) => state.changeSyncSide);
@@ -448,7 +459,7 @@ export function PlaybackModeControls({
                         side="top"
                         align="end"
                         sideOffset={popoverOffset}
-                        className={cn('w-56', CONTROL_POPOVER_PANEL)}
+                        className={cn('w-64', CONTROL_POPOVER_PANEL)}
                     >
                         <div className={CONTROL_POPOVER_LABEL}>
                             {t('controlBox.subtitleTracks')}
@@ -469,18 +480,28 @@ export function PlaybackModeControls({
                             label={t('controlBox.showSourceZh')}
                             onActivate={() => changeShowSourceZh()}
                         />
-                        {/* 整句模式：连续字幕行按标点与停顿归并成完整意群，导航/循环/自动暂停以意群为单位 */}
+                        {/* 显示方式：只影响渲染与循环单位，字幕文件本身不变 */}
+                        <div className={CONTROL_POPOVER_SEPARATOR} />
+                        <div className={CONTROL_POPOVER_LABEL}>
+                            {t('controlBox.displayModeLabel')}
+                        </div>
                         <ControlPopoverRow
                             checked={sentenceBlockMode}
                             label={t('controlBox.sentenceBlockMode')}
                             onActivate={() => changeSentenceBlockMode()}
                         />
-                        {/* 意群重切分：解析层把碎片字幕重切分成完整意群（切换后重新打开视频生效） */}
+                        <p className={POPOVER_ROW_HINT}>{t('controlBox.sentenceBlockModeHint')}</p>
+                        {/* 字幕文件：解析阶段改的是句子数据，必须重开视频 */}
+                        <div className={CONTROL_POPOVER_SEPARATOR} />
+                        <div className={CONTROL_POPOVER_LABEL}>
+                            {t('controlBox.subtitleFileLabel')}
+                        </div>
                         <ControlPopoverRow
                             checked={meaningGroupOn}
                             label={t('controlBox.meaningGroupResegmentation')}
                             onActivate={changeMeaningGroupResegmentation}
                         />
+                        <p className={POPOVER_ROW_HINT}>{t('controlBox.meaningGroupResegmentationHint')}</p>
                         {/* 侧栏：译文与「随英文字幕隐藏」同一块栏的两个开关，顺序与播放控制面板保持一致 */}
                         <div className={CONTROL_POPOVER_SEPARATOR} />
                         <div className={CONTROL_POPOVER_LABEL}>
@@ -496,7 +517,16 @@ export function PlaybackModeControls({
                             checked={syncSide}
                             label={t('controlBox.sidebarFollowsEnglish')}
                             title={sidebarHidden ? t('controlBox.sidebarHiddenNow') : t('controlBox.sidebarFollowsEnglishHint')}
-                            onActivate={() => changeSyncSide()}
+                            onActivate={() => {
+                                const next = !syncSide;
+                                changeSyncSide();
+                                // 英文轨道还开着时，侧栏不会有任何变化；不给反馈会被当成“点了没反应”
+                                if (next && showEn) {
+                                    toast(t('controlBox.sidebarFollowsEnglishEnabled', {
+                                        shortcut: (englishTrackShortcut || 'e').toUpperCase(),
+                                    }));
+                                }
+                            }}
                         />
                     </PopoverContent>
                 </Popover>
