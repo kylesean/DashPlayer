@@ -53,6 +53,15 @@ export default interface SentencePracticeService {
 const SAFE_KEY_PATTERN = /^[A-Za-z0-9_.-]{1,128}$/;
 
 /**
+ * 纯点号路径段：`.`、`..`、`...` 等。
+ *
+ * 上面的字符表允许点号，而 fileHash 会直接拼成 `${fileHash}/${uuid}.webm`，
+ * 于是 `..` 能让 path.join 逃出练习目录一级。这类段没有任何合法用途，
+ * 一律拒掉。
+ */
+const DOT_ONLY_SEGMENT_PATTERN = /^\.+$/;
+
+/**
  * 单次练习评分服务实现。
  */
 @injectable()
@@ -171,7 +180,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     }
 
     private validateKeys(fileHash: string, sentenceIndex: number, resegmented: boolean): void {
-        if (!fileHash || !SAFE_KEY_PATTERN.test(fileHash)) {
+        if (!fileHash || !SAFE_KEY_PATTERN.test(fileHash) || DOT_ONLY_SEGMENT_PATTERN.test(fileHash)) {
             throw new Error(`非法的 fileHash: ${fileHash}`);
         }
         if (!Number.isInteger(sentenceIndex) || sentenceIndex < 0) {
