@@ -40,6 +40,13 @@
 - **后续可选**：把 `deriveSentenceEndMode` 接到工具栏，让「当前模式」由派生值渲染，
   而不是各组件自行组合布尔值。
 
+  **已落地（第八轮）**，过程中查出一个真实缺陷：`deriveSentenceEndMode` 的裁决顺序
+  写成 `shadowing → singleRepeat → autoPause`，而引擎 `onTimeUpdate` 的分支顺序是
+  `sentenceLoop → autoPause → singleRepeat → hoverRepeat → shadowing`——**完全相反**。
+  这不是「显示错一个标签」：脏状态下 UI 会显示一个引擎并不会执行的模式。
+  已把顺序对齐引擎，并把 `TrainingMenuButton` 的标签与 tooltip 都改为读派生值
+  （此前该组件自己又写了一份「单句循环 → 句末暂停 → 跟读」的顺序，是三份副本中的第三份）。
+
 ### 2. 字幕翻译调度会话（已收敛）
 
 - **位置**：`src/backend/services/subtitle-translation/SubtitleTranslationScheduler.ts`
@@ -457,3 +464,27 @@ P1 六项全部落地，并逐个用变异测试证明断言有效。过程中�
 **验证**：policy a 残差 0、2 次写入；policy b 残差 284.9px、0 次写入（A/B 差分成立）；
 机读工具 12 条观测全通过（退出码 0）。变异验证：把基准改回 `before.scrollTop` 后，
 纯函数 2 例与 QA 用例同时转红。
+
+### 第八轮：P0/P1 剩余项收尾（导出常量解耦 + 两处状态机）
+
+**A. 导出常量解耦（跨边界契约收敛）**
+
+滚动用例的三个 testid 与日志前缀此前有三份副本：`Subtitle.tsx` 的字符串字面量、
+`dev/scrollWriteLog.ts` 的导出、`qa/support/scroll-anchor-protocol.ts`。任何一处改名
+都不会让另一处报错，只会让 e2e 静默定位不到元素——而 e2e 不进 CI，没人会发现。
+
+收敛到 `src/common/constants/player-scroll-protocol.ts`（产品与用例共用的运行期契约），
+`.mjs` 工具用 Node 类型擦除直接 `import()` 它，不再手工镜像常量
+（此前镜像了 4 个值，工具恰恰是「不信任 playwright 退出码」的那一层，一漂就失去复核意义）。
+
+约束：该文件必须保持**零 import 的纯常量**，否则 Node 的 ESM 解析会因缺扩展名失败。
+
+**B. 跟读录音阶段（P0 #3 后续项）**
+
+`phase` 的三个取值、八个事件此前散在 4 个 `if` 与 2 个 effect 里。抽成
+`lib/recorder-phase.ts` 的纯转移表后，「`processing` 不接受 `CANCEL`」这条
+（上一轮修自身缺陷时补的）不再靠 `cancel()` 里自查，而是由表直接拒绝。
+
+**C. 句末模式裁决顺序（真实缺陷）**
+
+见上文 #1 的补充说明。三处优先级副本现在收敛为一处，且顺序与引擎分支对齐。
