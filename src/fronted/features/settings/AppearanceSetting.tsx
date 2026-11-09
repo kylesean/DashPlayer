@@ -118,25 +118,26 @@ const AppearanceSetting: React.FC = () => {
             value: 'neutral' as const,
             label: 'Neutral',
             desc: t('appearance.themeNeutralDesc'),
-            previewColor: '#77777c',
+            // 取色点必须用主题真实 accent，并区分 light/dark，避免"选米色出蓝按钮"
+            previewColor: 'light-dark(#1b1b1b, #f1f1f1)',
         },
         {
             value: 'stone' as const,
             label: 'Stone',
             desc: t('appearance.themeStoneDesc'),
-            previewColor: '#8f7154',
+            previewColor: 'light-dark(#25252a, #f0f0f9)',
         },
         {
             value: 'matcha' as const,
             label: 'Matcha',
             desc: t('appearance.themeMatchaDesc'),
-            previewColor: '#667d65',
+            previewColor: 'light-dark(#3e481d, #c0cba9)',
         },
         {
             value: 'butter' as const,
             label: 'Butter',
             desc: t('appearance.themeButterDesc'),
-            previewColor: '#d7c59c',
+            previewColor: 'light-dark(#225bff, #fdee8c)',
         },
     ];
 
@@ -164,12 +165,19 @@ const AppearanceSetting: React.FC = () => {
                     description={t('appearance.cardDescription')}
                     icon={Palette}
                 >
-                    {/* Astryx 主题家族切换行 */}
-                    <SettingRow
-                        title={t('appearance.themeFamilyTitle')}
-                        description={t('appearance.themeFamilyDescription')}
-                        icon={Palette}
-                    >
+                    {/* 设计主题：四张卡必须整行展开，不能塞进 SettingRow 右侧的操作槽 */}
+                    <VStack paddingInline={4} paddingBlock={3} gap={2} width="100%">
+                        <HStack gap={2} align="center">
+                            <Icon icon={Palette} size="sm" color="secondary" />
+                            <VStack gap={0.5}>
+                                <Text type="body" weight="medium">
+                                    {t('appearance.themeFamilyTitle')}
+                                </Text>
+                                <Text type="supporting" color="secondary">
+                                    {t('appearance.themeFamilyDescription')}
+                                </Text>
+                            </VStack>
+                        </HStack>
                         <Grid
                             columns={{ minWidth: 150, max: 4 }}
                             gap={3}
@@ -214,7 +222,7 @@ const AppearanceSetting: React.FC = () => {
                                 );
                             })}
                         </Grid>
-                    </SettingRow>
+                    </VStack>
 
                     {/* 浅色/深色模式切换行 */}
                     <SettingRow
