@@ -12,7 +12,10 @@
   merge 会把已删除的模块整包带回并产生无法合流的 yarn.lock 冲突。
 - **分支只留 main**（2026-11-09 已清理）：远端 99 个分支全部是上游历史的拷贝（逐分支核对过
   HEAD 要么在上游任意分支、要么已并入 main），无任何 fork 独有工作，已全部删除。
-  以后各分支若要参考，`git fetch upstream 'refs/heads/*:refs/remotes/upstream/*'` 随时可取。
+  **tag 同样只留 v1.0.0 与 whisper-runtime-***：83 个上游历史 tag（v0.1.0~v6.17.0，均无 Release
+  挂靠）已删除，消除旧 v1.0.4/v1.0.5/v6.x 与新版本线并存的混淆。
+  以后若需参考旧分支或旧 tag，`git fetch upstream 'refs/heads/*:refs/remotes/upstream/*'`
+  与 `git fetch upstream --tags` 随时可取（只落在本地 upstream 引用，不回推 fork）。
 - **移动端例外**：`src/mobile/` 保持跟随上游（本 fork 未形成自己的移动端设计），
   上游移动端改动用整目录对齐方式吸收：`git checkout upstream/main -- src/mobile/`，
   随后核对 fork 独有文件是否被上游删除（对照本文件第 3 节）。
