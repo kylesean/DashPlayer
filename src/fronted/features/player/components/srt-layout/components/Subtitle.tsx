@@ -19,9 +19,11 @@ import { PLAYER_SIDEBAR_SCROLLER_TESTID } from '@/fronted/features/player/dev/sc
 import useBoundary from '@/fronted/features/player/hooks/useBoundary';
 import useChatPanel from '@/fronted/features/chat/chatStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
+import useSystem from '@/fronted/app/stores/systemStore';
 import type { Sentence } from '@/common/types/SentenceC';
 
 export default function Subtitle() {
+    const isMac = useSystem((state) => state.isMac);
     const showSideBar = useLayout((state) => state.showSideBar);
     const showEn = usePlayerUi((state) => state.showEn);
     const syncSide = usePlayerUi((state) => state.syncSide);
@@ -332,8 +334,16 @@ export default function Subtitle() {
         return (
             <div className="w-full h-full flex flex-col relative select-none" ref={setBoundaryRef}>
                 {/* 伴读剧本流状态栏 */}
-                <div className="shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
+                <div
+                    className={cn(
+                        'shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-xs',
+                        // 在非 macOS（Windows/Linux）平台且伴读剧本停靠在右侧时，为右上角窗口控制按钮（132px）预留安全避让区，杜绝重叠遮挡
+                        !isMac && transcriptPosition === 'right' && 'pr-36',
+                        // 在 macOS 平台且伴读剧本停靠在左侧时，为左上角原生红绿灯预留安全避让区
+                        isMac && transcriptPosition === 'left' && 'pl-20',
+                    )}
+                >
+                    <div className="flex items-center gap-2 min-w-0 shrink-0">
                         <BookOpen className="w-3.5 h-3.5 text-accent shrink-0" />
                         <span className="font-medium text-foreground tracking-tight">{t('subtitleScript', { defaultValue: '伴读剧本' })}</span>
                         {subtitle.length > 0 && (
@@ -362,7 +372,9 @@ export default function Subtitle() {
                             </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    {/* 状态栏中段留白区域作为窗口拖拽热区 */}
+                    <div className="drag flex-1 h-full min-w-3" />
+                    <div className="no-drag flex items-center gap-1.5 shrink-0">
                         {/* 伴读面板左右停靠切换按钮 */}
                         <Tooltip
                             content={transcriptPosition === 'right' ? t('dockToLeft', { defaultValue: '将伴读剧本切换至左侧' }) : t('dockToRight', { defaultValue: '将伴读剧本切换至右侧' })}
