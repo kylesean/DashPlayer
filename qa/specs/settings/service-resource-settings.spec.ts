@@ -7,6 +7,11 @@ async function openResourcesSetting(page: Page): Promise<void> {
     await openSettingsSection(page, '服务与资源', page.getByRole('heading', { name: '服务与资源' }));
 }
 
+/** 切到服务与资源页的页内分区。 */
+async function openResourcesTab(page: Page, tab: '本地资源' | '云端服务' | '翻译与查词'): Promise<void> {
+    await page.getByRole('tab', { name: tab, exact: true }).click();
+}
+
 /** 「API 类型」下拉的显示文案到存储枚举值的对应表。 */
 const API_FORMAT_BY_LABEL: Record<string, string> = {
     'OpenAI 兼容': 'openai',
@@ -27,6 +32,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-01] 云端服务填写的密钥、接口地址与模型清单会落盘，重进页面仍回显', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '云端服务');
 
         await page.getByPlaceholder('sk-...').fill(API_KEY);
         await page.getByPlaceholder('https://api.deepseek.com/v1').fill(ENDPOINT);
@@ -57,24 +63,27 @@ test.describe('服务与资源设置', () => {
         await chooseInRow(page, '识别方式', '兼容模式');
         await expect.poll(() => readConfigValue(userDataDir, 'transcription.engine')).toBe('sherpa-onnx');
 
-        // 翻译风格切到自定义后，提示词输入框才可编辑
+        // 翻译风格切到自定义后，提示词输入框才出现并可编辑
+        await openResourcesTab(page, '翻译与查词');
         await chooseInRow(page, '翻译风格', '自定义');
         const customStyleInput = page.locator('textarea');
         await customStyleInput.fill(CUSTOM_STYLE);
 
-        await chooseInRow(page, '超出词库时的补充方式', '不补充');
+        await chooseInRow(page, '词典查询', '不补充');
 
         await expect.poll(() => readConfigValue(userDataDir, 'features.openai.subtitleTranslationMode')).toBe('custom');
         await expect.poll(() => readConfigValue(userDataDir, 'features.openai.subtitleCustomStyle')).toBe(CUSTOM_STYLE);
         await expect.poll(() => readConfigValue(userDataDir, 'providers.dictionary')).toBe('none');
 
-        // 重进页面：三项选择与自定义提示词都来自后端回读
+        // 重进页面：三项选择与自定义提示词都来自后端回读（分区由 ?tab= 保留）
         await reloadSettingsPage(page, page.getByRole('heading', { name: '服务与资源' }));
-        await page.getByRole('button', { name: '查看详情' }).click();
-        await expect(selectInRow(page, '识别方式')).toHaveText('兼容模式');
         await expect(selectInRow(page, '翻译风格')).toHaveText('自定义');
         await expect(page.locator('textarea')).toHaveValue(CUSTOM_STYLE);
-        await expect(selectInRow(page, '超出词库时的补充方式')).toHaveText('不补充');
+        await expect(selectInRow(page, '词典查询')).toHaveText('不补充');
+
+        await openResourcesTab(page, '本地资源');
+        await page.getByRole('button', { name: '查看详情' }).click();
+        await expect(selectInRow(page, '识别方式')).toHaveText('兼容模式');
     });
 
     test('[SET-SVC-03] 识别方式在兼容模式与硬件加速之间往返切换都落盘，重进页面回显最后一次选择', async ({ session, userDataDir }) => {
@@ -98,6 +107,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-04] 使用厂商预设会回填接口地址与 API 类型并落盘，重进页面仍回显', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '云端服务');
 
         await page.getByRole('button', { name: '使用预设' }).click();
         const dialog = page.getByRole('dialog');
@@ -127,6 +137,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-05] 新增的模型可以删除，被功能占用的模型不能删除', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '云端服务');
 
         // 内置默认模型被整句讲解等功能占用，删除按钮应当禁用
         const inUseRow = page.getByRole('row').filter({ hasText: '整句讲解' });
@@ -151,12 +162,14 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-06] 把字幕翻译指到新增的云端模型后，模型槽位落盘并回显', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '云端服务');
 
         await page.getByPlaceholder('输入模型标识，如 gpt-4o-mini').fill(NEW_MODEL);
         await page.getByRole('button', { name: '添加' }).click();
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).toContain(NEW_MODEL);
 
         // 功能下拉里的模型清单来自详情缓存，保存成功后缓存会立刻刷新，新模型无需重进页面即可选中
+        await openResourcesTab(page, '翻译与查词');
         await chooseInRow(page, '字幕翻译', NEW_MODEL);
 
         // 引擎原本就是云端，写盘上唯一的变化是「上次选的模型」这个槽位
@@ -169,11 +182,12 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-07] 字幕翻译切到本地基础资源包后引擎落盘，重进页面回显且提示只支持中文', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '翻译与查词');
 
         await chooseInRow(page, '字幕翻译', '本地基础资源包');
 
         await expect.poll(() => readConfigValue(userDataDir, 'providers.subtitleTranslation')).toBe('local-mt');
-        await expect(page.getByText('轻量翻译只支持翻译为中文。')).toBeVisible();
+        await expect(page.getByText('轻量翻译只支持中文')).toBeVisible();
 
         await reloadSettingsPage(page, page.getByRole('heading', { name: '服务与资源' }));
         await expect(selectInRow(page, '字幕翻译')).toHaveText('本地基础资源包');
@@ -182,12 +196,13 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-08] 词典查询切到本地增强资源包后引擎落盘，重进页面回显并提示资源未下载', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '翻译与查词');
 
         await chooseInRow(page, '词典查询', '本地增强资源包');
 
         await expect.poll(() => readConfigValue(userDataDir, 'providers.dictionary')).toBe('local');
         // 本地增强模型还没下载时，页面必须说清为什么现在用不了
-        await expect(page.getByText('所选资源还没下载，请先在上方下载本地基础资源包。')).toBeVisible();
+        await expect(page.getByText('本地增强资源包还没下载')).toBeVisible();
 
         await reloadSettingsPage(page, page.getByRole('heading', { name: '服务与资源' }));
         await expect(selectInRow(page, '词典查询')).toHaveText('本地增强资源包');
@@ -196,6 +211,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-09] 整句讲解切到禁用后开关落盘为关闭，重进页面仍回显禁用', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '翻译与查词');
 
         // 默认开启，且默认指向内置云端模型
         await expect(selectInRow(page, '整句讲解')).not.toHaveText('禁用');
@@ -211,18 +227,23 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-10] 把功能从云端模型切走后，原模型的删除按钮恢复可用且删得掉', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '云端服务');
 
         // 新加的模型指给字幕翻译后就成了「在用」的模型，占用是现算的，删除按钮随之禁用
         await page.getByPlaceholder('输入模型标识，如 gpt-4o-mini').fill(NEW_MODEL);
         await page.getByRole('button', { name: '添加' }).click();
+        await openResourcesTab(page, '翻译与查词');
         await chooseInRow(page, '字幕翻译', NEW_MODEL);
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.subtitleTranslation')).toBe(NEW_MODEL);
 
+        await openResourcesTab(page, '云端服务');
         const modelRow = page.getByRole('row').filter({ hasText: NEW_MODEL });
         await expect(modelRow.getByRole('button').last()).toBeDisabled();
 
         // 把字幕翻译切回本地：占用应当当场解除，不需要重进页面
+        await openResourcesTab(page, '翻译与查词');
         await chooseInRow(page, '字幕翻译', '本地基础资源包');
+        await openResourcesTab(page, '云端服务');
         await expect(modelRow.getByRole('button').last()).toBeEnabled();
 
         await modelRow.getByRole('button').last().click();
@@ -234,6 +255,7 @@ test.describe('服务与资源设置', () => {
         const first = await launchAppSession(userDataDir);
         try {
             await openResourcesSetting(first.page);
+            await openResourcesTab(first.page, '云端服务');
             await first.page.getByPlaceholder('sk-...').fill(API_KEY);
             await expect.poll(() => readConfigValue(userDataDir, 'apiKeys.openAi.key')).toBe(API_KEY);
         } finally {
@@ -244,6 +266,7 @@ test.describe('服务与资源设置', () => {
         const restarted = await launchAppSession(userDataDir);
         try {
             await openResourcesSetting(restarted.page);
+            await openResourcesTab(restarted.page, '云端服务');
             await expect(restarted.page.getByPlaceholder('sk-...')).toHaveValue(API_KEY);
         } finally {
             await restarted.close();
@@ -253,6 +276,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-13] 把云端模型清单删空后清单保持为空，此时改动偏好仍会正常落盘', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '翻译与查词');
 
         // 默认那个模型被三处占用，先逐个解绑，删除按钮才会亮
         await chooseInRow(page, '整句讲解', '禁用');
@@ -260,6 +284,7 @@ test.describe('服务与资源设置', () => {
         await chooseInRow(page, '词典查询', '不补充');
         await expect.poll(() => readConfigValue(userDataDir, 'providers.subtitleTranslation')).toBe('none');
 
+        await openResourcesTab(page, '云端服务');
         const builtinRow = page.getByRole('row').filter({ hasText: 'gpt-5.4-nano' });
         await expect(builtinRow.getByRole('button').last()).toBeEnabled();
         await builtinRow.getByRole('button').last().click();
@@ -271,7 +296,7 @@ test.describe('服务与资源设置', () => {
         await expect(page.getByRole('cell', { name: 'gpt-5.4-nano' })).toHaveCount(0);
 
         // 清单为空只该拦住「要用云端」的功能，不该连带把无关偏好一起拒绝保存
-        await page.getByRole('button', { name: '查看详情' }).click();
+        await openResourcesTab(page, '翻译与查词');
         await chooseInRow(page, '翻译风格', '简化英文');
         await expect.poll(() => readConfigValue(userDataDir, 'features.openai.subtitleTranslationMode')).toBe('simple_en');
         // 值落盘之外还要确认页面没弹保存失败横幅：保存被拒时值也不会变，
@@ -282,6 +307,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-17] 填完密钥立刻切到别的设置栏目，密钥仍会落盘并在重进后回显', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
+        await openResourcesTab(page, '云端服务');
 
         await page.getByPlaceholder('sk-...').fill(API_KEY);
 
@@ -293,6 +319,7 @@ test.describe('服务与资源设置', () => {
 
         // 回到该页：密钥来自后端回读，而不是页面里残留的输入
         await switchSettingsSection(page, '服务与资源', page.getByRole('heading', { name: '服务与资源' }));
+        await openResourcesTab(page, '云端服务');
         await expect(page.getByPlaceholder('sk-...')).toHaveValue(API_KEY);
     });
 });
