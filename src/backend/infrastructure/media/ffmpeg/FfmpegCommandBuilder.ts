@@ -7,22 +7,6 @@ import type {
 } from '@/backend/services/gateways/media/FfmpegGateway';
 
 /**
- * 音频重编码参数。
- *
- * 修复目标只是「能正常播放」：统一降为立体声 128k，
- * 既避开多声道 AAC 在部分设备上的兼容问题，也避开低码率语音源转码后体积翻倍。
- */
-const AUDIO_TRANSCODE_ARGS = ['-ac', '2', '-c:a', 'aac', '-b:a', '128k'];
-
-/**
- * 整片重编码保留的最高宽度。
- *
- * 超过 1080p 的旧编码素材降到 1080p：像素量下降后编解码量大幅减少，修复更快；
- * 原本就不超过时，scale 表达式等于原尺寸，不做实际缩放。
- */
-const MAX_TRANSCODE_WIDTH = 1920;
-
-/**
  * FFmpeg 命令构建器接口。
  *
  * 参数类型统一从网关契约（FfmpegGateway.ts）导入，保证业务层、网关与构建器看到同一份定义。
@@ -192,18 +176,6 @@ export class DefaultFfmpegCommandBuilder implements FfmpegCommandBuilder {
     private assertNonNegative(value: number, label: string): void {
         if (!Number.isFinite(value) || value < 0) {
             throw new Error(`${label}必须是非负数字`);
-        }
-    }
-
-    /**
-     * 校验时间点数组是严格递增的正序列表。
-     */
-    private assertAscendingTimes(times: number[], label: string): void {
-        for (let index = 0; index < times.length; index++) {
-            this.assertNonNegative(times[index], `${label}时间点`);
-            if (index > 0 && times[index] <= times[index - 1]) {
-                throw new Error(`${label}时间点必须严格递增`);
-            }
         }
     }
 }

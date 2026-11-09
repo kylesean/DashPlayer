@@ -56,18 +56,6 @@ export interface FfmpegRunOptions {
 }
 
 /**
- * 切分产物段信息。
- */
-export interface VideoSegment {
-    /** 分段文件绝对路径。 */
-    file: string;
-    /** 该段在原视频中的实际起始时间（秒），由切分后实测得出。 */
-    start: number;
-    /** 该段在原视频中的实际结束时间（秒），由切分后实测得出。 */
-    end: number;
-}
-
-/**
  * 生成缩略图参数。
  */
 export interface CreateThumbnailArgs {

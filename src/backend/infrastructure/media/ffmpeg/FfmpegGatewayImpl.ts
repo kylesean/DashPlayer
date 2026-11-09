@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import type FfmpegGateway from '@/backend/services/gateways/media/FfmpegGateway';
-import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type TrimVideoArgs, type VideoSegment } from '@/backend/services/gateways/media/FfmpegGateway';
+import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type TrimVideoArgs } from '@/backend/services/gateways/media/FfmpegGateway';
 import type { VideoInfo } from '@/common/types/video-info';
 import fs from 'fs';
 import path from 'path';
@@ -60,7 +60,6 @@ interface FfmpegGatewayDeps {
 type FfmpegCommandTarget = {
     inputFile: string;
     outputFile?: string;
-    outputPattern?: string;
 };
 
 /**
@@ -123,29 +122,6 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
     }
 
     
-    
-    /**
-     * 枚举切分产物文件并实测每段时长，累加得到各段在原视频中的实际起止时间。
-     * @param outputPattern 切分输出命名模板，如 /tmp/chunk_%03d.mp4。
-     */
-    private async collectSegments(outputPattern: string): Promise<VideoSegment[]> {
-        const directory = path.dirname(outputPattern);
-        const prefix = path.basename(outputPattern).split('%')[0];
-        const files = (await fs.promises.readdir(directory))
-            .filter(file => file.startsWith(prefix))
-            .sort()
-            .map(file => path.join(directory, file));
-
-        const segments: VideoSegment[] = [];
-        let start = 0;
-        for (const file of files) {
-            const duration = await this.duration(file);
-            segments.push({ file, start, end: start + duration });
-            start += duration;
-        }
-        return segments;
-    }
-
     /**
      * 生成缩略图。
      */
@@ -236,7 +212,7 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
         options: FfmpegRunOptions,
     ): Promise<void> {
         this.assertInputFileExists(args.inputFile);
-        this.assertOutputDirectoryExists(args.outputFile ?? args.outputPattern);
+        this.assertOutputDirectoryExists(args.outputFile);
 
         // 上层未显式提供时长时，只要关注进度就自动探测，进度回调不再依赖调用方记得传时长。
         const inputDurationSecond = options.inputDurationSecond
