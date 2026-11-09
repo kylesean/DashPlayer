@@ -6,6 +6,7 @@ import MainSubtitle from './MainSubtitle';
 import Subtitle from './components/Subtitle';
 import LearningToolbar from '@/fronted/features/player/components/learning-toolbar/LearningToolbar';
 import { useEffect, useRef, useState } from 'react';
+import type { ImperativePanelGroupHandle } from 'react-resizable-panels';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { useLocalStorage } from '@uidotdev/usehooks';
@@ -29,6 +30,12 @@ import useSetting from '@/fronted/features/settings/settingsStore';
 
 const logger = getRendererLogger('PlaybackLayout');
 
+/** 分栏默认比例（百分比）：视频 75 / 剧本 25，舞台 80 / 主字幕 20。 */
+const DEFAULT_OUTER_VIDEO_SIZE = 75;
+const DEFAULT_OUTER_TRANSCRIPT_SIZE = 25;
+const DEFAULT_INNER_STAGE_SIZE = 80;
+const DEFAULT_INNER_SUBTITLE_SIZE = 20;
+
 const PlaybackLayout = () => {
     const { t } = useI18nTranslation('player');
     const hasSubTitle = usePlaybackSession((s) => StrUtil.isNotBlank(s.subtitlePath));
@@ -42,10 +49,12 @@ const PlaybackLayout = () => {
     const practiceVisible = usePracticePanel((s) => s.visible);
     // 有会话时保持挂载，切回播放画面只做隐藏，避免回来时对话与滚动状态丢失
     const learningMounted = learningVisible || hasLearningContext;
-    const [sizeOa, setSizeOa] = useLocalStorage<number>('split-size-oa', 75);
-    const [sizeOb, setSizeOb] = useLocalStorage<number>('split-size-ob', 25);
-    const [sizeIa, setSizeIa] = useLocalStorage<number>('split-size-ia', 80);
-    const [sizeIb, setSizeIb] = useLocalStorage<number>('split-size-ib', 20);
+    const [sizeOa, setSizeOa] = useLocalStorage<number>('split-size-oa', DEFAULT_OUTER_VIDEO_SIZE);
+    const [sizeOb, setSizeOb] = useLocalStorage<number>('split-size-ob', DEFAULT_OUTER_TRANSCRIPT_SIZE);
+    const [sizeIa, setSizeIa] = useLocalStorage<number>('split-size-ia', DEFAULT_INNER_STAGE_SIZE);
+    const [sizeIb, setSizeIb] = useLocalStorage<number>('split-size-ib', DEFAULT_INNER_SUBTITLE_SIZE);
+    const outerGroupRef = useRef<ImperativePanelGroupHandle>(null);
+    const innerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
     const isLeftTranscript = transcriptPosition === 'left';
     const navigate = useNavigate();
@@ -68,45 +77,55 @@ const PlaybackLayout = () => {
         const fps = 24;
         const drawInterval = 1000 / fps;
 
+        /** 把当前视频帧画进环境光画布（只依赖画面尺寸，不关心播放状态）。 */
+        const drawAmbient = () => {
+            const backgroundCanvas = ambientCanvasRef.current;
+            const rootContainer = rootContainerRef.current;
+            if (!backgroundCanvas || !rootContainer || videoElement.readyState < 2 || videoElement.seeking) {
+                return;
+            }
+            const ctx = backgroundCanvas.getContext('2d', { alpha: false });
+            if (!ctx) {
+                return;
+            }
+            const rootRect = rootContainer.getBoundingClientRect();
+            const videoRect = videoElement.getBoundingClientRect();
+
+            const ratio = window.devicePixelRatio || 1;
+            const resolutionFactor = 0.2; // 高性能低分辨率缓冲绘制
+            const scaledRootW = Math.max(1, Math.floor(rootRect.width * ratio * resolutionFactor));
+            const scaledRootH = Math.max(1, Math.floor(rootRect.height * ratio * resolutionFactor));
+
+            if (scaledRootW !== lastCanvasW || scaledRootH !== lastCanvasH) {
+                backgroundCanvas.width = scaledRootW;
+                backgroundCanvas.height = scaledRootH;
+                lastCanvasW = scaledRootW;
+                lastCanvasH = scaledRootH;
+            }
+
+            // 动态计算视频在根容器中的真实绝对坐标与尺寸（自动适应普通分栏拖拽与全屏居中）
+            const relX = (videoRect.left - rootRect.left) / rootRect.width;
+            const relY = (videoRect.top - rootRect.top) / rootRect.height;
+            const relW = videoRect.width / rootRect.width;
+            const relH = videoRect.height / rootRect.height;
+
+            // 柔和向外溢出延伸（Padding Expansion），让光晕自然蔓延渗透到右侧和下方
+            const expandFactor = 0.25;
+            const drawX = Math.max(0, (relX - relW * expandFactor) * scaledRootW);
+            const drawY = Math.max(0, (relY - relH * expandFactor) * scaledRootH);
+            const drawW = Math.min(scaledRootW, (relW * (1 + expandFactor * 2)) * scaledRootW);
+            const drawH = Math.min(scaledRootH, (relH * (1 + expandFactor * 2)) * scaledRootH);
+
+            ctx.drawImage(videoElement, drawX, drawY, drawW, drawH);
+        };
+
         const syncVideos = () => {
             if (cancelled) return;
             const now = performance.now();
             if (now - lastDrawTime >= drawInterval) {
-                const backgroundCanvas = ambientCanvasRef.current;
-                const rootContainer = rootContainerRef.current;
-                if (videoElement && backgroundCanvas && rootContainer && videoElement.readyState >= 2 && !videoElement.seeking && !videoElement.paused) {
-                    const ctx = backgroundCanvas.getContext('2d', { alpha: false });
-                    if (ctx) {
-                        const rootRect = rootContainer.getBoundingClientRect();
-                        const videoRect = videoElement.getBoundingClientRect();
-
-                        const ratio = window.devicePixelRatio || 1;
-                        const resolutionFactor = 0.2; // 高性能低分辨率缓冲绘制
-                        const scaledRootW = Math.max(1, Math.floor(rootRect.width * ratio * resolutionFactor));
-                        const scaledRootH = Math.max(1, Math.floor(rootRect.height * ratio * resolutionFactor));
-
-                        if (scaledRootW !== lastCanvasW || scaledRootH !== lastCanvasH) {
-                            backgroundCanvas.width = scaledRootW;
-                            backgroundCanvas.height = scaledRootH;
-                            lastCanvasW = scaledRootW;
-                            lastCanvasH = scaledRootH;
-                        }
-
-                        // 动态计算视频在根容器中的真实绝对坐标与尺寸（自动适应普通分栏拖拽与全屏居中）
-                        const relX = (videoRect.left - rootRect.left) / rootRect.width;
-                        const relY = (videoRect.top - rootRect.top) / rootRect.height;
-                        const relW = videoRect.width / rootRect.width;
-                        const relH = videoRect.height / rootRect.height;
-
-                        // 柔和向外溢出延伸（Padding Expansion），让光晕自然蔓延渗透到右侧和下方
-                        const expandFactor = 0.25; 
-                        const drawX = Math.max(0, (relX - relW * expandFactor) * scaledRootW);
-                        const drawY = Math.max(0, (relY - relH * expandFactor) * scaledRootH);
-                        const drawW = Math.min(scaledRootW, (relW * (1 + expandFactor * 2)) * scaledRootW);
-                        const drawH = Math.min(scaledRootH, (relH * (1 + expandFactor * 2)) * scaledRootH);
-
-                        ctx.drawImage(videoElement, drawX, drawY, drawW, drawH);
-                    }
+                // 播放中才持续重绘；暂停/拖动由下面的事件各补一帧
+                if (!videoElement.paused) {
+                    drawAmbient();
                 }
                 lastDrawTime = now;
             }
@@ -114,9 +133,20 @@ const PlaybackLayout = () => {
             animationFrameId = requestAnimationFrame(syncVideos);
         };
 
+        // 暂停、拖动、加载完成时也画一帧：否则视频周围只剩应用底色，看起来像一块灰板
+        const repaint = () => drawAmbient();
+        videoElement.addEventListener('pause', repaint);
+        videoElement.addEventListener('seeked', repaint);
+        videoElement.addEventListener('loadeddata', repaint);
+        // 打开时视频可能已经加载完成（不会再触发 loadeddata）
+        drawAmbient();
+
         animationFrameId = requestAnimationFrame(syncVideos);
         return () => {
             cancelled = true;
+            videoElement.removeEventListener('pause', repaint);
+            videoElement.removeEventListener('seeked', repaint);
+            videoElement.removeEventListener('loadeddata', repaint);
             if (animationFrameId) {
                 cancelAnimationFrame(animationFrameId);
             }
@@ -261,9 +291,34 @@ const PlaybackLayout = () => {
         </ResizablePanel>
     );
 
+    /**
+     * 把视频/剧本的分栏恢复成默认比例。
+     *
+     * 面板顺序会随笔剧停靠方向翻转，所以重置值必须按当前顺序给出；
+     * 同时写回 localStorage，下一次打开还是这个比例。
+     */
+    const resetOuterLayout = () => {
+        outerGroupRef.current?.setLayout(
+            isLeftTranscript
+                ? [DEFAULT_OUTER_TRANSCRIPT_SIZE, DEFAULT_OUTER_VIDEO_SIZE]
+                : [DEFAULT_OUTER_VIDEO_SIZE, DEFAULT_OUTER_TRANSCRIPT_SIZE]
+        );
+        setSizeOa(DEFAULT_OUTER_VIDEO_SIZE);
+        setSizeOb(DEFAULT_OUTER_TRANSCRIPT_SIZE);
+    };
+
+    /** 把舞台/主字幕的竖向分栏恢复成默认比例。 */
+    const resetInnerLayout = () => {
+        innerGroupRef.current?.setLayout([DEFAULT_INNER_STAGE_SIZE, DEFAULT_INNER_SUBTITLE_SIZE]);
+        setSizeIa(DEFAULT_INNER_STAGE_SIZE);
+        setSizeIb(DEFAULT_INNER_SUBTITLE_SIZE);
+    };
+
     const splitHandle = (
         <ResizableHandle
             key="outer-split-handle"
+            onDoubleClick={resetOuterLayout}
+            title={t('layout.resetSplitHint')}
             className={cn(
                 'group relative w-1.5 h-full flex items-center justify-center',
                 'bg-border/30 hover:bg-accent/40',
@@ -306,6 +361,7 @@ const PlaybackLayout = () => {
             )}
 
             <ResizablePanelGroup
+                ref={outerGroupRef}
                 key={`layout-group-${transcriptPosition}`}
                 className={cn(
                     'relative z-10 bg-transparent'
