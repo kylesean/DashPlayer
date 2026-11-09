@@ -5,6 +5,7 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { showNotification } from '@/fronted/components/shared/toasts/notification';
 import { rendererEvents } from '@/fronted/infrastructure/electron/rendererEvents';
 import { SWR_KEY } from '@/fronted/lib/swr-util';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import { registerSettingsRendererApis } from '@/fronted/features/settings/settingsEvents';
 import { registerPlayerRendererApis } from '@/fronted/features/player/playerEvents';
 import { registerChatRendererApis } from '@/fronted/features/chat/chatEvents';
@@ -54,8 +55,11 @@ export function initRendererApis(): () => void {
 
     // main 推送的窗口几何状态变化（系统手势/F11/WM 最大化等不经过 renderer 的
     // 路径）：失效标题栏窗口状态缓存，保证全屏/最大化按钮图标跟随真实状态
-    unregisters.push(rendererEvents.onWindowStateUpdate(() => {
+    unregisters.push(rendererEvents.onWindowStateUpdate((state) => {
         void globalMutate(SWR_KEY.WINDOW_SIZE);
+        // 系统手势 / F11 / 窗口管理器切换全屏不经过 renderer：
+        // 不同步沉浸态的话，退出系统全屏后 UI 还停在“全屏”，导航栏永远不回来
+        useLayout.getState().syncFullScreenFromWindow(state === 'fullscreen');
     }));
 
     logger.info('renderer apis registered', { count: unregisters.length });

@@ -35,6 +35,8 @@ export type UseLayoutActions = {
     changeSideBar: (show: boolean) => void;
     /** 切换全屏状态。 */
     changeFullScreen: (full: boolean) => void;
+    /** 只同步窗口真实全屏状态，不再反向请求窗口（供 main 进程推送使用）。 */
+    syncFullScreenFromWindow: (full: boolean) => void;
     /** 设置纯播客模式开关。 */
     setPodcastMode: (mode: boolean) => void;
     /** 更新对话学习输入激活态。 */
@@ -95,6 +97,16 @@ const useLayout = create<UseLayoutState & UseLayoutActions>()(
             });
         },
         changeFullScreen: (full: boolean) => {
+            // 重复设置同一个值不碰窗口：播客模式等流程会顺手调用 changeFullScreen(false)
+            if (useLayout.getState().fullScreen === full) {
+                return;
+            }
+            set({ fullScreen: full });
+            // 应用内全屏必须同时把系统窗口切成全屏：只隐藏两侧面板的话，
+            // 窗口仍带着任务栏/标题栏的高度，16:9 视频左右会留出灰边
+            void api.call('system/window-size/change', full ? 'fullscreen' : 'player');
+        },
+        syncFullScreenFromWindow: (full: boolean) => {
             set({ fullScreen: full });
         },
         podcastMode: false,
