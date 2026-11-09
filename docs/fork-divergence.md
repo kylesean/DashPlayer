@@ -10,6 +10,9 @@
 
 - **只重放，永不 merge upstream**：上游用 yarn 1.22，本 fork 已迁 pnpm 10，lockfile 永久分叉；
   merge 会把已删除的模块整包带回并产生无法合流的 yarn.lock 冲突。
+- **分支只留 main**（2026-11-09 已清理）：远端 99 个分支全部是上游历史的拷贝（逐分支核对过
+  HEAD 要么在上游任意分支、要么已并入 main），无任何 fork 独有工作，已全部删除。
+  以后各分支若要参考，`git fetch upstream 'refs/heads/*:refs/remotes/upstream/*'` 随时可取。
 - **移动端例外**：`src/mobile/` 保持跟随上游（本 fork 未形成自己的移动端设计），
   上游移动端改动用整目录对齐方式吸收：`git checkout upstream/main -- src/mobile/`，
   随后核对 fork 独有文件是否被上游删除（对照本文件第 3 节）。
@@ -52,14 +55,28 @@
 并发内核（`utils/concurrency/`）、任务系统（`DpTaskService`）、
 观看历史、设置系统、`src/common/api/api-def.ts`。
 
-## 5. 已知的坐标遗留项（后续决策）
+## 5. 坐标与上游依赖项
 
-- `scripts/whisper-runtime-meta.mjs` 的 `DASHPLAYER_REPOSITORY` 仍指向上游
-  `solidSpoon/DashPlayer`：whisper 运行时 Release（prerelease，tag `whisper-runtime-*`）
-  目前从上游下载。上游重建运行时配方后本 fork 会跟着受影响。
-  若要彻底独立，需在本仓库跑一次 `whisper-runtime.yml` 产出自己的运行时 Release 并改此常量。
+**已完成（2026-11-09，彻底独立）：**
+
+- `scripts/whisper-runtime-meta.mjs` 的 `DASHPLAYER_REPOSITORY` 已改为 `kylesean/DashPlayer`；
+  whisper 运行时 Release（prerelease，tag `whisper-runtime-r3-vk1.4.357.0`）改由本仓库
+  `whisper-runtime.yml` 产出，下载与发布只走本仓库。
+  配套修复：该工作流 meta job 补了 `corepack enable` 并关闭依赖缓存（0a…/3de0d4cf），
+  否则 pnpm 迁移后 setup-node 直接报找不到 pnpm。
 - 更新检查（`CheckUpdate.ts`）已指向 fork 仓库（d8046a87）。
-- AGPL-3.0 合规：分发时保留 LICENSE 与上游版权声明。
+- electron-forge publisher 指向 `kylesean/DashPlayer`；图标 URL 指向 fork。
+
+**仍存在的上游数据依赖（非代码坐标）：**
+
+- 两个离线模型包托管在 ModelScope 的上游账号下：
+  `sherpaTtsModel.ts`（vits-piper）、`parakeetModel.ts`（parakeet 中文 TTS/识别包）。
+  下载地址是 `modelscope.cn/models/solidSpoon/dashplayer-offline-models`。
+  彻底独立需把这两个包转存到自己的托管空间并改 URL；其余模型
+  （Qwen3.5 GGUF、whisper.cpp parakeet GGUF）本来就取自第三方官方账号，不受影响。
+- AGPL-3.0 合规：分发时保留 LICENSE 与上游版权声明；About 页的
+  「基于 solidSpoon/DashPlayer 深度定制」属于必要的来源声明，应保留。
+
 
 ## 6. 版本线
 
