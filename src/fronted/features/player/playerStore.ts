@@ -16,6 +16,11 @@ import {
     groupSentencesIntoBlocks,
     type SentenceBlock,
 } from '@/fronted/features/player/lib/sentence-grouping';
+import {
+  clearSentenceEndModes,
+  enableSentenceEndMode,
+  type SentenceEndBooleanMode,
+} from '@/fronted/features/player/lib/sentence-end-mode';
 
 /**
  * seek 请求：目标时间与是否继续播放的意图。
@@ -424,6 +429,21 @@ export const usePlayer = create<PlayerState>((set, get) => {
       set({ playbackRate: mode.prevRate });
     }
     set({ sentenceLoop: null });
+  };
+
+  /**
+   * 互斥地启用一个布尔句末模式（自动暂停 / 单句循环 / 影子跟读）。
+   *
+   * 句末模式同一时刻只能有一个生效，这是本 store 的不变量。此前每个 setter 各自
+   * 罗列「把别人置 false」，`repeatCurrent` 这类旁路入口就会漏掉，留下两个模式同时为真。
+   * 现在统一从这里写入，规则只存在一处。
+   *
+   * @param mode 目标模式。
+   */
+  const applyBooleanSentenceMode = (mode: SentenceEndBooleanMode) => {
+    clearSentenceLoopMode();
+    // 显式选择优先：任何持久模式的切换都取消悬停临时循环
+    set({ ...enableSentenceEndMode(mode), hoverRepeat: false });
   };
 
   /**
@@ -1159,8 +1179,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         set({ autoPause: false });
         return;
       }
-      clearSentenceLoopMode();
-      set({ autoPause: true, singleRepeat: false, shadowing: false, hoverRepeat: false });
+      applyBooleanSentenceMode('autoPause');
     },
     /**
      * 单句循环：当前句（虚拟组为整组）无限循环。
@@ -1171,8 +1190,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         set({ singleRepeat: false, hoverRepeat: false });
         return;
       }
-      clearSentenceLoopMode();
-      set({ singleRepeat: true, autoPause: false, shadowing: false, hoverRepeat: false });
+      applyBooleanSentenceMode('singleRepeat');
     },
     /**
      * 悬停临时单句循环：鼠标悬停主字幕胶囊区期间临时循环当前句。
@@ -1194,8 +1212,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         set({ shadowing: false });
         return;
       }
-      clearSentenceLoopMode();
-      set({ shadowing: true, singleRepeat: false, autoPause: false, hoverRepeat: false });
+      applyBooleanSentenceMode('shadowing');
     },
 
     /**
@@ -1213,7 +1230,11 @@ export const usePlayer = create<PlayerState>((set, get) => {
       if (config.times < 1) return;
       // 切换配置时保留最初开启前的倍速作为恢复基准
       const prevRate = get().sentenceLoop?.prevRate ?? get().playbackRate;
-      set({ sentenceLoop: { times: config.times, rates: config.rates, prevRate }, singleRepeat: false, autoPause: false, shadowing: false, hoverRepeat: false });
+      set({
+        ...clearSentenceEndModes(),
+        sentenceLoop: { times: config.times, rates: config.rates, prevRate },
+        hoverRepeat: false,
+      });
       beginSentencePlan(get().sentenceLoop!, true);
     },
 
@@ -1374,7 +1395,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
       clearTailPreview();
       const loop = options?.loop ?? true;
       if (loop) {
-        set({ singleRepeat: true });
+        // 走统一的模式入口：直接 set({ singleRepeat: true }) 会绕过互斥，
+        // 让影子跟读/自动暂停与单句循环同时为真，句末行为变得不可预测。
+        applyBooleanSentenceMode('singleRepeat');
         const vg = get().virtualGroup;
         if (vg.active && vg.sentences.length > 0) {
           const first = vg.sentences.slice().sort((a, b) => a.index - b.index)[0];
