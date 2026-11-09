@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 import VolumeSlider from '../VolumeSlider';
@@ -62,6 +62,10 @@ export default function OverlayControlBar({
 
     const [previewTime, setPreviewTime] = useState<number | null>(null);
     const [mouseOver, setMouseOver] = useState<boolean>(false);
+    // 鼠标一挪就亮、停 2.6s 后淡出的“临时显形”状态：
+    // 控制条外层的待命区是 pointer-events-none，只靠 onMouseEnter 永远叫不出来，
+    // 全屏下又没有别的入口，会把用户困在没法退出的画面里
+    const [activated, setActivated] = useState<boolean>(false);
     // 训练菜单 / 设置弹层展开期间钉住控制条：鼠标移向菜单会先离开本条区域
     const [trainingMenuOpen, setTrainingMenuOpen] = useState<boolean>(false);
     const [settingsMenuOpen, setSettingsMenuOpen] = useState<boolean>(false);
@@ -77,7 +81,27 @@ export default function OverlayControlBar({
         zonePx: FULLSCREEN_CONTROL_BAR_ZONE_PX,
         gapPx: 0,
     });
-    const barVisible = (mouseOver || menuOpen || pinned) && !maskAdjust.hiddenByMask;
+    const barVisible = (activated || mouseOver || menuOpen || pinned) && !maskAdjust.hiddenByMask;
+
+    useEffect(() => {
+        let hideTimer: number | undefined;
+        const handleMouseMove = () => {
+            setActivated(true);
+            if (hideTimer) {
+                window.clearTimeout(hideTimer);
+            }
+            hideTimer = window.setTimeout(() => setActivated(false), 2600);
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        // 进入全屏先亮一次，让用户知道退出按钮在哪里
+        handleMouseMove();
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            if (hideTimer) {
+                window.clearTimeout(hideTimer);
+            }
+        };
+    }, []);
 
     const handleScrubCommit = useCallback((time: number) => {
         logger.debug('Time slider scrub committed', { value: time });

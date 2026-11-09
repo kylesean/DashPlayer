@@ -45,6 +45,7 @@ const PlayerWithControlsPage = () => {
     const sidebarCollapsed = useLayout((state) => state.sidebarCollapsed);
     const titleBarHeight = useLayout((state) => state.titleBarHeight);
     const uiFullScreen = useLayout((s) => s.fullScreen);
+    const changeFullScreen = useLayout((s) => s.changeFullScreen);
     const videoLoaded = usePlaybackSession((s) => s.videoLoaded);
     const w = cpW.bind(
         null,
@@ -290,9 +291,25 @@ const PlayerWithControlsPage = () => {
     }, [setSearchParams]);
     const isCompact = !w('xl') || sidebarCollapsed;
 
+    // 全屏是应用内的沉浸视图：Esc 必须能退出，否则隐藏两侧后只能靠控制条
+    useEffect(() => {
+        if (!uiFullScreen) {
+            return undefined;
+        }
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                changeFullScreen(false);
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [uiFullScreen, changeFullScreen]);
+
     return (
         <div className={cn('relative w-full h-full flex flex-row overflow-hidden bg-background')}>
-            {showSideBar && (
+            {/* 全屏沉浸：左右两侧（导航栏 + 伴读面板）都要让位给画面 */}
+            {showSideBar && !uiFullScreen && (
                 <div
                     className={cn(
                         // overflow-hidden：Astryx SideNav 折叠/展开时会短暂保留一份旧宽度的副本，

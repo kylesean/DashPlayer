@@ -208,10 +208,8 @@
         "closePanel": "Close control panel"
     },
     "fullscreenHint": {
-        "toggle": "Click to hide / show the subtitle list",
-        "title": "Fullscreen tip:",
-        "windows": "right-click the title bar maximize button",
-        "mac": "click the green button at the top-left of the window"
+        "toggle": "Immersive fullscreen",
+        "hint": "Hides both side panels and keeps only the picture and subtitles; press Esc to exit."
     },
     "subtitleList": {
         "pause": "Pause",

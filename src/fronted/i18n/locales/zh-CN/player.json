@@ -208,10 +208,8 @@
         "closePanel": "收起控制面板"
     },
     "fullscreenHint": {
-        "toggle": "点击隐藏 / 显示字幕列表",
-        "title": "全屏播放提示：",
-        "windows": "右键点击标题栏最大化按钮",
-        "mac": "点击窗口左上角绿色全屏按钮"
+        "toggle": "沉浸全屏",
+        "hint": "隐藏左右两侧面板，只保留画面与字幕；按 Esc 退出。"
     },
     "subtitleList": {
         "pause": "暂停",

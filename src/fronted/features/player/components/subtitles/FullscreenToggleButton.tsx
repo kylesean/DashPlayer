@@ -11,11 +11,7 @@ const FullscreenToggleButton = ({ fullScreen, changeFullScreen }: {
     const content = (
         <div className="max-w-xs text-xs space-y-1">
             <div className="font-semibold text-sm">{t('fullscreenHint.toggle')}</div>
-            <div className="text-[11px] leading-relaxed">
-                {t('fullscreenHint.title')}<br />
-                <span className="font-medium">Windows:</span> {t('fullscreenHint.windows')}<br />
-                <span className="font-medium">Mac:</span> {t('fullscreenHint.mac')}
-            </div>
+            <div className="text-[11px] leading-relaxed">{t('fullscreenHint.hint')}</div>
         </div>
     );
 
