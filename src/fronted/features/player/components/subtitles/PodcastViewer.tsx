@@ -7,6 +7,7 @@ import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import type { Sentence } from '@/common/types/SentenceC';
 import TranslatableLinePodcast from './TranslatableLinePodcast';
 import PodcastControlBar from './PodcastControlBar';
+import PodcastLearningBar from '@/fronted/features/player/components/learning-toolbar/PodcastLearningBar';
 import StrUtil from '@/common/utils/str-util';
 import FuncUtil from '@/common/utils/func-util';
 import useTranslation from '@/fronted/features/player/translationStore';
@@ -62,6 +63,7 @@ const PodcastViewer = ({ className }: { className?: string }) => {
                 )}
             >
                 {/* 没有字幕也要保留控制条：否则播客模式变成一块没有任何出口的空白区 */}
+                <PodcastLearningBar className="absolute right-6 bottom-28 z-30" />
                 <PodcastControlBar className="absolute left-0 bottom-0 z-30" />
             </div>
         );
@@ -146,6 +148,8 @@ const PodcastViewer = ({ className }: { className?: string }) => {
                 })}
             </motion.div>
 
+            {/* 精简学习条：只留轨道 / 循环 / 句末暂停；退出由底部控制条负责 */}
+            <PodcastLearningBar className="absolute right-6 bottom-28 z-30" />
             <PodcastControlBar className="absolute left-0 bottom-0 z-30" />
         </div>
     );
