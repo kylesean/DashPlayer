@@ -10,11 +10,6 @@ import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase
  * 遵循与后端API相同的设计模式，支持分散定义和类型安全
  */
 
-// 示例接口定义
-interface RendererApiDefinition {
-    'example': { params: string, return: number };
-}
-
 // UI相关的前端API定义
 interface UIRendererDef {
     'ui/show-toast': {
@@ -87,8 +82,7 @@ interface AnalysisRendererDef {
 
 
 // 使用交叉类型合并所有前端API定义
-export type RendererApiDefinitions = RendererApiDefinition
-    & UIRendererDef
+export type RendererApiDefinitions = UIRendererDef
     & TranslationRendererDef
     & DictionaryRendererDef
     & VideoLearningRendererDef

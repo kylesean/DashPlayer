@@ -64,7 +64,6 @@ interface ApiDefinition {
     'local-ai/cancel-download': { params: void, return: void };
     'local-ai/delete': { params: { modelId: string }, return: void };
     'local-ai/speed-test': { params: { modelId: string }, return: LocalAiSpeedTestResult };
-    'eg': { params: string, return: number },
 }
 
 // 定义额外的接口

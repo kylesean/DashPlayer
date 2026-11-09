@@ -5,8 +5,14 @@ import type {RuntimeSettingKey} from './common/contracts/runtime-settings';
 import type {ApiDefinitions, ApiMap} from '@/common/api/api-def';
 import type {DpTask} from '@/common/contracts/dp-task';
 import type {RendererApiDefinitions, RendererApiMap} from '@/common/api/renderer-api-def';
+import { type RendererEventChannel } from '@/common/api/renderer-event-def';
 import type { SimpleEvent, TraceCarrier } from '@/common/log/simple-types';
 import type { WindowState } from '@/common/types/Types';
+
+/**
+ * 渲染进程 → 主进程的事件通道名；与主进程侧共用同一份类型契约。
+ */
+const RENDERER_LOG_CHANNEL: RendererEventChannel = 'dp-log/write';
 
 export type Channels =
     | 'store-update'
@@ -98,7 +104,7 @@ const electronHandler = {
 
     // 日志写入方法
     dpLogger: {
-        write: (e: SimpleEvent) => ipcRenderer.send('dp-log/write', e),
+        write: (e: SimpleEvent) => ipcRenderer.send(RENDERER_LOG_CHANNEL, e),
     },
 };
 contextBridge.exposeInMainWorld('electron', electronHandler);
