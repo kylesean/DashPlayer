@@ -12,7 +12,7 @@
  */
 
 /** 本仓库（运行时 Release 也发在这里）：owner/repo 形式，下载 URL 与 CI 共用。 */
-export const DASHPLAYER_REPOSITORY = 'solidSpoon/DashPlayer';
+export const DASHPLAYER_REPOSITORY = 'kylesean/DashPlayer';
 
 /** whisper.cpp 源码仓库：运行时由该仓库的 parakeet-cli 目标构建。 */
 export const WHISPER_CPP_REPOSITORY = 'ggml-org/whisper.cpp';
