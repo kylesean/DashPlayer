@@ -8,6 +8,8 @@ import type SrtTimeAdjustService from '@/backend/services/SrtTimeAdjustService';
 import type CacheService from '@/backend/services/CacheService';
 import type { SubtitleTimestampAdjustment } from '@/common/contracts/subtitle-timestamp-adjustment';
 import { ObjUtil } from '@/backend/utils/ObjUtil';
+import { assertSubtitlePath } from '@/backend/utils/file-path-guard';
+import type MediaPathRegistry from '@/backend/services/MediaPathRegistry';
 import { parseSrt, parseAss, srtLineToSentence, type SrtLine } from '@/common/utils/subtitle';
 import { resegmentIntoMeaningGroups } from '@/common/utils/subtitle/meaning-group-segmenter';
 import { SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY } from '@/common/constants/systemConfigKeys';
@@ -169,6 +171,7 @@ export class SubtitleServiceImpl implements SubtitleService {
         @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
         @inject(TYPES.SystemConfigService) private readonly systemConfigService: SystemConfigService,
+        @inject(TYPES.MediaPathRegistry) private readonly mediaPathRegistry: MediaPathRegistry,
     ) {}
 
     /**
@@ -180,9 +183,15 @@ export class SubtitleServiceImpl implements SubtitleService {
      * @returns 已结构化并应用时间轴调整的字幕。
      */
     public async parseSrt(path: string): Promise<SrtSentence> {
+        // 这条路由会读盘并把解析结果送回渲染层，路径必须确实是字幕文件，
+        // 否则渲染层一旦出问题就能拿它当任意文件读取器用。
+        assertSubtitlePath(path);
         if (!(await this.fileSystemGateway.fileExists(path))) {
             throw new Error(`字幕文件不存在：${path}`);
         }
+        // 字幕路径登记进媒体路径表：渲染层要用 media:// 读它，
+        // 而字幕常常就躺在用户自己的文件夹里，不在媒体库根目录之下。
+        this.mediaPathRegistry.allowFile(path);
         await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(path);
         const content = await this.fileSystemGateway.readTextFile(path);
         // fileHash 保持纯内容 hash：收藏、时间调整等外部引用都以它为身份。

@@ -146,6 +146,7 @@ import type SubtitleTimestampAdjustmentsRepository from '@/backend/services/repo
 import SubtitleTimestampAdjustmentsRepositoryImpl from '@/backend/infrastructure/db/repositories/SubtitleTimestampAdjustmentsRepositoryImpl';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import StorageDirectoryProviderImpl from '@/backend/infrastructure/storage/StorageDirectoryProviderImpl';
+import MediaPathRegistry from '@/backend/services/MediaPathRegistry';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import FileSystemGatewayImpl from '@/backend/infrastructure/storage/FileSystemGatewayImpl';
 import AccessRecoveringFileSystemGateway from '@/backend/infrastructure/storage/AccessRecoveringFileSystemGateway';
@@ -260,6 +261,8 @@ container.bind<SystemConfigService>(TYPES.SystemConfigService).to(SystemConfigSe
 container.bind<CacheService>(TYPES.CacheService).to(CacheServiceImpl).inSingletonScope();
 container.bind<SettingService>(TYPES.SettingService).to(SettingServiceImpl).inSingletonScope();
 container.bind<StorageDirectoryProvider>(TYPES.StorageDirectoryProvider).to(StorageDirectoryProviderImpl).inSingletonScope();
+// 媒体路径登记表：记下后端已经交付给渲染层的那些路径，供 media:// 协议做授权。
+container.bind<MediaPathRegistry>(TYPES.MediaPathRegistry).to(MediaPathRegistry).inSingletonScope();
 // 裸文件系统网关只做真实 IO；对外绑定的网关在其外层自动恢复外部路径的访问权限。
 container.bind<FileSystemGateway>(TYPES.RawFileSystemGateway).to(FileSystemGatewayImpl).inSingletonScope();
 container.bind<FileSystemGateway>(TYPES.FileSystemGateway).to(AccessRecoveringFileSystemGateway).inSingletonScope();

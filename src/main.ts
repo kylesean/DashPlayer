@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import 'reflect-metadata';
 import type LocalAiService from '@/backend/services/LocalAiService';
-import { app, BrowserWindow, type Session } from 'electron';
+import { app, BrowserWindow, protocol, type Session } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
 import { spawn } from 'node:child_process';
 import fs from 'fs';
@@ -25,6 +25,9 @@ import { isDevelopmentMode } from '@/backend/utils/runtimeEnv';
 import { storeGet } from '@/backend/infrastructure/settings/store';
 import type MobileAccessService from '@/backend/services/MobileAccessService';
 import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
+import { MEDIA_PROTOCOL_SCHEME, registerMediaProtocol } from '@/backend/infrastructure/media/MediaProtocol';
+import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
+import type MediaPathRegistry from '@/backend/services/MediaPathRegistry';
 
 // 导入日志 IPC 监听
 import '@/backend/controllers/ipc/renderer-log';
@@ -42,6 +45,34 @@ setConcurrencyLogger(getMainLogger('concurrency'));
 initProcessWatchdog();
 // JS 层未捕获异常落盘与日志目录预算清理，紧随进程级监听。
 initLogMaintenance();
+
+/**
+ * 注册本地媒体协议。
+ *
+ * 必须在 app ready 之前完成：Electron 只在 ready 之前接受特权协议声明，
+ * 之后再调用 registerSchemesAsPrivileged 不会生效。
+ *
+ * 为什么需要自定义协议：渲染端要播放媒体库里的本地视频，`file://` 页面在
+ * `webSecurity` 打开后无法读取同源的 `file://` 子资源；改成 `media://` 之后，
+ * 渲染端拿到的是标准安全源，由主进程按目录归属做授权后再返回文件内容。
+ */
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: MEDIA_PROTOCOL_SCHEME,
+        privileges: {
+            // 让 URL 按 media://host/path 的标准形态解析。
+            standard: true,
+            // 视作安全源，渲染端可以像加载 https 资源一样加载媒体。
+            secure: true,
+            supportFetchAPI: true,
+            // <video>/<audio> 的 Range 拖动播放依赖流式响应。
+            stream: true,
+            // 不给协议开后门：后续的 CSP 仍然对 media:// 生效。
+            bypassCSP: false,
+            corsEnabled: false,
+        },
+    },
+]);
 
 /**
  * 记录主进程启动阶段耗时，统一使用进程启动后的相对毫秒数。
@@ -172,8 +203,8 @@ const createWindow = () => {
         height: 800,
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
-            webSecurity: false,
-            allowRunningInsecureContent: true,
+            // 本地媒体改由 media:// 协议提供，同源策略不再需要关闭。
+            webSecurity: true,
         },
         ...(isMac
             ? {
@@ -240,6 +271,12 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
+    // 本地媒体协议处理器：渲染端通过 media:// 读取媒体库文件，
+    // 必须在建窗之前注册，否则首屏加载视频会直接失败。
+    registerMediaProtocol(
+        container.get<StorageDirectoryProvider>(TYPES.StorageDirectoryProvider),
+        container.get<MediaPathRegistry>(TYPES.MediaPathRegistry),
+    );
     try {
         await runStartupMigrations();
     } catch (error) {

@@ -1,4 +1,3 @@
-import * as os from 'os';
 import * as path from 'path';
 import { inject, injectable } from 'inversify';
 import { WithSemaphore } from '@/backend/utils/concurrency/decorators';
@@ -46,7 +45,12 @@ export class LocalTtsServiceImpl implements LocalTtsService {
         if (!status.ready) throw new Error('Sherpa TTS 模型尚未下载，请先到设置中心下载模型');
         const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
         const modelDir = path.join(modelsRoot, SHERPA_TTS_MODEL_DIRECTORY);
-        const outputDir = path.join(os.tmpdir(), 'dp', 'tts');
+        // 合成产物放在媒体库的临时目录里，而不是系统临时目录：
+        // - 媒体库根目录是 media:// 协议唯一授权的根，放在这里朗读链接才不会 403；
+        // - 系统临时目录（如 /tmp）是全局可写目录，别的进程可以预建同名目录抢走写入权；
+        // - 放在这里还能跟着应用自己的临时目录清理一起走，不至于无限堆积。
+        const tempRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
+        const outputDir = path.join(tempRoot, 'tts');
         await this.fileSystemGateway.ensureDirectory(outputDir);
         const outputPath = path.join(outputDir, `${Date.now()}-${Math.random().toString(36).slice(2)}.wav`);
         return this.cli.run({

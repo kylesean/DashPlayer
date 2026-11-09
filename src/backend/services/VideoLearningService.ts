@@ -24,6 +24,7 @@ import type { WordMatchService } from '@/backend/services/WordMatchService';
 import type { SrtSentence } from '@/common/types/SentenceC';
 import { concurrency } from '@/backend/utils/concurrency';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
+import type MediaPathRegistry from '@/backend/services/MediaPathRegistry';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import VideoLearningClipAnalysis, { type ClipCandidate } from '@/backend/services/VideoLearningClipAnalysis';
@@ -165,6 +166,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
         @inject(TYPES.VideoLearningClipRepository) private readonly videoLearningClipRepository: VideoLearningClipRepository,
         @inject(TYPES.VideoLearningClipWordRepository) private readonly videoLearningClipWordRepository: VideoLearningClipWordRepository,
         @inject(TYPES.SubtitleVocabularyAnalysisService) private readonly subtitleVocabularyAnalysisService: SubtitleVocabularyAnalysisService,
+        @inject(TYPES.MediaPathRegistry) private readonly mediaPathRegistry: MediaPathRegistry,
     ) {
         this.clipAnalysis = new VideoLearningClipAnalysis(
             () => this.subtitleVocabularyAnalysisService,
@@ -463,6 +465,10 @@ export class VideoLearningServiceImpl implements VideoLearningService {
     ): VideoLearningClipVO {
         const videoPath = clip.sourceType === 'local' ? clip.video_name :
                         (clip.baseDir && clip.clip_file ? `${clip.baseDir}/${clip.clip_file}` : clip.video_name);
+        // 本地片段的原片就是用户自己的视频，留在媒体库之外，登记一下才能通过 media:// 读到。
+        if (clip.sourceType === 'local' && videoPath) {
+            this.mediaPathRegistry.allowFile(videoPath);
+        }
 
         const clipBeginAt = clip.sourceType === 'local'
             ? (clip as (typeof clip & { clipBeginAt?: number })).clipBeginAt ?? 0

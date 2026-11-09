@@ -12,6 +12,7 @@ import { WatchHistoryProjectType, type WatchHistoryRecord } from '@/backend/serv
 import type WatchHistoryExtRepository from '@/backend/services/repositories/WatchHistoryExtRepository';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
+import type MediaPathRegistry from '@/backend/services/MediaPathRegistry';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import {
     getHtml5GroupKey,
@@ -146,6 +147,8 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         private readonly fileSystemGateway: FileSystemGateway,
         @inject(TYPES.SubtitleService)
         private readonly subtitleService: SubtitleService,
+        @inject(TYPES.MediaPathRegistry)
+        private readonly mediaPathRegistry: MediaPathRegistry,
     ) {
         this.watchHistoryLibrary = new WatchHistoryLibrary(
             watchHistoryRepository,
@@ -307,11 +310,15 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
      */
     public async list(basePath: string): Promise<WatchHistoryVO[]> {
         await this.watchHistoryLibrary.sync();
-        return this.listItems(
+        const items = await this.listItems(
             basePath,
             (history) => this.watchHistoryViewBuilder.buildFull(history),
             true,
         );
+        for (const item of items) {
+            this.allowMediaPaths(item);
+        }
+        return items;
     }
 
     /**
@@ -321,11 +328,15 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
      * @returns 不读取时长和字幕匹配结果的观看历史展示数据。
      */
     public async listBasic(basePath: string): Promise<WatchHistoryVO[]> {
-        return this.listItems(
+        const items = await this.listItems(
             basePath,
             (history) => this.watchHistoryViewBuilder.buildBasic(history),
             false,
         );
+        for (const item of items) {
+            this.allowMediaPaths(item);
+        }
+        return items;
     }
 
     /**
@@ -339,6 +350,10 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (concatLibrary) {
             const lp = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.VIDEOS);
             filePaths = filePaths.map((f) => path.join(lp, f));
+        }
+        // 用户刚挑中的文件立刻登记，播放页不必等列表接口先跑一遍。
+        for (const filePath of filePaths) {
+            this.mediaPathRegistry.allowFile(filePath);
         }
         return this.watchHistoryLibrary.create(filePaths);
     }
@@ -354,6 +369,8 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (srtPath === 'same') {
             srtPath = path.join(path.dirname(videoPath), path.basename(videoPath, path.extname(videoPath)) + '.srt');
         }
+        this.mediaPathRegistry.allowFile(videoPath);
+        this.mediaPathRegistry.allowFile(srtPath);
         return this.attachSrtInner(videoPath, srtPath);
     }
 
@@ -377,6 +394,7 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (!item) {
             return null;
         }
+        this.allowMediaPaths(item);
         return {
             ...item,
             displayFileName: preferredRecord.id === record.id ? undefined : record.file_name,
@@ -407,6 +425,7 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (!item) {
             return null;
         }
+        this.allowMediaPaths(item);
         return {
             ...item,
             displayFileName: preferredRecord.id === record.id ? undefined : record.file_name,
@@ -431,6 +450,10 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (subtitle === null) {
             throw new Error(`视频文件不存在：${path.join(preferredRecord.base_path, preferredRecord.file_name)}`);
         }
+        this.mediaPathRegistry.allowFile(path.join(preferredRecord.base_path, preferredRecord.file_name));
+        if (subtitle.subtitlePath) {
+            this.mediaPathRegistry.allowFile(subtitle.subtitlePath);
+        }
         return subtitle;
     }
 
@@ -450,6 +473,7 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
 
         const preferredRecord = await this.findPreferredVideoRecord(record);
         const item = await this.watchHistoryViewBuilder.buildBasic(preferredRecord);
+        this.allowMediaPaths(item);
         return {
             ...item,
             displayFileName: preferredRecord.id === record.id ? undefined : record.file_name,
@@ -477,6 +501,7 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         const filePath = await this.watchHistoryLibrary.preferHtml5VideoPath(
             path.join(record.base_path, record.file_name),
         );
+        this.mediaPathRegistry.allowFile(filePath);
         await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(filePath);
         if (!await this.fileSystemGateway.fileExists(filePath)) {
             throw new Error(`视频文件不存在：${filePath}`);
@@ -682,10 +707,14 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
                 return null;
             }
             const preferredRecord = await this.findPreferredVideoRecord(primary);
-            return this.watchHistoryViewBuilder.buildFull(preferredRecord)
-                ?? (preferredRecord.id === primary.id
-                    ? null
-                    : this.watchHistoryViewBuilder.buildFull(primary));
+            // 两处都要 await：buildFull 返回的是 Promise，直接 ?? 判断永远不成立，
+            // 回退分支会变成死代码（与 detail/playerDetail 的写法保持一致）。
+            const preferredItem = await this.watchHistoryViewBuilder.buildFull(preferredRecord);
+            const item = preferredItem ?? (preferredRecord.id === primary.id
+                ? null
+                : await this.watchHistoryViewBuilder.buildFull(primary));
+            this.allowMediaPaths(item);
+            return item;
         }
 
         return null;
@@ -706,4 +735,25 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
             podcast_mode_manual: podcastMode,
         });
     }
+
+    /**
+     * 把一条观看记录涉及的媒体路径登记进路径表。
+     *
+     * 用户的视频留在原地、不复制进媒体库，`media://` 协议认的就是这张表：
+     * 后端亲手把这些路径交给渲染层，渲染层才有资格通过协议读它们。
+     *
+     * @param item 观看记录展示数据。
+     */
+    private allowMediaPaths(item: WatchHistoryVO | null | undefined): void {
+        if (!item) {
+            return;
+        }
+        if (item.basePath && item.fileName) {
+            this.mediaPathRegistry.allowFile(path.join(item.basePath, item.fileName));
+        }
+        if (item.srtFile) {
+            this.mediaPathRegistry.allowFile(item.srtFile);
+        }
+    }
+
 }

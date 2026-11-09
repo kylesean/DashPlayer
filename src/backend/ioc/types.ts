@@ -18,6 +18,7 @@ const TYPES = {
     CacheService: Symbol('CacheService'),
     SettingService: Symbol('SettingService'),
     StorageDirectoryProvider: Symbol('StorageDirectoryProvider'),
+    MediaPathRegistry: Symbol('MediaPathRegistry'),
     FileSystemGateway: Symbol('FileSystemGateway'),
     RawFileSystemGateway: Symbol('RawFileSystemGateway'),
     DpTaskService: Symbol('DpTaskService'),

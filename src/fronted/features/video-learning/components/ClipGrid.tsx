@@ -24,8 +24,14 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
   const getThumbnailUrlSync = (clip: VideoClip): string => {
     const raw = thumbnails?.[clip.key];
     if (!raw) return '';
-    if (raw.startsWith('file://') || raw.startsWith('data:') || raw.startsWith('http://') || raw.startsWith('https://')) {
-      return raw;
+    if (
+        raw.startsWith('file://') ||
+        raw.startsWith('data:') ||
+        raw.startsWith('http://') ||
+        raw.startsWith('https://') ||
+        raw.startsWith('media://')
+    ) {
+        return raw;
     }
     return UrlUtil.toUrl(raw);
   };
