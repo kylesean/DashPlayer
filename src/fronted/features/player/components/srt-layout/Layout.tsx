@@ -121,9 +121,7 @@ const PlaybackLayout = () => {
     }, [videoElement, podcastMode, hasSource]);
 
     const containerClass = cn(
-        'relative w-full h-full flex flex-col border-0 border-white/90 drop-shadow-lg overflow-hidden bg-stone-200 dark:bg-black',
-        hasSubTitle && 'border-r-0',
-        showSideBar && 'overflow-hidden border-[30px] border-background/80 rounded-[45px]'
+        'relative w-full h-full flex flex-col overflow-hidden bg-background'
     );
 
     if (!hasSource) {
