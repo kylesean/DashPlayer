@@ -1,6 +1,6 @@
 # 测试用例文档
 
-> 这里是「测什么」的清单：**一个设置页一份文档，一条场景一段话**，先讲清用户会遇到什么，再挂对应用例。
+> 这里是「测什么」的清单：**一个页面或范围一份文档，一条场景一段话**，先讲清用户会遇到什么，再挂对应用例。
 > `qa/README.md` 是「怎么写」的指南，用例代码在 `qa/specs/`。
 
 ## 为什么要这份文档
@@ -62,14 +62,16 @@ node qa/tools/check-test-cases.mjs   # 文档与用例双向比对（QA 侧必�
 
 ## 现有文档
 
-| 文档 | 页面 | 用例文件 |
+| 文档 | 页面 / 范围 | 用例文件 |
 |---|---|---|
 | [proxy.md](./proxy.md) | 网络代理 | `qa/specs/settings/proxy-settings.spec.ts` |
 | [storage.md](./storage.md) | 存储管理 | `qa/specs/settings/storage-settings.spec.ts` |
 | [service-resource.md](./service-resource.md) | 服务与资源 | `qa/specs/settings/service-resource-settings.spec.ts` |
 | [shortcut.md](./shortcut.md) | 快捷键 | `qa/specs/settings/shortcut-settings.spec.ts` |
 | [appearance.md](./appearance.md) | 外观 | `qa/specs/settings/appearance-settings.spec.ts` |
+| [mobile-access.md](./mobile-access.md) | 手机访问 | `qa/specs/settings/mobile-access-settings.spec.ts` |
 | [about.md](./about.md) | 关于与更新 | `qa/specs/settings/about-settings.spec.ts` |
+| [renderer-security.md](./renderer-security.md) | 渲染层安全策略（应用外壳，非设置页） | `qa/specs/app/renderer-security.spec.ts` |
 
 「改完立刻切走会不会丢」是每个表单页共有的时机场景，所以不单开文档，就写在各自的页面文档里（各页有一条 `xx-05` 之类的用例）。下面只剩两条没法挂到任何单一页面上的机制性缺口。
 
