@@ -66,6 +66,8 @@
         "tracksTooltipBilingual": "bilingual",
         "tracksTooltipEnglish": "English only",
         "tracksTooltipChinese": "Chinese only",
+        "exitPodcast": "Exit podcast",
+        "exitPodcastHint": "Back to video",
         "pinAriaPinned": "Unpin control bar",
         "pinAriaIdle": "Pin control bar",
         "pinTooltipPinned": "Unpin (restore auto-hide)",

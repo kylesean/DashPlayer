@@ -27,6 +27,7 @@ import { usePlaybackSession } from '@/fronted/features/player/playbackSessionSto
 import useLayout from '@/fronted/app/stores/layoutStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { isSidebarHiddenByEnglish } from '@/fronted/features/player/components/sidePanelVisibility';
+import { setPodcastModeForCurrentVideo } from '@/fronted/features/player/podcastMode';
 import TimeAdjustPanel from './TimeAdjustPanel';
 import {
     TOOLBAR_ICON_BUTTON,
@@ -89,9 +90,8 @@ export default function PlayerSettingsPopover({
     const adjustDiff = currentSentence && srtTender && srtTender.adjusted(currentSentence)
         ? srtTender.timeDiff(currentSentence)
         : null;
-    const { podcastMode, setPodcastMode, changeFullScreen } = useLayout(useShallow((s) => ({
+    const { podcastMode, changeFullScreen } = useLayout(useShallow((s) => ({
         podcastMode: s.podcastMode,
-        setPodcastMode: s.setPodcastMode,
         changeFullScreen: s.changeFullScreen,
     })));
 
@@ -234,12 +234,8 @@ export default function PlayerSettingsPopover({
                     title={t('controlBox.podcastModeHint')}
                     onActivate={() => {
                         const next = !podcastMode;
-                        setPodcastMode(next);
                         changeFullScreen(false);
-                        const videoId = usePlaybackSession.getState().videoId;
-                        if (videoId) {
-                            void playerApi.setPodcastModePreference(videoId, next);
-                        }
+                        setPodcastModeForCurrentVideo(next);
                     }}
                 />
 

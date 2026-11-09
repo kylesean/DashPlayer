@@ -66,6 +66,8 @@
         "tracksTooltipBilingual": "双语显示",
         "tracksTooltipEnglish": "仅显示英文",
         "tracksTooltipChinese": "仅显示中文",
+        "exitPodcast": "退出播客",
+        "exitPodcastHint": "回到视频画面",
         "pinAriaPinned": "取消钉住控制条",
         "pinAriaIdle": "钉住控制条",
         "pinTooltipPinned": "取消钉住（恢复自动隐藏）",

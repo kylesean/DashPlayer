@@ -4,7 +4,8 @@ import VolumeSlider from '../VolumeSlider';
 import { cn } from '@/fronted/lib/utils';
 import SpeedSlider from '../SpeedSlider';
 import { CONTROL_POPOVER_OFFSET_STACKED_BAR } from '@/fronted/features/player/components/ControlPopover';
-import { Pause, Play } from 'lucide-react';
+import { MonitorPlay, Pause, Play } from 'lucide-react';
+import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { usePlayerState } from '@/fronted/features/player/playerState';
@@ -13,6 +14,7 @@ import {
     PlaybackProgressSlider,
     PlaybackTimeReadout,
 } from '@/fronted/features/player/components/PlaybackProgressControls';
+import { setPodcastModeForCurrentVideo } from '@/fronted/features/player/podcastMode';
 
 const logger = getRendererLogger('PodcastControlBar');
 
@@ -41,6 +43,7 @@ export default function PodcastControlBar({
         })),
     );
 
+    const { t } = useI18nTranslation('player');
     const [previewTime, setPreviewTime] = useState<number | null>(null);
 
     const handleScrubCommit = useCallback((time: number) => {
@@ -113,6 +116,19 @@ export default function PodcastControlBar({
                             sliderRangeClassName="bg-zinc-400 dark:bg-zinc-500"
                             sliderThumbClassName="border-zinc-400 dark:border-zinc-500 bg-white dark:bg-zinc-900 shadow-sm"
                         />
+                        <span aria-hidden="true" className="h-4 w-px bg-zinc-200 dark:bg-zinc-800" />
+                        {/* 播客模式会盖住视频条与学习台，这里必须留一个常显的出口，
+                            否则用户只能在自动切换的 5 秒 toast 里点“恢复” */}
+                        <button
+                            type="button"
+                            onClick={() => setPodcastModeForCurrentVideo(false)}
+                            title={t('controlBar.exitPodcastHint')}
+                            aria-label={t('controlBar.exitPodcast')}
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                        >
+                            <MonitorPlay className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">{t('controlBar.exitPodcast')}</span>
+                        </button>
                     </div>
                 </div>
             </div>

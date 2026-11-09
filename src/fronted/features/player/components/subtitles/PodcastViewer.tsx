@@ -60,7 +60,10 @@ const PodcastViewer = ({ className }: { className?: string }) => {
                     'bg-[#f8f9fa] dark:bg-[#121316] transition-colors duration-300',
                     className
                 )}
-            />
+            >
+                {/* 没有字幕也要保留控制条：否则播客模式变成一块没有任何出口的空白区 */}
+                <PodcastControlBar className="absolute left-0 bottom-0 z-30" />
+            </div>
         );
     }
 
