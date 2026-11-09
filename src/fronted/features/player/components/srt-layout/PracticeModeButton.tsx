@@ -12,16 +12,18 @@ import {
     CAPTION_CARD_IDLE_CLASS,
     captionCardActiveClass,
 } from '@/fronted/features/player/components/captionCardShell';
+import { TOOLBAR_ICON_BUTTON } from '@/fronted/features/player/components/learning-toolbar/toolbarStyles';
 
 /**
  * 跟读/听写练习开关按钮。
  *
  * 打开练习覆盖面板对当前意群做跟读或听写;与整句学习页互斥——打开时先收起学习页,
- * 并暂停播放避免原句声音混进录音。按钮壳与胶囊内其余按钮同款(24px 正圆)。
+ * 并暂停播放避免原句声音混进录音。
  *
+ * @param variant `capsule`：学习页右下角胶囊里的 24px 正圆；`toolbar`：字幕学习台里的 28px 方形按钮。
  * @returns 练习开关按钮。
  */
-export default function PracticeModeButton() {
+export default function PracticeModeButton({ variant = 'capsule' }: { variant?: 'capsule' | 'toolbar' } = {}) {
     const { t } = useI18nTranslation('practice');
     const visible = usePracticePanel((s) => s.visible);
 
@@ -47,7 +49,7 @@ export default function PracticeModeButton() {
                 onClick={handleClick}
                 aria-label={t('panel.title')}
                 className={cn(
-                    CAPTION_CARD_BUTTON_CLASS,
+                    variant === 'toolbar' ? TOOLBAR_ICON_BUTTON : CAPTION_CARD_BUTTON_CLASS,
                     visible ? captionCardActiveClass('emerald') : CAPTION_CARD_IDLE_CLASS
                 )}
             >

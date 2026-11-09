@@ -4,6 +4,7 @@ import PlaybackStage from './Stage';
 import PodcastViewer from '@/fronted/features/player/components/subtitles/PodcastViewer';
 import MainSubtitle from './MainSubtitle';
 import Subtitle from './components/Subtitle';
+import LearningToolbar from '@/fronted/features/player/components/learning-toolbar/LearningToolbar';
 import React, { useEffect, useRef, useState } from 'react';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
@@ -223,7 +224,14 @@ const PlaybackLayout = () => {
                                             setSizeIb(e);
                                         }}
                                     >
-                                        {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
+                                        {/* 字幕内容 + 学习台：学习台占布局的一行，任何内容都盖不到它；
+                                            没有字幕时也保留学习台，训练/设置入口不会随字幕一起消失 */}
+                                        <div className="group/subtitles flex h-full w-full flex-col">
+                                            <div className="min-h-0 flex-1">
+                                                {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
+                                            </div>
+                                            <LearningToolbar />
+                                        </div>
                                     </ResizablePanel>
                                 </>
                             )}

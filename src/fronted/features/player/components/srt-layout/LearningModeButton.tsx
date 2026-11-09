@@ -11,18 +11,18 @@ import {
     CAPTION_CARD_IDLE_CLASS,
     captionCardActiveClass,
 } from '@/fronted/features/player/components/captionCardShell';
+import { TOOLBAR_ICON_BUTTON } from '@/fronted/features/player/components/learning-toolbar/toolbarStyles';
 
 /**
  * 整句学习开关按钮。
  *
  * 与「进入学习页」的快捷键是同一个动作：未打开时按当前字幕句进入学习页，
  * 已打开时只隐藏学习页、保留会话，后台生成不中断。
- * 按钮挂在两处：播放画面胶囊的最右侧、学习界面右下角的单独胶囊里；
- * 自身为卡片内的 24px 正圆（与胶囊内其余按钮同款），两处胶囊的高度因而一致。
  *
+ * @param variant `capsule`：学习界面右下角胶囊里的 24px 正圆；`toolbar`：字幕学习台里的 28px 方形按钮。
  * @returns 整句学习开关按钮。
  */
-export default function LearningModeButton() {
+export default function LearningModeButton({ variant = 'capsule' }: { variant?: 'capsule' | 'toolbar' } = {}) {
     const { t } = useI18nTranslation('common');
     const learningVisible = useChatPanel((s) => s.learningVisible);
     const shortcut = useSetting((s) => s.setting('shortcut.aiChat')) ?? '';
@@ -47,7 +47,7 @@ export default function LearningModeButton() {
                 onClick={handleClick}
                 aria-label={label}
                 className={cn(
-                    CAPTION_CARD_BUTTON_CLASS,
+                    variant === 'toolbar' ? TOOLBAR_ICON_BUTTON : CAPTION_CARD_BUTTON_CLASS,
                     learningVisible ? captionCardActiveClass('emerald') : CAPTION_CARD_IDLE_CLASS
                 )}
             >

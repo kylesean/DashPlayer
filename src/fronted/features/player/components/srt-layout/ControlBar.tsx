@@ -13,9 +13,9 @@ import FullscreenToggleButton from '@/fronted/features/player/components/subtitl
 import ControlBarPinButton from '@/fronted/features/player/components/subtitles/ControlBarPinButton';
 import {
     DARK_BAR_BUTTON_HOVER,
-    PlaybackModeControls,
     PlaybackNavControls
 } from '@/fronted/features/player/components/PlaybackGlobalControls';
+import HardsubMaskButton from '@/fronted/features/player/components/HardsubMaskButton';
 import { CONTROL_POPOVER_OFFSET_STACKED_BAR } from '@/fronted/features/player/components/ControlPopover';
 import {
     CONTROL_BAR_GAP_PX,
@@ -71,11 +71,9 @@ export default function PlaybackControlBar({
     });
 
     const [mouseOverOut, setMouseOverOut] = useState<boolean>(false);
-    // 训练模式/字幕轨道菜单或训练参数弹窗展开期间钉住控制条：鼠标移向菜单会先离开本条区域
-    const [menuOpen, setMenuOpen] = useState<boolean>(false);
     const mouseOverTimeout = useRef<number[]>([]);
-    // 本条是否该显形：钉住/鼠标在条上/菜单展开才算「想显示」，且鼠标压到贴片上时要让位
-    const barVisible = (mouseOverOut || menuOpen || pinned) && !maskAdjust.hiddenByMask;
+    // 本条是否该显形：钉住/鼠标在条上才算「想显示」，且鼠标压到贴片上时要让位
+    const barVisible = (mouseOverOut || pinned) && !maskAdjust.hiddenByMask;
 
     const onMouseLeave = () => {
         while (mouseOverTimeout.current.length > 0) {
@@ -163,11 +161,8 @@ export default function PlaybackControlBar({
                         {/* 右侧按钮组：xl 以下收紧间隙。窄窗时这一排摆不下，gap-2 的间隙白花掉十几像素，
                             最右那颗图标就会被容器边缘切掉一半；缩小间隙比藏掉控件代价小得多 */}
                         <div className="flex justify-center items-center gap-1 xl:gap-2">
-                            {/* 训练模式 / 字幕轨道：与全屏控制条共用同一份控件 */}
-                            <PlaybackModeControls
-                                popoverOffset={CONTROL_POPOVER_OFFSET_STACKED_BAR}
-                                onMenuOpenChange={setMenuOpen}
-                            />
+                            {/* 只看画面的一键开关；训练/字幕/设置都在字幕学习台里，不在这条上 */}
+                            <HardsubMaskButton />
                             <SpeedSlider
                                 speed={playbackRate}
                                 popoverOffset={CONTROL_POPOVER_OFFSET_STACKED_BAR}

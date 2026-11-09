@@ -13,9 +13,12 @@ import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import {
     DARK_BAR_BUTTON_HOVER,
-    PlaybackModeControls,
     PlaybackNavControls
 } from '@/fronted/features/player/components/PlaybackGlobalControls';
+import HardsubMaskButton from '@/fronted/features/player/components/HardsubMaskButton';
+import TrainingMenuButton from '@/fronted/features/player/components/learning-toolbar/TrainingMenuButton';
+import SubtitleTrackSegmented from '@/fronted/features/player/components/learning-toolbar/SubtitleTrackSegmented';
+import PlayerSettingsPopover from '@/fronted/features/player/components/learning-toolbar/PlayerSettingsPopover';
 import { CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR } from '@/fronted/features/player/components/ControlPopover';
 import {
     FULLSCREEN_CONTROL_BAR_PANEL_HEIGHT_PX,
@@ -59,8 +62,10 @@ export default function OverlayControlBar({
 
     const [previewTime, setPreviewTime] = useState<number | null>(null);
     const [mouseOver, setMouseOver] = useState<boolean>(false);
-    // 训练模式/字幕轨道菜单或训练参数弹窗展开期间钉住控制条：鼠标移向菜单会先离开本条区域
-    const [menuOpen, setMenuOpen] = useState<boolean>(false);
+    // 训练菜单 / 设置弹层展开期间钉住控制条：鼠标移向菜单会先离开本条区域
+    const [trainingMenuOpen, setTrainingMenuOpen] = useState<boolean>(false);
+    const [settingsMenuOpen, setSettingsMenuOpen] = useState<boolean>(false);
+    const menuOpen = trainingMenuOpen || settingsMenuOpen;
 
     const fullScreen = useLayout((s) => s.fullScreen);
     const changeFullScreen = useLayout((s) => s.changeFullScreen);
@@ -131,11 +136,14 @@ export default function OverlayControlBar({
                     </div>
                     {/* 右侧按钮组：与普通控制条保持同样的间隙收紧策略（xl 以下 gap-1），两条条子不能长得不一样 */}
                     <div className="flex justify-center items-center gap-1 xl:gap-2 shrink-0">
-                        {/* 训练模式 / 字幕轨道：与普通控制条共用同一份控件 */}
-                        <PlaybackModeControls
+                        {/* 与窗口内同一套控件：设置项只有一份实现，两条控制条不再各写一遍 */}
+                        <TrainingMenuButton
+                            tone="overlay"
                             popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
-                            onMenuOpenChange={setMenuOpen}
+                            onMenuOpenChange={setTrainingMenuOpen}
                         />
+                        <SubtitleTrackSegmented tone="overlay" />
+                        <HardsubMaskButton />
                         <SpeedSlider
                             speed={playbackRate}
                             popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
@@ -154,6 +162,11 @@ export default function OverlayControlBar({
                             collapseSliderBelowXl
                         />
                         <ControlBarPinButton />
+                        <PlayerSettingsPopover
+                            tone="overlay"
+                            popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
+                            onMenuOpenChange={setSettingsMenuOpen}
+                        />
                         <FullscreenToggleButton fullScreen={fullScreen} changeFullScreen={changeFullScreen} />
                     </div>
                 </div>

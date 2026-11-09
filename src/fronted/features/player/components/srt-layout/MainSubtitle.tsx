@@ -10,8 +10,6 @@ import { playerActions } from '@/fronted/features/player/components/PlayerAction
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
-import LearningCapsule from '@/fronted/features/player/components/control-box/LearningCapsule';
-import { CAPTION_CARD_ANCHOR_CLASS } from '@/fronted/features/player/components/captionCardShell';
 
 export default function MainSubtitle() {
     const logger = getRendererLogger('MainSubtitle');
@@ -34,8 +32,7 @@ export default function MainSubtitle() {
     // 绘制前测量:先复位 --sub-scale 量自然高度,超出容器则按比例调整字号缩放(上限 1,不放大)。
     // 全部用布局口径(offsetHeight / clientHeight):播放器浮动层带 transform: scale(),
     // getBoundingClientRect 会把测量值乘上缩放系数,而滚动/裁切按布局盒计算,
-    // 两种口径混用会算错缩放比。可用高度要扣除内层容器的上下内边距(pt-3 / pb-14,
-    // 其中 pb-14 是给右下角学习胶囊留出的横向安全带)。
+    // 两种口径混用会算错缩放比。可用高度要扣除内层容器的上下内边距(pt-3 / pb-3)。
     // 无依赖数组——每次渲染都重测:译文到达、意群切换、字号设置变更都会改变内容高度。
     useLayoutEffect(() => {
         const scroller = subtitleContainerRef.current;
@@ -255,33 +252,28 @@ export default function MainSubtitle() {
             return <div className="w-full h-full" />;
         }
         return (
-            <div className="relative w-full h-full">
-                {/* 面板高度不够时改为滚动，绝不把最后一行裁掉；滚动条隐去，避免字幕区出现一条常驻灰条。
-                    内层 min-h-full 保证内容不满一屏时仍沿用原来的「中上黄金位置」留白。 */}
-                <div
-                    ref={subtitleContainerRef}
-                    className="relative w-full h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
-                    <div className="flex min-h-full w-full flex-col items-center px-12 pt-3 pb-14 text-center text-textColor select-none">
-                        {/* 顶部弹性占位：比底部占位少，让文字动态停留在“中上”黄金位置（约 40% 高度） */}
-                        <div className="w-full flex-[2] min-h-0 pointer-events-none" />
+            /* 面板高度不够时改为滚动，绝不把最后一行裁掉；滚动条隐去，避免字幕区出现一条常驻灰条。
+               内层 min-h-full 保证内容不满一屏时仍沿用原来的「中上黄金位置」留白。 */
+            <div
+                ref={subtitleContainerRef}
+                className="relative h-full w-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+                <div className="flex min-h-full w-full flex-col items-center px-12 pt-3 pb-3 text-center text-textColor select-none">
+                    {/* 顶部弹性占位：比底部占位少，让文字动态停留在“中上”黄金位置（约 40% 高度） */}
+                    <div className="w-full flex-[2] min-h-0 pointer-events-none" />
 
-                        {/* 字幕内容区：永远受到外层 pt-3 顶距保护，绝不削顶 */}
-                        <div
-                            ref={subtitleContentRef}
-                            data-subtitle-active={block ? undefined : 'true'}
-                            className="flex flex-col justify-start items-center gap-1.5 w-full min-w-0 shrink-0"
-                        >
-                            {ele()}
-                        </div>
-
-                        {/* 底部弹性占位：比顶部占位更多；pb-14 另为右下角学习胶囊留出高度 */}
-                        <div className="w-full flex-[3] min-h-0 pointer-events-none" />
+                    {/* 字幕内容区：永远受到外层 pt-3 顶距保护，绝不削顶 */}
+                    <div
+                        ref={subtitleContentRef}
+                        data-subtitle-active={block ? undefined : 'true'}
+                        className="flex flex-col justify-start items-center gap-1.5 w-full min-w-0 shrink-0"
+                    >
+                        {ele()}
                     </div>
-                </div>
 
-                {/* 右下角自适应学习胶囊：绝对定位、不占排版空间；内容区已用 pb-14 让开它的高度 */}
-                <LearningCapsule className={CAPTION_CARD_ANCHOR_CLASS} />
+                    {/* 底部弹性占位：比顶部占位更多 */}
+                    <div className="w-full flex-[3] min-h-0 pointer-events-none" />
+                </div>
             </div>
         );
     };
