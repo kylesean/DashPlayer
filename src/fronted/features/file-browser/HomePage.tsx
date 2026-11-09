@@ -113,17 +113,21 @@ const HomePage = () => {
                             <Heading level={1} weight="bold" className="font-sans px-2">
                                 DashPlayer
                             </Heading>
-                            <SideNav>
-                                {navItems.map((item) => (
-                                    <SideNavItem
-                                        key={item.path}
-                                        label={item.title}
-                                        icon={<Icon icon={item.icon as unknown as IconType} size="sm" />}
-                                        href={item.path}
-                                        onClick={() => fileBrowserApi.changeWindowSize('player')}
-                                    />
-                                ))}
-                            </SideNav>
+                            {/* SideNav 默认固定 260px，而侧栏内容区只有 196px，
+                                直接用会撑出横向滚动条；这里让导航填满侧栏宽度 */}
+                            <div className="w-full [&_.astryx-side-nav]:!w-full">
+                                <SideNav>
+                                    {navItems.map((item) => (
+                                        <SideNavItem
+                                            key={item.path}
+                                            label={item.title}
+                                            icon={<Icon icon={item.icon as unknown as IconType} size="sm" />}
+                                            href={item.path}
+                                            onClick={() => fileBrowserApi.changeWindowSize('player')}
+                                        />
+                                    ))}
+                                </SideNav>
+                            </div>
                         </VStack>
                     </VStack>
                 </LayoutPanel>
