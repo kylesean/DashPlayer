@@ -30,7 +30,7 @@ export async function openSettingsSection(page: Page, section: string, ready: Lo
  * @param ready 该页独有的元素，用来确认页面已经切过去并完成初始化。
  */
 export async function switchSettingsSection(page: Page, section: string, ready: Locator): Promise<void> {
-    // 面包屑里也会出现当前栏目的同名链接，这里限定在侧边栏内点击，避免歧义
+    // 限定在设置侧边栏内点击，避免与其它导航区的同名入口混淆
     await page.locator('aside').getByRole('link', { name: section }).click();
     await expect(ready).toBeVisible();
 }

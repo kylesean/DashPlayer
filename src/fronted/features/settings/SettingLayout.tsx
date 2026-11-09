@@ -15,12 +15,9 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 import {
     Layout,
     LayoutContent,
-    LayoutHeader,
     LayoutPanel,
 } from '@astryxdesign/core/Layout';
 import { SideNav, SideNavHeading, SideNavItem } from '@astryxdesign/core/SideNav';
-import { Breadcrumbs, BreadcrumbItem } from '@astryxdesign/core/Breadcrumbs';
-import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { VStack } from '@astryxdesign/core/VStack';
 
@@ -55,9 +52,13 @@ const SETTING_ITEMS: SettingNavDef[] = [
 ];
 
 /**
- * 设置中心顶层母版布局组件。
+ * 设置中心主从布局：左侧分区导航，右侧内容。
  *
- * 采用 Astryx Layout 五槽位骨架（LayoutPanel + SideNav 侧边栏、LayoutHeader 面包屑导航与 LayoutContent 内容区）。
+ * 按 Astryx `settings`（Settings - Form）模板组织：页面壳由外层 AppShell 提供，
+ * 这里只用 Layout 的 start/content 两槽位。分区位置由左侧常驻 SideNav 的选中态
+ * 与各页自己的 h2 标题表达，因此不再放面包屑——Breadcrumbs 规范要求「不要用在
+ * 无父级的顶层页、只是补充主导航」，在这里既冗余又多出一条横线。
+ * AppShell 已经渲染唯一的 <main>，这里不再重复声明 main landmark。
  *
  * @returns 设置中心布局 JSX 元素。
  */
@@ -72,11 +73,6 @@ const SettingLayout: React.FC = () => {
         return matched ? matched.key : 'shortcut';
     }, [location.pathname]);
 
-    const activeItem = useMemo(
-        () => SETTING_ITEMS.find((item) => item.key === currentKey) || SETTING_ITEMS[0],
-        [currentKey]
-    );
-
     return (
         <Layout
             height="fill"
@@ -86,62 +82,41 @@ const SettingLayout: React.FC = () => {
                         {/* SideNav 默认固定 260px，而面板内容区只有 224px，
                             不拉满会撑出横向滚动条 */}
                         <div className="w-full [&_.astryx-side-nav]:!w-full">
-                        <SideNav
-                            header={
-                                <SideNavHeading
-                                    heading={t('layoutTitle')}
-                                    icon={<Icon icon={Settings as unknown as IconType} size="sm" />}
-                                />
-                            }
-                        >
-                            {SETTING_ITEMS.map((item) => (
-                                <SideNavItem
-                                    key={item.key}
-                                    label={t(item.labelKey)}
-                                    icon={
-                                        <Icon
-                                            icon={item.icon as unknown as IconType}
-                                            size="sm"
-                                            color={currentKey === item.key ? 'primary' : 'secondary'}
-                                        />
-                                    }
-                                    isSelected={currentKey === item.key}
-                                    href={`/settings/${item.key}`}
-                                    onClick={() => navigate(`/settings/${item.key}`)}
-                                />
-                            ))}
-                        </SideNav>
+                            <SideNav
+                                header={
+                                    <SideNavHeading
+                                        heading={t('layoutTitle')}
+                                        icon={<Icon icon={Settings as unknown as IconType} size="sm" />}
+                                    />
+                                }
+                            >
+                                {SETTING_ITEMS.map((item) => (
+                                    <SideNavItem
+                                        key={item.key}
+                                        label={t(item.labelKey)}
+                                        icon={
+                                            <Icon
+                                                icon={item.icon as unknown as IconType}
+                                                size="sm"
+                                                color={currentKey === item.key ? 'primary' : 'secondary'}
+                                            />
+                                        }
+                                        isSelected={currentKey === item.key}
+                                        href={`/settings/${item.key}`}
+                                        onClick={() => navigate(`/settings/${item.key}`)}
+                                    />
+                                ))}
+                            </SideNav>
                         </div>
                     </aside>
                 </LayoutPanel>
             }
             content={
-                <Layout
-                    height="fill"
-                    header={
-                        <LayoutHeader hasDivider height={48}>
-                            <HStack align="center" height="fill" paddingInline={6}>
-                                <Breadcrumbs label={t('layoutTitle')} variant="supporting">
-                                    <BreadcrumbItem onClick={() => navigate('/settings/shortcut')}>
-                                        {t('layoutTitle')}
-                                    </BreadcrumbItem>
-                                    <BreadcrumbItem isCurrent>
-                                        {t(activeItem.labelKey)}
-                                    </BreadcrumbItem>
-                                </Breadcrumbs>
-                            </HStack>
-                        </LayoutHeader>
-                    }
-                    content={
-                        <LayoutContent padding={6} isScrollable role="main">
-                            <main role="main" className="w-full">
-                                <VStack width="100%" maxWidth={960} gap={6} paddingBlockEnd={8} className="mx-auto">
-                                    <Outlet />
-                                </VStack>
-                            </main>
-                        </LayoutContent>
-                    }
-                />
+                <LayoutContent padding={6} isScrollable>
+                    <VStack width="100%" maxWidth={960} gap={6} paddingBlockEnd={8} className="mx-auto">
+                        <Outlet />
+                    </VStack>
+                </LayoutContent>
             }
         />
     );

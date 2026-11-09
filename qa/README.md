@@ -93,7 +93,7 @@ const restarted = await launchAppSession(userDataDir);
 | 服务类开关 + 跨端 HTTP 断言（令牌鉴权） | `qa/specs/settings/mobile-access-settings.spec.ts` |
 | 保存时机（改完立刻切走） | 各页 spec 里都有一条：`qa/specs/settings/appearance-settings.spec.ts` 的 SET-APP-09 最简洁 |
 
-1. **入口定位用 getByRole**：`link` / `button` / `heading` + 中文文案（fixture 已固定 `i18n.language: 'zh-CN'`，不随宿主系统语言漂移）；避免 CSS 选择器。设置页导航走 `openSettingsSection`，不要手写点击链接——面包屑里可能出现同名链接。
+1. **入口定位用 getByRole**：`link` / `button` / `heading` + 中文文案（fixture 已固定 `i18n.language: 'zh-CN'`，不随宿主系统语言漂移）；避免 CSS 选择器。设置页导航走 `openSettingsSection`，不要手写点击链接——侧边栏与其它导航区可能出现同名入口。
 2. **「用户填了但没保存」是这套用例的首要防范对象**：设置页没有保存按钮，改动由页面防抖自动保存，所以每条用例都按三段式写——① 操作控件；② `expect.poll(() => readConfigValue(...))` 断言值真进了配置文件；③ `reloadSettingsPage` 后断言界面回显。只做第 ① 步，或只断言界面 state，都可能在「保存链路断了」时假通过。涉及保存时机的用例还要多走一步「切到别的栏目再切回来」，因为整页 reload 会清掉前端缓存，验不到缓存过期一类的问题（见下面的已知坑）。
 3. **断言"操作 → 可观测结果"**：界面状态（类名 / DOM）+ 持久化结果（配置文件 / 数据库）。
 4. **用自动重试的断言**：`expect(locator).toHaveClass()`、`expect.poll()` 等；不要用 `waitForTimeout` 硬等。

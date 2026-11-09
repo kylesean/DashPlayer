@@ -23,6 +23,10 @@ export interface SideBarProps {
     compact?: boolean;
     /** 是否处于播放器环境（在播放器中支持一键完全隐藏侧栏进入极简观影）。 */
     inPlayer?: boolean;
+    /** 折叠按钮的自定义切换逻辑；不传时用全局 sidebarCollapsed。 */
+    onToggleCollapse?: () => void;
+    /** 窗口过窄等场景下禁用折叠按钮，避免点了没有任何视觉变化。 */
+    collapseDisabled?: boolean;
 }
 
 /**
@@ -36,7 +40,12 @@ export interface SideBarProps {
  * @param props 组件属性。
  * @returns 侧栏 JSX 元素。
  */
-const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
+const SideBar: React.FC<SideBarProps> = ({
+    compact,
+    inPlayer = false,
+    onToggleCollapse,
+    collapseDisabled = false,
+}) => {
     const { t } = useI18nTranslation('nav');
     const navigate = useNavigate();
     const location = useLocation();
@@ -58,11 +67,25 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
     const isVocabulary = location.pathname.startsWith('/vocabulary');
     const isSettings = location.pathname.startsWith('/settings');
 
+    /** 折叠状态由外层 AppShell 控制，切换动作统一走这里。 */
+    const handleToggleCollapse = () => {
+        if (collapseDisabled) return;
+        if (onToggleCollapse) {
+            onToggleCollapse();
+        } else {
+            toggleSidebarCollapsed();
+        }
+    };
+
     return (
         <SideNav
-            // hasButton: false —— 折叠/展开按钮由下方 footerIcons 自己提供一份；
+            // 受控折叠：hasButton:false，折叠/展开按钮由下方 footerIcons 提供一份；
             // 交给 SideNav 再渲染一颗，会出现两颗重复的折叠控件
-            collapsible={isCompact ? { isCollapsed: true, hasButton: false } : false}
+            collapsible={{
+                isCollapsed: isCompact,
+                onCollapsedChange: handleToggleCollapse,
+                hasButton: false,
+            }}
             header={
                 isCompact ? (
                     <Center width="100%" paddingBlock={2}>
@@ -99,10 +122,16 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
                 >
                     <IconButton
                         label={isCompact ? t('expandSidebar', { defaultValue: '展开导航栏' }) : t('collapseSidebar', { defaultValue: '收起导航栏' })}
+                        tooltip={collapseDisabled
+                            ? t('sidebarFixedCompact', { defaultValue: '窗口较窄时固定为图标导航' })
+                            : isCompact
+                                ? t('expandSidebar', { defaultValue: '展开导航栏' })
+                                : t('collapseSidebar', { defaultValue: '收起导航栏' })}
                         icon={<Icon icon={isCompact ? PanelLeftOpen : PanelLeftClose} size="sm" />}
                         variant="ghost"
                         size="sm"
-                        onClick={toggleSidebarCollapsed}
+                        isDisabled={collapseDisabled}
+                        onClick={handleToggleCollapse}
                     />
 
                     {inPlayer && !isCompact && (

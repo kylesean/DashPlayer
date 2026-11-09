@@ -12,7 +12,9 @@ import useLayout from '@/fronted/app/stores/layoutStore';
  *
  * 采用结构化标题栏（非悬浮遮罩）规范：
  * - 顶栏固定占据 32px 实体高度，承载系统原生拖拽、双击最大化与 Windows/Linux 窗口控制（—/□/✕）。
- * - 页面业务内容（播放器舞台、伴读剧本流、设置面板等）在顶栏下方渲染，从物理空间上彻底杜绝与窗口控制按钮的重叠遮挡。
+ * - 顶栏不画底部分隔线：那条线会贴在窗口控制按钮下沿，并在浅色/高对比主题下
+ *   与下方内容面的圆角边框叠成「丁」字形；内容区的层级由 AppShell 的 elevated
+ *   表面自己承担，不需要额外一条 1px 线。
  * - 全屏（fullScreen）状态下顶栏自动收起，视频画面无缝充满整个视口。
  *
  * @returns 包含顶栏与路由子页面的布局 JSX 元素。
@@ -29,7 +31,7 @@ const TitleBarLayout: React.FC = () => {
             // 导致窗口控制按钮高度不一、与标题栏错位
             header={
                 !fullScreen ? (
-                    <LayoutHeader height={32} hasDivider padding={0}>
+                    <LayoutHeader height={32} padding={0}>
                         {/* 标题栏给固定 32px：LayoutHeader 的内层是 auto 高度，
                             用 h-full 只能拿到内容高度（16px），控制按钮会高低不齐 */}
                         <TitleBar className="w-full h-8" />
