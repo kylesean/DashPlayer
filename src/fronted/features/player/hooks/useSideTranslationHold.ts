@@ -123,7 +123,9 @@ const runHold = async (scroller: HTMLElement, before: BeforeSnapshot): Promise<v
                 return;
             }
 
-            // 每轮都拿「原始快照 + 当前实测」重新算，绝不把上一轮的 delta 累加进来
+            // 每轮都用「原始锚点位置 + 当前实测」重新算位移，绝不累加上一轮的 delta；
+            // 但基准取当前 scrollTop（不是切换前的快照值）——重测期间 Virtuoso 自己会漂，
+            // 以快照值为基准会把那段漂移重复补偿一次，循环因此发散。详见 scrollTarget.ts。
             const target = computeScrollTarget(
                 {
                     before: { scrollTop: before.scrollTop, anchor },

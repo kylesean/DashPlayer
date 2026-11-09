@@ -22,6 +22,18 @@ describe('布局变化后的滚动目标换算', () => {
         expect(target).toEqual({ scrollTop: 1060 });
     });
 
+    it('重测期间容器自己漂过一段时，以当前 scrollTop 为基准，不重复补偿那段漂移', () => {
+        // 真实时序：切换瞬间 scrollTop=900，Virtuoso 重测行高时把容器推到 1178，
+        // 此刻锚点相对当前视口只偏了 13.66px。若仍以 900 为基准，就会算出 913.66，
+        // 而正确落点是 1178 + 13.66 —— 前者会让下一轮再次测到同一偏移，循环发散。
+        const target = computeScrollTarget({
+            before: snapshot(900, { index: 12, top: -366.9 }),
+            after: snapshot(1178, { index: 12, top: -353.2 }),
+        });
+        expect(target).not.toBeNull();
+        expect(target?.scrollTop).toBeCloseTo(1191.7, 1);
+    });
+
     it('行在布局里上移时反向回滚，位置不会被推到负数以下', () => {
         // 译文关闭后行变矮：锚点行从 100px 变成 -40px
         expect(computeScrollTarget({
@@ -100,10 +112,13 @@ describe('布局变化后的滚动目标换算', () => {
         }
     });
 
-    it('锚点没动时目标就是原位置，不会产生多余的写入', () => {
+    it('锚点相对视口没动时，目标就是当前滚动位置，不把容器自己漂移的那段再补偿一次', () => {
+        // 切换后 Virtuoso 已经把容器推到 920，锚点相对视口恰好还在 100px。
+        // 此时正确的动作是「什么都不用补」——若返回 900，就会把用户从 920 拽回 900，
+        // 下一轮再测又偏 20px，形成来回摆。
         expect(computeScrollTarget({
             before: snapshot(900, { index: 12, top: 100 }),
             after: snapshot(920, { index: 12, top: 100 }),
-        })).toEqual({ scrollTop: 900 });
+        })).toEqual({ scrollTop: 920 });
     });
 });

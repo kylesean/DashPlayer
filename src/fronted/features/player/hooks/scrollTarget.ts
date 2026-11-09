@@ -23,9 +23,17 @@ export interface ScrollTargetInput {
     /** 变化前的快照：滚动位置与锚点行位置。 */
     before: { scrollTop: number; anchor: AnchorSample };
     /**
-     * 变化后的快照：滚动位置与锚点行位置。
-     * 换算基准永远是 `before.scrollTop`（每轮重算残差，禁止累加上一轮 delta），
-     * 这里的位置只留给调用方记录与断言使用。
+     * 变化后的快照：**当前**滚动位置与锚点行位置。
+     *
+     * 这里的 `scrollTop` 是换算基准，不能省成 `before.scrollTop`：
+     * 锚点的位移是在「当前滚动位置」下测出来的，而 Virtuoso 在行高重测期间会自己改
+     * `scrollTop`（实测切换一次从 900 漂到 1178）。若仍以 `before.scrollTop` 为基准，
+     * 就等于把这段漂移重复计入一次，写入值在 920 / 1172 之间来回摆，残差
+     * 13.7 → 271.8 → 19.5 → 265.9 一路发散，跑满轮次也到不了 1px 以内。
+     *
+     * 注意「基准取当前」与「每轮重算、不累加上一轮 delta」并不矛盾：
+     * 位移永远由 `before.anchor.top` 与**当前实测**的 `after.anchor.top` 现算，
+     * 不含任何历史 delta；换的只是这段位移该加到哪个滚动位置上。
      */
     after: { scrollTop: number; anchor: AnchorSample };
 }
@@ -77,9 +85,11 @@ export function computeScrollTarget(
         return null;
     }
 
-    // 行在布局像素坐标里向下移动了多少，滚动位置就要跟进多少，锚点才会停在原处
+    // 行相对**当前滚动位置**移动了多少，滚动位置就跟着移动多少，锚点才会停在原处。
+    // 用 after.scrollTop 而不是 before.scrollTop：见 ScrollTargetInput.after 的说明——
+    // 重测期间容器自己已经漂过一段，那一段必须计入基准，否则会被重复补偿。
     const shiftPx = afterAnchor.top - beforeAnchor.top;
     const clampedShift = Math.max(-maxStepPx, Math.min(maxStepPx, shiftPx));
 
-    return { scrollTop: Math.max(0, before.scrollTop + clampedShift) };
+    return { scrollTop: Math.max(0, after.scrollTop + clampedShift) };
 }

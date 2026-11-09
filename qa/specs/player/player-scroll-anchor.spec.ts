@@ -19,21 +19,35 @@ import { expect, type Page } from '@playwright/test';
 import { test } from '../../support/fixtures';
 import path from 'node:path';
 import {
-    FLING_SCROLL_TOP,
+    FLING_TO_END_WHEEL_DELTA,
     MIN_CONTENT_HEIGHT_DELTA,
     MIN_START_SCROLL_TOP,
     ROUNDS,
-    SCROLLER_TESTID,
-    SENTENCE_CARD_TESTID,
-    SIDE_TRANSLATION_TESTID,
     START_SCROLL_TOP,
 } from '../../support/scroll-anchor-protocol';
+// 元素标识是产品与用例共用的运行期契约，唯一来源在 src/common（改名会在 tsc 阶段失败）
+import {
+    PLAYER_SIDEBAR_SCROLLER_TESTID as SCROLLER_TESTID,
+    PLAYER_SCROLL_OBSERVATION_PREFIX as OBSERVATION_PREFIX,
+    SENTENCE_CARD_TESTID,
+    SIDE_TRANSLATION_TOGGLE_TESTID as SIDE_TRANSLATION_TESTID,
+} from '../../../src/common/constants/player-scroll-protocol';
 
 /** 夹具：36 句双语字幕 + 同目录同名视频（由 qa/fixtures/make-fixtures.mjs 生成，不入库）。 */
 const FIXTURE_VIDEO = path.join(__dirname, '..', '..', 'fixtures', 'media', 'qa-bilingual.mp4');
 
 /** 本轮使用的策略：a = hold，b = 对照。 */
 const POLICY: 'a' | 'b' = process.env.DP_POLICY === 'b' ? 'b' : 'a';
+
+/**
+ * 本文件用例的超时预算（毫秒）。
+ *
+ * 全局超时是 60 秒，但这里的最坏耗时明显更长：`openPlayer` 里等字幕行最多 30 秒、
+ * 等滚动静稳最多 15 秒；每轮还要等 hold（预置 8 秒 + 正式 10 秒）、钉起点最多 3.2 秒，
+ * 三轮合计约 66 秒。加起来最坏能到 110 秒以上——用默认值会让「超时」先于断言触发，
+ * 失败信息指向时间而不是残差，把排查方向带偏。
+ */
+const PLAYER_TEST_TIMEOUT_MS = 180_000;
 
 /** 一次采样：滚动位置、内容高度、最上方可见行。 */
 interface ScrollSample {
@@ -65,8 +79,14 @@ interface RoundObservation {
     requestCount: number | null;
     writeCount: number | null;
     appReportedHold: unknown;
+    /**
+     * 守卫是否成立，也就是「这一轮真的把要测的场景构造出来了」：
+     * 起点在中段、切换确实改变了行高、锚点行切换后仍被渲染。
+     *
+     * 它**不代表产品对错**——grow 场景要求它为 true，shrink 场景要求它为 false
+     * （锚点被回收时守卫本就该失效，那才是要证明的 fail closed）。
+     */
     guardHolds: boolean;
-    verdict: 'green' | 'red';
 }
 
 /**
@@ -146,37 +166,42 @@ async function readScrollTop(page: Page): Promise<number> {
 }
 
 /**
- * 把滚动位置钉在指定值，并确认它真的钉住了。
+ * 用**真实滚轮输入**把侧栏滚到指定位置。
  *
- * 为什么不能写完就走：应用自身在切句/重排后有一整套「钉在边界 → 停歇后平滑归顶」的编排，
- * 它的定时器可能在我们写入之后再把位置拉走，起点于是变成 0 附近的二值分布（用例会时灵时不灵）。
- * 这里反复写入直到连续两次读数都停在目标值上，起点才真正钉死。
+ * 为什么不能用 `scroller.scrollTop = target`：直接写 DOM 绕过了应用的输入链路，
+ * 而 `Subtitle.tsx` 的 `wheel` 监听正是把自动跟随切到 `USER_BROWSING` 的唯一入口。
+ * 不经过它，首屏自动跟随仍处于生效状态，会在几百毫秒内把位置拉回顶部
+ * （探针实测：写入 900 后读到 900 → 409 → 396 → 63 → 4，最终恒为 4）。
+ * 那样「切换前快照」与「用例采样」量的根本不是同一个起点——这是**用例前提不成立**，
+ * 而不是补偿逻辑失效。用滚轮滚到目标位置后，应用进入浏览态，位置稳定不动
+ * （实测连续 8 次采样全部 900）。
  *
  * @param page 播放页。
  * @param target 目标 scrollTop（布局像素）。
- * @returns 钉住后的实际 scrollTop。
+ * @returns 到达后的实际 scrollTop。
  */
-async function pinScrollTop(page: Page, target: number): Promise<number> {
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-        await page.evaluate(({ scrollTop, scrollerTestId }) => {
-            const scroller = document.querySelector<HTMLElement>(`[data-testid="${scrollerTestId}"]`);
-            if (!scroller) {
-                throw new Error('侧栏滚动容器不存在');
-            }
-            scroller.scrollTop = scrollTop;
-        }, { scrollTop: target, scrollerTestId: SCROLLER_TESTID });
-        await page.waitForTimeout(220);
-        const first = await readScrollTop(page);
-        if (Math.abs(first - target) > 2) {
-            continue;
-        }
-        await page.waitForTimeout(180);
-        const second = await readScrollTop(page);
-        if (Math.abs(second - target) <= 2) {
-            return second;
-        }
+async function wheelToScrollTop(page: Page, target: number): Promise<number> {
+    const box = await page.locator(`[data-testid="${SCROLLER_TESTID}"]`).boundingBox();
+    if (!box) {
+        throw new Error('侧栏滚动容器不可见，无法构造滚动起点');
     }
-    return readScrollTop(page);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+
+    // 先回到顶部再单向滚下来：这样每一轮的起点都从同一个方向逼近，避免「从深处往上滚」
+    // 与「从顶部往下滚」在虚拟列表里落到不同的行高估算上，产生双峰。
+    await page.mouse.wheel(0, -100_000);
+    await page.waitForTimeout(120);
+
+    let current = await readScrollTop(page);
+    for (let attempt = 0; attempt < 80 && Math.abs(current - target) > 2; attempt += 1) {
+        const delta = target - current;
+        // 单次滚动量夹在 300px 内：一次甩太远会让虚拟列表跳过大段未测量行，
+        // 落点由估算行高决定，反而更不准。
+        await page.mouse.wheel(0, Math.sign(delta) * Math.min(Math.abs(delta), 300));
+        await page.waitForTimeout(35);
+        current = await readScrollTop(page);
+    }
+    return current;
 }
 
 /**
@@ -203,6 +228,28 @@ async function readSideTranslation(page: Page): Promise<boolean> {
 }
 
 /**
+ * 点击「侧栏译文」开关，但**不移动鼠标**。
+ *
+ * 为什么不用 `locator.click()`：Playwright 的 click 会先把真实指针移到元素中心再按下。
+ * 开关位于列表**上方**的标题栏里，指针一旦停在那儿，后续 `page.mouse.wheel()` 就滚到了
+ * 标题栏（不滚动），而不是字幕列表——实测表现为「滚轮完全没反应、起点恒为 4」。
+ *
+ * 应用监听的是 DOM `click` 事件，`element.click()` 派发的就是它，语义等价且不碰指针。
+ *
+ * @param page 播放页。
+ * @returns 点击派发后结束。
+ */
+async function clickSideTranslationWithoutPointer(page: Page): Promise<void> {
+    await page.evaluate((toggleTestId) => {
+        const toggle = document.querySelector<HTMLElement>(`[data-testid="${toggleTestId}"]`);
+        if (!toggle) {
+            throw new Error('侧栏译文开关不存在');
+        }
+        toggle.click();
+    }, SIDE_TRANSLATION_TESTID);
+}
+
+/**
  * 把「侧栏译文」开关设到指定状态（已经在目标状态时不点）。
  *
  * @param page 播放页。
@@ -216,7 +263,7 @@ async function setSideTranslation(page: Page, on: boolean): Promise<void> {
     const seqBefore = await page.evaluate(
         () => (window as { __dpDebug?: { lastHold: () => { seq: number } | null } }).__dpDebug?.lastHold()?.seq ?? 0,
     );
-    await page.locator(`[data-testid="${SIDE_TRANSLATION_TESTID}"]`).click();
+    await clickSideTranslationWithoutPointer(page);
     await waitForHold(page, seqBefore, 8000).catch(() => undefined);
     // 让 Virtuoso 把重测后的行高落定，避免把上一轮的余波算进本轮
     await page.waitForTimeout(300);
@@ -310,9 +357,12 @@ async function openPlayer(page: Page): Promise<void> {
     //
     // 为什么不能只等固定时长：进入播放页后应用自己会做一轮首屏定位
     // （远距离跳转按 start 对齐，触底还会走「钉下边界 → 停歇 250ms → 平滑归顶」两阶段编排），
-    // 整个过程远超过 800ms。用例在这期间钉 scrollTop，会被应用的平滑滚动一路拉回去
-    // （实测 900 → 409 → 159 → 4），于是「切换前快照」与「用例采样」量到的根本不是同一个起点，
-    // 残差自然对不上——这是**用例前提没成立**，不是补偿逻辑失效。
+    // 实测在约 8 秒后还会再动一次（探针采样：… 4, 4, 409, 4 …）。
+    // 在这期间做任何滚动都会和它抢同一个容器。
+    //
+    // 注意这一步**不能替代**下面用真实滚轮构造起点：即使静稳之后，直接写 `scrollTop`
+    // 仍会被自动跟随拉回顶部（因为应用没进入 `USER_BROWSING`）。两步各管一件事：
+    // 这里等应用停手，`wheelToScrollTop` 负责让应用交出自己的控制权。
     //
     // 判据用连续 6 次采样相同（约 0.9s 静默）：应用停下来之后不会再有写入方动这个容器。
     // 阈值取 6 而不是 2，是因为平滑滚动的尾段速度很低，相邻两次采样可能恰好相同，
@@ -370,15 +420,21 @@ async function runRound(
          * 不为 null 时：把滚动位置甩到这个深度，并在**同一拍**里切换开关。
          * 用来构造「锚点行在测量时已经不在渲染范围内」的场景。
          */
-        flingBeforeToggle: number | null;
+        flingWheelDelta: number | null;
     },
 ): Promise<RoundObservation> {
     await setSideTranslation(page, params.startTranslation);
 
     const instrumentation = (await hasInstrumentation(page)) ? 'present' : 'absent';
 
-    // 起点钉死：规格的一部分，删掉这条用例会变成双峰（有时测到列表顶部，有时测到中段）
-    await pinScrollTop(page, params.startScrollTop);
+    // 起点构造：规格的一部分。必须走真实滚轮输入，直接写 scrollTop 会被首屏自动跟随拉回顶部。
+    const achievedStart = await wheelToScrollTop(page, params.startScrollTop);
+    if (Math.abs(achievedStart - params.startScrollTop) > 2) {
+        throw new Error(
+            `未能把侧栏滚到起点 ${params.startScrollTop}（实际 ${achievedStart}）：`
+            + '滚轮输入没有生效，或列表内容不足以滚到该深度。这是用例前提不成立，不是产品回归。',
+        );
+    }
 
     const before = await sampleScroll(page);
     const writesMark = await page.evaluate(() => performance.now());
@@ -386,20 +442,25 @@ async function runRound(
         () => (window as { __dpDebug?: { lastHold: () => { seq: number } | null } }).__dpDebug?.lastHold()?.seq ?? 0,
     );
 
-    if (params.flingBeforeToggle === null) {
-        await page.locator(`[data-testid="${SIDE_TRANSLATION_TESTID}"]`).click();
+    if (params.flingWheelDelta === null) {
+        await clickSideTranslationWithoutPointer(page);
     } else {
-        // 同一拍内「先切换、再甩走」：切换瞬间应用捕获的是当前那批行，
-        // 紧接着列表被甩到深处，等它去重测时锚点行已经被虚拟列表回收了
-        await page.evaluate(({ top, scrollerTestId, toggleTestId }) => {
-            const scroller = document.querySelector<HTMLElement>(`[data-testid="${scrollerTestId}"]`);
-            const toggle = document.querySelector<HTMLElement>(`[data-testid="${toggleTestId}"]`);
-            if (!scroller || !toggle) {
-                throw new Error('侧栏滚动容器或译文开关不存在');
-            }
-            toggle.click();
-            scroller.scrollTop = top;
-        }, { top: params.flingBeforeToggle, scrollerTestId: SCROLLER_TESTID, toggleTestId: SIDE_TRANSLATION_TESTID });
+        // 「先切换、立刻甩走」：切换的点击在应用侧同步捕获锚点（store 订阅，早于重渲染），
+        // 紧接着用真实滚轮把列表甩到深处，等它去重测时锚点行已被虚拟列表回收。
+        //
+        // 甩动同样必须走滚轮而不是写 scrollTop：写 scrollTop 会让容器进入
+        // 「应用以为位置是自己设的」状态，实测随后被首屏跟随拉回顶部，
+        // 锚点行反而一直留在渲染范围里——那样这一轮测的就不是 fail closed 了。
+        await clickSideTranslationWithoutPointer(page);
+        const box = await page.locator(`[data-testid="${SCROLLER_TESTID}"]`).boundingBox();
+        if (!box) {
+            throw new Error('侧栏滚动容器不可见，无法构造甩动');
+        }
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        // 滚轮位移与 scrollTop 近似 1:1（实测 900 + 3000 → 3900）。
+        // 这里直接给一个远超内容高度的位移，等价于「甩到底部」——锚点在第 1 行时
+        // 必然被虚拟列表回收，且结论不依赖行高与总句数（见协议常量里的说明）。
+        await page.mouse.wheel(0, params.flingWheelDelta);
     }
 
     let appReportedHold: unknown = null;
@@ -449,12 +510,12 @@ async function runRound(
         writeCount: counts.writes,
         appReportedHold,
         guardHolds,
-        verdict: guardHolds ? 'green' : 'red',
     };
 }
 
 test.describe('侧栏译文切换后的阅读位置保持', () => {
     test('切换译文后，正在读的那一行留在原处', async ({ session }) => {
+        test.setTimeout(PLAYER_TEST_TIMEOUT_MS);
         const { page } = session;
         await openPlayer(page);
 
@@ -465,9 +526,9 @@ test.describe('侧栏译文切换后的阅读位置保持', () => {
                 case: 'grow',
                 startScrollTop: START_SCROLL_TOP,
                 startTranslation: false,
-                flingBeforeToggle: null,
+                flingWheelDelta: null,
             });
-            console.log(`[player-scroll-anchor] ${JSON.stringify(observation)}`);
+            console.log(`${OBSERVATION_PREFIX}${JSON.stringify(observation)}`);
 
             // 守卫：先证明这一轮确实测到了「中段 + 行高变化 + 锚点仍渲染」
             expect(observation.startScrollTop, '起点必须落在列表中部').toBeGreaterThan(MIN_START_SCROLL_TOP);
@@ -500,6 +561,7 @@ test.describe('侧栏译文切换后的阅读位置保持', () => {
     });
 
     test('锚点行被虚拟列表回收时一次都不滚（守卫不成立）', async ({ session }) => {
+        test.setTimeout(PLAYER_TEST_TIMEOUT_MS);
         const { page } = session;
         await openPlayer(page);
 
@@ -510,9 +572,9 @@ test.describe('侧栏译文切换后的阅读位置保持', () => {
                 case: 'shrink-anchor-unmounted',
                 startScrollTop: START_SCROLL_TOP,
                 startTranslation: true,
-                flingBeforeToggle: FLING_SCROLL_TOP,
+                flingWheelDelta: FLING_TO_END_WHEEL_DELTA,
             });
-            console.log(`[player-scroll-anchor] ${JSON.stringify(observation)}`);
+            console.log(`${OBSERVATION_PREFIX}${JSON.stringify(observation)}`);
 
             // 这一条测的是「锚点被虚拟列表回收时一次都不许滚」，前提是锚点真的被回收了。
             // 前提不成立（比如将来调大 overscan 让锚点留在渲染范围内）时，
@@ -523,7 +585,7 @@ test.describe('侧栏译文切换后的阅读位置保持', () => {
             );
             expect(observation.anchorRendered, '锚点行应已不在渲染范围内').toBe(false);
             // 锚点缺失时守卫必然不成立，这是规格里的已知失败场景
-            expect(observation.verdict, '锚点行被回收时守卫不成立').toBe('red');
+            expect(observation.guardHolds, '锚点行被回收时守卫不成立').toBe(false);
 
             expect(observation.instrumentation, '调试埋点缺失，滚动写入无法判定').toBe('present');
             // fail closed：锚不住就一次都不许滚（不论策略，请求与直接写都必须为 0）
