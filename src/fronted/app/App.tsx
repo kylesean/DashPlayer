@@ -26,7 +26,6 @@ import { OnboardingView } from '@/fronted/features/onboarding/OnboardingView';
 import { getOnboardingCompletedVersion } from '@/fronted/features/onboarding/onboardingApi';
 import { MigrationFailureGate } from '@/fronted/features/migration-failure/MigrationFailureGate';
 import { getMigrationFailureDetail } from '@/fronted/features/migration-failure/migrationFailureApi';
-import type { MigrationFailureDetail } from '@/common/contracts/migration-failure';
 import { Button } from '@astryxdesign/core/Button';
 import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
@@ -36,19 +35,11 @@ import { Theme } from '@astryxdesign/core/theme';
 import { themes, type ThemeSlug } from '../../astryx-themes';
 import type { AppearanceThemeFamily } from '@/common/contracts/appearance-setting-vo';
 import { DARK_ONLY_THEME_SLUGS, THEME_SLUG_BY_FAMILY } from '@/fronted/app/themeFamilies';
+import { resolveStartupGate, type StartupGate } from '@/fronted/app/lib/startup-gate';
+import type { MigrationFailureDetail } from '@/common/contracts/migration-failure';
 
 const UPDATE_CHECK_DELAY_MS = 6000;
 const UPDATE_TOAST_ID = 'update-available';
-
-/**
- * 启动门槛的判定结果，优先级从高到低：迁移失败 → 首次使用引导 → 主界面。
- *
- * null 表示尚未判定完成：此时只展示轻量加载态，避免主界面先闪一下再被引导页顶掉。
- */
-type StartupGate =
-    | { kind: 'migration-failure'; failure: MigrationFailureDetail }
-    | { kind: 'onboarding' }
-    | { kind: 'main' };
 
 /**
  * 启动门槛判定期间的过渡态。
@@ -106,7 +97,7 @@ export const App = () => {
     const isDarkOnlyTheme = themeSlug !== undefined && DARK_ONLY_THEME_SLUGS.has(themeSlug);
     const languageSetting = useSetting((s) => s.values.get('i18n.language'));
     /** 当前生效的启动门槛；null 表示两个门槛都还没读出结果。 */
-    const [gate, setGate] = React.useState<StartupGate | null>(null);
+    const [gate, setGate] = React.useState<StartupGate<MigrationFailureDetail> | null>(null);
 
     // 两个门槛并行读取、统一裁决，避免各自为政时互相覆盖；
     // 单次读取失败按「该门槛不拦截」处理，否则一次 IPC 异常就会把用户永久锁在启动页。
@@ -120,11 +111,7 @@ export const App = () => {
             if (cancelled) {
                 return;
             }
-            if (failure?.failed) {
-                setGate({ kind: 'migration-failure', failure });
-                return;
-            }
-            setGate(completedVersion ? { kind: 'main' } : { kind: 'onboarding' });
+            setGate(resolveStartupGate(failure, completedVersion));
         })();
         return () => {
             cancelled = true;

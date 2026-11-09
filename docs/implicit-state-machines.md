@@ -160,14 +160,21 @@
   这是纯 DX/AX 收益，零行为变化。
 - **仍存在的风险**：新增终态（如 `expired`）时只需改 `TERMINAL_DP_TASK_STATES` 一处。
 
-### 7. 启动门槛（`StartupGate`）
+### 7. 启动门槛（`StartupGate`，已收敛）
 
-- **位置**：`src/fronted/app/App.tsx`
+- **位置**：`src/fronted/app/App.tsx` + `src/fronted/app/lib/startup-gate.ts`
 - **隐式状态**：`null（判定中）→ migration-failure | onboarding | main`
-- **现状**：优先级已经写在类型注释里，`useEffect` 里用 `if (failure?.failed)` 提前返回
-  表达。目前正确，但「迁移失败优先于引导」这条产品决策只存在于一行 `if`。
-- **建议**：抽 `resolveStartupGate(failure, completedVersion)` 纯函数，
-  已有测试 `src/__tests__/app.startup-gate.test.tsx` 可直接扩展成转移表断言。
+- **原现状**：优先级只写在类型注释里，`useEffect` 里用 `if (failure?.failed)`
+  提前返回表达。「迁移失败优先于引导」这条产品决策只存在于一行 `if`，
+  改动时没有任何断言能拦住顺序被调换。
+- **本次处理**：抽 `resolveStartupGate(failure, completedVersion)` 纯函数，
+  用泛型保留调用方完整的 `MigrationFailureDetail`（不复制后端契约字段）。
+  `App.tsx` 只负责取数、取消与落状态。
+- **测试**：`src/fronted/app/lib/__tests__/startup-gate.test.ts`（6 例）
+  + 既有 `src/__tests__/app.startup-gate.test.tsx`（4 例，组件级）。
+  覆盖：迁移失败压过引导与主界面、读取失败不拦截启动、
+  **空串版本号等价于从未完成引导**（后端未写配置时的真实返回形态）。
+  变异验证：把 `failure?.failed` 改成恒假 → 纯函数 2 例 + 组件 1 例同时转红。
 
 ### 8. 引导流程（`OnboardingView`）
 
