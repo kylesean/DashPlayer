@@ -30,7 +30,7 @@
 | 收藏片段 Favourite | `FavouriteClipsService`、`features/favourite/`、`clipTagRelation/tag/videoClip` 表 | b749b711 |
 | 播放修复 PlaybackRepair | `PlaybackRepairService`（1018 行）、`features/repair/`、`playback-repair-rules.ts` | 563c04e6 |
 | 本地章节切分 | `SplitVideoService`、`features/split/`、`chapter-parser.ts` | 578ee9c3 |
-| 视频转录入口 | `TranscriptionService`、`features/transcript/`、`transcriptionTask` 表 | 68dfbbe3 |
+| 视频转录（上游完整编排） | `TranscriptionService`、`features/transcript/`、`transcriptionTask` 表 | 68dfbbe3（2026-11-09 以 `SubtitleGenerationService` 恢复最小生成入口，不含增量/按需重排，见 `docs/product-backlog.md`） |
 | OPUS-MT / LocalMt 翻译 | `LocalMtService`、`LocalMtRuntime`、`local-mt.ts` 契约 | c0f6e3d2 |
 | ai-elements 组件库 | `fronted/components/ai-elements/`（40+ 文件） | 43b12822 |
 | 死表 | `dp_stems`、`dp_kvs` | cc5c8bcf |
