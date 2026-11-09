@@ -195,7 +195,13 @@ const PracticePanel = () => {
     };
 
     const { phase: recorderPhase, start: startRecording, stop: stopRecording } =
-        usePracticeRecorder({ onRecordingComplete: submitShadowing });
+        usePracticeRecorder({
+            onRecordingComplete: submitShadowing,
+            // 录音 UI 只在「面板可见 + 停在跟读页签 + 有当前句」时存在。
+            // 任一条件失效（切听写、关面板、换到无字幕处）都由 hook 主动丢弃录音，
+            // 否则麦克风继续采集、recording 卡在 true 把播放快捷键永久禁用。
+            active: visible && mode === 'shadowing' && currentSentence !== null,
+        });
 
     // 录音中的秒数计时:秒数清零在点击处理器里做,effect 只负责计时器生命周期
     useEffect(() => {
@@ -204,8 +210,22 @@ const PracticePanel = () => {
             return () => window.clearInterval(timer);
         }
         return undefined;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [visible, recorderPhase]);
+
+    // 面板隐藏或组件卸载时停掉录音回放：audio 元素挂在 ref 上，不受 React 卸载影响，
+    // 不停就会在用户已经回到播放画面后继续出声。
+    useEffect(() => {
+        if (visible) {
+            return;
+        }
+        audioRef.current?.pause();
+        audioRef.current = null;
+    }, [visible]);
+    useEffect(() => () => {
+        audioRef.current?.pause();
+        audioRef.current = null;
+    }, []);
 
     if (!visible || !currentSentence) return null;
 

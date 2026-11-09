@@ -25,6 +25,14 @@ function pickMimeType(): string | undefined {
 interface UsePracticeRecorderOptions {
     /** 录音完成后回调(携带 webm/opus 字节);评分失败在此抛出,由本 hook 统一提示。 */
     onRecordingComplete: (audio: Uint8Array) => Promise<void>;
+    /**
+     * 录音 UI 是否仍处于「可用」状态；默认 true。
+     *
+     * 面板切到听写页签、隐藏或当前句消失时传 false。此时若正在录音，hook 会主动丢弃当前录音，
+     * 避免麦克风继续采集、`practiceStore.recording` 卡在 true 把播放快捷键永久禁用。
+     * 用声明式开关而不是让每个调用点自己记得调 cancel，是因为「忘记调」的代价是全局状态泄漏。
+     */
+    active?: boolean;
 }
 
 /**
@@ -32,7 +40,7 @@ interface UsePracticeRecorderOptions {
  * 麦克风约束:显式关闭回声消除/降噪/自动增益,要麦克风原始输入;
  * 录音字节直接交给调用方评分。
  */
-export function usePracticeRecorder({ onRecordingComplete }: UsePracticeRecorderOptions) {
+export function usePracticeRecorder({ onRecordingComplete, active = true }: UsePracticeRecorderOptions) {
     const { t } = useTranslation('practice');
     const [phase, setPhase] = useState<PracticeRecorderPhase>('idle');
     const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -56,12 +64,61 @@ export function usePracticeRecorder({ onRecordingComplete }: UsePracticeRecorder
         setRecording(phase === 'recording');
     }, [phase, setRecording]);
 
+    /** 收尾:释放麦克风、清空缓冲,回到空闲(processing 阶段除外)。 */
+    const finishFlow = useCallback((): void => {
+        releaseStream();
+        mediaRecorderRef.current = null;
+        chunksRef.current = [];
+    }, [releaseStream]);
+
+    /**
+     * 停掉采集并丢弃当前录音，不触发评分回调。
+     *
+     * 用于「用户离开了跟读流程，但并没有想提交这段录音」的场景：关闭面板、切到听写页签。
+     * 与 `stop()` 的区别是它不调用 `onRecordingComplete`，因此不会把半截录音送去评分。
+     *
+     * 只在 `recording` 阶段生效：`processing` 阶段的音频已经交给评分链路，
+     * 这里若把 phase 打回 `idle`，用户能立刻再开一段录音与仍在进行的评分并发，
+     * 结果会挂到错误的句子上。评分完成后由 `handleRecordingDone` 自己收尾。
+     *
+     * @returns 无返回值。
+     */
+    const cancel = useCallback((): void => {
+        if (phase !== 'recording') {
+            return;
+        }
+        const recorder = mediaRecorderRef.current;
+        if (recorder && recorder.state === 'recording') {
+            recorder.onstop = null; // 丢弃路径不走收尾,避免空 blob 误报 toast
+            try {
+                recorder.stop();
+            } catch {
+                // 流已失效时 stop 可能抛 InvalidStateError,丢弃路径无需处理
+            }
+        }
+        finishFlow();
+        setPhase('idle');
+    }, [finishFlow, phase]);
+
+    /**
+     * 丢弃录音的稳定引用。
+     *
+     * 供 effect 在「录音 UI 退场」时调用：effect 依赖这个 ref 而不是 cancel 本体，
+     * 避免 cancel 每次重建都重新触发 effect。
+     */
+    const cancelRef = useRef(cancel);
+    useEffect(() => {
+        cancelRef.current = cancel;
+    }, [cancel]);
+
     // 卸载兜底:面板被条件卸载时不会有人再点停止,主动断开收尾回调并停轨,
-    // 否则麦克风保持占用、缓冲持续累积,重开面板还会与新一轮录音并发采集
+    // 否则麦克风保持占用、缓冲持续累积,重开面板还会与新一轮录音并发采集。
+    // 组件卸载后不会再有 phase 变化去同步 practiceStore.recording,必须在这里显式归位,
+    // 否则该标志永久为 true,播放类快捷键会被一直禁用。
     useEffect(() => () => {
         const recorder = mediaRecorderRef.current;
         if (recorder && recorder.state === 'recording') {
-            recorder.onstop = null; // 卸载路径不走收尾,避免空 blob 误报 toast
+            recorder.onstop = null;
             try {
                 recorder.stop();
             } catch {
@@ -69,14 +126,24 @@ export function usePracticeRecorder({ onRecordingComplete }: UsePracticeRecorder
             }
         }
         releaseStream();
-    }, [releaseStream]);
+        setRecording(false);
+    }, [releaseStream, setRecording]);
 
-    /** 收尾:释放麦克风、清空缓冲,回到空闲(processing 阶段除外)。 */
-    const finishFlow = (): void => {
-        releaseStream();
-        mediaRecorderRef.current = null;
-        chunksRef.current = [];
-    };
+    /**
+     * 录音 UI 退场（切听写页签 / 面板隐藏 / 当前句消失）时丢弃当前录音。
+     *
+     * 与卸载不同，此时组件仍然挂载，卸载兜底不会触发。若不在这里收尾，麦克风会继续采集，
+     * 且 `practiceStore.recording` 会一直为 true，把播放类快捷键永久禁用。
+     *
+     * 收尾动作放进 `queueMicrotask`：effect 体内同步 setState 会触发 React 的级联渲染告警，
+     * 而这里只需要「本轮渲染结束后立刻执行」，语义上等价。
+     */
+    useEffect(() => {
+        if (active) {
+            return;
+        }
+        queueMicrotask(() => cancelRef.current());
+    }, [active]);
 
     const handleRecordingDone = async (): Promise<void> => {
         const recorder = mediaRecorderRef.current;
@@ -152,5 +219,5 @@ export function usePracticeRecorder({ onRecordingComplete }: UsePracticeRecorder
         mediaRecorderRef.current?.stop();
     };
 
-    return { phase, start, stop };
+    return { phase, start, stop, cancel };
 }
