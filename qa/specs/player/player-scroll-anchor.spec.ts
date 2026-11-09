@@ -306,8 +306,49 @@ async function openPlayer(page: Page): Promise<void> {
         undefined,
         { timeout: 5000 },
     );
-    // 等播放器真正就绪：字幕与当前句都稳定后再动滚动，避免把首屏自动定位当成被测行为
-    await page.waitForTimeout(800);
+    // 等播放器真正就绪，并且**等首屏自动滚动彻底停下**再动滚动。
+    //
+    // 为什么不能只等固定时长：进入播放页后应用自己会做一轮首屏定位
+    // （远距离跳转按 start 对齐，触底还会走「钉下边界 → 停歇 250ms → 平滑归顶」两阶段编排），
+    // 整个过程远超过 800ms。用例在这期间钉 scrollTop，会被应用的平滑滚动一路拉回去
+    // （实测 900 → 409 → 159 → 4），于是「切换前快照」与「用例采样」量到的根本不是同一个起点，
+    // 残差自然对不上——这是**用例前提没成立**，不是补偿逻辑失效。
+    //
+    // 判据用连续 6 次采样相同（约 0.9s 静默）：应用停下来之后不会再有写入方动这个容器。
+    // 阈值取 6 而不是 2，是因为平滑滚动的尾段速度很低，相邻两次采样可能恰好相同，
+    // 用 2 会提前放行，等于把「还在滑」误判成「已停」。
+    await waitForScrollIdle(page);
+}
+
+/**
+ * 等到侧栏滚动位置连续多次采样不变。
+ *
+ * @param page 播放页。
+ * @param stableSamples 需要连续相同的采样次数。
+ * @param intervalMs 采样间隔（毫秒）。
+ */
+async function waitForScrollIdle(
+    page: Page,
+    stableSamples = 6,
+    intervalMs = 150,
+): Promise<void> {
+    let previous = Number.NaN;
+    let stable = 0;
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+        const current = await readScrollTop(page);
+        if (current === previous) {
+            stable += 1;
+            if (stable >= stableSamples) {
+                return;
+            }
+        } else {
+            stable = 0;
+            previous = current;
+        }
+        await page.waitForTimeout(intervalMs);
+    }
+    throw new Error('侧栏滚动在超时内没有静稳，无法确定切换前起点');
 }
 
 /**
