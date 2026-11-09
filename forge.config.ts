@@ -149,7 +149,21 @@ const config: ForgeConfig = {
         extendInfo: {
             NSMicrophoneUsageDescription: 'DashPlayer 需要使用麦克风录制配音音频。',
         },
-        extraResource: ['./drizzle', './lib', './scripts', './resources'],
+        // extraResource 的内容落在 app.asar 之外（安装目录下 <app>/resources/），因此**不受**
+        // asar 完整性校验（EnableEmbeddedAsarIntegrityValidation）与 OnlyLoadAppFromAsar 保护：
+        // 这里只放运行时确实要用的东西。
+        // - ./drizzle：数据库迁移 SQL（src/backend/infrastructure/db/migrate.ts 读它）。
+        // - ./resources：随包静态资源（预置词典、移动端页面、默认词表等）。
+        // - ./lib：ffmpeg / ffprobe 等**运行时会被 spawn 执行的二进制**。asar 内部的路径
+        //   没法被 dyld / ld.so 加载（可执行文件必须真实存在于文件系统上），所以这些二进制
+        //   只能留在 asar 之外。代价是它们不在 asar 完整性校验的覆盖范围内，供应链安全要靠
+        //   scripts/download.mjs 下载时的 SHA-256 校验来保证（见 scripts/ffmpeg-runtime-meta.mjs）。
+        // 刻意**不**再打包 ./scripts：那里只有构建期工具（download.mjs、build-dictionary.mjs、
+        // download-fonts.mjs、build-mobile-icons.mjs、network-retry.mjs、whisper-runtime-meta.mjs），
+        // 运行时没有任何代码读取或执行它们（唯一的跨文件引用是 CI 工作流 whisper-runtime.yml 在
+        // **构建期**读仓库里的 whisper-runtime-meta.mjs，CI 从源码仓库跑，不读安装包）。
+        // 继续打包只会徒增安装包体积，并把构建期工具暴露在用户的安装目录里。
+        extraResource: ['./drizzle', './lib', './resources'],
         // Linux 命名统一为不带横杠的 dashplayer：此处 executableName、各 Linux maker 的
         // name/bin 与 package.json 的 desktopName 必须一致，桌面环境才能把窗口（Wayland
         // app_id / X11 WM_CLASS）匹配到安装包里的 dashplayer.desktop，否则 Dock 只显示通用占位图标。
@@ -242,7 +256,19 @@ const config: ForgeConfig = {
             [FuseV1Options.EnableCookieEncryption]: true,
             [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
             [FuseV1Options.EnableNodeCliInspectArguments]: false,
-            [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+            // 刻意**不**启用 EnableEmbeddedAsarIntegrityValidation：
+            // 1) 该 fuse 依赖有效的代码签名——macOS 需要 Developer ID 签名、Windows 需要
+            //    Authenticode 签名。Electron 的 asar 完整性元数据（resources 里的
+            //    ElectronAsarIntegrity）由签名/资源元数据承载，没有签名就没有可校验的 blob。
+            // 2) 本项目当前没有任何正式签名：packagerConfig 里没有 osxSign，Windows 也没有
+            //    certificateFile / sign，release.yml 里同样没有签名步骤；macOS 只有
+            //    postPackage 里的 ad-hoc 重签（codesign --force --deep --sign -）。
+            // 3) 因此该 fuse 在当前发布流程下无法生效：macOS 的 ad-hoc 重签会破坏 resources
+            //    元数据（ElectronAsarIntegrity 就在里面），签名一变校验必然失败；Windows 更
+            //    是没有 Authenticode 签名，一旦开启，启动阶段的完整性校验会直接失败、应用起不来。
+            // 4) 未来接入正式签名（macOS Developer ID + notarization、Windows Authenticode）后，
+            //    应把 EnableEmbeddedAsarIntegrityValidation 重新设为 true，并确认签名/重签
+            //    发生在 fuses 翻转之后且不会破坏 resources 元数据。
             [FuseV1Options.OnlyLoadAppFromAsar]: true,
         }),
     ],
