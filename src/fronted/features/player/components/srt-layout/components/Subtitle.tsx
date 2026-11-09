@@ -5,7 +5,7 @@ import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { BookOpen, LocateFixed, Repeat, X } from 'lucide-react';
+import { BookOpen, Languages, LocateFixed, Repeat, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
@@ -360,6 +360,25 @@ export default function Subtitle() {
                         )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                        {/* 侧栏译文开关：放进标题栏，不再浮在第一条字幕上遮挡阅读 */}
+                        <Tooltip content={t('controlBox.sideTranslationHint')} placement="below">
+                            <button
+                                type="button"
+                                data-testid="side-translation-toggle"
+                                aria-pressed={showSideTranslation}
+                                aria-label={t('controlBox.showSideTranslation')}
+                                onClick={() => changeShowSideTranslation()}
+                                className={cn(
+                                    'p-1 rounded-md transition-colors cursor-pointer',
+                                    showSideTranslation
+                                        ? 'text-accent hover:bg-accent-muted/20'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                                    sidebarHiddenByEnglish && 'opacity-40'
+                                )}
+                            >
+                                <Languages className="w-3.5 h-3.5" />
+                            </button>
+                        </Tooltip>
                         {/* 停靠方向与侧栏译文都收进学习台设置里，这里只留在浏览时才有意义的“回到当前句” */}
                         {scrollState === 'USER_BROWSING' && currentListPosition >= 0 && (
                             <Tooltip content={t('controlButton.backToPlayhead')} placement="below">
@@ -414,34 +433,6 @@ export default function Subtitle() {
                         </div>
                     )}
 
-                    {/* 侧栏译文切换控制入口：支持直接点击切换并供自动化测试与快捷操作使用 */}
-                    <div className="absolute right-2 top-2 z-10 pointer-events-none">
-                        <button
-                            type="button"
-                            data-testid="side-translation-toggle"
-                            aria-pressed={showSideTranslation}
-                            onClick={() => changeShowSideTranslation()}
-                            title={sidebarHiddenByEnglish ? t('controlBox.sidebarHiddenNow') : undefined}
-                            className={cn(
-                                'pointer-events-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-tight backdrop-blur transition-colors cursor-pointer',
-                                showSideTranslation
-                                    ? 'bg-muted/40 text-muted-foreground/60 hover:text-foreground hover:bg-muted/80'
-                                    : 'bg-muted/80 text-muted-foreground hover:text-foreground'
-                            )}
-                        >
-                            <span>
-                                {showSideTranslation
-                                    ? t('controlBox.showSideTranslation')
-                                    : t('controlBox.sideTranslationHiddenChip')}
-                            </span>
-                            <span aria-hidden="true">·</span>
-                            <span className="font-medium">
-                                {showSideTranslation
-                                    ? t('controlBox.sidebarFollowsEnglishActive', '开启')
-                                    : t('controlBox.sideTranslationShowAction')}
-                            </span>
-                        </button>
-                    </div>
                 </div>
             </div>
         );
