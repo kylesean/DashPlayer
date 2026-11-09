@@ -75,7 +75,9 @@
 
 - **P0 内置 ECDICT 1.0.28**：保持，不换。
 - **P1a 词形反向索引**：**不做**。实测现有 `lemmatizeWord`（wink）已覆盖 `went→go`、`better→good`、`children→child`、`mice→mouse`、`sank→sink`、`data→datum` 等，仅 `learnt` 这类少见变体漏掉；为它升 schema + 重建数据不划算。
-- **P1b OEWN 英英释义**：待排期，作为可选增强包（不增大主安装包）。
+- **P1b OEWN 英英释义**：**已实现（2026-11-09）**。采用 Princeton WordNet 3.1（16.4 MB，WordNet License）作为可选下载包：
+  设置页「英英释义增强包」下载后解压并构建为本地 SQLite（`userData/dictionaries/oewn-english/english.sqlite`），
+  单词卡追加英文释义、同义词与反义词；不随主安装包分发，卸载即删除。下载/构建进度走后台任务中心，支持取消。
 - **P2/P3（Tatoeba 例句、CMUdict 发音、CEFR、CC-CEDICT 反查）**：不做，理由见开发对话记录。
 
 
