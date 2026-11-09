@@ -48,7 +48,8 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 22.x
+          # 与 ci.yml 同源：只认 .nvmrc，避免发版环境与门禁环境出现版本漂移
+          node-version-file: .nvmrc
           cache: pnpm
       - name: Install WiX Toolset (Windows only)
         if: matrix.os.name == 'windows'
