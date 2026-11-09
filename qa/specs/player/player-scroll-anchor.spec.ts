@@ -298,12 +298,14 @@ async function openPlayer(page: Page): Promise<void> {
         { cardTestId: SENTENCE_CARD_TESTID, scrollerTestId: SCROLLER_TESTID },
         { timeout: 30_000 },
     );
-    // 等调试面挂上（main 进程的 devMode 查询是一次异步 IPC）
+    // 等调试面挂上（main 进程的 devMode 查询是一次异步 IPC）。
+    // 这里不吞异常：埋点是这套差分用例的判定依据，等不到就该在开跑前失败，
+    // 而不是让后面的断言静默降级成「只验了页面能滚」。
     await page.waitForFunction(
         () => Boolean((window as { __dpDebug?: unknown }).__dpDebug),
         undefined,
         { timeout: 5000 },
-    ).catch(() => undefined);
+    );
     // 等播放器真正就绪：字幕与当前句都稳定后再动滚动，避免把首屏自动定位当成被测行为
     await page.waitForTimeout(800);
 }
@@ -431,19 +433,27 @@ test.describe('侧栏译文切换后的阅读位置保持', () => {
             expect(Math.abs(observation.contentHeightDelta), '切换必须真的改变内容高度').toBeGreaterThan(MIN_CONTENT_HEIGHT_DELTA);
             expect(observation.anchorRendered, '锚点行在切换后仍应被渲染').toBe(true);
 
-            if (observation.instrumentation === 'absent') {
-                // 埋点缺失：只记录，不判红，也不对请求数下结论
-                continue;
-            }
+            // 埋点缺失不是「跳过」而是「无法判定」：静默 continue 会让这套用例在
+            // 埋点失效时仍然全绿，只剩「页面能滚到中部」这种弱断言。判红。
+            expect(observation.instrumentation, '调试埋点缺失，滚动写入无法判定').toBe('present');
 
             if (POLICY === 'a') {
                 expect(observation.residual, '末轮残差应小于 1 布局像素').not.toBeNull();
                 expect(Math.abs(observation.residual ?? Infinity)).toBeLessThan(1);
-                expect(observation.requestCount ?? Infinity, 'hold 不应该反复请求滚动').toBeLessThanOrEqual(3);
+                // 请求数与写入数是两个子系统：requestCount 记 Virtuoso 的 scrollToIndex/scrollBy，
+                // writeCount 记 hold 自己直接改 scrollTop。收敛轮数有上限，两者都要钉住。
+                expect(observation.requestCount ?? Infinity, 'Virtuoso 请求类写入不应超过 3 次').toBeLessThanOrEqual(3);
+                expect(observation.writeCount ?? Infinity, 'hold 自己的补偿写入不应超过 3 次').toBeLessThanOrEqual(3);
             } else {
                 // 对照策略：一次补偿都不许发生
                 expect(observation.requestCount, '对照策略不允许出现请求类滚动').toBe(0);
                 expect(observation.writeCount, '对照策略不允许直接写 scrollTop').toBe(0);
+                // 只断言「没写」不足以证明差分：还得证明这一轮确实产生了偏移，
+                // 否则「关掉补偿也没变化」可能只是这轮本来就没漂移，A/B 不成立。
+                expect(
+                    Math.abs(observation.residual ?? 0),
+                    '对照策略下残差应当明显大于 0，否则这一轮不构成对照',
+                ).toBeGreaterThan(MIN_CONTENT_HEIGHT_DELTA);
             }
         }
     });
@@ -463,13 +473,18 @@ test.describe('侧栏译文切换后的阅读位置保持', () => {
             });
             console.log(`[player-scroll-anchor] ${JSON.stringify(observation)}`);
 
-            // 守卫不成立：锚点行已被回收，本轮记为红（这是规格里的已知失败场景）
-            expect(observation.verdict, '锚点行被回收时守卫不成立').toBe('red');
+            // 这一条测的是「锚点被虚拟列表回收时一次都不许滚」，前提是锚点真的被回收了。
+            // 前提不成立（比如将来调大 overscan 让锚点留在渲染范围内）时，
+            // 应当报成 skip 而不是红：否则产品一改好，这条用例反而失败。
+            test.skip(
+                observation.anchorRendered,
+                '本轮锚点未被回收，场景未构造成功（不是回归）',
+            );
             expect(observation.anchorRendered, '锚点行应已不在渲染范围内').toBe(false);
+            // 锚点缺失时守卫必然不成立，这是规格里的已知失败场景
+            expect(observation.verdict, '锚点行被回收时守卫不成立').toBe('red');
 
-            if (observation.instrumentation === 'absent') {
-                continue;
-            }
+            expect(observation.instrumentation, '调试埋点缺失，滚动写入无法判定').toBe('present');
             // fail closed：锚不住就一次都不许滚（不论策略，请求与直接写都必须为 0）
             expect(observation.requestCount, '锚点缺失时不允许请求滚动').toBe(0);
             expect(observation.writeCount, '锚点缺失时不允许直接写 scrollTop').toBe(0);

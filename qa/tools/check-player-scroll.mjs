@@ -136,7 +136,10 @@ function main() {
         requiredNodeMajor: REQUIRED_NODE_MAJOR,
         assertionCount: checks.length,
         playwrightExitCodes: runs.map((run) => ({ policy: run.policy, exitCode: run.exitCode })),
-        instrumentation: observations.every((observation) => observation.instrumentation === 'absent')
+        // 空数组的 every() 恒为 true，会把「没识别到任何观测」误判成「埋点缺失」，
+        // 于是下面的 return 3（空通过）永远走不到。先显式要求非空。
+        instrumentation: observations.length > 0
+            && observations.every((observation) => observation.instrumentation === 'absent')
             ? 'absent'
             : 'present',
         failures: checks.filter((check) => check.failures.length > 0),
@@ -148,19 +151,21 @@ function main() {
         console.error(`[check] 环境不符：node ${process.versions.node}（需要 ${REQUIRED_NODE_MAJOR}.x）`);
         return 4;
     }
-    if (summary.instrumentation === 'absent') {
-        console.error('[check] 环境不符：所有观测都报告埋点缺失（window.__dpDebug 不存在）');
-        for (const run of runs) {
-            console.error(run.tail);
-        }
-        return 4;
-    }
+    // 空通过要优先于环境判定：没有观测时既不是「环境不符」也不是「绿」，
+    // 必须报出它自己的退出码，否则这个工具防的正是它自己报不出的那种假绿。
     if (checks.length === 0) {
         console.error('[check] 空通过：没有识别到任何观测，不算过');
         for (const run of runs) {
             console.error(run.tail);
         }
         return 3;
+    }
+    if (summary.instrumentation === 'absent') {
+        console.error('[check] 环境不符：所有观测都报告埋点缺失（window.__dpDebug 不存在）');
+        for (const run of runs) {
+            console.error(run.tail);
+        }
+        return 4;
     }
     if (summary.failures.length > 0 || runs.some((run) => run.exitCode !== 0)) {
         console.error(`[check] 红：${summary.failures.length} 条观测不成立`);
