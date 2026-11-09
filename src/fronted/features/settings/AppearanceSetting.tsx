@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { cn } from '@/fronted/lib/utils';
 import {
-    SliderInput,
-    SettingCard,
-    SettingRow,
+    SettingField,
+    SettingSection,
     SettingsLoadingSkeleton,
 } from '@/fronted/features/settings/components/form';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
@@ -16,7 +14,7 @@ import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSave
 import { THEME_PREVIEW_COLORS } from '@/fronted/app/themeFamilies';
 import useSWR from 'swr';
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
-import { Columns2, Globe, Laptop, Moon, Palette, PanelLeft, PanelRight, Sun, Type } from 'lucide-react';
+import { Captions, Laptop, Moon, Palette, PanelLeft, PanelRight, SlidersHorizontal, Sun } from 'lucide-react';
 import { SelectableCard } from '@astryxdesign/core/SelectableCard';
 import { Grid } from '@astryxdesign/core/Grid';
 import { Selector } from '@astryxdesign/core/Selector';
@@ -25,6 +23,7 @@ import {
     SegmentedControlItem,
 } from '@astryxdesign/core/SegmentedControl';
 import { Card } from '@astryxdesign/core/Card';
+import { Divider } from '@astryxdesign/core/Divider';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';
@@ -44,6 +43,8 @@ type AppearanceFormValues = AppearanceSettingVO;
  *
  * @returns 外观设置 JSX 元素。
  */
+const APPEARANCE_FONT_SIZES: AppearanceFormValues['fontSize'][] = ['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge'];
+
 const AppearanceSetting: React.FC = () => {
     const { t } = useI18nTranslation('settings');
 
@@ -178,6 +179,8 @@ const AppearanceSetting: React.FC = () => {
         { value: 'en-US', label: t('appearance.languageEnUS') },
     ];
 
+    const transcriptPosition = currentTranscriptPosition || 'right';
+
     return (
         <form
             onSubmit={(event) => {
@@ -191,18 +194,19 @@ const AppearanceSetting: React.FC = () => {
                 title={t('appearance.title')}
                 description={t('appearance.description')}
             >
-                <SettingCard
-                    title={t('appearance.cardTitle')}
+                {/* ① 主题：视觉风格是看一眼就能选的东西，保留卡片式预览 */}
+                <SettingSection
+                    title={t('appearance.sections.theme')}
+                    description={t('appearance.sections.themeDesc')}
                     icon={Palette}
                 >
-                    {/* 设计主题：只保留统一的色点 + 名称，说明放到网格下方一行 */}
-                    <VStack paddingInline={4} paddingBlock={3} gap={2} width="100%">
-                        <HStack gap={2} align="center">
-                            <Icon icon={Palette} size="sm" color="secondary" />
-                            <Text type="body" weight="medium">
-                                {t('appearance.themeFamilyTitle')}
+                    <VStack gap={2} width="100%">
+                        <VStack gap={0.5}>
+                            <Text type="body" weight="medium">{t('appearance.themeFamilyTitle')}</Text>
+                            <Text type="supporting" color="secondary">
+                                {t('appearance.themeFamilyDescription')}
                             </Text>
-                        </HStack>
+                        </VStack>
                         <Grid
                             columns={{ minWidth: 120, max: 4 }}
                             gap={2}
@@ -250,54 +254,48 @@ const AppearanceSetting: React.FC = () => {
                         )}
                     </VStack>
 
-                    {/* 浅色/深色模式切换行 */}
-                    <SettingRow
-                        title={t('appearance.themeTitle')}
-                        description={isDarkOnlyTheme ? t('appearance.darkOnlyThemeHint') : undefined}
-                        icon={Palette}
-                    >
-                        <Grid
-                            columns={{ minWidth: 96, max: 3 }}
-                            gap={2}
-                            maxWidth={360}
-                        >
-                            {themeOptions.map((opt) => {
-                                const isSelected = selectedThemeMode === opt.value;
-                                return (
-                                    <button
-                                        key={opt.value}
-                                        type="button"
-                                        disabled={isDarkOnlyTheme}
-                                        onClick={() => {
-                                            if (isDarkOnlyTheme) {
-                                                return;
-                                            }
-                                            if (!isSelected) {
-                                                setValue('theme', opt.value, {
-                                                    shouldDirty: true,
-                                                    shouldTouch: true,
-                                                });
-                                            }
-                                        }}
-                                        className={cn(
-                                            'flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-medium transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
-                                            isSelected
-                                                ? 'bg-background text-foreground border-border shadow-xs ring-1 ring-border/60'
-                                                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                                        )}
-                                    >
-                                        <Icon icon={opt.icon} size="sm" color={isSelected ? 'accent' : 'secondary'} />
-                                        <span>{opt.label}</span>
-                                    </button>
-                                );
-                            })}
-                        </Grid>
-                    </SettingRow>
+                    <Divider variant="subtle" />
 
-                    {/* 界面语言行 */}
-                    <SettingRow
+                    <SettingField
+                        title={t('appearance.themeTitle')}
+                        description={isDarkOnlyTheme ? undefined : t('appearance.themeDescription')}
+                    >
+                        <SegmentedControl
+                            label={t('appearance.themeTitle')}
+                            value={selectedThemeMode}
+                            onChange={(val) => {
+                                setValue('theme', val as AppearanceFormValues['theme'], {
+                                    shouldDirty: true,
+                                    shouldTouch: true,
+                                });
+                            }}
+                            size="sm"
+                            isDisabled={isDarkOnlyTheme}
+                            disabledMessage={isDarkOnlyTheme ? t('appearance.darkOnlyThemeHint') : undefined}
+                        >
+                            {themeOptions.map((opt) => (
+                                <SegmentedControlItem
+                                    key={opt.value}
+                                    value={opt.value}
+                                    label={opt.label}
+                                    icon={<Icon icon={opt.icon} size="sm" />}
+                                />
+                            ))}
+                        </SegmentedControl>
+                    </SettingField>
+                </SettingSection>
+
+                <Divider />
+
+                {/* ② 界面与文字：语言、字号与剧本停靠 */}
+                <SettingSection
+                    title={t('appearance.sections.interface')}
+                    description={t('appearance.sections.interfaceDesc')}
+                    icon={SlidersHorizontal}
+                >
+                    <SettingField
                         title={t('appearance.languageTitle')}
-                        icon={Globe}
+                        description={t('appearance.languageDescription')}
                     >
                         <Selector
                             label={t('appearance.languageTitle')}
@@ -314,42 +312,53 @@ const AppearanceSetting: React.FC = () => {
                                 applyLanguageSetting(val).catch(() => undefined);
                             }}
                         />
-                    </SettingRow>
+                    </SettingField>
 
-                    {/* 字幕字号行 */}
-                    <SettingRow
+                    <Divider variant="subtle" />
+
+                    <SettingField
                         title={t('appearance.fontSizeTitle')}
                         description={t('appearance.fontSizeDescription')}
-                        icon={Type}
                     >
-                        <SliderInput
-                            values={['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge']}
-                            valueLabelMap={fontSizeOptions}
-                            defaultValue={currentFontSize}
-                            setValue={(v) => {
-                                if (v === 'fontSizeSmall' || v === 'fontSizeMedium' || v === 'fontSizeLarge') {
-                                    setValue('fontSize', v, { shouldDirty: true, shouldTouch: true });
-                                }
+                        <SegmentedControl
+                            label={t('appearance.fontSizeTitle')}
+                            value={currentFontSize}
+                            onChange={(val) => {
+                                setValue('fontSize', val as AppearanceFormValues['fontSize'], {
+                                    shouldDirty: true,
+                                    shouldTouch: true,
+                                });
                             }}
-                        />
-                    </SettingRow>
+                            size="sm"
+                        >
+                            {APPEARANCE_FONT_SIZES.map((size) => (
+                                <SegmentedControlItem
+                                    key={size}
+                                    value={size}
+                                    label={fontSizeOptions[size]}
+                                />
+                            ))}
+                        </SegmentedControl>
+                    </SettingField>
 
-                    {/* 伴读剧本流停靠方位行 */}
-                    <SettingRow
+                    <Divider variant="subtle" />
+
+                    <SettingField
                         title={t('appearance.transcriptPositionTitle')}
-                        icon={Columns2}
+                        description={t('appearance.transcriptPositionDescription')}
+                        alignTop
                     >
                         <Grid
                             columns={{ minWidth: 120, max: 2 }}
                             gap={2}
-                            maxWidth={320}
+                            width={320}
                         >
                             <SelectableCard
                                 label={t('appearance.transcriptPositionRight')}
-                                isSelected={(currentTranscriptPosition || 'right') === 'right'}
+                                isSelected={transcriptPosition === 'right'}
                                 padding={2}
                                 onChange={() => {
-                                    if (currentTranscriptPosition !== 'right') {
+                                    if (transcriptPosition !== 'right') {
                                         setValue('transcriptPosition', 'right', {
                                             shouldDirty: true,
                                             shouldTouch: true,
@@ -361,12 +370,12 @@ const AppearanceSetting: React.FC = () => {
                                     <Icon
                                         icon={PanelRight as unknown as Parameters<typeof Icon>[0]['icon']}
                                         size="sm"
-                                        color={(currentTranscriptPosition || 'right') === 'right' ? 'accent' : 'secondary'}
+                                        color={transcriptPosition === 'right' ? 'accent' : 'secondary'}
                                     />
                                     <Text
                                         type="supporting"
-                                        weight={(currentTranscriptPosition || 'right') === 'right' ? 'semibold' : undefined}
-                                        color={(currentTranscriptPosition || 'right') === 'right' ? 'primary' : 'secondary'}
+                                        weight={transcriptPosition === 'right' ? 'semibold' : undefined}
+                                        color={transcriptPosition === 'right' ? 'primary' : 'secondary'}
                                     >
                                         {t('appearance.transcriptPositionRight')}
                                     </Text>
@@ -375,10 +384,10 @@ const AppearanceSetting: React.FC = () => {
 
                             <SelectableCard
                                 label={t('appearance.transcriptPositionLeft')}
-                                isSelected={currentTranscriptPosition === 'left'}
+                                isSelected={transcriptPosition === 'left'}
                                 padding={2}
                                 onChange={() => {
-                                    if (currentTranscriptPosition !== 'left') {
+                                    if (transcriptPosition !== 'left') {
                                         setValue('transcriptPosition', 'left', {
                                             shouldDirty: true,
                                             shouldTouch: true,
@@ -390,96 +399,92 @@ const AppearanceSetting: React.FC = () => {
                                     <Icon
                                         icon={PanelLeft as unknown as Parameters<typeof Icon>[0]['icon']}
                                         size="sm"
-                                        color={currentTranscriptPosition === 'left' ? 'accent' : 'secondary'}
+                                        color={transcriptPosition === 'left' ? 'accent' : 'secondary'}
                                     />
                                     <Text
                                         type="supporting"
-                                        weight={currentTranscriptPosition === 'left' ? 'semibold' : undefined}
-                                        color={currentTranscriptPosition === 'left' ? 'primary' : 'secondary'}
+                                        weight={transcriptPosition === 'left' ? 'semibold' : undefined}
+                                        color={transcriptPosition === 'left' ? 'primary' : 'secondary'}
                                     >
                                         {t('appearance.transcriptPositionLeft')}
                                     </Text>
                                 </VStack>
                             </SelectableCard>
                         </Grid>
-                    </SettingRow>
+                    </SettingField>
+                </SettingSection>
 
-                    {/* 实时字幕预览区域 */}
-                    <VStack padding={4} gap={3} width="100%">
-                        <HStack justify="between" align="center" width="100%">
-                            <VStack gap={0.5}>
-                                <Text type="supporting" weight="semibold" color="secondary">
-                                    {t('appearance.subtitlePreviewTitle')}
+                <Divider />
+
+                {/* ③ 字幕预览：真实组件、真实字号 */}
+                <SettingSection
+                    title={t('appearance.subtitlePreviewTitle')}
+                    description={t('appearance.subtitlePreviewHint')}
+                    icon={Captions}
+                    action={(
+                        <SegmentedControl
+                            label={t('appearance.subtitlePreviewTitle')}
+                            value={previewMode}
+                            onChange={setPreviewMode}
+                            size="sm"
+                        >
+                            <SegmentedControlItem
+                                value="main"
+                                label={t('appearance.subtitlePreviewMain')}
+                            />
+                            <SegmentedControlItem
+                                value="side"
+                                label={t('appearance.subtitlePreviewSide')}
+                            />
+                        </SegmentedControl>
+                    )}
+                >
+                    <Card variant="default" padding={4} width="100%">
+                        {previewMode === 'main' ? (
+                            <VStack gap={2} align="center" justify="center" padding={2}>
+                                <Text
+                                    type="large"
+                                    size={currentFontSize === 'fontSizeSmall' ? 'base' : currentFontSize === 'fontSizeLarge' ? '2xl' : 'lg'}
+                                    weight="medium"
+                                    justify="center"
+                                >
+                                    {t('appearance.subtitlePreviewSampleEn')}
                                 </Text>
-                                <Text type="supporting" color="secondary">
-                                    {t('appearance.subtitlePreviewHint')}
+                                <Text
+                                    type="body"
+                                    color="secondary"
+                                    size={currentFontSize === 'fontSizeSmall' ? 'sm' : currentFontSize === 'fontSizeLarge' ? 'xl' : 'base'}
+                                    justify="center"
+                                >
+                                    {t('appearance.subtitlePreviewSampleZh')}
                                 </Text>
                             </VStack>
-
-                            <SegmentedControl
-                                label={t('appearance.subtitlePreviewTitle')}
-                                value={previewMode}
-                                onChange={setPreviewMode}
-                                size="sm"
-                            >
-                                <SegmentedControlItem
-                                    value="main"
-                                    label={t('appearance.subtitlePreviewMain')}
-                                />
-                                <SegmentedControlItem
-                                    value="side"
-                                    label={t('appearance.subtitlePreviewSide')}
-                                />
-                            </SegmentedControl>
-                        </HStack>
-
-                        <Card variant="default" padding={4} width="100%">
-                            {previewMode === 'main' ? (
-                                <VStack gap={2} align="center" justify="center" padding={2}>
-                                    <Text
-                                        type="large"
-                                        size={currentFontSize === 'fontSizeSmall' ? 'base' : currentFontSize === 'fontSizeLarge' ? '2xl' : 'lg'}
-                                        weight="medium"
-                                        justify="center"
-                                    >
-                                        Every journey begins with a single bold step.
-                                    </Text>
-                                    <Text
-                                        type="body"
-                                        color="secondary"
-                                        size={currentFontSize === 'fontSizeSmall' ? 'sm' : currentFontSize === 'fontSizeLarge' ? 'xl' : 'base'}
-                                        justify="center"
-                                    >
-                                        每一个伟大的旅程，都始于勇敢迈出的第一步。
-                                    </Text>
-                                </VStack>
-                            ) : (
-                                <VStack gap={2} align="center" justify="center" padding={2}>
-                                    <Card variant="transparent" padding={3} maxWidth={420} width="100%" className="border border-border/60 rounded-xl">
-                                        <VStack gap={1} align="center">
-                                            <Text
-                                                type="body"
-                                                weight="medium"
-                                                size={currentFontSize === 'fontSizeSmall' ? 'xsm' : currentFontSize === 'fontSizeLarge' ? 'base' : 'sm'}
-                                                justify="center"
-                                            >
-                                                Every journey begins with a single bold step.
-                                            </Text>
-                                            <Text
-                                                type="supporting"
-                                                color="secondary"
-                                                size={currentFontSize === 'fontSizeSmall' ? '4xs' : currentFontSize === 'fontSizeLarge' ? 'sm' : 'xsm'}
-                                                justify="center"
-                                            >
-                                                每一个伟大的旅程，都始于勇敢迈出的第一步。
-                                            </Text>
-                                        </VStack>
-                                    </Card>
-                                </VStack>
-                            )}
-                        </Card>
-                    </VStack>
-                </SettingCard>
+                        ) : (
+                            <VStack gap={2} align="center" justify="center" padding={2}>
+                                <Card variant="transparent" padding={3} maxWidth={420} width="100%" className="border border-border/60 rounded-xl">
+                                    <VStack gap={1} align="center">
+                                        <Text
+                                            type="body"
+                                            weight="medium"
+                                            size={currentFontSize === 'fontSizeSmall' ? 'xsm' : currentFontSize === 'fontSizeLarge' ? 'base' : 'sm'}
+                                            justify="center"
+                                        >
+                                            {t('appearance.subtitlePreviewSampleEn')}
+                                        </Text>
+                                        <Text
+                                            type="supporting"
+                                            color="secondary"
+                                            size={currentFontSize === 'fontSizeSmall' ? '4xs' : currentFontSize === 'fontSizeLarge' ? 'sm' : 'xsm'}
+                                            justify="center"
+                                        >
+                                            {t('appearance.subtitlePreviewSampleZh')}
+                                        </Text>
+                                    </VStack>
+                                </Card>
+                            </VStack>
+                        )}
+                    </Card>
+                </SettingSection>
             </SettingsPageShell>
         </form>
     );

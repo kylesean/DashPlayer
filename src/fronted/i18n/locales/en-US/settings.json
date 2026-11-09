@@ -35,8 +35,6 @@
     "appearance": {
         "title": "Appearance",
         "description": "Theme, text size, and language preferences",
-        "cardTitle": "Display",
-        "cardDescription": "Visual style and display preferences",
         "themeTitle": "Color Mode",
         "themeDescription": "Light or dark style",
         "themeSystem": "Follow System",
@@ -54,7 +52,6 @@
         "themeChocolateDesc": "Warm cocoa · Fraunces",
         "fontSizeTitle": "Interface Text Size",
         "fontSizeDescription": "Adjust interface and subtitle text dimensions",
-        "fontSizeLabel": "Font Size",
         "fontSizeSmall": "Small",
         "fontSizeMedium": "Medium",
         "fontSizeLarge": "Large",
@@ -72,7 +69,13 @@
         "transcriptPositionTitle": "Script Panel Docking",
         "transcriptPositionDescription": "Choose where the script panel docks in the player",
         "transcriptPositionRight": "Right (Default)",
-        "transcriptPositionLeft": "Left (Deep Read)"
+        "transcriptPositionLeft": "Left (Deep Read)",
+        "sections": {
+            "theme": "Theme",
+            "themeDesc": "Palette and light or dark mode",
+            "interface": "Interface & Text",
+            "interfaceDesc": "Language, text size, and script panel position"
+        }
     },
     "proxy": {
         "title": "Network Proxy",
@@ -307,8 +310,6 @@
     },
     "storage": {
         "title": "Storage",
-        "descriptionLine1": "DashPlayer caches translation results locally to reduce API costs.",
-        "descriptionLine2": "Cache is managed automatically. Manual modifications are not recommended.",
         "resetDatabase": "Reset Database",
         "resetSuccess": "Database reset successfully",
         "resetFailed": "Failed to reset the database",
@@ -318,33 +319,18 @@
         "resetConfirmOk": "Reset now",
         "openLibraryFolder": "Open Library Folder",
         "libraryPathTitle": "Storage Path (Library Path)",
-        "libraryPathDescription": "Restart DashPlayer for storage path changes to take effect.",
-        "switchCollection": "Saved Clips Folder",
-        "saveSettingsFailed": "Failed to save settings: {{message}}",
+        "libraryPathDescription": "Takes effect after restarting DashPlayer",
         "syncWordClipsFailed": "Failed to sync Vocabulary Studio clips. Please try again later.",
-        "collectionSync": {
-            "loading": "Syncing Saved Clips...",
-            "success": "Saved Clips synced successfully.",
-            "error": "Failed to sync Saved Clips.",
-            "button": "Resync Saved Clips",
-            "tooltipTitle": "Resync Saved Clips",
-            "tooltipDescription": "Rebuild the Saved Clips index from local files when items look missing or inconsistent."
-        },
-        "collectionHint": "Saved Clips are stored under favourite_clips/default. Custom folder names are not currently supported.",
         "wordClipsTitle": "Vocabulary Studio Clips",
         "wordClipsSync": {
-            "loading": "Syncing Vocabulary Studio clips...",
             "success": "Vocabulary Studio clips synced successfully.",
             "error": "Failed to sync Vocabulary Studio clips.",
-            "button": "Resync Vocabulary Studio",
-            "tooltipTitle": "Resync Vocabulary Studio",
-            "tooltipDescription": "Rebuild Vocabulary Studio clip records from the word_video folder when data is missing or corrupted."
+            "button": "Resync Vocabulary Studio"
         },
-        "wordClipsHint": "Vocabulary Studio clips are stored under word_video. Use this action to rebuild database records if needed.",
+        "wordClipsHint": "Clips live under word_video; rebuild the index here if needed",
         "usage": {
             "title": "Storage Usage",
             "totalLabel": "Total Used",
-            "loading": "Measuring storage usage...",
             "unavailable": "Storage directory unavailable. Usage cannot be measured.",
             "empty": "No files are using storage space yet.",
             "categories": {
@@ -356,7 +342,18 @@
                 "other": "Other Files"
             }
         },
-        "openFailed": "Failed to open the cache folder"
+        "openFailed": "Failed to open the cache folder",
+        "description": "Library location, disk usage, and local clip indexes",
+        "resetHint": "Clears database records; saved and vocabulary clips are rebuilt from local files on restart",
+        "sections": {
+            "location": "Storage Location",
+            "locationDesc": "Where the media library is saved",
+            "usageDesc": "Disk usage by file category in the media library",
+            "sync": "Resource Sync",
+            "syncDesc": "Rebuild clip indexes from local files",
+            "danger": "Danger Zone",
+            "dangerDesc": "These actions cannot be undone"
+        }
     },
     "serviceCredentials": {
         "openai": {

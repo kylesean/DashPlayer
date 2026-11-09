@@ -1,8 +1,8 @@
 import * as React from 'react';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
 import {
-    SettingCard,
-    SettingRow,
+    SettingField,
+    SettingSection,
     SettingsLoadingSkeleton,
 } from '@/fronted/features/settings/components/form';
 import StorageUsageCard from '@/fronted/features/settings/components/StorageUsageCard';
@@ -11,10 +11,11 @@ import { IconButton } from '@astryxdesign/core/IconButton';
 import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { Banner } from '@astryxdesign/core/Banner';
+import { Divider } from '@astryxdesign/core/Divider';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
-import { FolderOpen, HardDrive, RefreshCw, Trash2, FolderSync } from 'lucide-react';
+import { ChartPie, FolderOpen, HardDrive, RefreshCw, TriangleAlert, Trash2 } from 'lucide-react';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
 import toast from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
@@ -179,26 +180,7 @@ const StorageSetting: React.FC = () => {
         <VStack width="100%" height="fill">
             <SettingsPageShell
                 title={t('storage.title')}
-                description={`${t('storage.descriptionLine1')} ${t('storage.descriptionLine2')}`}
-                actions={
-                    <HStack gap={2}>
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            label={t('storage.resetDatabase')}
-                            icon={<Icon icon={Trash2} size="sm" />}
-                            onClick={() => setIsResetDialogOpen(true)}
-                        />
-                        <Button
-                            onClick={handleOpen}
-                            variant="secondary"
-                            size="sm"
-                            label={t('storage.openLibraryFolder')}
-                            icon={<Icon icon={FolderOpen} size="sm" />}
-                            isDisabled={!canOpenLibrary}
-                        />
-                    </HStack>
-                }
+                description={t('storage.description')}
             >
                 <AlertDialog
                     isOpen={isResetDialogOpen}
@@ -220,17 +202,26 @@ const StorageSetting: React.FC = () => {
                     />
                 )}
 
-                {/* 媒体库路径卡片 */}
-                <SettingCard
-                    title={t('storage.libraryPathTitle')}
+                <SettingSection
+                    title={t('storage.sections.location')}
+                    description={t('storage.sections.locationDesc')}
                     icon={HardDrive}
+                    action={(
+                        <Button
+                            onClick={handleOpen}
+                            variant="secondary"
+                            size="sm"
+                            label={t('storage.openLibraryFolder')}
+                            icon={<Icon icon={FolderOpen} size="sm" />}
+                            isDisabled={!canOpenLibrary}
+                        />
+                    )}
                 >
-                    <SettingRow
+                    <SettingField
                         title={t('storage.libraryPathTitle')}
                         description={t('storage.libraryPathDescription')}
-                        icon={FolderOpen}
                     >
-                        <HStack gap={2} align="center">
+                        <HStack gap={2} vAlign="center">
                             <Controller
                                 name="path"
                                 control={control}
@@ -248,7 +239,8 @@ const StorageSetting: React.FC = () => {
                                 )}
                             />
                             <IconButton
-                                label={t('storage.openLibraryFolder')}
+                                label={t('storage.libraryPathTitle')}
+                                tooltip={t('storage.libraryPathTitle')}
                                 icon={<Icon icon={FolderOpen} size="sm" />}
                                 variant="secondary"
                                 size="sm"
@@ -265,25 +257,33 @@ const StorageSetting: React.FC = () => {
                                 }}
                             />
                         </HStack>
-                    </SettingRow>
-                </SettingCard>
+                    </SettingField>
+                </SettingSection>
 
-                {/* 存储用量卡片 */}
-                <StorageUsageCard
-                    usage={usage}
-                    loading={usageLoading}
-                    onRefresh={handleRefreshUsage}
-                />
+                <Divider />
 
-                {/* 资源同步卡片 */}
-                <SettingCard
-                    title={t('storage.switchCollection')}
-                    icon={FolderSync}
+                <SettingSection
+                    title={t('storage.usage.title')}
+                    description={t('storage.sections.usageDesc')}
+                    icon={ChartPie}
                 >
-                    <SettingRow
+                    <StorageUsageCard
+                        usage={usage}
+                        loading={usageLoading}
+                        onRefresh={handleRefreshUsage}
+                    />
+                </SettingSection>
+
+                <Divider />
+
+                <SettingSection
+                    title={t('storage.sections.sync')}
+                    description={t('storage.sections.syncDesc')}
+                    icon={RefreshCw}
+                >
+                    <SettingField
                         title={t('storage.wordClipsTitle')}
                         description={t('storage.wordClipsHint')}
-                        icon={RefreshCw}
                     >
                         <Button
                             isDisabled={!canSyncCollections}
@@ -293,8 +293,29 @@ const StorageSetting: React.FC = () => {
                             label={t('storage.wordClipsSync.button')}
                             icon={<Icon icon={RefreshCw} size="sm" />}
                         />
-                    </SettingRow>
-                </SettingCard>
+                    </SettingField>
+                </SettingSection>
+
+                <Divider />
+
+                <SettingSection
+                    title={t('storage.sections.danger')}
+                    description={t('storage.sections.dangerDesc')}
+                    icon={TriangleAlert}
+                >
+                    <SettingField
+                        title={t('storage.resetDatabase')}
+                        description={t('storage.resetHint')}
+                    >
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            label={t('storage.resetDatabase')}
+                            icon={<Icon icon={Trash2} size="sm" />}
+                            onClick={() => setIsResetDialogOpen(true)}
+                        />
+                    </SettingField>
+                </SettingSection>
             </SettingsPageShell>
         </VStack>
     );

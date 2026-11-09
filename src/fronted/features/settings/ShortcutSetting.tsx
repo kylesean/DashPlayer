@@ -5,13 +5,12 @@ import { useRecordHotkeys } from 'react-hotkeys-hook';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import {
     Clock,
-    Pencil,
     PlayCircle,
     Plus,
     RotateCcw,
     Search,
-    Sparkles,
     Subtitles,
+    Wrench,
 } from 'lucide-react';
 
 import { Banner } from '@astryxdesign/core/Banner';
@@ -20,6 +19,7 @@ import { Card } from '@astryxdesign/core/Card';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { Divider } from '@astryxdesign/core/Divider';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Kbd } from '@astryxdesign/core/Kbd';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
@@ -27,11 +27,10 @@ import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
-import { Table, TableBody, TableCell, TableRow } from '@astryxdesign/core/Table';
 
 import { SettingKeyObj } from '@/common/types/store_schema';
 import type { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
-import { SettingCard, SettingRow, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
+import { SettingSection, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
 import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
@@ -495,7 +494,7 @@ const ShortcutSetting: React.FC = () => {
             id: 'tools',
             title: t('shortcut.groups.tools'),
             description: t('shortcut.groups.toolsDesc'),
-            icon: Sparkles as unknown as IconType,
+            icon: Wrench as unknown as IconType,
             items: [
                 { key: 'aiChat', title: t('shortcut.items.aiChat.title'), description: t('shortcut.items.aiChat.description') },
                 { key: 'openControlPanel', title: t('shortcut.items.openControlPanel.title'), description: t('shortcut.items.openControlPanel.description') },
@@ -568,17 +567,18 @@ const ShortcutSetting: React.FC = () => {
                         </Text>
                     </HStack>
                 ) : (
-                    filteredGroups.map((group) => (
-                        <SettingCard
-                            key={group.id}
-                            title={group.title}
-                            icon={group.icon as unknown as IconType}
-                        >
-                            <Table density="compact" dividers="rows">
-                                <TableBody>
-                                    {group.items.map((item) => (
+                    filteredGroups.map((group, groupIndex) => (
+                        <React.Fragment key={group.id}>
+                            {groupIndex > 0 && <Divider />}
+                            <SettingSection
+                                title={group.title}
+                                description={group.description}
+                                icon={group.icon as unknown as IconType}
+                            >
+                                {group.items.map((item, itemIndex) => (
+                                    <React.Fragment key={item.key}>
+                                        {itemIndex > 0 && <Divider variant="subtle" />}
                                         <Controller
-                                            key={item.key}
                                             name={item.key}
                                             control={control}
                                             render={({ field }) => (
@@ -606,10 +606,10 @@ const ShortcutSetting: React.FC = () => {
                                                 />
                                             )}
                                         />
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </SettingCard>
+                                    </React.Fragment>
+                                ))}
+                            </SettingSection>
+                        </React.Fragment>
                     ))
                 )}
             </VStack>
@@ -661,52 +661,35 @@ const ShortcutRow: React.FC<{
     const isDefault = value === defaultValue;
 
     return (
-        <TableRow>
-            <TableCell>
-                <VStack gap={0.5} width={280}>
-                    <Text type="body" weight="medium">{title}</Text>
-                    <Text type="supporting" color="secondary" maxLines={1}>{description}</Text>
-                </VStack>
-            </TableCell>
-            <TableCell>
-                <div
-                    tabIndex={0}
-                    onClick={() => setIsDialogOpen(true)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            setIsDialogOpen(true);
-                        }
-                    }}
-                    className="cursor-pointer hover:opacity-80 transition-opacity inline-flex items-center"
+        <HStack justify="between" vAlign="center" gap={6} width="100%" data-testid="shortcut-row">
+            <VStack gap={0.5}>
+                <Text type="body" weight="medium">{title}</Text>
+                <Text type="supporting" color="secondary">{description}</Text>
+            </VStack>
+
+            <HStack gap={2} vAlign="center" justify="end">
+                <button
+                    type="button"
+                    aria-haspopup="dialog"
                     title={editLabel}
+                    onClick={() => setIsDialogOpen(true)}
+                    className="inline-flex items-center rounded-lg px-2 py-1 -mx-2 cursor-pointer transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                 >
                     <KeyBadge keys={value} />
-                </div>
-            </TableCell>
-            <TableCell>
-                <HStack gap={1} align="center" justify="end">
-                    <IconButton
-                        label={editLabel}
-                        tooltip={editLabel}
-                        size="sm"
-                        variant="ghost"
-                        icon={<Icon icon={Pencil as unknown as IconType} size="sm" />}
-                        onClick={() => setIsDialogOpen(true)}
-                    />
+                </button>
 
-                    <IconButton
-                        label={resetDefaultLabel}
-                        tooltip={resetDefaultLabel}
-                        size="sm"
-                        variant="ghost"
-                        isDisabled={isDefault}
-                        icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
-                        onClick={() => onChange(defaultValue)}
-                    />
-                </HStack>
+                <IconButton
+                    label={resetDefaultLabel}
+                    tooltip={resetDefaultLabel}
+                    size="sm"
+                    variant="ghost"
+                    isDisabled={isDefault}
+                    icon={<Icon icon={RotateCcw as unknown as IconType} size="sm" />}
+                    onClick={() => onChange(defaultValue)}
+                />
+            </HStack>
 
-                <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} width={500} purpose="form">
+            <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} width={500} purpose="form">
                     {isDialogOpen && (
                         <RecordDialogBody
                             title={title}
@@ -726,9 +709,8 @@ const ShortcutRow: React.FC<{
                             onClose={() => setIsDialogOpen(false)}
                         />
                     )}
-                </Dialog>
-            </TableCell>
-        </TableRow>
+            </Dialog>
+        </HStack>
     );
 };
 

@@ -40,10 +40,15 @@ export const SettingSection: React.FC<SettingSectionProps> = ({
 }) => (
     <VStack gap={4} width="100%">
         <VStack gap={1} width="100%">
-            <HStack gap={2} vAlign="center" wrap="wrap">
+            <HStack gap={2} vAlign="center" width="100%">
                 {IconComp && <Icon icon={IconComp} size="sm" color="secondary" />}
                 <Heading level={3} weight="semibold">{title}</Heading>
-                {action}
+                {action && (
+                    <>
+                        <StackItem size="fill" />
+                        <HStack gap={2} vAlign="center">{action}</HStack>
+                    </>
+                )}
             </HStack>
             {description && (
                 <Text type="supporting" color="secondary">

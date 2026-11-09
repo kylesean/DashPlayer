@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Cell, Pie, PieChart } from 'recharts';
-import { ChartPie, RefreshCw, HardDriveDownload } from 'lucide-react';
+import { RefreshCw, HardDriveDownload } from 'lucide-react';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Skeleton } from '@astryxdesign/core/Skeleton';
 import {
@@ -10,7 +10,6 @@ import {
     ChartTooltip,
     ChartTooltipContent,
 } from '@/fronted/components/ui/chart';
-import { SettingCard } from '@/fronted/features/settings/components/form';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';
@@ -150,38 +149,33 @@ const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
             : null;
 
     return (
-        <SettingCard
-            title={t('storage.usage.title')}
-            icon={ChartPie}
-            headerAction={
-                <HStack align="center" gap={2}>
-                    <HStack align="center" gap={1.5}>
-                        <Text type="supporting" color="secondary">
-                            {t('storage.usage.totalLabel')}
+        <VStack gap={4} width="100%">
+            <HStack justify="between" vAlign="center" width="100%">
+                <HStack vAlign="center" gap={1.5}>
+                    <Text type="supporting" color="secondary">
+                        {t('storage.usage.totalLabel')}
+                    </Text>
+                    {showSkeleton ? (
+                        <Skeleton width={64} height={20} radius={2} />
+                    ) : (
+                        <Text type="label" weight="semibold" hasTabularNumbers>
+                            {usage ? formatBytes(totalBytes) : '--'}
                         </Text>
-                        {showSkeleton ? (
-                            <Skeleton width={64} height={20} radius={2} />
-                        ) : (
-                            <Text type="label" weight="semibold" hasTabularNumbers>
-                                {usage ? formatBytes(totalBytes) : '--'}
-                            </Text>
-                        )}
-                    </HStack>
-                    <IconButton
-                        label={t('storage.usage.title')}
-                        icon={<Icon icon={RefreshCw} size="sm" />}
-                        variant="secondary"
-                        size="sm"
-                        isLoading={loading}
-                        onClick={onRefresh}
-                    />
+                    )}
                 </HStack>
-            }
-        >
+                <IconButton
+                    label={t('storage.usage.title')}
+                    icon={<Icon icon={RefreshCw} size="sm" />}
+                    variant="secondary"
+                    size="sm"
+                    isLoading={loading}
+                    onClick={onRefresh}
+                />
+            </HStack>
             {showSkeleton ? (
                 <StorageUsageSkeleton />
             ) : emptyOrUnavailableMessage ? (
-                <VStack align="center" justify="center" gap={2} padding={8} width="100%">
+                <VStack align="center" justify="center" gap={2} padding={6} width="100%">
                     <Icon icon={HardDriveDownload} size="lg" color="secondary" />
                     <Text type="supporting" color="secondary">
                         {emptyOrUnavailableMessage}
@@ -269,7 +263,7 @@ const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
                     </VStack>
                 </HStack>
             )}
-        </SettingCard>
+        </VStack>
     );
 };
 

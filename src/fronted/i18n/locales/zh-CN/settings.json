@@ -35,8 +35,6 @@
     "appearance": {
         "title": "外观",
         "description": "主题风格、字号与语言偏好",
-        "cardTitle": "界面显示",
-        "cardDescription": "全局视觉风格与显示偏好",
         "themeTitle": "色彩模式",
         "themeDescription": "明亮或暗色风格",
         "themeSystem": "跟随系统",
@@ -54,7 +52,6 @@
         "themeChocolateDesc": "暖调可可 · Fraunces",
         "fontSizeTitle": "界面字号",
         "fontSizeDescription": "调整主要界面的文字尺寸，兼顾阅读舒适度与信息密度",
-        "fontSizeLabel": "字体大小",
         "fontSizeSmall": "小",
         "fontSizeMedium": "中",
         "fontSizeLarge": "大",
@@ -72,7 +69,13 @@
         "transcriptPositionTitle": "伴读面板停靠方位",
         "transcriptPositionDescription": "伴读剧本流在播放界面的停靠位置",
         "transcriptPositionRight": "靠右（默认）",
-        "transcriptPositionLeft": "靠左（精读）"
+        "transcriptPositionLeft": "靠左（精读）",
+        "sections": {
+            "theme": "主题",
+            "themeDesc": "配色与明暗模式",
+            "interface": "界面与文字",
+            "interfaceDesc": "语言、字号与剧本面板位置"
+        }
     },
     "proxy": {
         "title": "网络代理",
@@ -307,8 +310,6 @@
     },
     "storage": {
         "title": "存储管理",
-        "descriptionLine1": "DashPlayer 会缓存翻译结果，以降低 API 调用成本。",
-        "descriptionLine2": "缓存数据由系统自动管理，无需手动修改。",
         "resetDatabase": "重置数据库",
         "resetSuccess": "数据库已成功重置",
         "resetFailed": "数据库重置失败",
@@ -318,33 +319,18 @@
         "resetConfirmOk": "确认重置",
         "openLibraryFolder": "打开 Library 文件夹",
         "libraryPathTitle": "存储路径（Library Path）",
-        "libraryPathDescription": "更改存储路径后需重启 DashPlayer 生效。",
-        "switchCollection": "收藏片段文件夹",
-        "saveSettingsFailed": "保存设置失败，请稍后重试：{{message}}",
+        "libraryPathDescription": "修改后需重启应用生效",
         "syncWordClipsFailed": "同步词汇工坊片段失败，请稍后再试。",
-        "collectionSync": {
-            "loading": "正在同步收藏片段...",
-            "success": "收藏片段同步成功",
-            "error": "收藏片段同步失败",
-            "button": "重新同步收藏片段",
-            "tooltipTitle": "重新同步收藏片段",
-            "tooltipDescription": "当条目缺失或显示异常时，可从本地文件重新构建收藏片段索引。"
-        },
-        "collectionHint": "收藏片段固定保存至 favourite_clips/default 目录，暂不支持自定义文件夹名称。",
         "wordClipsTitle": "词汇工坊片段",
         "wordClipsSync": {
-            "loading": "正在同步词汇工坊片段...",
             "success": "词汇工坊片段同步成功",
             "error": "词汇工坊片段同步失败",
-            "button": "重新同步词汇工坊",
-            "tooltipTitle": "重新同步词汇工坊",
-            "tooltipDescription": "当数据丢失或异常时，可从 word_video 文件夹重新构建词汇工坊片段记录。"
+            "button": "重新同步词汇工坊"
         },
-        "wordClipsHint": "词汇工坊片段存储在 word_video 目录，需要时可在此重建数据库记录。",
+        "wordClipsHint": "片段存放在 word_video 目录，需要时可重建索引",
         "usage": {
             "title": "存储用量",
             "totalLabel": "总占用",
-            "loading": "正在统计存储用量...",
             "unavailable": "存储目录不可用，暂无法统计用量",
             "empty": "媒体库当前没有占用空间的文件",
             "categories": {
@@ -356,7 +342,18 @@
                 "other": "其他文件"
             }
         },
-        "openFailed": "打开缓存目录失败"
+        "openFailed": "打开缓存目录失败",
+        "description": "媒体库位置、磁盘占用与本地片段索引",
+        "resetHint": "清空数据库记录，收藏与词汇索引会在重启后从本地文件重建",
+        "sections": {
+            "location": "存储位置",
+            "locationDesc": "媒体库文件的保存位置",
+            "usageDesc": "媒体库各类文件的磁盘占用",
+            "sync": "资源同步",
+            "syncDesc": "从本地文件重建片段索引",
+            "danger": "危险操作",
+            "dangerDesc": "以下操作不可撤销"
+        }
     },
     "serviceCredentials": {
         "openai": {
