@@ -84,15 +84,13 @@ export const LocalLlmCard: React.FC<LocalLlmCardProps> = ({
     const builtinModel = status?.models.find((model) => !model.custom);
 
     return (
-        <VStack gap={4} padding={4}>
+        <VStack gap={4} width="100%">
             {/* 硬件条件提示：本地增强模型对内存与算力有一定要求 */}
             {hardwareHint && (
-                <Card variant="muted" padding={2}>
-                    <HStack gap={2} vAlign="start">
-                        <Icon icon={Cpu as unknown as IconType} size="sm" />
-                        <Text size="xsm" color="secondary">{hardwareHint}</Text>
-                    </HStack>
-                </Card>
+                <HStack gap={2} vAlign="start">
+                    <Icon icon={Cpu as unknown as IconType} size="sm" color="secondary" />
+                    <Text type="supporting" color="secondary">{hardwareHint}</Text>
+                </HStack>
             )}
 
             {/* 模型列表 */}

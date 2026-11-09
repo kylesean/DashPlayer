@@ -335,7 +335,7 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
     ];
 
     return (
-        <VStack gap={4} padding={4}>
+        <VStack gap={4} width="100%">
             {/* 状态行：徽标 + 主操作 */}
             <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
                 <HStack gap={2} vAlign="center">

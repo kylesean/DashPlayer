@@ -360,14 +360,14 @@
     },
     "serviceCredentials": {
         "openai": {
-            "keyHint": "云端服务商提供的 API Key。",
+            "keyHint": "仅保存在本机，用于调用所选服务商",
             "apiFormatLabel": "API 类型",
             "apiFormatOpenai": "OpenAI 兼容",
             "apiFormatAnthropic": "Anthropic 兼容",
             "apiFormatGemini": "Gemini",
             "usePreset": "使用预设",
             "endpointPlaceholder": "https://api.deepseek.com/v1",
-            "endpointHint": "完整接口地址（含 /v1 等版本路径），可点上方「使用预设」自动填入。",
+            "endpointHint": "可点「使用预设」自动填入",
             "presetDialogTitle": "选择厂商预设",
             "presetDialogDescription": "选择后自动填入接口地址与 API 类型，只需再填写 API Key 与模型。",
             "useThisPreset": "使用",
@@ -383,7 +383,7 @@
             "usageNone": "未占用",
             "addPlaceholder": "输入模型标识，如 gpt-4o-mini",
             "addButton": "添加",
-            "usedByHint": "已被功能占用的模型不可删除。",
+            "usedByHint": "被功能占用的模型不可删除",
             "duplicateModel": "模型已存在：{{model}}",
             "usageSentenceLearning": "整句讲解",
             "usageSubtitleTranslation": "字幕翻译",
@@ -435,10 +435,15 @@
     },
     "resources": {
         "title": "服务与资源",
-        "description": "端侧离线模型与云端服务资源配置",
+        "description": "离线资源包与云端服务配置",
+        "tabs": {
+            "local": "本地资源",
+            "cloud": "云端服务",
+            "preference": "翻译与查词"
+        },
         "pack": {
             "title": "本地基础资源包",
-            "description": "内置语音识别与发音引擎",
+            "description": "语音识别与发音所需",
             "sizeHint": "约 1 GB",
             "ready": "已就绪",
             "notReady": "未下载",
@@ -482,26 +487,57 @@
             "step3Title": "3. 完成安装",
             "step3Hint": "文件放好后，回到这里点击上方的「下载全部」，应用会自动完成校验与安装。"
         },
-        "dictionaryEnhancement": {
-            "title": "英英释义增强包（可选）",
-            "description": "下载 Princeton WordNet 3.1，为单词卡补充英文释义、同义词与反义词；不随主安装包分发。",
-            "install": "下载并安装",
-            "installed": "已安装",
-            "notInstalled": "未安装",
-            "downloading": "正在安装…",
-            "size": "约 16 MB 下载，安装后本地离线可用",
-            "remove": "删除",
-            "removeConfirm": "删除英英释义增强包？已下载的数据会被移除。",
-            "cancel": "取消",
-            "installFailed": "安装失败：{{message}}",
-            "removeFailed": "删除失败：{{message}}"
+        "enhance": {
+            "title": "本地增强资源包",
+            "description": "可选。让字幕翻译与查词更自然",
+            "hardwareHintGpu": "本机适合运行本地增强资源包：{{memory}} GB 内存、{{cores}} 核 CPU、{{gpu}} 加速。",
+            "hardwareHintNoGpu": "本机可以运行本地增强资源包，但只能用 CPU，速度会慢一些（{{memory}} GB 内存、{{cores}} 核 CPU）。",
+            "hardwareHintLowSpec": "本机内存偏小，本地增强资源包可能跑不动（{{memory}} GB 内存、{{cores}} 核 CPU）。",
+            "delete": "删除资源包",
+            "deleteConfirmTitle": "删除本地增强资源包？"
+        },
+        "cloud": {
+            "title": "云端服务",
+            "description": "填入服务商密钥后，翻译、查词与整句讲解都可用云端模型",
+            "fallbackHint": "云端暂时不可用，已回退到本地资源"
+        },
+        "preference": {
+            "title": "翻译与查词",
+            "description": "为每项功能选择使用的资源",
+            "subtitleLabel": "字幕翻译",
+            "subtitleDesc": "生成字幕译文时使用的引擎",
+            "dictionaryLabel": "词典查询",
+            "dictionaryDesc": "内置词典之外的补充方式",
+            "engineLocalAi": "本地增强资源包",
+            "engineLocalBase": "本地基础资源包",
+            "engineNone": "关闭",
+            "styleLabel": "翻译风格",
+            "styleZh": "翻译成中文",
+            "styleSimpleEn": "简化英文",
+            "styleCustom": "自定义",
+            "stylePlaceholder": "留空时使用默认风格…",
+            "localMtZhOnlyHint": "轻量翻译只支持中文",
+            "notReadyHint": "本地增强资源包还没下载",
+            "sentenceLabel": "整句讲解",
+            "sentenceDesc": "按快捷键为当前句打开讲解",
+            "engineDisabled": "禁用",
+            "engineNoSupplement": "不补充",
+            "cacheLabel": "翻译缓存",
+            "cacheDesc": "清除后，下次会重新请求",
+            "clearCache": "清除缓存",
+            "clearCacheDone": "已清除 {{count}} 条缓存",
+            "styleDesc": "决定字幕译文的措辞方式"
+        },
+        "dictionaries": {
+            "title": "词典",
+            "description": "内置词典之外的补充内容"
         },
         "dictionaryPack": {
-            "title": "本地词典包（自备）",
-            "description": "导入你自己合法持有的词典文件；应用不内置、不下载任何版权词典。",
+            "title": "本地词典包",
+            "description": "导入你合法持有的词典文件",
             "import": "导入词典",
-            "formats": "支持 StarDict(.ifo)、CSV(word, phonetic, translation)、SQLite(entries 表)",
-            "empty": "还没有导入任何词典，查词会使用内置离线词典。",
+            "formats": "支持 StarDict、CSV、SQLite",
+            "empty": "还没有导入词典",
             "loading": "正在读取词典列表…",
             "meta": "{{count}} 个词条 · {{format}}",
             "remove": "删除",
@@ -511,53 +547,17 @@
             "removeFailed": "删除词典失败：{{message}}",
             "saveFailed": "保存词典状态失败：{{message}}"
         },
-        "preference": {
-            "title": "翻译与查词偏好",
-            "description": "字幕翻译与词典引擎首选项",
-            "subtitleLabel": "字幕翻译",
-            "subtitleDesc": "翻译视频字幕时使用哪一档资源。",
-            "dictionaryLabel": "词典查询",
-            "dictionaryDesc": "内置词典已覆盖 3.8 万常见词，无需配置即可查词；这里选择的是超出词库时的补充方式。",
-            "engineLocalAi": "本地增强资源包",
-            "engineLocalBase": "本地基础资源包",
-            "engineNone": "关闭",
-            "styleLabel": "翻译风格",
-            "styleZh": "翻译成中文",
-            "styleSimpleEn": "简化英文",
-            "styleCustom": "自定义",
-            "stylePlaceholder": "留空时使用默认风格…",
-            "localMtZhOnlyHint": "轻量翻译只支持翻译为中文。",
-            "notReadyHint": "所选资源还没下载，请先在上方下载本地基础资源包。",
-            "sentenceLabel": "整句讲解",
-            "sentenceDesc": "按快捷键为当前句打开讲解面板，讲解语法与用法。",
-            "engineDisabled": "禁用",
-            "engineNoSupplement": "不补充",
-            "cacheLabel": "翻译缓存",
-            "cacheDesc": "清除当前配置产生的字幕翻译与查词缓存，下次会重新请求。",
-            "clearCache": "清除缓存",
-            "clearCacheDone": "已清除 {{count}} 条缓存"
-        },
-        "cloud": {
-            "title": "云端服务",
-            "description": "在本地基础资源包的基础上，用云端大模型提供效果最好的翻译与查词；需要填写服务商密钥。"
-        },
-        "enhance": {
-            "title": "本地增强资源包",
-            "description": "在本地基础资源包的基础上，让翻译与查词更自然、更贴近原意。属于锦上添花的一项，可按需安装。",
-            "hardwareHintGpu": "本机适合运行本地增强资源包：{{memory}} GB 内存、{{cores}} 核 CPU、{{gpu}} 加速。",
-            "hardwareHintNoGpu": "本机可以运行本地增强资源包，但只能用 CPU，速度会慢一些（{{memory}} GB 内存、{{cores}} 核 CPU）。",
-            "hardwareHintLowSpec": "本机内存偏小，本地增强资源包可能跑不动（{{memory}} GB 内存、{{cores}} 核 CPU）。",
-            "delete": "删除资源包",
-            "deleteConfirmTitle": "删除本地增强资源包？"
-        },
-        "capability": {
-            "translation": "翻译",
-            "dictionary": "词典",
-            "sentence": "整句讲解",
-            "transcription": "字幕识别",
-            "tts": "发音",
-            "configurableHint": "{{name}}：可在下方「{{card}}」里修改",
-            "fallbackHint": "云端暂时不可用，已回退到基础资源"
+        "dictionaryEnhancement": {
+            "title": "英英释义增强包",
+            "description": "Princeton WordNet 3.1，补充英文释义、同义词与反义词",
+            "install": "下载并安装",
+            "installed": "已安装",
+            "downloading": "正在安装…",
+            "remove": "删除",
+            "removeConfirm": "删除英英释义增强包？已下载的数据会被移除。",
+            "cancel": "取消",
+            "installFailed": "安装失败：{{message}}",
+            "removeFailed": "删除失败：{{message}}"
         }
     },
     "runtime": {

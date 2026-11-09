@@ -76,6 +76,22 @@ export default function ImportedDictionaryCard() {
 
     return (
         <VStack gap={3} width="100%">
+            <HStack justify="between" vAlign="center" gap={4} width="100%">
+                <VStack gap={0.5}>
+                    <Text type="body" weight="medium">{t('resources.dictionaryPack.title')}</Text>
+                    <Text type="supporting" color="secondary">
+                        {t('resources.dictionaryPack.description')}
+                    </Text>
+                </VStack>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    label={t('resources.dictionaryPack.import')}
+                    isLoading={busy}
+                    onClick={() => void importDictionary()}
+                />
+            </HStack>
+
             {isLoading && (
                 <Text type="supporting" color="secondary">{t('resources.dictionaryPack.loading')}</Text>
             )}
@@ -107,16 +123,7 @@ export default function ImportedDictionaryCard() {
                     />
                 </HStack>
             ))}
-            <HStack gap={3} align="center" width="100%" justify="between">
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    label={t('resources.dictionaryPack.import')}
-                    isLoading={busy}
-                    onClick={() => void importDictionary()}
-                />
-                <Text type="supporting" color="secondary">{t('resources.dictionaryPack.formats')}</Text>
-            </HStack>
+            <Text size="2xs" color="secondary">{t('resources.dictionaryPack.formats')}</Text>
         </VStack>
     );
 }

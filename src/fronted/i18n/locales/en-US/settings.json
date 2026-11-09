@@ -360,14 +360,14 @@
     },
     "serviceCredentials": {
         "openai": {
-            "keyHint": "API key from your cloud provider.",
+            "keyHint": "Stored locally; used only to call your provider",
             "apiFormatLabel": "API format",
             "apiFormatOpenai": "OpenAI compatible",
             "apiFormatAnthropic": "Anthropic compatible",
             "apiFormatGemini": "Gemini",
             "usePreset": "Use preset",
             "endpointPlaceholder": "https://api.deepseek.com/v1",
-            "endpointHint": "Full base URL including the version path (e.g. /v1); click \"Use preset\" above to fill it in.",
+            "endpointHint": "Use “Use preset” to fill it in",
             "presetDialogTitle": "Choose provider preset",
             "presetDialogDescription": "Selecting one fills in the endpoint and API format automatically; you only need to enter the API key and models.",
             "useThisPreset": "Use",
@@ -383,7 +383,7 @@
             "usageNone": "Not in use",
             "addPlaceholder": "Enter model id, e.g. gpt-4o-mini",
             "addButton": "Add",
-            "usedByHint": "Models currently in use by features cannot be deleted.",
+            "usedByHint": "Models in use by a feature can't be deleted",
             "duplicateModel": "Model already exists: {{model}}",
             "usageSentenceLearning": "Sentence explanation",
             "usageSubtitleTranslation": "Subtitle translation",
@@ -435,10 +435,15 @@
     },
     "resources": {
         "title": "Services & Resources",
-        "description": "On-device offline models and cloud service resources",
+        "description": "Offline packs and cloud services",
+        "tabs": {
+            "local": "Local",
+            "cloud": "Cloud",
+            "preference": "Translation & Lookup"
+        },
         "pack": {
             "title": "Local base resource pack",
-            "description": "Built-in speech synthesis and transcription engines",
+            "description": "Speech recognition and pronunciation",
             "sizeHint": "about 1 GB",
             "ready": "Ready",
             "notReady": "Not downloaded",
@@ -482,26 +487,57 @@
             "step3Title": "3. Finish installation",
             "step3Hint": "Once the file is in place, come back and click \"Download all\" above — the app verifies and installs it for you."
         },
-        "dictionaryEnhancement": {
-            "title": "English definitions pack (optional)",
-            "description": "Download Princeton WordNet 3.1 to add English definitions, synonyms and antonyms to word cards; not bundled with the app.",
-            "install": "Download and install",
-            "installed": "Installed",
-            "notInstalled": "Not installed",
-            "downloading": "Installing…",
-            "size": "About 16 MB; works offline after install",
-            "remove": "Remove",
-            "removeConfirm": "Remove the English definitions pack? Downloaded data will be deleted.",
-            "cancel": "Cancel",
-            "installFailed": "Install failed: {{message}}",
-            "removeFailed": "Remove failed: {{message}}"
+        "enhance": {
+            "title": "Local enhancement resource pack",
+            "description": "Optional. More natural translation and lookups",
+            "hardwareHintGpu": "This machine is a good fit for the local enhancement pack: {{memory}} GB RAM, {{cores}} CPU cores, {{gpu}} acceleration.",
+            "hardwareHintNoGpu": "This machine can run the local enhancement pack, but only on CPU, so it will be slower ({{memory}} GB RAM, {{cores}} CPU cores).",
+            "hardwareHintLowSpec": "This machine is short on memory; the local enhancement pack may not run well ({{memory}} GB RAM, {{cores}} CPU cores).",
+            "delete": "Delete pack",
+            "deleteConfirmTitle": "Delete the local enhancement resource pack?"
+        },
+        "cloud": {
+            "title": "Cloud Services",
+            "description": "Add a provider key to use cloud models for translation, lookups and sentence explanations",
+            "fallbackHint": "Cloud is unavailable right now; fell back to local resources"
+        },
+        "preference": {
+            "title": "Translation & Lookup",
+            "description": "Choose the resource each feature uses",
+            "subtitleLabel": "Subtitle translation",
+            "subtitleDesc": "Engine used to translate subtitles",
+            "dictionaryLabel": "Dictionary lookup",
+            "dictionaryDesc": "Fallback beyond the built-in dictionary",
+            "engineLocalAi": "Local enhancement resource pack",
+            "engineLocalBase": "Local base resource pack",
+            "engineNone": "Off",
+            "styleLabel": "Translation style",
+            "styleZh": "Translate into Chinese",
+            "styleSimpleEn": "Simplified English",
+            "styleCustom": "Custom",
+            "stylePlaceholder": "Leave empty to use the default style…",
+            "localMtZhOnlyHint": "Lightweight translation only supports Chinese",
+            "notReadyHint": "The local enhancement pack is not downloaded yet",
+            "sentenceLabel": "Sentence explanation",
+            "sentenceDesc": "Press the shortcut to explain the current sentence",
+            "engineDisabled": "Disabled",
+            "engineNoSupplement": "No supplement",
+            "cacheLabel": "Translation cache",
+            "cacheDesc": "Cleared entries are requested again next time",
+            "clearCache": "Clear cache",
+            "clearCacheDone": "Cleared {{count}} cached entries",
+            "styleDesc": "How subtitle translations are phrased"
+        },
+        "dictionaries": {
+            "title": "Dictionaries",
+            "description": "Add-ons beyond the built-in dictionary"
         },
         "dictionaryPack": {
-            "title": "Local dictionaries (bring your own)",
-            "description": "Import dictionary files you legally own. The app bundles and downloads no copyrighted dictionary content.",
+            "title": "Local dictionaries",
+            "description": "Import dictionary files you legally own",
             "import": "Import dictionary",
-            "formats": "Supports StarDict(.ifo), CSV(word, phonetic, translation), SQLite(entries table)",
-            "empty": "No dictionaries imported yet; lookups use the built-in offline dictionary.",
+            "formats": "Supports StarDict, CSV, SQLite",
+            "empty": "No dictionaries imported yet",
             "loading": "Loading dictionaries…",
             "meta": "{{count}} entries · {{format}}",
             "remove": "Remove",
@@ -511,53 +547,17 @@
             "removeFailed": "Failed to remove dictionary: {{message}}",
             "saveFailed": "Failed to save dictionary state: {{message}}"
         },
-        "preference": {
-            "title": "Translation & Lookup Preferences",
-            "description": "Subtitle translation and dictionary engine preferences",
-            "subtitleLabel": "Subtitle translation",
-            "subtitleDesc": "Which resource translates video subtitles.",
-            "dictionaryLabel": "Dictionary lookup",
-            "dictionaryDesc": "The built-in dictionary covers 38,000 common words, so lookups work without any setup. This setting only decides what to use for words it does not cover.",
-            "engineLocalAi": "Local enhancement resource pack",
-            "engineLocalBase": "Local base resource pack",
-            "engineNone": "Off",
-            "styleLabel": "Translation style",
-            "styleZh": "Translate into Chinese",
-            "styleSimpleEn": "Simplified English",
-            "styleCustom": "Custom",
-            "stylePlaceholder": "Leave empty to use the default style…",
-            "localMtZhOnlyHint": "Lightweight translation only supports Chinese.",
-            "notReadyHint": "The selected resource is not downloaded yet. Download the local base resource pack above first.",
-            "sentenceLabel": "Sentence explanation",
-            "sentenceDesc": "Press the shortcut to open an explanation panel for the current sentence, covering grammar and usage.",
-            "engineDisabled": "Disabled",
-            "engineNoSupplement": "No supplement",
-            "cacheLabel": "Translation cache",
-            "cacheDesc": "Clears cached subtitle translations and lookups produced by the current configuration; they will be requested again next time.",
-            "clearCache": "Clear cache",
-            "clearCacheDone": "Cleared {{count}} cached entries"
-        },
-        "cloud": {
-            "title": "Cloud Services",
-            "description": "Builds on the local base resource pack, using cloud models for the best translation and lookup quality; a provider key is required."
-        },
-        "enhance": {
-            "title": "Local enhancement resource pack",
-            "description": "Builds on the local base resource pack for more natural translation and lookups. A nice-to-have — install it when you want the extra polish.",
-            "hardwareHintGpu": "This machine is a good fit for the local enhancement pack: {{memory}} GB RAM, {{cores}} CPU cores, {{gpu}} acceleration.",
-            "hardwareHintNoGpu": "This machine can run the local enhancement pack, but only on CPU, so it will be slower ({{memory}} GB RAM, {{cores}} CPU cores).",
-            "hardwareHintLowSpec": "This machine is short on memory; the local enhancement pack may not run well ({{memory}} GB RAM, {{cores}} CPU cores).",
-            "delete": "Delete pack",
-            "deleteConfirmTitle": "Delete the local enhancement resource pack?"
-        },
-        "capability": {
-            "translation": "Translation",
-            "dictionary": "Dictionary",
-            "sentence": "Sentence explanation",
-            "transcription": "Subtitle recognition",
-            "tts": "Pronunciation",
-            "configurableHint": "{{name}} — change it in “{{card}}” below",
-            "fallbackHint": "Cloud is unavailable right now; fell back to base resources"
+        "dictionaryEnhancement": {
+            "title": "English definitions pack",
+            "description": "Princeton WordNet 3.1: English definitions, synonyms and antonyms",
+            "install": "Download and install",
+            "installed": "Installed",
+            "downloading": "Installing…",
+            "remove": "Remove",
+            "removeConfirm": "Remove the English definitions pack? Downloaded data will be deleted.",
+            "cancel": "Cancel",
+            "installFailed": "Install failed: {{message}}",
+            "removeFailed": "Remove failed: {{message}}"
         }
     },
     "runtime": {

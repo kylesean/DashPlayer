@@ -1,34 +1,29 @@
 import React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import useSWR from 'swr';
 import toast from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import {
-    AlertTriangle,
     BookA,
-    Captions,
     Cloud,
     Eraser,
     HardDrive,
     Languages,
-    Settings2,
     Sparkles,
-    Volume2,
 } from 'lucide-react';
 
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
-import { HStack } from '@astryxdesign/core/HStack';
+import { Divider } from '@astryxdesign/core/Divider';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { Selector } from '@astryxdesign/core/Selector';
-import { Text } from '@astryxdesign/core/Text';
+import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { TextArea } from '@astryxdesign/core/TextArea';
-import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { VStack } from '@astryxdesign/core/VStack';
 
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
-import { SettingCard, SettingRow, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
+import { SettingField, SettingSection, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
 import { ResourcePackCard } from '@/fronted/features/settings/components/ResourcePackCard';
 import { LocalLlmCard } from '@/fronted/features/settings/components/LocalLlmCard';
 import ImportedDictionaryCard from '@/fronted/features/settings/components/ImportedDictionaryCard';
@@ -57,21 +52,18 @@ const GPU_ACCELERATION_LABELS: Record<'metal' | 'vulkan', string> = {
     vulkan: 'Vulkan',
 };
 
-/** 卡片头右侧的能力图标。 */
-interface CapabilityIcon {
-    /** 图标组件。 */
-    icon: IconType;
-    /** 能力名文案键。 */
-    labelKey: string;
-    /** 是否能在下方「翻译与查词偏好」里切换（决定悬停提示文案）。 */
-    configurable: boolean;
-}
+/** 服务与资源页的页内分区。 */
+type ResourceTab = 'local' | 'cloud' | 'preference';
 
-const CAPABILITY_TRANSLATION: CapabilityIcon = { icon: Languages as unknown as IconType, labelKey: 'resources.capability.translation', configurable: true };
-const CAPABILITY_DICTIONARY: CapabilityIcon = { icon: BookA as unknown as IconType, labelKey: 'resources.capability.dictionary', configurable: true };
-const CAPABILITY_SENTENCE: CapabilityIcon = { icon: Sparkles as unknown as IconType, labelKey: 'resources.capability.sentence', configurable: true };
-const CAPABILITY_TRANSCRIPTION: CapabilityIcon = { icon: Captions as unknown as IconType, labelKey: 'resources.capability.transcription', configurable: false };
-const CAPABILITY_TTS: CapabilityIcon = { icon: Volume2 as unknown as IconType, labelKey: 'resources.capability.tts', configurable: false };
+/** 合法的分区值，顺序即 Tab 顺序。 */
+const RESOURCE_TABS: ResourceTab[] = ['local', 'cloud', 'preference'];
+
+/** 分区面板 id，供 Tab 的 aria-controls 引用。 */
+const TAB_PANEL_IDS: Record<ResourceTab, string> = {
+    local: 'resources-panel-local',
+    cloud: 'resources-panel-cloud',
+    preference: 'resources-panel-preference',
+};
 
 /**
  * 拆开下拉项的值：云端选项形如 `openai:<model>`，其余选项就是引擎枚举值本身。
@@ -90,8 +82,8 @@ const parseEngineValue = (value: string): { engine: string; model: string | null
 /**
  * 服务与资源设置页。
  *
- * 把“服务与模型”与“功能设置”两页合并成四块：本地基础资源包（发音/字幕识别/轻量翻译三合一）、
- * 本地增强（可选）、云端服务（可选）、翻译与查词偏好。
+ * 按使用场景拆成三个页内分区：本地资源包（基础/增强/词典）、云端服务（密钥与模型）、
+ * 翻译与查词（每项功能使用哪一档资源）。分区之间用标题层级与 Divider 分隔，不再层层套 Card。
  */
 const ServiceResourceSetting: React.FC = () => {
     const { t } = useI18nTranslation('settings');
@@ -150,11 +142,31 @@ const ServiceResourceSetting: React.FC = () => {
     const subtitleEngine = watched.providers?.subtitleTranslationEngine;
     const subtitleMode = watched.openai?.subtitleTranslationMode;
     const dictionaryEngine = watched.providers?.dictionaryEngine;
-    const sentenceLearningEnabled = watched.openai?.enableSentenceLearning === true;
 
     const cacheTargets = {
         subtitle: subtitleEngine !== undefined && subtitleEngine !== 'none' && subtitleEngine !== 'invalid',
         dictionary: dictionaryEngine !== undefined && dictionaryEngine !== 'none' && dictionaryEngine !== 'invalid',
+    };
+    /** 轻量翻译只出中文，提示替换掉常规说明，避免两行小字并排。 */
+    const usesLocalSubtitle = subtitleEngine === 'local-mt' || subtitleEngine === 'local';
+    /** 词典选了本地增强但还没有可用模型。 */
+    const localDictionaryMissing = dictionaryEngine === 'local'
+        && !(localAiStatus?.models.some((model) => model.ready) ?? false);
+
+    // 分区写进 URL（?tab=cloud），刷新或从别处回来仍停在同一分区
+    const [searchParams, setSearchParams] = useSearchParams();
+    const tabParam = searchParams.get('tab');
+    const activeTab: ResourceTab = RESOURCE_TABS.includes(tabParam as ResourceTab)
+        ? tabParam as ResourceTab
+        : 'local';
+    const changeTab = (value: string) => {
+        const next = new URLSearchParams(searchParams);
+        if (value === 'local') {
+            next.delete('tab');
+        } else {
+            next.set('tab', value);
+        }
+        setSearchParams(next, { replace: true });
     };
 
     // 云端密钥的连通性测试
@@ -414,40 +426,6 @@ const ServiceResourceSetting: React.FC = () => {
 
     const cloudFallback = Boolean(fallbackState?.subtitleTranslation || fallbackState?.dictionary);
 
-    const renderCapabilityIcons = (
-        items: { cap: CapabilityIcon; active: boolean }[],
-        showFallback = false,
-    ) => (
-        <HStack gap={1.5} vAlign="center">
-            {items.map(({ cap, active }) => {
-                const name = t(cap.labelKey);
-                const tooltipText = cap.configurable
-                    ? t('resources.capability.configurableHint', {
-                        name,
-                        card: t('resources.preference.title'),
-                    })
-                    : name;
-                return (
-                    <Tooltip key={cap.labelKey} content={tooltipText}>
-                        <Icon
-                            icon={cap.icon}
-                            size="xsm"
-                            color={active ? 'primary' : 'disabled'}
-                        />
-                    </Tooltip>
-                );
-            })}
-            {showFallback && cloudFallback && (
-                <Tooltip content={t('resources.capability.fallbackHint')}>
-                    <Icon
-                        icon={AlertTriangle as unknown as IconType}
-                        size="xsm"
-                    />
-                </Tooltip>
-            )}
-        </HStack>
-    );
-
     // 下拉选项定义
     const subtitleOptions = React.useMemo(() => [
         ...availableModels.map((m) => ({ value: `openai:${m}`, label: m })),
@@ -492,266 +470,257 @@ const ServiceResourceSetting: React.FC = () => {
             title={t('resources.title')}
             description={t('resources.description')}
         >
+            <TabList
+                value={activeTab}
+                onChange={changeTab}
+                role="tablist"
+                hasDivider
+            >
+                <Tab value="local" label={t('resources.tabs.local')} panelId={TAB_PANEL_IDS.local} />
+                <Tab value="cloud" label={t('resources.tabs.cloud')} panelId={TAB_PANEL_IDS.cloud} />
+                <Tab value="preference" label={t('resources.tabs.preference')} panelId={TAB_PANEL_IDS.preference} />
+            </TabList>
+
             <VStack gap={6} width="100%">
                 {credentialSaveStatus === 'error' && credentialSaveError && (
-                    <Banner
-                        status="error"
-                        title={credentialSaveError}
-                    />
+                    <Banner status="error" title={credentialSaveError} />
                 )}
                 {preferenceSaveStatus === 'error' && preferenceSaveError && (
-                    <Banner
-                        status="error"
-                        title={preferenceSaveError}
-                    />
+                    <Banner status="error" title={preferenceSaveError} />
                 )}
 
-                {/* ① 本地基础资源包 */}
-                <SettingCard
-                    title={t('resources.pack.title')}
-                    description={t('resources.pack.description')}
-                    icon={HardDrive as unknown as IconType}
-                    headerAction={renderCapabilityIcons([
-                        { cap: CAPABILITY_TTS, active: true },
-                        { cap: CAPABILITY_TRANSCRIPTION, active: true },
-                        { cap: CAPABILITY_TRANSLATION, active: subtitleEngine === 'local-mt' || subtitleEngine === 'local' },
-                    ])}
-                >
-                    <ResourcePackCard
-                        transcriptionEngine={resourceStatus.transcriptionEngine}
-                        ttsStatus={resourceStatus?.tts ?? null}
-                        transcriptionStatus={resourceStatus?.transcription ?? null}
-                        onRefresh={() => { void refreshResourceStatus(); }}
-                        onChangeEngine={(engine) => { void changeTranscriptionEngine(engine); }}
-                    />
-                </SettingCard>
-
-                {/* ② 本地增强资源包 */}
-                <SettingCard
-                    title={t('resources.enhance.title')}
-                    description={t('resources.enhance.description')}
-                    icon={Sparkles as unknown as IconType}
-                    headerAction={renderCapabilityIcons([
-                        { cap: CAPABILITY_TRANSLATION, active: subtitleEngine === 'local' },
-                        { cap: CAPABILITY_DICTIONARY, active: dictionaryEngine === 'local' },
-                    ])}
-                >
-                    <LocalLlmCard
-                        status={localAiStatus}
-                        busy={localAiBusy}
-                        testingModelId={testingModelId}
-                        hardwareHint={enhanceHardwareHint}
-                        deleteLabel={t('resources.enhance.delete')}
-                        deleteConfirmTitle={t('resources.enhance.deleteConfirmTitle')}
-                        testResultsMap={testResultsMap}
-                        onUseModel={(modelId) => {
-                            const model = localAiStatus?.models.find((item) => item.modelId === modelId);
-                            if (!model) return;
-                            void runLocalAiAction(
-                                model,
-                                () => settingsApi.useLocalAiModel(modelId),
-                                t('serviceCredentials.localAi.useSuccess'),
-                            );
-                        }}
-                        onTestModel={(modelId) => testLocalAiModel(modelId).catch(() => null)}
-                        onDownloadModel={(modelId) => downloadLocalAi(modelId).catch(() => null)}
-                        onCancelDownload={() => {
-                            setLocalAiBusy(true);
-                            settingsApi.cancelLocalAiDownload()
-                                .catch((error) => toast.error(error instanceof Error ? error.message : String(error)))
-                                .finally(() => {
-                                    setLocalAiBusy(false);
-                                    void refreshResourceStatus();
-                                });
-                        }}
-                        onDeleteModel={(modelId) => {
-                            const model = localAiStatus?.models.find((item) => item.modelId === modelId);
-                            if (!model) return;
-                            void runLocalAiAction(
-                                model,
-                                () => settingsApi.deleteLocalAi(modelId),
-                                t('serviceCredentials.localAi.deleteSuccess'),
-                            );
-                        }}
-                        onOpenFolder={(path) => openFolder(path).catch(() => null)}
-                        onCopy={(text) => copyText(text).catch(() => null)}
-                        onOpenUrl={(url) => openUrl(url).catch(() => null)}
-                    />
-                </SettingCard>
-
-                {/* ③ 云端服务 */}
-                <SettingCard
-                    title={t('resources.cloud.title')}
-                    description={t('resources.cloud.description')}
-                    icon={Cloud as unknown as IconType}
-                    headerAction={renderCapabilityIcons([
-                        { cap: CAPABILITY_TRANSLATION, active: subtitleEngine === 'openai' },
-                        { cap: CAPABILITY_DICTIONARY, active: dictionaryEngine === 'openai' },
-                        { cap: CAPABILITY_SENTENCE, active: sentenceLearningEnabled },
-                    ], true)}
-                >
-                    <OpenAiCredentialCard
-                        form={credentialForm}
-                        usageByModel={usageByModel}
-                        testingModel={testingOpenAiModel}
-                        testResults={openAiTestResults}
-                        onTestModel={(model) => testOpenAiModel(model).catch(() => null)}
-                        onModelRemoved={(model) => setOpenAiTestResults((prev) => {
-                            const next = { ...prev };
-                            delete next[model];
-                            return next;
-                        })}
-                        onCopy={(text) => copyText(text).catch(() => null)}
-                        onOpenUrl={(url) => openUrl(url).catch(() => null)}
-                        disabled={credentialSaveStatus === 'saving'}
-                    />
-                </SettingCard>
-
-                {/* ④ 翻译与查词偏好 */}
-                <SettingCard
-                    title={t('resources.preference.title')}
-                    description={t('resources.preference.description')}
-                    icon={Languages as unknown as IconType}
-                >
-                    <SettingRow
-                        title={t('resources.preference.subtitleLabel')}
-                        description={t('resources.preference.subtitleDesc')}
-                        icon={Languages as unknown as IconType}
-                    >
-                        <VStack gap={1} hAlign="end">
-                            <Selector
-                                label={t('resources.preference.subtitleLabel')}
-                                isLabelHidden
-                                value={composeEngineValue(subtitleEngine, watched.openai?.featureModels?.subtitleTranslation)}
-                                onChange={(val) => applyEngineValue(
-                                    val,
-                                    'providers.subtitleTranslationEngine',
-                                    'openai.featureModels.subtitleTranslation',
-                                )}
-                                options={subtitleOptions}
-                                size="sm"
-                                width={224}
+                {activeTab === 'local' && (
+                    <VStack id={TAB_PANEL_IDS.local} role="tabpanel" gap={6} width="100%">
+                        <SettingSection
+                            title={t('resources.pack.title')}
+                            description={t('resources.pack.description')}
+                            icon={HardDrive as unknown as IconType}
+                        >
+                            <ResourcePackCard
+                                transcriptionEngine={resourceStatus.transcriptionEngine}
+                                ttsStatus={resourceStatus?.tts ?? null}
+                                transcriptionStatus={resourceStatus?.transcription ?? null}
+                                onRefresh={() => { void refreshResourceStatus(); }}
+                                onChangeEngine={(engine) => { void changeTranscriptionEngine(engine); }}
                             />
-                            {(subtitleEngine === 'local-mt' || subtitleEngine === 'local') && (
-                                <Text size="2xs" color="secondary">{t('resources.preference.localMtZhOnlyHint')}</Text>
-                            )}
-                        </VStack>
-                    </SettingRow>
+                        </SettingSection>
 
-                    {/* 翻译风格 */}
-                    <Card variant="transparent" padding={4}>
-                        <VStack gap={3}>
-                            <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
-                                <HStack gap={2} vAlign="center">
-                                    <Icon icon={Settings2 as unknown as IconType} size="sm" />
-                                    <Text size="sm" weight="medium">{t('resources.preference.styleLabel')}</Text>
-                                </HStack>
+                        <Divider variant="subtle" />
+
+                        <SettingSection
+                            title={t('resources.enhance.title')}
+                            description={t('resources.enhance.description')}
+                            icon={Sparkles as unknown as IconType}
+                        >
+                            <LocalLlmCard
+                                status={localAiStatus}
+                                busy={localAiBusy}
+                                testingModelId={testingModelId}
+                                hardwareHint={enhanceHardwareHint}
+                                deleteLabel={t('resources.enhance.delete')}
+                                deleteConfirmTitle={t('resources.enhance.deleteConfirmTitle')}
+                                testResultsMap={testResultsMap}
+                                onUseModel={(modelId) => {
+                                    const model = localAiStatus?.models.find((item) => item.modelId === modelId);
+                                    if (!model) return;
+                                    void runLocalAiAction(
+                                        model,
+                                        () => settingsApi.useLocalAiModel(modelId),
+                                        t('serviceCredentials.localAi.useSuccess'),
+                                    );
+                                }}
+                                onTestModel={(modelId) => testLocalAiModel(modelId).catch(() => null)}
+                                onDownloadModel={(modelId) => downloadLocalAi(modelId).catch(() => null)}
+                                onCancelDownload={() => {
+                                    setLocalAiBusy(true);
+                                    settingsApi.cancelLocalAiDownload()
+                                        .catch((error) => toast.error(error instanceof Error ? error.message : String(error)))
+                                        .finally(() => {
+                                            setLocalAiBusy(false);
+                                            void refreshResourceStatus();
+                                        });
+                                }}
+                                onDeleteModel={(modelId) => {
+                                    const model = localAiStatus?.models.find((item) => item.modelId === modelId);
+                                    if (!model) return;
+                                    void runLocalAiAction(
+                                        model,
+                                        () => settingsApi.deleteLocalAi(modelId),
+                                        t('serviceCredentials.localAi.deleteSuccess'),
+                                    );
+                                }}
+                                onOpenFolder={(path) => openFolder(path).catch(() => null)}
+                                onCopy={(text) => copyText(text).catch(() => null)}
+                                onOpenUrl={(url) => openUrl(url).catch(() => null)}
+                            />
+                        </SettingSection>
+
+                        <Divider variant="subtle" />
+
+                        <SettingSection
+                            title={t('resources.dictionaries.title')}
+                            description={t('resources.dictionaries.description')}
+                            icon={BookA as unknown as IconType}
+                        >
+                            <ImportedDictionaryCard />
+                            <Divider variant="subtle" />
+                            <DictionaryEnhancementCard />
+                        </SettingSection>
+                    </VStack>
+                )}
+
+                {activeTab === 'cloud' && (
+                    <VStack id={TAB_PANEL_IDS.cloud} role="tabpanel" gap={4} width="100%">
+                        {cloudFallback && (
+                            <Banner status="warning" title={t('resources.cloud.fallbackHint')} />
+                        )}
+                        <SettingSection
+                            title={t('resources.cloud.title')}
+                            description={t('resources.cloud.description')}
+                            icon={Cloud as unknown as IconType}
+                        >
+                            <OpenAiCredentialCard
+                                form={credentialForm}
+                                usageByModel={usageByModel}
+                                testingModel={testingOpenAiModel}
+                                testResults={openAiTestResults}
+                                onTestModel={(model) => testOpenAiModel(model).catch(() => null)}
+                                onModelRemoved={(model) => setOpenAiTestResults((prev) => {
+                                    const next = { ...prev };
+                                    delete next[model];
+                                    return next;
+                                })}
+                                onCopy={(text) => copyText(text).catch(() => null)}
+                                onOpenUrl={(url) => openUrl(url).catch(() => null)}
+                                disabled={credentialSaveStatus === 'saving'}
+                            />
+                        </SettingSection>
+                    </VStack>
+                )}
+
+                {activeTab === 'preference' && (
+                    <VStack id={TAB_PANEL_IDS.preference} role="tabpanel" gap={6} width="100%">
+                        <SettingSection
+                            title={t('resources.preference.title')}
+                            description={t('resources.preference.description')}
+                            icon={Languages as unknown as IconType}
+                        >
+                            <SettingField
+                                title={t('resources.preference.subtitleLabel')}
+                                description={usesLocalSubtitle
+                                    ? t('resources.preference.localMtZhOnlyHint')
+                                    : t('resources.preference.subtitleDesc')}
+                            >
                                 <Selector
-                                    label={t('resources.preference.styleLabel')}
+                                    label={t('resources.preference.subtitleLabel')}
                                     isLabelHidden
-                                    value={watched.openai?.subtitleTranslationMode}
-                                    onChange={(val) => {
-                                        setValue('openai.subtitleTranslationMode', val as 'zh' | 'simple_en' | 'custom', { shouldDirty: true });
-                                    }}
-                                    options={styleOptions}
+                                    value={composeEngineValue(subtitleEngine, watched.openai?.featureModels?.subtitleTranslation)}
+                                    onChange={(val) => applyEngineValue(
+                                        val,
+                                        'providers.subtitleTranslationEngine',
+                                        'openai.featureModels.subtitleTranslation',
+                                    )}
+                                    options={subtitleOptions}
                                     size="sm"
                                     width={224}
                                 />
-                            </HStack>
+                            </SettingField>
 
-                            <TextArea
-                                label={t('resources.preference.styleLabel')}
-                                isLabelHidden
-                                value={subtitleMode === 'custom'
-                                    ? (watched.openai?.subtitleCustomStyle ?? '')
-                                    : (OPENAI_SUBTITLE_DEFAULT_STYLES[subtitleMode === 'simple_en' ? 'simple_en' : 'zh'] ?? '')}
-                                onChange={(val) => {
-                                    setValue('openai.subtitleCustomStyle', val, { shouldDirty: true });
-                                }}
-                                isReadOnly={subtitleMode !== 'custom'}
-                                placeholder={t('resources.preference.stylePlaceholder')}
-                                rows={4}
-                            />
-                        </VStack>
-                    </Card>
+                            <Divider variant="subtle" />
 
-                    <SettingRow
-                        title={t('resources.preference.dictionaryLabel')}
-                        description={t('resources.preference.dictionaryDesc')}
-                        icon={Languages as unknown as IconType}
-                    >
-                        <VStack gap={1} hAlign="end">
-                            <Selector
-                                label={t('resources.preference.dictionaryLabel')}
-                                isLabelHidden
-                                value={composeEngineValue(watched.providers?.dictionaryEngine, watched.openai?.featureModels?.dictionary)}
-                                onChange={(val) => applyEngineValue(
-                                    val,
-                                    'providers.dictionaryEngine',
-                                    'openai.featureModels.dictionary',
+                            <VStack gap={3} width="100%">
+                                <SettingField
+                                    title={t('resources.preference.styleLabel')}
+                                    description={t('resources.preference.styleDesc')}
+                                >
+                                    <Selector
+                                        label={t('resources.preference.styleLabel')}
+                                        isLabelHidden
+                                        value={watched.openai?.subtitleTranslationMode}
+                                        onChange={(val) => {
+                                            setValue('openai.subtitleTranslationMode', val as 'zh' | 'simple_en' | 'custom', { shouldDirty: true });
+                                        }}
+                                        options={styleOptions}
+                                        size="sm"
+                                        width={224}
+                                    />
+                                </SettingField>
+
+                                {subtitleMode === 'custom' && (
+                                    <TextArea
+                                        label={t('resources.preference.styleLabel')}
+                                        isLabelHidden
+                                        value={watched.openai?.subtitleCustomStyle ?? ''}
+                                        onChange={(val) => {
+                                            setValue('openai.subtitleCustomStyle', val, { shouldDirty: true });
+                                        }}
+                                        placeholder={t('resources.preference.stylePlaceholder')}
+                                        rows={4}
+                                    />
                                 )}
-                                options={dictionaryOptions}
-                                size="sm"
-                                width={224}
-                            />
-                            {watched.providers?.dictionaryEngine === 'local'
-                                && !(localAiStatus?.models.some((model) => model.ready) ?? false) && (
-                                <Text size="2xs" color="disabled">{t('resources.preference.notReadyHint')}</Text>
+                            </VStack>
+
+                            <Divider variant="subtle" />
+
+                            <SettingField
+                                title={t('resources.preference.dictionaryLabel')}
+                                description={localDictionaryMissing
+                                    ? t('resources.preference.notReadyHint')
+                                    : t('resources.preference.dictionaryDesc')}
+                            >
+                                <Selector
+                                    label={t('resources.preference.dictionaryLabel')}
+                                    isLabelHidden
+                                    value={composeEngineValue(watched.providers?.dictionaryEngine, watched.openai?.featureModels?.dictionary)}
+                                    onChange={(val) => applyEngineValue(
+                                        val,
+                                        'providers.dictionaryEngine',
+                                        'openai.featureModels.dictionary',
+                                    )}
+                                    options={dictionaryOptions}
+                                    size="sm"
+                                    width={224}
+                                />
+                            </SettingField>
+
+                            <Divider variant="subtle" />
+
+                            <SettingField
+                                title={t('resources.preference.sentenceLabel')}
+                                description={t('resources.preference.sentenceDesc')}
+                            >
+                                <Selector
+                                    label={t('resources.preference.sentenceLabel')}
+                                    isLabelHidden
+                                    value={sentenceLearningValue}
+                                    onChange={applySentenceLearningValue}
+                                    options={sentenceOptions}
+                                    size="sm"
+                                    width={224}
+                                />
+                            </SettingField>
+
+                            {(cacheTargets.subtitle || cacheTargets.dictionary) && (
+                                <>
+                                    <Divider variant="subtle" />
+                                    <SettingField
+                                        title={t('resources.preference.cacheLabel')}
+                                        description={t('resources.preference.cacheDesc')}
+                                    >
+                                        <Button
+                                            label={t('resources.preference.clearCache')}
+                                            size="sm"
+                                            variant="secondary"
+                                            isLoading={clearingCache}
+                                            icon={<Icon icon={Eraser as unknown as IconType} size="sm" />}
+                                            onClick={() => { void clearCaches(); }}
+                                        />
+                                    </SettingField>
+                                </>
                             )}
-                        </VStack>
-                    </SettingRow>
-
-                    <SettingRow
-                        title={t('resources.preference.sentenceLabel')}
-                        description={t('resources.preference.sentenceDesc')}
-                        icon={Settings2 as unknown as IconType}
-                    >
-                        <Selector
-                            label={t('resources.preference.sentenceLabel')}
-                            isLabelHidden
-                            value={sentenceLearningValue}
-                            onChange={applySentenceLearningValue}
-                            options={sentenceOptions}
-                            size="sm"
-                            width={224}
-                        />
-                    </SettingRow>
-
-                    {(cacheTargets.subtitle || cacheTargets.dictionary) && (
-                        <SettingRow
-                            title={t('resources.preference.cacheLabel')}
-                            description={t('resources.preference.cacheDesc')}
-                            icon={Eraser as unknown as IconType}
-                        >
-                            <Button
-                                label={t('resources.preference.clearCache')}
-                                size="sm"
-                                variant="secondary"
-                                isLoading={clearingCache}
-                                icon={<Icon icon={Eraser as unknown as IconType} size="sm" />}
-                                onClick={() => { void clearCaches(); }}
-                            />
-                        </SettingRow>
-                    )}
-                </SettingCard>
-
-                {/* ⑤ 用户自备词典包：只做导入，不内置版权内容 */}
-                <SettingCard
-                    title={t('resources.dictionaryPack.title')}
-                    description={t('resources.dictionaryPack.description')}
-                    icon={BookA as unknown as IconType}
-                >
-                    <ImportedDictionaryCard />
-                </SettingCard>
-
-                {/* ⑥ 英英释义增强包：可选下载，补充英文释义与同反义 */}
-                <SettingCard
-                    title={t('resources.dictionaryEnhancement.title')}
-                    description={t('resources.dictionaryEnhancement.description')}
-                    icon={BookA as unknown as IconType}
-                >
-                    <DictionaryEnhancementCard />
-                </SettingCard>
+                        </SettingSection>
+                    </VStack>
+                )}
             </VStack>
         </SettingsPageShell>
     );

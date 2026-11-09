@@ -79,17 +79,15 @@ export default function DictionaryEnhancementCard() {
 
     return (
         <VStack gap={2} width="100%">
-            <HStack gap={3} align="center" width="100%" justify="between">
+            <HStack gap={4} align="center" width="100%" justify="between">
                 <VStack gap={0.5}>
-                    <Text weight="semibold">
-                        {status?.installed
-                            ? t('resources.dictionaryEnhancement.installed')
-                            : t('resources.dictionaryEnhancement.notInstalled')}
-                    </Text>
+                    <Text type="body" weight="medium">{t('resources.dictionaryEnhancement.title')}</Text>
                     <Text type="supporting" color="secondary">
                         {downloading
                             ? (progress ?? t('resources.dictionaryEnhancement.downloading'))
-                            : t('resources.dictionaryEnhancement.size')}
+                            : status?.installed
+                                ? t('resources.dictionaryEnhancement.installed')
+                                : t('resources.dictionaryEnhancement.description')}
                     </Text>
                 </VStack>
                 {downloading ? (

@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { Divider } from '@astryxdesign/core/Divider';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -31,6 +32,7 @@ import type { ServiceCredentialSettingDetailVO } from '@/common/types/vo/service
 import type { OpenAiModelUsageFeature } from '@/common/utils/cloud-model-usage';
 import { CLOUD_AI_PROVIDER_PRESETS } from '@/common/constants/cloud-ai-provider-presets';
 import { AI_API_FORMATS, type AiApiFormat } from '@/common/utils/cloud-ai-api-format';
+import { SettingField } from '@/fronted/features/settings/components/form/SettingSection';
 
 /** 单个模型的连通性测试结果。 */
 export interface OpenAiModelTestResult {
@@ -133,35 +135,45 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
     };
 
     return (
-        <VStack gap={4} padding={4}>
+        <VStack gap={5} width="100%">
             {/* API Key */}
-            <VStack gap={1.5}>
+            <SettingField
+                title="API Key"
+                description={t('serviceCredentials.openai.keyHint')}
+            >
                 <TextInput
                     type="password"
                     label="API Key"
+                    isLabelHidden
                     value={openAiKey}
                     onChange={(val) => setValue('openai.key', val, { shouldDirty: true })}
                     placeholder="sk-..."
-                    description={t('serviceCredentials.openai.keyHint')}
                     size="sm"
+                    width={320}
                 />
-            </VStack>
+            </SettingField>
+
+            <Divider variant="subtle" />
 
             {/* API Format */}
-            <VStack gap={1.5}>
+            <SettingField title={t('serviceCredentials.openai.apiFormatLabel')}>
                 <Selector
                     label={t('serviceCredentials.openai.apiFormatLabel')}
+                    isLabelHidden
                     value={apiFormat}
                     onChange={(val) => setValue('openai.apiFormat', val as AiApiFormat, { shouldDirty: true })}
                     options={apiFormatOptions}
                     size="sm"
+                    width={220}
                 />
-            </VStack>
+            </SettingField>
 
-            {/* Endpoint */}
-            <VStack gap={1.5}>
+            <Divider variant="subtle" />
+
+            {/* Endpoint 是长地址，输入框独占一行 */}
+            <VStack gap={1.5} width="100%">
                 <HStack justify="between" vAlign="center">
-                    <Text size="sm" weight="medium">Endpoint</Text>
+                    <Text type="body" weight="medium">Endpoint</Text>
                     <Button
                         label={t('serviceCredentials.openai.usePreset')}
                         size="sm"
@@ -181,9 +193,11 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                 />
             </VStack>
 
+            <Divider variant="subtle" />
+
             {/* Models Table */}
-            <VStack gap={2}>
-                <Text size="sm" weight="medium">{t('serviceCredentials.openai.modelsLabel')}</Text>
+            <VStack gap={2} width="100%">
+                <Text type="body" weight="medium">{t('serviceCredentials.openai.modelsLabel')}</Text>
                 <Card variant="default" padding={0}>
                     <Table density="compact" dividers="rows">
                         <TableHeader>
