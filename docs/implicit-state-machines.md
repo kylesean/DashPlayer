@@ -488,3 +488,37 @@ P1 六项全部落地，并逐个用变异测试证明断言有效。过程中�
 **C. 句末模式裁决顺序（真实缺陷）**
 
 见上文 #1 的补充说明。三处优先级副本现在收敛为一处，且顺序与引擎分支对齐。
+
+### 第九轮：首次真实 CI 运行暴露的测试脆弱性
+
+前八轮的验证都在本地做，而「CI 门禁」这件事本身从未在真实 Actions 上跑过
+（`qa/README.md` 第 2 节记录过这条缺口）。本轮推送后第一次真跑，**当场红了**：
+
+| 步骤 | 结果 |
+|---|---|
+| Lint / Typecheck / Test case docs | 通过 |
+| Unit tests | **失败 3 条** |
+
+失败全部在 `MobileWebServer.test.ts` 的「手机页的浏览器访问链路」：
+
+```
+Error: 手机页产物缺失：/home/runner/work/DashPlayer/DashPlayer/resources/mobile
+```
+
+**根因**：该 describe 直接拿 `resources/mobile` 当静态目录，而那是
+`pnpm run build:mobile` 的产物、在 `.gitignore` 里被排除。本地因为跑过构建所以有，
+干净 clone 与 CI 上必然没有——「本地全绿、CI 必红」。
+
+**这是测试自身的缺陷，不是产品缺陷**：同文件第一个 describe 用 `mkdtemp` 自造临时目录
+（hermetic），第二个却直接依赖真实产物，同一文件内两种写法不一致。
+
+**修法**：改为自造最小产物（含 `#root` 的 index.html + 一个静态文件）。
+这组用例验证的是 HTTP 层行为——令牌换 Cookie、Cookie 鉴权、安全响应头、
+静态文件按路径发出——与 Vite 产物的具体内容无关，不需要真产物。
+
+**验证**：把 `resources/mobile` 整个移走复刻 CI 的干净环境，该文件 10/10 仍通过；
+真实 CI 第二次运行 12 个步骤全绿。
+
+**顺带修掉的环境漂移**：`git` 的 `remote.pushDefault` 与 `main` 的跟踪分支原本都指向
+`upstream`（solidSpoon 上游），`gh` 的默认仓库同样解析到上游。已全部改指 `origin`
+（`kylesean/DashPlayer`）——本 fork 已独立发展，不再与上游同步。
