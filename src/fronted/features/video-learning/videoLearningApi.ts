@@ -100,7 +100,9 @@ export const videoLearningApi = {
      *
      * @returns 用户选中的 Excel 文件路径列表。
      */
-    selectVocabularyFile: () => backendClient.call('system/select-file', ['.xlsx', '.xls']),
+    // 只放 .xlsx 与 .csv：旧版 .xls（BIFF）后端已不再支持解析，
+    // 放进选择器只会让用户选完才被拒绝。
+    selectVocabularyFile: () => backendClient.call('system/select-file', ['.xlsx', '.csv']),
 
     /**
      * 获取视频指定时间点的缩略图。
