@@ -5,10 +5,15 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { practiceApi } from './practiceApi';
 import usePracticePanel from './practiceStore';
+import {
+    nextRecorderPhase,
+    type PracticeRecorderEvent,
+    type PracticeRecorderPhase,
+} from './lib/recorder-phase';
 
 const logger = getRendererLogger('usePracticeRecorder');
 
-export type PracticeRecorderPhase = 'idle' | 'recording' | 'processing';
+export type { PracticeRecorderPhase };
 
 function pickMimeType(): string | undefined {
     if (typeof MediaRecorder === 'undefined') {
@@ -43,6 +48,16 @@ interface UsePracticeRecorderOptions {
 export function usePracticeRecorder({ onRecordingComplete, active = true }: UsePracticeRecorderOptions) {
     const { t } = useTranslation('practice');
     const [phase, setPhase] = useState<PracticeRecorderPhase>('idle');
+    /**
+     * 按转移表推进阶段。
+     *
+     * 所有 `setPhase` 都走这里，非法事件（例如评分中收到 `CANCEL`）会被静默忽略，
+     * 而不是像以前那样靠每个调用点自己判 `phase !== 'recording'`。规则本身在
+     * `lib/recorder-phase.ts`，有独立单测覆盖。
+     */
+    const dispatch = useCallback((event: PracticeRecorderEvent): void => {
+        setPhase((current) => nextRecorderPhase(current, event) ?? current);
+    }, []);
     const mediaStreamRef = useRef<MediaStream | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
@@ -84,7 +99,10 @@ export function usePracticeRecorder({ onRecordingComplete, active = true }: UseP
      * @returns 无返回值。
      */
     const cancel = useCallback((): void => {
-        if (phase !== 'recording') {
+        // 只有 `recording` 阶段能真正丢弃；`processing` 阶段的音频已交给评分链路，
+        // 这里若把 phase 打回 idle，用户能立刻再开一段录音与仍在进行的评分并发。
+        // 判据在转移表里（`processing + CANCEL` 返回 null），不在这里重复一遍。
+        if (nextRecorderPhase(phase, 'CANCEL') === null) {
             return;
         }
         const recorder = mediaRecorderRef.current;
@@ -97,8 +115,8 @@ export function usePracticeRecorder({ onRecordingComplete, active = true }: UseP
             }
         }
         finishFlow();
-        setPhase('idle');
-    }, [finishFlow, phase]);
+        dispatch('CANCEL');
+    }, [dispatch, finishFlow, phase]);
 
     /**
      * 丢弃录音的稳定引用。
@@ -152,10 +170,10 @@ export function usePracticeRecorder({ onRecordingComplete, active = true }: UseP
         if (blob.size === 0) {
             toast.error(t('recorder.empty'));
             // 复位到空闲,否则面板停留在录音态:停止键引用已空、开始键被 phase 守卫拒绝,面板内无出路
-            setPhase('idle');
+            dispatch('EMPTY');
             return;
         }
-        setPhase('processing');
+        dispatch('STOP');
         try {
             const buffer = await blob.arrayBuffer();
             await onDoneRef.current(new Uint8Array(buffer));
@@ -163,7 +181,7 @@ export function usePracticeRecorder({ onRecordingComplete, active = true }: UseP
             logger.error('跟读评分失败', { error });
             toast.error(error instanceof Error ? error.message : String(error));
         } finally {
-            setPhase('idle');
+            dispatch('SCORED');
         }
     };
 
@@ -211,7 +229,7 @@ export function usePracticeRecorder({ onRecordingComplete, active = true }: UseP
             void handleRecordingDone();
         };
         recorder.start();
-        setPhase('recording');
+        dispatch('START');
     };
 
     const stop = (): void => {
