@@ -62,3 +62,20 @@
 | 字幕翻译 | 云端 `openai`（`providers.subtitleTranslation`） | 可切 `local`（本地模型）或 `none`；未配置/失败走资源回退 |
 | 整句分析 / 聊天 | 有云端配置时云端，本地模型兜底 | 本地模型只承担离线兜底，不替代云端 |
 
+## 5. 词典导入（用户自备）
+
+- **状态：已实现（2026-11-09）**
+- **合规边界**：只做「用户自备文件 → 应用内统一格式」的转换，不内置、不下载任何版权词典内容（内置下载指向侵权源属于帮助侵权，非商业项目也不豁免）。
+- **支持格式**：StarDict（`.ifo` + `.idx/.idx.gz` + `.dict/.dict.dz`）、CSV（`word,phonetic,translation`）、SQLite（`entries` 表至少含 `word`/`translation`）。MDict（`.mdx`）暂不支持，格式复杂度高，建议先转换为上述格式。
+- **实现**：`ImportedDictionaryService` 转换并写入 `userData/dictionaries/<id>/dictionary.sqlite`（开发环境带 `-dev` 后缀），注册表为同目录 `index.json`；设置页「本地词典包（自备）」提供导入、启停、删除。
+- **查词顺序**：启用的导入词典（按导入顺序）→ 内置 ECDICT → 云端/本地 LLM；LLM 失败时回退导入词典 → 内置词典。
+- **已知限制**：导入为一次性全量转换，超大词典（十万级以上词条）会占用较多内存/时间；不读取 MDict 的音频/图片资源。
+
+## 6. 词典增强优先级（P0–P3）决策
+
+- **P0 内置 ECDICT 1.0.28**：保持，不换。
+- **P1a 词形反向索引**：**不做**。实测现有 `lemmatizeWord`（wink）已覆盖 `went→go`、`better→good`、`children→child`、`mice→mouse`、`sank→sink`、`data→datum` 等，仅 `learnt` 这类少见变体漏掉；为它升 schema + 重建数据不划算。
+- **P1b OEWN 英英释义**：待排期，作为可选增强包（不增大主安装包）。
+- **P2/P3（Tatoeba 例句、CMUdict 发音、CEFR、CC-CEDICT 反查）**：不做，理由见开发对话记录。
+
+
