@@ -58,9 +58,9 @@ export const CAPTION_CARD_IDLE_CLASS =
 export type CaptionCardAccent = 'amber' | 'emerald' | 'red';
 
 const ACCENT_ACTIVE_CLASS: Record<CaptionCardAccent, string> = {
-    amber: 'text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/60',
-    emerald: 'text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/60',
-    red: 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-950/60',
+    amber: 'text-warning-text bg-warning-muted',
+    emerald: 'text-success-text bg-success-muted',
+    red: 'text-error-text bg-error-muted',
 };
 
 /**

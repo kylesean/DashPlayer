@@ -38,7 +38,7 @@ export const CONTROL_POPOVER_OFFSET_STACKED_BAR = 44;
 export const CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR = 20;
 
 /** 行右侧的次要信息（快捷键、参数摘要）：短、等宽、压暗，过长时截断（全文挂 title）。 */
-export const CONTROL_POPOVER_HINT = 'min-w-0 truncate text-[10px] font-mono text-secondary';
+export const CONTROL_POPOVER_HINT = 'min-w-0 truncate text-xs font-mono text-secondary';
 
 /** 行内图标：不设颜色，跟随本行文字颜色。 */
 export const CONTROL_POPOVER_ICON = 'w-3.5 h-3.5 shrink-0';

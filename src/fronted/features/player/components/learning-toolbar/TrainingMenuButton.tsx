@@ -167,7 +167,7 @@ export default function TrainingMenuButton({
                                         activePlan ? (
                                             <>
                                                 <span className={cn(TOOLBAR_BADGE, style.badge)}>{playbackRate.toFixed(2)}x</span>
-                                                <span className={cn('font-mono text-[10px]', tone === 'overlay' ? 'text-white/70' : 'text-muted-foreground')}>{`(${loopCountText})`}</span>
+                                                <span className={cn('font-mono text-xs', tone === 'overlay' ? 'text-media-fg/70' : 'text-muted-foreground')}>{`(${loopCountText})`}</span>
                                             </>
                                         ) : null
                                     ) : shadowingPause ? (
@@ -185,7 +185,7 @@ export default function TrainingMenuButton({
                     className={cn('w-64', CONTROL_POPOVER_PANEL)}
                 >
                     <div className={cn('flex items-center gap-1.5', CONTROL_POPOVER_LABEL)}>
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+                        <Sparkles className="w-3.5 h-3.5 text-success-text" />
                         {t('controlBar.trainingMenuLabel')}
                     </div>
                     <div className={CONTROL_POPOVER_SEPARATOR} />

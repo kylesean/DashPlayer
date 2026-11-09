@@ -28,9 +28,9 @@ export interface PlaybackTimeReadoutProps {
 export const PlaybackTimeReadout = memo(function PlaybackTimeReadout({
     previewTime,
     currentClassName = '',
-    separatorClassName = 'mx-1.5 text-white/40',
-    durationClassName = 'text-white/60',
-    className = 'h-full flex items-center font-mono text-xs text-white/80 tabular-nums',
+    separatorClassName = 'mx-1.5 text-media-fg/40',
+    durationClassName = 'text-media-fg/60',
+    className = 'h-full flex items-center font-mono text-xs text-media-fg/80 tabular-nums',
     durationWrapperClassName = 'hidden lg:inline-flex items-center',
 }: PlaybackTimeReadoutProps) {
     const playTime = usePlayerState((s) => s.internal.exactPlayTime);

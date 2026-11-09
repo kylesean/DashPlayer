@@ -49,7 +49,7 @@ export default function TimeAdjustPanel() {
                 onClick={() => (field === 'start'
                     ? playerActions.adjustCurrentBegin(-0.2)
                     : playerActions.adjustCurrentEnd(-0.2))}
-                className="flex h-7 flex-1 items-center justify-center rounded-md border border-border/60 bg-muted/40 font-mono text-[11px] font-medium text-foreground transition-colors hover:bg-muted active:scale-95"
+                className="flex h-7 flex-1 items-center justify-center rounded-md border border-border/60 bg-muted/40 font-mono text-metadata font-medium text-foreground transition-colors hover:bg-muted active:scale-95"
             >
                 -0.2s
             </button>
@@ -58,7 +58,7 @@ export default function TimeAdjustPanel() {
                 onClick={() => (field === 'start'
                     ? playerActions.adjustCurrentBegin(0.2)
                     : playerActions.adjustCurrentEnd(0.2))}
-                className="flex h-7 flex-1 items-center justify-center rounded-md border border-border/60 bg-muted/40 font-mono text-[11px] font-medium text-foreground transition-colors hover:bg-muted active:scale-95"
+                className="flex h-7 flex-1 items-center justify-center rounded-md border border-border/60 bg-muted/40 font-mono text-metadata font-medium text-foreground transition-colors hover:bg-muted active:scale-95"
             >
                 +0.2s
             </button>
@@ -84,7 +84,7 @@ export default function TimeAdjustPanel() {
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between border-b border-border/50 pb-2">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                    <History className="w-3.5 h-3.5 text-amber-500" />
+                    <History className="w-3.5 h-3.5 text-warning-text" />
                     <span>{t('subtitle.adjustTitle')}</span>
                 </div>
                 <button
@@ -97,9 +97,9 @@ export default function TimeAdjustPanel() {
                     }}
                     disabled={!adjusted}
                     className={cn(
-                        'flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] transition-colors',
+                        'flex items-center gap-1 rounded-md px-2 py-0.5 text-metadata transition-colors',
                         adjusted
-                            ? 'font-medium text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-950/60 cursor-pointer'
+                            ? 'font-medium text-warning-text hover:bg-warning-muted cursor-pointer'
                             : 'text-muted-foreground/40 cursor-default'
                     )}
                 >

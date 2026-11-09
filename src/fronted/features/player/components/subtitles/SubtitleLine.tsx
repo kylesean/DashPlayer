@@ -15,7 +15,7 @@ const SubtitleLine = ({ text, order }: SubtitleLineProps) => {
     return (
         <div
             className={cn(
-                'my-0 mx-10 py-1.5 px-4 bg-black/60 backdrop-blur-xs text-white rounded-lg shadow-lg text-center text-balance max-w-5xl',
+                'my-0 mx-10 py-1.5 px-4 bg-media-bg/60 backdrop-blur-xs text-media-fg rounded-lg shadow-lg text-center text-balance max-w-5xl',
                 fontSize === 'fontSizeSmall' && (order === 'second' ? FONT_SIZE["ms2-small"] : FONT_SIZE["ms3-small"]),
                 fontSize === 'fontSizeMedium' && (order === 'second' ? FONT_SIZE["ms2-medium"] : FONT_SIZE["ms3-medium"]),
                 fontSize === 'fontSizeLarge' && (order === 'second' ? FONT_SIZE["ms2-large"] : FONT_SIZE["ms3-large"]),

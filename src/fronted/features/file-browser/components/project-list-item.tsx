@@ -113,7 +113,7 @@ const ProjectListItem = ({
                             </div>
                         )}
                         {(showDuration || video.isFolder) && (
-                            <div className="absolute bottom-2 right-2 text-white/95 bg-black/75 backdrop-blur-md rounded-md px-1.5 py-0.5 text-[11px] font-medium flex items-center gap-1 shadow-2xs">
+                            <div className="absolute bottom-2 right-2 text-media-fg/95 bg-media-bg/75 backdrop-blur-md rounded-md px-1.5 py-0.5 text-metadata font-medium flex items-center gap-1 shadow-2xs">
                                 {!video.isFolder ? (
                                     TimeUtil.secondToTimeStrCompact(video?.duration)
                                 ) : (

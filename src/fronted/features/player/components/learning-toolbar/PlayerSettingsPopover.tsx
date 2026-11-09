@@ -41,7 +41,7 @@ import {
  * 打在行下方而不是只塞 title：像「碎句合并」「随英文字幕隐藏」这类开关，
  * 光看勾选变化看不出它改的是显示还是数据，先给一句解释才不会点完一脸问号。
  */
-const ROW_HINT = '-mt-1 px-2 pb-1.5 text-[10px] leading-snug text-secondary';
+const ROW_HINT = '-mt-1 px-2 pb-1.5 text-xs leading-snug text-secondary';
 
 /**
  * 播放器设置：一个字幕面板/画面控制条共用的「⚙」。

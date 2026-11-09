@@ -54,7 +54,7 @@ export default function ConfirmDeleteButton({ title, confirmLabel, deleting, onC
         onClick={handleClick}
         disabled={deleting}
         className={cn(
-          'px-1.5 py-0.5 rounded-md text-[10px] leading-none font-medium shrink-0 transition-colors cursor-pointer',
+          'px-1.5 py-0.5 rounded-md text-xs leading-none font-medium shrink-0 transition-colors cursor-pointer',
           'bg-destructive text-destructive-foreground hover:bg-destructive/90',
           deleting && 'opacity-60 cursor-not-allowed'
         )}

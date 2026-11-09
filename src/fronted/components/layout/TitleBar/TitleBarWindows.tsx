@@ -106,7 +106,7 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
                 </button>
                 <button
                     onClick={handleClose}
-                    className="inline-flex items-center justify-center w-11 h-full text-muted-foreground/80 hover:text-white hover:bg-red-600 dark:hover:bg-red-600 active:bg-red-700 transition-colors cursor-pointer"
+                    className="inline-flex items-center justify-center w-11 h-full text-muted-foreground/80 hover:text-on-error hover:bg-error active:bg-error/90 transition-colors cursor-pointer"
                     id="close"
                     type="button"
                     aria-label={t('close')}

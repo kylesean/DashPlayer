@@ -58,7 +58,7 @@ const PodcastViewer = ({ className }: { className?: string }) => {
             <div
                 className={cn(
                     'relative flex h-full w-full items-center justify-center overflow-hidden',
-                    'bg-[#f8f9fa] dark:bg-[#121316] transition-colors duration-300',
+                    'bg-background transition-colors duration-300',
                     className
                 )}
             >
@@ -74,13 +74,13 @@ const PodcastViewer = ({ className }: { className?: string }) => {
             ref={viewerContainerRef}
             className={cn(
                 'relative h-full w-full overflow-hidden select-none',
-                'bg-[#f8f9fa] dark:bg-[#121316] transition-colors duration-300',
+                'bg-background transition-colors duration-300',
                 className
             )}
         >
             {/* 上下方渐变柔化遮罩 */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-[#f8f9fa] via-[#f8f9fa]/85 to-transparent dark:from-[#121316] dark:via-[#121316]/85 z-20" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-16 h-36 bg-gradient-to-t from-[#f8f9fa] via-[#f8f9fa]/85 to-transparent dark:from-[#121316] dark:via-[#121316]/85 z-20" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-background via-background/85 to-transparent z-20" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-16 h-36 bg-gradient-to-t from-background via-background/85 to-transparent z-20" />
 
             {/* 纯净流动的沉浸式字幕流（GPU 硬件合成层 + 0 重排） */}
             <motion.div
@@ -122,7 +122,7 @@ const PodcastViewer = ({ className }: { className?: string }) => {
                             {/* 统一使用原生大字号基准，温润护眼的柔白/柔灰配色 */}
                             <TranslatableLinePodcast
                                 className={cn(
-                                    'text-3xl md:text-[2.2rem] leading-relaxed tracking-tight transition-colors duration-300',
+                                    'text-3xl md:text-podcast leading-relaxed tracking-tight transition-colors duration-300',
                                     isCurrent
                                         ? 'font-bold text-primary'
                                         : 'font-normal text-secondary/70'

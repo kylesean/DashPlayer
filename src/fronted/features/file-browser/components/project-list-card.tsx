@@ -117,7 +117,7 @@ const ProjectListCard = ({
                         )}
 
                         {(showDuration || video.isFolder) && (
-                            <div className="absolute bottom-2.5 right-2.5 text-white/95 bg-black/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 shadow-2xs">
+                            <div className="absolute bottom-2.5 right-2.5 text-media-fg/95 bg-media-bg/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 shadow-2xs">
                                 {!video.isFolder ? (
                                     TimeUtil.secondToTimeStrCompact(video?.duration)
                                 ) : (

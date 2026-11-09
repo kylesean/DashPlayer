@@ -70,16 +70,16 @@ function BubbleToastContent(props: {
     const toneClass = (() => {
         switch (variant) {
             case 'success':
-                return 'border-emerald-500/40 bg-emerald-50/95 text-emerald-950 dark:bg-emerald-950/90 dark:text-emerald-50 dark:border-emerald-500/30';
+                return 'border-success/40 bg-success-muted text-foreground';
             case 'info':
-                return 'border-sky-500/40 bg-sky-50/95 text-sky-950 dark:bg-sky-950/90 dark:text-sky-50 dark:border-sky-500/30';
+                return 'border-info/40 bg-info-muted text-foreground';
             case 'warning':
-                return 'border-amber-500/40 bg-amber-50/95 text-amber-950 dark:bg-amber-950/90 dark:text-amber-50 dark:border-amber-500/30';
+                return 'border-warning/40 bg-warning-muted text-foreground';
             case 'error':
-                return 'border-red-500/40 bg-red-50/95 text-red-950 dark:bg-red-950/90 dark:text-red-50 dark:border-red-500/30';
+                return 'border-error/40 bg-error-muted text-foreground';
             case 'default':
             default:
-                return 'border-border/80 bg-background/95 text-foreground dark:border-border/60 shadow-md';
+                return 'border-border/80 bg-background/95 text-foreground shadow-md';
         }
     })();
 
@@ -91,7 +91,7 @@ function BubbleToastContent(props: {
                     <div className="text-xs leading-relaxed opacity-90 break-words">{message}</div>
                 </div>
                 {count > 1 ? (
-                    <div className="shrink-0 rounded-full bg-foreground/10 px-2 py-0.5 text-[10px] font-mono font-semibold leading-4 text-foreground/80">
+                    <div className="shrink-0 rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-mono font-semibold leading-4 text-foreground/80">
                         x{count}
                     </div>
                 ) : null}

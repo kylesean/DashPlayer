@@ -15,13 +15,13 @@ import { formatShortcut } from '@/fronted/features/player/components/formatShort
  * 浅色主题下会退化成「背景加暗 + 文字转黑」，在黑底上等于没有 hover 反馈。
  * 本条上的按钮一律取这一份；宿主是亮色时才另给一套（见 learning-toolbar/toolbarStyles）。
  */
-export const DARK_BAR_BUTTON_HOVER = 'hover:bg-white/15 hover:text-white';
+export const DARK_BAR_BUTTON_HOVER = 'hover:bg-media-fg/15 hover:text-media-fg';
 
 /**
  * 图标按钮在深色控制条上的统一样式。
  */
 const ICON_BUTTON_CLASS = cn(
-    'w-7 h-7 flex items-center justify-center rounded-lg text-white/80 transition-colors shrink-0',
+    'w-7 h-7 flex items-center justify-center rounded-lg text-media-fg/80 transition-colors shrink-0',
     DARK_BAR_BUTTON_HOVER
 );
 
@@ -55,7 +55,7 @@ export function PlaybackNavControls() {
             <Tooltip content={`${playing ? t('controlBar.pause') : t('controlBar.play')}${formatShortcut(playPauseShortcut)}`} placement="above">
                 <button
                     onClick={() => playerActions.togglePlay()}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-white/10 hover:bg-white/20 text-white/95 active:scale-95 transition-all"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-media-fg/10 hover:bg-media-fg/20 text-media-fg/95 active:scale-95 transition-all"
                 >
                     {playing ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
                 </button>

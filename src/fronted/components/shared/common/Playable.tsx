@@ -90,7 +90,7 @@ const Playable = ({ className, children, showIcon = true }: PlayableProps) => {
                     title={t('speakText')}
                 >
                     {loading ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
                     ) : (
                         <Volume2 className="w-3.5 h-3.5" />
                     )}

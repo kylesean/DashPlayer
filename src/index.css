@@ -14,115 +14,74 @@
 /* 使用根节点的 .dark 类驱动暗色变体，与系统跟随切换同步。 */
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme inline {
-  --color-border: var(--color-border, hsl(var(--border)));
-  --color-input: var(--color-border-emphasized, hsl(var(--input)));
-  --color-ring: var(--color-border-focus, hsl(var(--ring)));
-  --color-background: var(--color-background-body, hsl(var(--background)));
-  --color-foreground: var(--color-text-primary, hsl(var(--foreground)));
+/*
+ * 媒体层色板：视频画面上的遮罩、角标、控制条。
+ * 刻意不接 light-dark 主题色 —— 浅色主题下视频底仍必须是深色；
+ * 但取值集中在这里，避免组件里散落 bg-white/15、bg-black/60。
+ */
+@theme {
+  --color-media-fg: #ffffff;
+  --color-media-bg: #000000;
+  --color-media-matte: #0a0a0a;
+  --color-media-amber: #f59e0b;
+  --color-media-orange: #ea580c;
+  --color-media-slate: #475569;
+  --color-media-slate-deep: #1e293b;
+  /* 应用层字号：10px 直接用 Astryx 的 text-xs；11px 没有对应刻度，集中为一个 token */
+  --text-metadata: 0.6875rem;
+  --text-caption: 0.8125rem;
+  /* 伴读剧本流的三档字号：英文原文 / 中文译文，各自小中大 */
+  --text-side-en-small: 0.875rem;
+  --text-side-en-medium: 0.96875rem;
+  --text-side-en-large: 1.09375rem;
+  --text-side-zh-small: 0.75rem;
+  --text-side-zh-medium: 0.8125rem;
+  --text-side-zh-large: 0.90625rem;
+  --text-podcast: 2.2rem;
 
-  --color-primary: var(--color-text-primary, hsl(var(--primary)));
-  --color-primary-foreground: var(--color-on-accent, hsl(var(--primary-foreground)));
-
-  --color-secondary: var(--color-text-secondary, hsl(var(--secondary)));
-  --color-secondary-foreground: var(--color-text-primary, hsl(var(--secondary-foreground)));
-
-  --color-destructive: var(--color-error, hsl(var(--destructive)));
-  --color-destructive-foreground: var(--color-on-error, hsl(var(--destructive-foreground)));
-
-  --color-muted: var(--color-background-muted, hsl(var(--muted)));
-  --color-muted-foreground: var(--color-text-secondary, hsl(var(--muted-foreground)));
-
-  --color-accent: var(--color-accent, hsl(var(--accent)));
-  --color-accent-foreground: var(--color-on-accent, hsl(var(--accent-foreground)));
-
-  --color-popover: var(--color-background-popover, hsl(var(--popover)));
-  --color-popover-foreground: var(--color-text-primary, hsl(var(--popover-foreground)));
-
-  --color-card: var(--color-background-card, hsl(var(--card)));
-  --color-card-foreground: var(--color-text-primary, hsl(var(--card-foreground)));
-
-  --color-sidebar: var(--color-background-surface, hsl(var(--sidebar-background)));
-  --color-sidebar-foreground: var(--color-text-primary, hsl(var(--sidebar-foreground)));
-  --color-sidebar-primary: var(--color-text-primary, hsl(var(--sidebar-primary)));
-  --color-sidebar-primary-foreground: var(--color-on-accent, hsl(var(--sidebar-primary-foreground)));
-  --color-sidebar-accent: var(--color-background-muted, hsl(var(--sidebar-accent)));
-  --color-sidebar-accent-foreground: var(--color-text-primary, hsl(var(--sidebar-accent-foreground)));
-  --color-sidebar-border: var(--color-border, hsl(var(--sidebar-border)));
-  --color-sidebar-ring: var(--color-border-focus, hsl(var(--sidebar-ring)));
-
-  --radius-lg: var(--radius-container, var(--radius));
-  --radius-md: var(--radius-element, calc(var(--radius) - 2px));
-  --radius-sm: var(--radius-inner, calc(var(--radius) - 4px));
+  /* 状态文字色别名：Astryx 的 --color-<status> 是填充色，文字色在 --color-text-<status> */
+  --color-success-text: var(--color-text-success);
+  --color-warning-text: var(--color-text-warning);
+  --color-error-text: var(--color-text-error);
 }
 
-
-
-
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 20 14.3% 4.1%;
-    --card: 0 0% 100%;
-    --card-foreground: 20 14.3% 4.1%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 20 14.3% 4.1%;
-    --primary: 47.9 95.8% 53.1%;
-    --primary-foreground: 26 83.3% 14.1%;
-    --secondary: 60 4.8% 95.9%;
-    --secondary-foreground: 24 9.8% 10%;
-    --muted: 60 4.8% 95.9%;
-    --muted-foreground: 25 5.3% 44.7%;
-    --accent: 60 4.8% 95.9%;
-    --accent-foreground: 24 9.8% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 60 9.1% 97.8%;
-    --border: 20 5.9% 90%;
-    --input: 20 5.9% 90%;
-    --ring: 20 5.9% 55%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: 60 9.1% 97.8%;
-    --card: 20 14.3% 4.1%;
-    --card-foreground: 60 9.1% 97.8%;
-    --popover: 20 14.3% 4.1%;
-    --popover-foreground: 60 9.1% 97.8%;
-    --primary: 47.9 95.8% 53.1%;
-    --primary-foreground: 26 83.3% 14.1%;
-    --secondary: 12 6.5% 15.1%;
-    --secondary-foreground: 60 9.1% 97.8%;
-    --muted: 12 6.5% 15.1%;
-    --muted-foreground: 24 5.4% 63.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: 60 9.1% 97.8%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 60 9.1% 97.8%;
-    --border: 12 6.5% 15.1%;
-    --input: 12 6.5% 15.1%;
-    --ring: 35.5 91.7% 32.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+/* 媒体层专用工具：字幕投影、深色滚动条；取值只来自 media tokens。 */
+@utility media-text-shadow {
+  filter: drop-shadow(0 2px 4px color-mix(in srgb, var(--color-media-bg) 80%, transparent));
 }
 
+@utility media-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-media-fg) 20%, transparent) transparent;
+}
 
+/*
+ * 旧 shadcn 语义类名 → Astryx token。
+ *
+ * 只保留 Astryx 官方 Tailwind bridge 没有覆盖的别名；primary/secondary/
+ * card/popover/muted 等已经由 bridge 提供。
+ *
+ * reference inline：这些映射只用于生成工具类，不再把变量发射到 :root，
+ * 避免 --color-accent / --color-border 这类同名映射形成自引用。
+ */
+@theme reference inline {
+  --color-background: var(--color-background-body);
+  --color-foreground: var(--color-text-primary);
+  --color-border: var(--color-border);
+  --color-input: var(--color-border-emphasized);
+  --color-ring: var(--focus-outline-color);
+
+  --color-card-foreground: var(--color-text-primary);
+  --color-popover-foreground: var(--color-text-primary);
+  --color-muted-foreground: var(--color-text-secondary);
+  --color-accent-foreground: var(--color-on-accent);
+
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-on-error);
+
+  /* Astryx bridge 把 --color-accent 指向文字色；这里刻意指回填充色 */
+  --color-accent: var(--color-accent);
+}
 
 
 @layer base {
@@ -135,16 +94,6 @@
 }
 
 
-.gutter-style {
-  box-shadow: 2px 0 4px 0 rgba(0, 0, 0, 0.1);
-}
-
-.gutter.gutter-vertical {
-  background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII=');
-  cursor: row-resize;
-  /*box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.1);*/
-}
-
 .drag {
   -webkit-app-region: drag;
 }
@@ -155,23 +104,6 @@
 
 .user-drag-none {
   -webkit-user-drag: none;
-}
-
-.ofvisible {
-  overflow: visible !important;
-}
-
-
-.item-normal::before {
-    content: "•";
-    /*color: hsl(var(--foreground));*/
-    padding-right: 0.5rem;
-}
-
-.item-current::before {
-    content: "»";
-    /*color: hsl(var(--primary));*/
-    padding-right: 0.4rem;
 }
 
 /* Tailwind 4 不再加载旧版 tailwind-scrollbar 插件，保留项目现有类名。 */
@@ -186,7 +118,7 @@
 
   [class~="scrollbar-thin"] {
     scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb, #a1a1aa) var(--scrollbar-track, transparent);
+    scrollbar-color: var(--scrollbar-thumb, var(--color-border-emphasized)) var(--scrollbar-track, transparent);
   }
 
   [class~="scrollbar-thin"]::-webkit-scrollbar {
@@ -200,12 +132,12 @@
   }
 
   [class~="scrollbar-thin"]::-webkit-scrollbar-thumb {
-    background: var(--scrollbar-thumb, #a1a1aa);
+    background: var(--scrollbar-thumb, var(--color-border-emphasized));
     border-radius: var(--scrollbar-thumb-radius, 9999px);
   }
 
   [class~="scrollbar-thin"]::-webkit-scrollbar-thumb:hover {
-    background: var(--scrollbar-thumb-hover, var(--scrollbar-thumb, #71717a));
+    background: var(--scrollbar-thumb-hover, var(--scrollbar-thumb, var(--color-text-secondary)));
   }
 
   [class~="scrollbar-thumb-rounded"] {
@@ -220,29 +152,7 @@
     --scrollbar-track-radius: 0.375rem;
   }
 
-  [class~="scrollbar-thumb-gray-300"] { --scrollbar-thumb: #d4d4d8; }
-  [class~="scrollbar-thumb-gray-400"] { --scrollbar-thumb: #a1a1aa; }
-  [class~="scrollbar-thumb-gray-400\/25"] { --scrollbar-thumb: rgb(161 161 170 / 25%); }
-  [class~="scrollbar-thumb-gray-600"] { --scrollbar-thumb: #52525b; }
-  [class~="scrollbar-thumb-stone-200"] { --scrollbar-thumb: #e7e5e4; }
-  [class~="scrollbar-thumb-stone-300"] { --scrollbar-thumb: #d6d3d1; }
-  [class~="scrollbar-thumb-stone-400"] { --scrollbar-thumb: #a8a29e; }
-  [class~="scrollbar-thumb-zinc-400"] { --scrollbar-thumb: #a1a1aa; }
-  [class~="scrollbar-thumb-zinc-500"] { --scrollbar-thumb: #71717a; }
-  [class~="scrollbar-track-gray-100"] { --scrollbar-track: #f3f4f6; }
-  [class~="scrollbar-track-gray-200"] { --scrollbar-track: #e5e7eb; }
-  [class~="scrollbar-track-gray-800"] { --scrollbar-track: #1f2937; }
-
-  [class~="hover:scrollbar-thumb-zinc-500"]:hover { --scrollbar-thumb-hover: #71717a; }
-  [class~="dark:hover:scrollbar-thumb-stone-300"]:hover { --scrollbar-thumb-hover: #d6d3d1; }
-  .dark [class~="dark:scrollbar-thumb-gray-600"] { --scrollbar-thumb: #52525b; }
-  .dark [class~="dark:scrollbar-thumb-stone-400"] { --scrollbar-thumb: #a8a29e; }
-  .dark [class~="dark:scrollbar-track-gray-600"] { --scrollbar-track: #52525b; }
-  .dark [class~="dark:scrollbar-track-gray-800"] { --scrollbar-track: #1f2937; }
 }
-
-
-
 
 @layer base {
   /*

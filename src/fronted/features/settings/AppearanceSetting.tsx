@@ -13,6 +13,7 @@ import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/set
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { applyLanguageSetting } from '@/fronted/i18n';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
+import { THEME_PREVIEW_COLORS } from '@/fronted/app/themeFamilies';
 import useSWR from 'swr';
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
 import { Columns2, Globe, Laptop, Moon, Palette, PanelLeft, PanelRight, Sun, Type } from 'lucide-react';
@@ -120,44 +121,44 @@ const AppearanceSetting: React.FC = () => {
             label: 'Neutral',
             desc: t('appearance.themeNeutralDesc'),
             // 取色点必须用主题真实 accent，并区分 light/dark，避免"选米色出蓝按钮"
-            previewColor: 'light-dark(#1b1b1b, #f1f1f1)',
+            previewColor: THEME_PREVIEW_COLORS.neutral,
         },
         {
             value: 'stone' as const,
             label: 'Stone',
             desc: t('appearance.themeStoneDesc'),
-            previewColor: 'light-dark(#25252a, #f0f0f9)',
+            previewColor: THEME_PREVIEW_COLORS.stone,
         },
         {
             value: 'gothic' as const,
             label: 'Gothic',
             desc: t('appearance.themeGothicDesc'),
-            previewColor: 'light-dark(#e8f1f6, #e8f1f6)',
+            previewColor: THEME_PREVIEW_COLORS.gothic,
         },
         {
             value: 'matcha' as const,
             label: 'Matcha',
             desc: t('appearance.themeMatchaDesc'),
-            previewColor: 'light-dark(#3e481d, #c0cba9)',
+            previewColor: THEME_PREVIEW_COLORS.matcha,
         },
         {
             value: 'y2k' as const,
             label: 'Y2K',
             desc: t('appearance.themeY2kDesc'),
             // Y2K 的记忆点是长春花蓝页面，而不是深棕 accent
-            previewColor: 'light-dark(#cccffa, #edeffc)',
+            previewColor: THEME_PREVIEW_COLORS.y2k,
         },
         {
             value: 'butter' as const,
             label: 'Butter',
             desc: t('appearance.themeButterDesc'),
-            previewColor: 'light-dark(#225bff, #fdee8c)',
+            previewColor: THEME_PREVIEW_COLORS.butter,
         },
         {
             value: 'chocolate' as const,
             label: 'Chocolate',
             desc: t('appearance.themeChocolateDesc'),
-            previewColor: 'light-dark(#8c5927, #d4a06a)',
+            previewColor: THEME_PREVIEW_COLORS.chocolate,
         },
     ];
 
@@ -292,7 +293,7 @@ const AppearanceSetting: React.FC = () => {
                                         className={cn(
                                             'flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-medium transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
                                             isSelected
-                                                ? 'bg-background text-foreground border-border shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+                                                ? 'bg-background text-foreground border-border shadow-xs ring-1 ring-border/60'
                                                 : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
                                         )}
                                     >

@@ -69,16 +69,16 @@ export default function ControlBarPinButton() {
                 className={cn(
                     'relative w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors',
                     pinned
-                        ? 'text-white bg-white/20 hover:bg-white/25'
+                        ? 'text-media-fg bg-media-fg/20 hover:bg-media-fg/25'
                         : nudging
-                        ? 'text-amber-300 hover:bg-white/15'
-                        : cn('text-white/80', DARK_BAR_BUTTON_HOVER)
+                        ? 'text-warning-text hover:bg-media-fg/15'
+                        : cn('text-media-fg/80', DARK_BAR_BUTTON_HOVER)
                 )}
             >
                 {nudging && (
                     <span
                         aria-hidden
-                        className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-amber-300/60 animate-pulse"
+                        className="pointer-events-none absolute inset-0 rounded-lg ring-2 ring-warning/60 animate-pulse"
                     />
                 )}
                 <Pin className={cn('w-4 h-4', pinned && 'fill-current')} />

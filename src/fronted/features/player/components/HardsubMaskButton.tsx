@@ -43,8 +43,8 @@ export default function HardsubMaskButton() {
                 className={cn(
                     TEXT_BUTTON_CLASS,
                     maskOn
-                        ? 'bg-white/20 text-white ring-1 ring-white/30'
-                        : cn('text-white/80', DARK_BAR_BUTTON_HOVER)
+                        ? 'bg-media-fg/20 text-media-fg ring-1 ring-media-fg/30'
+                        : cn('text-media-fg/80', DARK_BAR_BUTTON_HOVER)
                 )}
             >
                 <SquareDashedBottom className="w-3.5 h-3.5" />

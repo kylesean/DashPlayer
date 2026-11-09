@@ -100,7 +100,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             <div className="flex flex-wrap items-center gap-1.5 mt-2 select-none">
                                 {data.collins ? (
                                     <span
-                                        className="text-[11px] font-semibold text-amber-500 tracking-tight"
+                                        className="text-metadata font-semibold text-warning-text tracking-tight"
                                         title={t('collinsRating')}
                                     >
                                         {`Collins ${'★'.repeat(data.collins)}`}
@@ -140,14 +140,14 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 disabled={isFavoriting}
                                 className={cn(
                                     'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer',
-                                    isFavorited && 'text-amber-400 hover:text-amber-400 scale-105',
+                                    isFavorited && 'text-warning-text hover:text-warning-text scale-105',
                                     isFavoriting && 'cursor-default'
                                 )}
                                 title={isFavorited ? t('unfavoriteWord') : t('favoriteWord')}
                             >
                                 {isFavoriting
                                     ? <Loader2 size={15} className="animate-spin" />
-                                    : <Star size={15} className={cn('transition-transform duration-150', isFavorited ? 'fill-amber-400 scale-110' : '')} />}
+                                    : <Star size={15} className={cn('transition-transform duration-150', isFavorited ? 'fill-warning scale-110' : '')} />}
                             </button>
                         )}
                         {onRefresh && (
@@ -200,7 +200,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                                         <Playable>{ex.sentence}</Playable>
                                                     </div>
                                                     {ex.translation && (
-                                                        <div className="text-[13px] text-muted-foreground leading-relaxed">
+                                                        <div className="text-caption text-muted-foreground leading-relaxed">
                                                             {ex.translation}
                                                         </div>
                                                     )}
@@ -225,7 +225,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                     )}
                     {hasEnglishSenses && (
                         <div className="pt-3 mt-1 border-t border-border/60 space-y-3">
-                            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground select-none">
+                            <div className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground select-none">
                                 {t('englishSenses', { defaultValue: 'English definitions' })}
                             </div>
                             {(data?.englishSenses ?? []).map((sense, senseIdx) => {

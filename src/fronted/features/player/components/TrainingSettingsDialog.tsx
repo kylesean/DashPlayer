@@ -144,12 +144,12 @@ function TrainingSettingsForm({ onClose }: { onClose: () => void }) {
           <VStack gap={2} width="100%">
             <HStack vAlign="center" hAlign="between" width="100%">
               <HStack vAlign="center" gap={1.5}>
-                <Repeat className="w-3.5 h-3.5 text-amber-500" />
+                <Repeat className="w-3.5 h-3.5 text-warning-text" />
                 <Text type="body" weight="medium">
                   {t('trainingSettings.repeatTimes')}
                 </Text>
               </HStack>
-              <Text type="body" weight="semibold" className="font-mono text-amber-500">
+              <Text type="body" weight="semibold" className="font-mono text-warning-text">
                 {t('trainingSettings.repeatTimesCount', { times: repeatTimes })}
               </Text>
             </HStack>
@@ -174,7 +174,7 @@ function TrainingSettingsForm({ onClose }: { onClose: () => void }) {
         <Card variant="muted" padding={3}>
           <VStack gap={2} width="100%">
             <HStack vAlign="center" gap={1.5}>
-              <Gauge className="w-3.5 h-3.5 text-purple-500" />
+              <Gauge className="w-3.5 h-3.5 text-purple-vivid" />
               <Text type="body" weight="medium">
                 {t('trainingSettings.progressiveRates')}
               </Text>

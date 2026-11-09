@@ -41,7 +41,7 @@ const SliderInput: React.FC<SliderInputProps> = ({
             <HStack
                 gap={1}
                 padding={1}
-                className="inline-flex items-center rounded-xl bg-muted/60 dark:bg-neutral-800/80 border border-border/60 select-none"
+                className="inline-flex items-center rounded-xl bg-muted/60 border border-border/60 select-none"
             >
                 {values.map((val, idx) => {
                     const isSelected = defaultValue === val;
@@ -65,7 +65,7 @@ const SliderInput: React.FC<SliderInputProps> = ({
                             className={cn(
                                 'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer',
                                 isSelected
-                                    ? 'bg-background text-foreground shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+                                    ? 'bg-background text-foreground shadow-xs ring-1 ring-border/60'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
                             )}
                         >

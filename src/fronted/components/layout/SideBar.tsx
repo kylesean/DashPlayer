@@ -83,7 +83,7 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
                             <span className="text-sm font-semibold tracking-tight text-foreground truncate leading-tight">
                                 DashPlayer
                             </span>
-                            <span className="text-[10px] text-muted-foreground/75 font-medium tracking-wide uppercase truncate">
+                            <span className="text-xs text-muted-foreground/75 font-medium tracking-wide uppercase truncate">
                                 English Studio
                             </span>
                         </div>

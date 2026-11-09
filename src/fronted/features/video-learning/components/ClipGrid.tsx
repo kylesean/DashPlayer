@@ -60,10 +60,10 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                   className={cn(
                     'overflow-hidden rounded-xl cursor-pointer transition-all duration-200 group bg-card text-card-foreground border border-border/60 flex flex-col',
                     isPlaying
-                      ? 'ring-2 ring-primary border-transparent shadow-sm'
+                      ? 'ring-2 ring-accent-bg border-transparent shadow-sm'
                       : 'hover:border-border hover:shadow-sm',
                     clip.sourceType === 'local' && !isPlaying
-                      ? 'border-dashed border-amber-400/80 dark:border-amber-500/80'
+                      ? 'border-dashed border-media-amber/80'
                       : undefined
                   )}
                   onClick={() => onClickClip(idx)}
@@ -86,16 +86,16 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                     ) : (
                       <div
                         className={cn(
-                          'w-full h-full flex items-center justify-center text-white/80',
+                          'w-full h-full flex items-center justify-center text-media-fg/80',
                           clip.sourceType === 'local'
-                            ? 'bg-gradient-to-br from-amber-400 to-orange-600'
-                            : 'bg-gradient-to-br from-slate-600 to-slate-800'
+                            ? 'bg-gradient-to-br from-media-amber to-media-orange'
+                            : 'bg-gradient-to-br from-media-slate to-media-slate-deep'
                         )}
                       >
                         <Play className="w-7 h-7" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute inset-0 bg-media-bg/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <div className="w-8 h-8 rounded-full bg-background/90 text-foreground flex items-center justify-center shadow-sm">
                         <Play className="w-4 h-4 fill-current translate-x-0.5" />
                       </div>
@@ -103,12 +103,12 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
 
                     {/* 状态标识 */}
                     {isPlaying && (
-                      <div className="absolute top-2 left-2 bg-primary text-primary-foreground text-[11px] font-medium px-2 py-0.5 rounded-md shadow-2xs">
+                      <div className="absolute top-2 left-2 bg-accent-bg text-on-accent text-metadata font-medium px-2 py-0.5 rounded-md shadow-2xs">
                         {t('clipGridPlaying')}
                       </div>
                     )}
                     {clip.sourceType === 'local' && !isPlaying && (
-                      <div className="absolute top-2 left-2 bg-amber-500/90 text-white text-[11px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs backdrop-blur-xs">
+                      <div className="absolute top-2 left-2 bg-warning/90 text-media-fg text-metadata font-medium px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs backdrop-blur-xs">
                         <div className="w-1.5 h-1.5 bg-current rounded-full animate-pulse"></div>
                         {t('clipGridProcessing')}
                       </div>
@@ -122,7 +122,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                           confirmLabel={t('confirmDelete')}
                           deleting={deletingKey === clip.key}
                           onConfirm={() => onDeleteClip(idx)}
-                          triggerClassName="bg-black/40 backdrop-blur-xs text-white/80 hover:bg-black/60 hover:text-white"
+                          triggerClassName="bg-media-bg/40 backdrop-blur-xs text-media-fg/80 hover:bg-media-bg/60 hover:text-media-fg"
                         />
                       )}
                       <Tooltip
@@ -145,7 +145,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                           </div>
                         }
                       >
-                        <div className="bg-black/40 backdrop-blur-xs text-white/80 p-1 rounded-md cursor-default hover:bg-black/60 hover:text-white transition-colors">
+                        <div className="bg-media-bg/40 backdrop-blur-xs text-media-fg/80 p-1 rounded-md cursor-default hover:bg-media-bg/60 hover:text-media-fg transition-colors">
                           <Info className="w-3.5 h-3.5" />
                         </div>
                       </Tooltip>

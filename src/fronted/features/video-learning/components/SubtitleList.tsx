@@ -101,7 +101,7 @@ export default function SubtitleList({
             }}
             className={`p-2.5 rounded-xl text-xs cursor-pointer transition-all ${
               idx === activeIndex
-                ? 'bg-primary/10 border border-primary/20 text-foreground shadow-2xs font-medium'
+                ? 'bg-accent-bg/10 border border-accent-bg/20 text-foreground shadow-2xs font-medium'
                 : line.isClip
                   ? 'bg-muted/40 hover:bg-muted/70 text-foreground'
                   : 'hover:bg-muted/40 text-muted-foreground hover:text-foreground'
@@ -113,7 +113,7 @@ export default function SubtitleList({
                   {renderHighlightedText(line.contentEn, `${idx}-${line.index}`)}
                 </div>
                 {line.contentZh && (
-                  <div className="text-[11px] text-muted-foreground mt-1 leading-normal">{line.contentZh}</div>
+                  <div className="text-metadata text-muted-foreground mt-1 leading-normal">{line.contentZh}</div>
                 )}
               </div>
 
@@ -145,14 +145,14 @@ export default function SubtitleList({
                       }}
                       className={`p-1 rounded transition-colors ${
                         autoPause
-                          ? 'bg-primary/10'
+                          ? 'bg-accent-bg/10'
                           : 'hover:bg-muted'
                       }`}
                       title={autoPause ? t('subtitleList.autoPauseOn') : t('subtitleList.autoPauseOff')}
                     >
                       <CirclePause className={`w-3 h-3 ${
                         autoPause
-                          ? 'text-primary'
+                          ? 'text-accent'
                           : 'text-muted-foreground'
                       }`} />
                     </button>
@@ -165,14 +165,14 @@ export default function SubtitleList({
                       }}
                       className={`p-1 rounded transition-colors ${
                         singleRepeat
-                          ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                          ? 'bg-success-muted'
                           : 'hover:bg-muted'
                       }`}
                       title={singleRepeat ? t('subtitleList.singleRepeatOn') : t('subtitleList.singleRepeatOff')}
                     >
                       <Repeat className={`w-3 h-3 ${
                         singleRepeat
-                          ? 'text-emerald-600 dark:text-emerald-300'
+                          ? 'text-success-text'
                           : 'text-muted-foreground'
                       }`} />
                     </button>

@@ -27,7 +27,11 @@ const logger = getRendererLogger('PracticePanel');
 const ScoreRing = ({ score }: { score: number }) => {
     const radius = 32;
     const circumference = 2 * Math.PI * radius;
-    const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
+    const color = score >= 80
+        ? 'var(--color-success)'
+        : score >= 50
+            ? 'var(--color-warning)'
+            : 'var(--color-error)';
     return (
         <svg width="80" height="80" viewBox="0 0 80 80" className="shrink-0">
             <circle cx="40" cy="40" r={radius} fill="none" strokeWidth="6" className="stroke-border" />
@@ -275,7 +279,7 @@ const PracticePanel = () => {
                 {mode === 'shadowing' ? (
                     <div className="flex flex-col items-center gap-3">
                         {!asrReady && (
-                            <div className="w-full rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/40 px-4 py-2.5 text-xs text-amber-800 dark:text-amber-300">
+                            <div className="w-full rounded-xl border border-warning/40 bg-warning-muted px-4 py-2.5 text-xs text-warning-text">
                                 {t('shadowing.asrUnavailable')}
                             </div>
                         )}
@@ -289,7 +293,7 @@ const PracticePanel = () => {
                             className={cn(
                                 'flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-full border-2 transition-all cursor-pointer',
                                 recorderPhase === 'recording'
-                                    ? 'border-red-400 bg-red-500/10 text-red-600 dark:text-red-400 animate-pulse'
+                                    ? 'border-error/50 bg-error/10 text-error-text animate-pulse'
                                     : 'border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/60',
                                 (!asrReady || recorderPhase === 'processing') && 'opacity-50 cursor-not-allowed',
                             )}
@@ -297,17 +301,17 @@ const PracticePanel = () => {
                             {recorderPhase === 'processing' ? (
                                 <>
                                     <Loader2 className="h-6 w-6 animate-spin" />
-                                    <span className="text-[10px]">{t('recorder.processing')}</span>
+                                    <span className="text-xs">{t('recorder.processing')}</span>
                                 </>
                             ) : recorderPhase === 'recording' ? (
                                 <>
                                     <Square className="h-6 w-6 fill-current" />
-                                    <span className="text-[10px] tabular-nums">{recordingSeconds}s · {t('recorder.stop')}</span>
+                                    <span className="text-xs tabular-nums">{recordingSeconds}s · {t('recorder.stop')}</span>
                                 </>
                             ) : (
                                 <>
                                     <Mic className="h-6 w-6" />
-                                    <span className="text-[10px]">{t('recorder.start')}</span>
+                                    <span className="text-xs">{t('recorder.start')}</span>
                                 </>
                             )}
                         </button>
@@ -341,7 +345,7 @@ const PracticePanel = () => {
                                 label={t('dictation.submit')}
                                 onClick={() => void submitDictation()}
                             />
-                            <span className="text-[10px] text-muted-foreground/70">Ctrl + Enter</span>
+                            <span className="text-xs text-muted-foreground/70">Ctrl + Enter</span>
                         </div>
                     </div>
                 )}
@@ -411,14 +415,14 @@ const PracticePanel = () => {
                                         )}
                                         <span className={cn(
                                             'font-semibold tabular-nums',
-                                            record.score >= 80 ? 'text-emerald-600 dark:text-emerald-400'
-                                                : record.score >= 50 ? 'text-amber-600 dark:text-amber-400'
-                                                    : 'text-red-600 dark:text-red-400',
+                                            record.score >= 80 ? 'text-success-text'
+                                                : record.score >= 50 ? 'text-warning-text'
+                                                    : 'text-error-text',
                                         )}>
                                             {Math.round(record.score)}
                                         </span>
                                     </span>
-                                    <span className="text-[10px] text-muted-foreground/70">{record.createdAt.slice(5, 16)}</span>
+                                    <span className="text-xs text-muted-foreground/70">{record.createdAt.slice(5, 16)}</span>
                                 </div>
                             ))}
                         </div>

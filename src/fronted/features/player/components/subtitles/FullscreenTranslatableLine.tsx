@@ -41,8 +41,8 @@ const FullscreenTranslatableLine = ({
                 adjusted={adjusted}
                 clearAdjust={clearAdjust}
                 variant="plain"
-                className="my-0 mx-10 py-1.5 px-4 bg-black/60 backdrop-blur-xs text-white rounded-lg shadow-lg"
-                coreClassName="text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+                className="my-0 mx-10 py-1.5 px-4 bg-media-bg/60 backdrop-blur-xs text-media-fg rounded-lg shadow-lg"
+                coreClassName="text-media-fg media-text-shadow"
             />
         </div>
     );

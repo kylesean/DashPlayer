@@ -28,7 +28,7 @@ const NormalLine = ({ text, order, source }: NormalLineParam) => {
             {source && (
                 <span
                     className={cn(
-                        "inline-flex items-center justify-center px-1.5 py-0.2 rounded text-[10px] font-medium tracking-wider uppercase select-none opacity-70 hover:opacity-100 transition-opacity shrink-0",
+                        "inline-flex items-center justify-center px-1.5 py-0.2 rounded text-xs font-medium tracking-wider uppercase select-none opacity-70 hover:opacity-100 transition-opacity shrink-0",
                         source === 'ai'
                             ? "text-accent bg-accent-muted/20 border border-accent/30"
                             : "text-secondary bg-muted border border-border"

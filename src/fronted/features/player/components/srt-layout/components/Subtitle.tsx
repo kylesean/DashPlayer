@@ -402,7 +402,7 @@ export default function Subtitle() {
                     {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
                     {sidebarHiddenByEnglish && (
                         <div className="absolute inset-x-0 top-4 z-10 flex justify-center pointer-events-none">
-                            <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/85 px-3 py-1 text-[11px] leading-tight text-muted-foreground backdrop-blur shadow-xs">
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/85 px-3 py-1 text-metadata leading-tight text-muted-foreground backdrop-blur shadow-xs">
                                 <span>{t('controlBox.sidebarHiddenByEnglish')}</span>
                                 <span aria-hidden="true">·</span>
                                 <span className="font-medium">
@@ -423,7 +423,7 @@ export default function Subtitle() {
                             onClick={() => changeShowSideTranslation()}
                             title={sidebarHiddenByEnglish ? t('controlBox.sidebarHiddenNow') : undefined}
                             className={cn(
-                                'pointer-events-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] leading-tight backdrop-blur transition-colors cursor-pointer',
+                                'pointer-events-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs leading-tight backdrop-blur transition-colors cursor-pointer',
                                 showSideTranslation
                                     ? 'bg-muted/40 text-muted-foreground/60 hover:text-foreground hover:bg-muted/80'
                                     : 'bg-muted/80 text-muted-foreground hover:text-foreground'

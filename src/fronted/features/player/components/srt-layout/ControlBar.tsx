@@ -126,14 +126,14 @@ export default function PlaybackControlBar({
             onMouseLeave={onMouseLeave}
             style={{ bottom: maskAdjust.liftPx + CONTROL_BAR_GAP_PX }}
             className={cn(
-                'w-full flex flex-col-reverse h-36 text-white/90 px-4 pb-8 pt-2 pointer-events-auto',
+                'w-full flex flex-col-reverse h-36 text-media-fg/90 px-4 pb-8 pt-2 pointer-events-auto',
                 'transition-[bottom] duration-200 ease-out',
                 className
             )}
         >
             <div
                 className={cn(
-                    'relative z-20 w-full px-2 lg:px-4 py-3 rounded-2xl border border-white/10 bg-black/60 backdrop-blur-md shadow-2xl transition-opacity duration-200 ease-out pointer-events-auto',
+                    'relative z-20 w-full px-2 lg:px-4 py-3 rounded-2xl border border-media-fg/10 bg-media-bg/60 backdrop-blur-md shadow-2xl transition-opacity duration-200 ease-out pointer-events-auto',
                     maskAdjust.ghost
                         ? 'opacity-40 pointer-events-none'
                         : barVisible

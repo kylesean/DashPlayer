@@ -244,7 +244,7 @@ const PlaybackLayout = () => {
         <div ref={rootContainerRef} className={containerClass}>
             {/* 媒体错误最小诊断：播放修复链路已删除，本地视频兼容性问题在这里给出明确出口 */}
             {mediaErrorCode !== null && (
-                <div className="absolute inset-x-0 top-3 z-30 mx-auto w-fit max-w-[90%] rounded-lg bg-amber-500/95 px-4 py-2 text-sm font-medium text-black shadow-lg">
+                <div className="absolute inset-x-0 top-3 z-30 mx-auto w-fit max-w-[90%] rounded-lg bg-warning/95 px-4 py-2 text-sm font-medium text-media-bg shadow-lg">
                     {t('mediaError.hint', { code: mediaErrorCode })}
                 </div>
             )}

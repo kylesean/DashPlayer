@@ -222,7 +222,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                         {timeStr && (
                             <span
                                 className={cn(
-                                    'text-[11px] font-mono tracking-tight transition-colors',
+                                    'text-metadata font-mono tracking-tight transition-colors',
                                     isCurrent ? 'text-accent font-medium' : 'text-muted-foreground/60 group-hover:text-muted-foreground',
                                 )}
                             >
@@ -263,9 +263,9 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                     <div
                         className={cn(
                             'w-full text-left font-sans leading-relaxed tracking-normal select-text break-words transition-colors',
-                            fontSize === 'fontSizeSmall' && 'text-[14px]',
-                            (!fontSize || fontSize === 'fontSizeMedium') && 'text-[15.5px]',
-                            fontSize === 'fontSizeLarge' && 'text-[17.5px]',
+                            fontSize === 'fontSizeSmall' && 'text-side-en-small',
+                            (!fontSize || fontSize === 'fontSizeMedium') && 'text-side-en-medium',
+                            fontSize === 'fontSizeLarge' && 'text-side-en-large',
                             isCurrent
                                 ? 'text-primary font-medium'
                                 : 'text-primary/80 group-hover:text-primary',
@@ -279,9 +279,9 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                         <div
                             className={cn(
                                 'w-full text-left leading-normal select-text break-words mt-1 transition-colors',
-                                fontSize === 'fontSizeSmall' && 'text-[12px]',
-                                (!fontSize || fontSize === 'fontSizeMedium') && 'text-[13px]',
-                                fontSize === 'fontSizeLarge' && 'text-[14.5px]',
+                                fontSize === 'fontSizeSmall' && 'text-side-zh-small',
+                                (!fontSize || fontSize === 'fontSizeMedium') && 'text-side-zh-medium',
+                                fontSize === 'fontSizeLarge' && 'text-side-zh-large',
                                 isCurrent
                                     ? 'text-secondary font-normal'
                                     : 'text-secondary/70 group-hover:text-secondary',

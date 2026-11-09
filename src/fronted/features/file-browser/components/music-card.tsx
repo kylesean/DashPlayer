@@ -1,18 +1,9 @@
 import { cn } from '@/fronted/lib/utils';
 import { Music } from 'lucide-react';
 import React from 'react';
+import { MUSIC_CARD_GRADIENTS } from '@/fronted/styles/decorationPalette';
 
-// 预定义一些渐变色组合
-const gradientCombinations = [
-    ['#ea580c', '#fb923c', '#fed7aa'], // 橙色系
-    ['#2563eb', '#60a5fa', '#bfdbfe'], // 蓝色系
-    ['#16a34a', '#4ade80', '#bbf7d0'], // 绿色系
-    ['#9333ea', '#a855f7', '#e9d5ff'], // 紫色系
-    ['#dc2626', '#ef4444', '#fca5a5'], // 红色系
-    ['#0d9488', '#2dd4bf', '#99f6e4'], // 青色系
-    ['#db2777', '#ec4899', '#fbcfe8'], // 粉色系
-    ['#854d0e', '#ca8a04', '#fef08a'], // 黄色系
-];
+const gradientCombinations = MUSIC_CARD_GRADIENTS;
 
 interface MusicCardProps {
     fileName: string;
@@ -46,7 +37,7 @@ const MusicCard: React.FC<MusicCardProps> = ({ fileName }) => {
             )}
         >
             <div className="absolute inset-0 bg-gradient-to-t from-background/30 to-transparent" />
-            <Music className="w-12 h-12 text-primary-foreground drop-shadow-lg z-10" />
+            <Music className="w-12 h-12 text-media-fg drop-shadow-lg z-10" />
         </div>
     );
 };

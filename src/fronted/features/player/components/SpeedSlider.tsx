@@ -86,7 +86,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                     label={`${speed.toFixed(2)}x`}
                     className={cn(
                         // 默认 hover 跟随应用主题（亮色宿主）；深色控制条由 triggerClassName 覆盖
-                        'h-8 px-2.5 rounded-lg text-xs font-mono text-inherit hover:bg-black/5 dark:hover:bg-white/15 transition-colors',
+                        'h-8 px-2.5 rounded-lg text-xs font-mono text-inherit hover:bg-foreground/10 transition-colors',
                         triggerClassName
                     )}
                 />
@@ -97,7 +97,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                 sideOffset={popoverOffset}
                 className={cn('w-52', CONTROL_POPOVER_PANEL)}
             >
-                <div className="flex flex-col max-h-72 overflow-y-auto pr-0.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.2)_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20">
+                <div className="flex flex-col max-h-72 overflow-y-auto pr-0.5 media-scrollbar [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-media-fg/20">
                     {SPEED_PRESETS.map((num) => {
                         const isSelected = Math.abs(speed - num) < 0.001;
                         const isFavorite = favoriteList.includes(num);
@@ -143,8 +143,8 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
 
                 <div className={CONTROL_POPOVER_SEPARATOR} />
                 <div className="px-0.5 pt-2">
-                    <div className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 focus-within:bg-white/10 border border-white/10 focus-within:border-primary/60 rounded-lg px-2 py-1 transition-colors">
-                        <span className="text-[11px] text-secondary font-sans shrink-0">{t('speedSlider.custom')}</span>
+                    <div className="flex items-center gap-1.5 bg-media-fg/5 hover:bg-media-fg/10 focus-within:bg-media-fg/10 border border-media-fg/10 focus-within:border-primary/60 rounded-lg px-2 py-1 transition-colors">
+                        <span className="text-metadata text-secondary font-sans shrink-0">{t('speedSlider.custom')}</span>
                         <input
                             ref={inputRef}
                             defaultValue={speed}

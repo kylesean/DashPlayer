@@ -110,7 +110,7 @@ export const MigrationFailureGate: React.FC<MigrationFailureGateProps> = ({ fail
                     <Center
                         width={64}
                         height={64}
-                        className="rounded-2xl bg-amber-500/12 text-amber-500"
+                        className="rounded-2xl bg-warning/12 text-warning-text"
                     >
                         <Icon icon={AlertTriangle as unknown as IconType} size="lg" />
                     </Center>
@@ -139,7 +139,7 @@ export const MigrationFailureGate: React.FC<MigrationFailureGateProps> = ({ fail
                                     onClick={() => { void copy(detailText); }}
                                 />
                             </HStack>
-                            <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border/50 bg-surface/60 p-2.5 font-mono text-[11px] leading-relaxed text-secondary select-text">
+                            <pre className="max-h-32 overflow-y-auto whitespace-pre-wrap break-all rounded-lg border border-border/50 bg-surface/60 p-2.5 font-mono text-metadata leading-relaxed text-secondary select-text">
                                 {detailText}
                             </pre>
                         </VStack>

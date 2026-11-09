@@ -35,31 +35,7 @@ import { applyLanguageSetting } from '@/fronted/i18n';
 import { Theme } from '@astryxdesign/core/theme';
 import { themes, type ThemeSlug } from '../../astryx-themes';
 import type { AppearanceThemeFamily } from '@/common/contracts/appearance-setting-vo';
-
-/**
- * 持久化的主题家族值 → 本地主题 slug。
- *
- * 本地主题在官方主题基础上补了中文回退与浅色卡片层级，slug 带 `dp-` 前缀；
- * 但后端存储仍沿用 neutral/stone/gothic/matcha/y2k/butter/chocolate，避免改历史数据。
- * 用 `satisfies` 保证每套家族都有对应主题，新增家族时编译期就会报错。
- */
-const THEME_SLUG_BY_FAMILY = {
-    neutral: 'dp-neutral',
-    stone: 'dp-stone',
-    gothic: 'dp-gothic',
-    matcha: 'dp-matcha',
-    y2k: 'dp-y2k',
-    butter: 'dp-butter',
-    chocolate: 'dp-chocolate',
-} as const satisfies Record<AppearanceThemeFamily, ThemeSlug>;
-
-/**
- * 深色专用主题。
- *
- * Gothic 的 token 是绝对值而不是 light-dark 对，切到浅色模式会出现
- * 深色主题配浅色原生控件。选中这些主题时强制走 dark 模式。
- */
-const DARK_ONLY_THEME_SLUGS: ReadonlySet<ThemeSlug> = new Set<ThemeSlug>(['dp-gothic']);
+import { DARK_ONLY_THEME_SLUGS, THEME_SLUG_BY_FAMILY } from '@/fronted/app/themeFamilies';
 
 const UPDATE_CHECK_DELAY_MS = 6000;
 const UPDATE_TOAST_ID = 'update-available';

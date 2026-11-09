@@ -225,7 +225,7 @@ export default function WordSidebar({
         {loading ? (
           <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
             <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-primary border-t-transparent"></div>
+              <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-accent-bg border-t-transparent"></div>
               <span>{t('loadingWords')}</span>
             </div>
           </div>
@@ -249,7 +249,7 @@ export default function WordSidebar({
                   className={[
                     'group px-3 py-2 rounded-xl cursor-pointer transition-all text-xs mb-1.5 flex flex-col gap-0.5',
                     active
-                      ? 'bg-primary text-primary-foreground font-medium shadow-2xs'
+                      ? 'bg-accent-bg text-on-accent font-medium shadow-2xs'
                       : 'hover:bg-muted/60 text-foreground'
                   ].join(' ')}
                   onClick={() => onWordClick(word)}
@@ -272,7 +272,7 @@ export default function WordSidebar({
                         className={cn(
                           'p-1 rounded-md transition-all cursor-pointer shrink-0',
                           active
-                            ? 'text-primary-foreground/70 hover:text-primary-foreground hover:bg-primary-foreground/10'
+                            ? 'text-on-accent/70 hover:text-on-accent hover:bg-on-accent/10'
                             : 'text-muted-foreground hover:text-foreground hover:bg-muted/80 opacity-0 group-hover:opacity-100'
                         )}
                         title={t('editWord')}
@@ -286,16 +286,16 @@ export default function WordSidebar({
                         onConfirm={() => handleDeleteConfirmed(word)}
                         triggerClassName={
                           active
-                            ? 'text-primary-foreground/70 hover:text-primary-foreground'
+                            ? 'text-on-accent/70 hover:text-on-accent'
                             : 'opacity-0 group-hover:opacity-100'
                         }
                       />
                       {!!word.videoCount && word.videoCount > 0 && (
                         <div
                           className={[
-                            'text-[11px] px-1.5 py-0.5 rounded-md font-medium shrink-0 tabular-nums',
+                            'text-metadata px-1.5 py-0.5 rounded-md font-medium shrink-0 tabular-nums',
                             active
-                              ? 'bg-primary-foreground/20 text-primary-foreground'
+                              ? 'bg-on-accent/20 text-on-accent'
                               : 'bg-muted text-muted-foreground'
                           ].join(' ')}
                         >
@@ -304,13 +304,13 @@ export default function WordSidebar({
                       )}
                     </div>
                   </div>
-                  <div className={['flex items-center gap-1.5 text-xs', active ? 'text-primary-foreground/80' : 'text-muted-foreground'].join(' ')}>
+                  <div className={['flex items-center gap-1.5 text-xs', active ? 'text-on-accent/80' : 'text-muted-foreground'].join(' ')}>
                     <span className="truncate">{word.translate || t('noDefinition')}</span>
                     {word.lastClipAddedAt && (
                       <span
                         className={[
-                          'shrink-0 text-[10px] tabular-nums',
-                          active ? 'text-primary-foreground/60' : 'text-muted-foreground/80'
+                          'shrink-0 text-xs tabular-nums',
+                          active ? 'text-on-accent/60' : 'text-muted-foreground/80'
                         ].join(' ')}
                         title={t('sortByRecentVideo')}
                       >

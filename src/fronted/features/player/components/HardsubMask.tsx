@@ -265,14 +265,14 @@ export default function HardsubMask({ video }: HardsubMaskProps) {
                         <div
                             className={cn(
                                 'pointer-events-none absolute inset-0 transition-colors duration-200',
-                                dragging ? 'bg-black/85' : 'bg-black'
+                                dragging ? 'bg-media-bg/85' : 'bg-media-bg'
                             )}
                         />
                         {/* 悬停/拖动时一层很淡的白雾：让它能被找到，又不改变画面明暗 */}
                         <div
                             className={cn(
                                 'pointer-events-none absolute inset-0 transition-colors duration-200',
-                                dragging ? 'bg-white/[0.09]' : 'bg-transparent group-hover:bg-white/[0.05]'
+                                dragging ? 'bg-media-fg/[0.09]' : 'bg-transparent group-hover:bg-media-fg/[0.05]'
                             )}
                         />
 
@@ -296,7 +296,7 @@ export default function HardsubMask({ video }: HardsubMaskProps) {
                             >
                                 <span
                                     className={cn(
-                                        'bg-white/70',
+                                        'bg-media-fg/70',
                                         handle.grip === 'dot' && 'w-1 h-1 rounded-full',
                                         handle.grip === 'horizontal' && 'w-3.5 h-0.5 rounded-full',
                                         handle.grip === 'vertical' && 'w-0.5 h-3.5 rounded-full'

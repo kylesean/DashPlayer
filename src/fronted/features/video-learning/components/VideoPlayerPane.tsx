@@ -377,7 +377,7 @@ export default function VideoPlayerPane({
                   <div className="w-9 h-9 bg-muted/80 rounded-full mx-auto mb-1.5 flex items-center justify-center">
                     <div className="w-4 h-4 text-muted-foreground/70">▶</div>
                   </div>
-                  <p className="text-[11px]">{t('videoLearning.playbackGuide')}</p>
+                  <p className="text-metadata">{t('videoLearning.playbackGuide')}</p>
                 </div>
               </div>
             </AspectRatio>
@@ -405,7 +405,7 @@ export default function VideoPlayerPane({
       <div className="grid grid-cols-[320px_minmax(0,1fr)] gap-4 items-start">
         <div>
           <AspectRatio ratio={16 / 9}>
-            <div className="w-full rounded-xl overflow-hidden bg-black shadow-inner border border-black/10">
+            <div className="w-full rounded-xl overflow-hidden bg-media-bg shadow-inner border border-media-bg/10">
               <PlayerEngine
                 width="100%"
                 height="100%"

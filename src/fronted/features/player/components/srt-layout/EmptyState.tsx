@@ -89,26 +89,26 @@ const PlaybackEmptyState: React.FC<PlaybackEmptyStateProps> = ({className}) => {
         return (
             <div className={cn(
                 'relative h-full w-full overflow-hidden',
-                'bg-gradient-to-br from-slate-900 to-black',
+                'bg-gradient-to-br from-media-slate-deep to-media-bg',
                 className
             )}>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-media-bg/40 via-transparent to-transparent" />
                 <div className="relative mx-auto flex h-full max-w-5xl flex-col items-center justify-center px-6 text-center">
                     <div className="mb-6">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/10">
-                            <Film className="h-10 w-10 text-white/80" />
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-media-fg/10 ring-1 ring-media-fg/10">
+                            <Film className="h-10 w-10 text-media-fg/80" />
                         </div>
                     </div>
 
-                    <h1 className="text-white font-bold leading-tight text-6xl sm:text-7xl md:text-8xl">
+                    <h1 className="text-media-fg font-bold leading-tight text-6xl sm:text-7xl md:text-8xl">
                         {t('emptyState.heroTitle')}
                     </h1>
-                    <p className="mt-4 text-white/85 leading-snug text-2xl sm:text-3xl md:text-4xl">
+                    <p className="mt-4 text-media-fg/85 leading-snug text-2xl sm:text-3xl md:text-4xl">
                         {t('emptyState.heroDescription')}
                     </p>
 
-                    <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xl text-white/80 ring-1 ring-white/10">
-                        <span className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse" />
+                    <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-media-fg/10 px-4 py-2 text-xl text-media-fg/80 ring-1 ring-media-fg/10">
+                        <span className="h-3 w-3 rounded-full bg-success animate-pulse" />
                         {t('emptyState.ready')}
                     </div>
 
@@ -140,31 +140,31 @@ const PlaybackEmptyState: React.FC<PlaybackEmptyStateProps> = ({className}) => {
                         className="h-full w-full object-cover"
                     />
                 ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-black">
+                    <div className="flex h-full w-full items-center justify-center bg-media-bg">
                         <Film className="h-24 w-24 text-secondary/40" />
                     </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-media-bg/70 via-media-bg/30 to-transparent" />
             </div>
 
             {/* 内容区 */}
             <div className="relative flex h-full flex-col justify-end px-6 pb-12 sm:px-8 md:px-12 lg:px-16">
                 <div className="max-w-5xl space-y-6">
-                    <h1 className="line-clamp-2 text-white font-bold leading-tight text-3xl sm:text-4xl md:text-5xl drop-shadow-md">
+                    <h1 className="line-clamp-2 text-media-fg font-bold leading-tight text-3xl sm:text-4xl md:text-5xl drop-shadow-md">
                         {featured.fileName}
                     </h1>
 
                     {hasProgress && featured.duration && featured.duration > 0 && (
                         <div className="space-y-1.5 max-w-md">
-                            <div className="flex items-center justify-between text-xs font-mono font-medium text-white/80">
+                            <div className="flex items-center justify-between text-xs font-mono font-medium text-media-fg/80">
                                 <span>{t('emptyState.continueWatching')}</span>
                                 <span>
                                     {TimeUtil.secondToTimeStrCompact(featured.current_position ?? 0)} / {TimeUtil.secondToTimeStrCompact(featured.duration)}
                                 </span>
                             </div>
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/20 backdrop-blur-sm">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-media-fg/20 backdrop-blur-sm">
                                 <div
-                                    className="h-full bg-white transition-all duration-300 rounded-full"
+                                    className="h-full bg-media-fg transition-all duration-300 rounded-full"
                                     style={{
                                         width: `${Math.min(100, Math.max(0, ((featured.current_position ?? 0) / featured.duration) * 100))}%`
                                     }}

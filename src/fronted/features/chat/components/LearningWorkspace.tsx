@@ -74,7 +74,7 @@ export type LearningWorkspaceProps = {
     onToggleFavorite: (word: string, meaning: string) => void;
 };
 
-const SECTION_TITLE = 'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground';
+const SECTION_TITLE = 'text-metadata font-semibold uppercase tracking-wider text-muted-foreground';
 
 /**
  * 意群标记用色：按意群顺序循环取。
@@ -83,11 +83,11 @@ const SECTION_TITLE = 'text-[11px] font-semibold uppercase tracking-wider text-m
  * 相邻意群取到不同颜色，边界一眼可辨。
  */
 const PHRASE_GROUP_MARKS = [
-    'decoration-sky-300',
-    'decoration-amber-300',
-    'decoration-emerald-300',
-    'decoration-violet-300',
-    'decoration-rose-300',
+    '[text-decoration-color:var(--color-border-blue)]',
+    '[text-decoration-color:var(--color-border-amber)]',
+    '[text-decoration-color:var(--color-border-green)]',
+    '[text-decoration-color:var(--color-border-purple)]',
+    '[text-decoration-color:var(--color-border-pink)]',
 ];
 
 /**
@@ -189,7 +189,7 @@ const SentenceStrip = ({
                 onMouseEnter={() => setHoveredWord(cleaned)}
                 className={cn(
                     // 生词卡里的词在句中标出来：虚线下划线，与播放器字幕的生词提示同一套语言
-                    isPicked && 'underline decoration-dotted decoration-primary/60 decoration-2 underline-offset-[0.22em]'
+                    isPicked && 'underline decoration-dotted decoration-accent/60 decoration-2 underline-offset-[0.22em]'
                 )}
             >
                 {token}
@@ -206,7 +206,7 @@ const SentenceStrip = ({
                         <span className="text-sm font-semibold tracking-tight text-foreground">
                             {hoveredDetail.word}
                         </span>
-                        <span className="font-mono text-[11px] text-muted-foreground">
+                        <span className="font-mono text-metadata text-muted-foreground">
                             {formatPhonetic(hoveredDetail.phonetic)}
                         </span>
                         <span className="text-sm leading-relaxed text-foreground/85">{hoveredDetail.meaning}</span>
@@ -236,7 +236,7 @@ const SentenceStrip = ({
 
                 {/* 云端补全进行中：句子已经能读，只是还会被换成更完整的版本 */}
                 {preparing && (
-                    <span className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <span className="mt-3 flex items-center gap-1.5 text-metadata text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         {t('learning.preparingSession')}
                     </span>
@@ -286,7 +286,7 @@ const VocabPreview = ({
         <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 py-4">
             <div className="flex flex-col items-center gap-1.5">
                 <span className={SECTION_TITLE}>{t('learning.vocab')}</span>
-                <span className="text-[11px] text-muted-foreground/80">{t('learning.vocabPreviewHint')}</span>
+                <span className="text-metadata text-muted-foreground/80">{t('learning.vocabPreviewHint')}</span>
             </div>
 
             <div className="flex w-full flex-wrap items-stretch justify-center gap-3">
@@ -300,7 +300,7 @@ const VocabPreview = ({
                                 {word.word}
                             </Playable>
                             {!!word.phonetic && (
-                                <span className="font-mono text-[11px] text-muted-foreground">
+                                <span className="font-mono text-metadata text-muted-foreground">
                                     {formatPhonetic(word.phonetic)}
                                 </span>
                             )}
@@ -313,9 +313,9 @@ const VocabPreview = ({
                             type="button"
                             onClick={() => onToggleFavorite(word.word, word.meaning)}
                             className={cn(
-                                'mt-auto self-end rounded-md px-1.5 py-0.5 text-[11px] transition-colors',
+                                'mt-auto self-end rounded-md px-1.5 py-0.5 text-metadata transition-colors',
                                 isFavorite(word.word)
-                                    ? 'text-primary'
+                                    ? 'text-accent'
                                     : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                             )}
                         >
@@ -342,7 +342,7 @@ const ExamTagBadges = ({ tags }: { tags: string[] }) => {
 
     if (labels.length === 0) {
         return (
-            <span className="rounded border border-primary/30 px-1 py-px text-[10px] leading-none text-primary/80">
+            <span className="rounded border border-accent-bg/30 px-1 py-px text-xs leading-none text-accent/80">
                 {t('learning.beyondSyllabus')}
             </span>
         );
@@ -352,7 +352,7 @@ const ExamTagBadges = ({ tags }: { tags: string[] }) => {
             {labels.map((label) => (
                 <span
                     key={label}
-                    className="rounded bg-muted/70 px-1 py-px text-[10px] leading-none text-muted-foreground"
+                    className="rounded bg-muted/70 px-1 py-px text-xs leading-none text-muted-foreground"
                 >
                     {label}
                 </span>
@@ -390,20 +390,20 @@ const VocabList = ({
                             <div className="flex items-baseline gap-2">
                                 <span className="text-sm font-semibold text-foreground">{word.word}</span>
                                 {!!word.phonetic && (
-                                    <span className="font-mono text-[10px] text-muted-foreground">
+                                    <span className="font-mono text-xs text-muted-foreground">
                                         {formatPhonetic(word.phonetic)}
                                     </span>
                                 )}
                             </div>
-                            <div className="mt-0.5 text-[11px] leading-snug text-foreground/80">{word.meaning}</div>
+                            <div className="mt-0.5 text-metadata leading-snug text-foreground/80">{word.meaning}</div>
                         </div>
                         <button
                             type="button"
                             onClick={() => onToggleFavorite(word.word, word.meaning)}
                             className={cn(
-                                'shrink-0 rounded-md px-1.5 py-0.5 text-[11px] transition-colors',
+                                'shrink-0 rounded-md px-1.5 py-0.5 text-metadata transition-colors',
                                 isFavorite(word.word)
-                                    ? 'text-primary'
+                                    ? 'text-accent'
                                     : 'text-muted-foreground hover:bg-background hover:text-foreground'
                             )}
                         >
@@ -447,23 +447,23 @@ const AnalysisPlaceholder = ({
             disabled={disabled}
             className={cn(
                 'group mx-4 mb-4 flex min-h-0 flex-1 flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed border-border/70 px-6 text-center transition-colors',
-                'hover:border-primary/40 hover:bg-muted/30',
+                'hover:border-accent-bg/40 hover:bg-muted/30',
                 // 置灰期间连悬停反馈一起去掉，免得看起来还能点
                 disabled && 'pointer-events-none opacity-60'
             )}
         >
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-muted/60 text-muted-foreground transition-colors group-hover:bg-accent-bg/10 group-hover:text-accent">
                 <Sparkles className="h-5 w-5" />
             </span>
             <span className="text-sm font-medium text-foreground">{t('learning.loadAnalysis')}</span>
-            <span className="text-[11px] leading-relaxed text-muted-foreground">
+            <span className="text-metadata leading-relaxed text-muted-foreground">
                 {disabled && disabledHint ? disabledHint : t('learning.loadAnalysisHint')}
             </span>
             <span className="mt-1 flex flex-wrap justify-center gap-1.5">
                 {items.map((item) => (
                     <span
                         key={item}
-                        className="rounded-full border border-border/50 px-2 py-0.5 text-[10px] text-muted-foreground"
+                        className="rounded-full border border-border/50 px-2 py-0.5 text-xs text-muted-foreground"
                     >
                         {item}
                     </span>
@@ -517,7 +517,7 @@ const AnalysisPane = ({
             {/* 左栏不设标题：这一行留空只为与右栏的对话标题行等高，解析进行中时在行内提示 */}
             <div className="flex h-11 shrink-0 items-center px-5">
                 {status === 'streaming' && (
-                    <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1 text-metadata text-muted-foreground">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         {t('learning.analysisRunning')}
                     </span>
@@ -548,13 +548,13 @@ const AnalysisPane = ({
             )}>
                 {status === 'error' && (
                     <div className="flex items-start justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2.5">
-                        <span className="min-w-0 flex-1 break-words text-[11px] leading-snug text-destructive">
+                        <span className="min-w-0 flex-1 break-words text-metadata leading-snug text-destructive">
                             {error ?? t('learning.analysisFailed')}
                         </span>
                         <button
                             type="button"
                             onClick={onRequestAnalysis}
-                            className="shrink-0 rounded-md border border-destructive/40 px-2 py-1 text-[11px] text-destructive transition-colors hover:bg-destructive/10"
+                            className="shrink-0 rounded-md border border-destructive/40 px-2 py-1 text-metadata text-destructive transition-colors hover:bg-destructive/10"
                         >
                             {t('learning.retry')}
                         </button>
@@ -584,7 +584,7 @@ const AnalysisPane = ({
                             {phrases.phrases?.map((phrase, index) => (
                                 <div key={`${phrase.phrase}-${index}`} className="rounded-xl bg-muted/35 px-3 py-2">
                                     <div className="text-sm font-medium text-foreground/90">{phrase.phrase}</div>
-                                    <div className="mt-0.5 text-[11px] leading-snug text-foreground/80">
+                                    <div className="mt-0.5 text-metadata leading-snug text-foreground/80">
                                         {phrase.meaning}
                                     </div>
                                 </div>
@@ -627,7 +627,7 @@ const SearchEvidence = ({
                 type="button"
                 onClick={() => setOpen((value) => !value)}
                 aria-expanded={open}
-                className="flex w-full items-center gap-2 text-left text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                className="flex w-full items-center gap-2 text-left text-metadata text-muted-foreground transition-colors hover:text-foreground"
             >
                 {running
                     ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
@@ -647,9 +647,9 @@ const SearchEvidence = ({
                             type="button"
                             title={t('learning.jump')}
                             onClick={() => onJumpToLine(hit.index)}
-                            className="flex items-start gap-2 rounded-md px-1.5 py-1 text-left text-[11px] leading-snug text-foreground/85 transition-colors hover:bg-background"
+                            className="flex items-start gap-2 rounded-md px-1.5 py-1 text-left text-metadata leading-snug text-foreground/85 transition-colors hover:bg-background"
                         >
-                            <span className="w-8 shrink-0 font-mono text-[10px] text-muted-foreground/70 tabular-nums">
+                            <span className="w-8 shrink-0 font-mono text-xs text-muted-foreground/70 tabular-nums">
                                 {hit.index}
                             </span>
                             <span className="min-w-0 flex-1">{hit.text}</span>
@@ -782,7 +782,7 @@ const ConversationPane = ({
                                     block.kind === 'text' ? (
                                         <div
                                             key={`${message.id}-${index}`}
-                                            className="max-w-[80%] rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground"
+                                            className="max-w-[80%] rounded-2xl rounded-br-md bg-accent-bg px-4 py-2.5 text-sm leading-relaxed text-on-accent"
                                         >
                                             {block.text}
                                         </div>
@@ -817,7 +817,7 @@ const ConversationPane = ({
                                                 return (
                                                     <div
                                                         key={`${message.id}-${index}`}
-                                                        className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground"
+                                                        className="mt-2 flex items-center gap-2 text-metadata text-muted-foreground"
                                                     >
                                                         {block.running && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                                                         <span>
@@ -834,7 +834,7 @@ const ConversationPane = ({
                                             return (
                                                 <div
                                                     key={`${message.id}-${index}`}
-                                                    className="mt-2 text-[11px] leading-snug text-destructive"
+                                                    className="mt-2 text-metadata leading-snug text-destructive"
                                                 >
                                                     {block.text}
                                                 </div>
@@ -857,7 +857,7 @@ const ConversationPane = ({
             {/* 快捷提问：点一下直接把问题发进对话，省得手动打字；云端整句讲解不可用时这里换成原因说明，别摆一排点不动的按钮 */}
             <div className="shrink-0 px-6 pt-2">
                 {entriesDisabledHint ? (
-                    <p className="mx-auto w-full max-w-3xl text-[11px] leading-snug text-muted-foreground">
+                    <p className="mx-auto w-full max-w-3xl text-metadata leading-snug text-muted-foreground">
                         {entriesDisabledHint}
                     </p>
                 ) : (
@@ -869,8 +869,8 @@ const ConversationPane = ({
                                 disabled={isBusy || !entriesReady}
                                 onClick={() => onSubmit(item.prompt)}
                                 className={cn(
-                                    'rounded-full border border-border/60 bg-card px-2.5 py-1 text-[11px] text-muted-foreground transition-colors',
-                                    'hover:border-primary/40 hover:text-foreground',
+                                    'rounded-full border border-border/60 bg-card px-2.5 py-1 text-metadata text-muted-foreground transition-colors',
+                                    'hover:border-accent-bg/40 hover:text-foreground',
                                     'disabled:cursor-not-allowed disabled:opacity-50'
                                 )}
                             >
@@ -882,7 +882,7 @@ const ConversationPane = ({
             </div>
 
             <div className="shrink-0 px-6 pb-2 pt-2">
-                <div className="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-2xl border border-border/70 bg-card px-4 py-2.5 shadow-xs transition-colors focus-within:border-primary/50">
+                <div className="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-2xl border border-border/70 bg-card px-4 py-2.5 shadow-xs transition-colors focus-within:border-accent-bg/50">
                     <textarea
                         value={input}
                         onChange={(event) => onInputChange(event.currentTarget.value)}
@@ -905,7 +905,7 @@ const ConversationPane = ({
                         disabled={!isBusy && (!entriesReady || input.trim().length === 0)}
                         className={cn(
                             'mb-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors',
-                            'bg-primary text-primary-foreground disabled:bg-muted disabled:text-muted-foreground'
+                            'bg-accent-bg text-on-accent disabled:bg-muted disabled:text-muted-foreground'
                         )}
                     >
                         {isBusy
@@ -978,7 +978,7 @@ export default function LearningWorkspace({
             {/* 顶部只留非交互的标题标签：最上方 40px 是窗口拖拽安全区，不能放可点元素。
                 Mac 下标题栏左侧是红绿灯，按全局 TitleBarMac 的约定再让出 w-20 空白。 */}
             <header className={cn(
-                'flex h-11 shrink-0 items-center gap-2 border-b border-border/60 px-5 text-[11px] text-muted-foreground',
+                'flex h-11 shrink-0 items-center gap-2 border-b border-border/60 px-5 text-metadata text-muted-foreground',
                 isMac && 'pl-20'
             )}>
                 <span className="font-semibold uppercase tracking-wider">{t('learning.title')}</span>

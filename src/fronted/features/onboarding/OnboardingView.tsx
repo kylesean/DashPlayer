@@ -1,3 +1,4 @@
+import { CONFETTI_COLORS } from '@/fronted/styles/decorationPalette';
 import React, { useEffect, useState } from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { create as createConfetti } from 'canvas-confetti';
@@ -68,9 +69,6 @@ function formatSpeed(bytesPerSecond: number): string {
         ? `${Math.round(megabytes)} MB/s`
         : `${Math.max(1, Math.round(bytesPerSecond / 1024))} KB/s`;
 }
-
-/** 撒花颜色；固定亮色，保证深浅色主题下都醒目。 */
-const CONFETTI_COLORS = ['#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899', '#f97316', '#14b8a6'];
 
 /** 随机烟花连放的束数。 */
 const FIREWORK_BURSTS = 4;
@@ -158,7 +156,7 @@ const DotRippleBackground: React.FC<{ active: boolean }> = ({ active }) => {
                 {dots.map((dot) => (
                     <span
                         key={dot.key}
-                        className="dot-ripple h-1 w-1 rounded-full bg-primary/60"
+                        className="dot-ripple h-1 w-1 rounded-full bg-accent-bg/60"
                         style={{
                             animationDelay: `${dot.delay}s`,
                             animationDuration: `${active ? RIPPLE_DURATION_ACTIVE : RIPPLE_DURATION_IDLE}s`,
@@ -516,8 +514,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
             {screen === 'storage' && (
                 <main className="relative z-10 flex flex-1 items-center justify-center px-8 pb-10">
                     <div className="flex w-full max-w-lg flex-col items-center gap-8 text-center">
-                        <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/12 text-primary">
-                            <span className="absolute inset-0 rounded-full bg-primary/20 blur-2xl" aria-hidden="true" />
+                        <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-bg/12 text-accent">
+                            <span className="absolute inset-0 rounded-full bg-accent-bg/20 blur-2xl" aria-hidden="true" />
                             <Folder className="relative h-7 w-7" />
                         </span>
 
@@ -597,8 +595,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                     <main className="relative z-10 flex flex-1 items-center justify-center px-8 pb-14">
                         <div className="flex w-full max-w-xl flex-col items-center gap-7 text-center">
                             {/* 图标与光晕 */}
-                            <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/12 text-primary">
-                                <span className="absolute inset-0 rounded-full bg-primary/20 blur-2xl" aria-hidden="true" />
+                            <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-bg/12 text-accent">
+                                <span className="absolute inset-0 rounded-full bg-accent-bg/20 blur-2xl" aria-hidden="true" />
                                 <Download className="relative h-7 w-7" />
                             </span>
 
@@ -634,7 +632,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                 </div>
                             ) : allReady ? (
                                 <div className="flex flex-col items-center gap-4">
-                                    <span className="inline-flex items-center gap-2 text-sm font-medium text-emerald-500">
+                                    <span className="inline-flex items-center gap-2 text-sm font-medium text-success-text">
                                         <CheckCircle2 className="h-4 w-4" />
                                         {t('steps.download.ready')}
                                     </span>
@@ -718,11 +716,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                                     <VStack gap={2} width="100%">
                                                         <HStack gap={2} align="start">
                                                             {index > 0 && (
-                                                                <span className="mt-0.5 shrink-0 rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                                                <span className="mt-0.5 shrink-0 rounded bg-warning/10 px-1.5 py-0.5 text-xs font-medium text-warning-text">
                                                                     {t('steps.models.backupSource')}
                                                                 </span>
                                                             )}
-                                                            <span className="font-mono text-[11px] break-all text-muted-foreground">{url}</span>
+                                                            <span className="font-mono text-metadata break-all text-muted-foreground">{url}</span>
                                                         </HStack>
                                                         <HStack gap={2} align="center">
                                                             <Button
@@ -750,7 +748,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                                 <Text type="supporting" color="secondary">{t('steps.manual.targetLabel')}</Text>
                                                 <Card variant="muted" padding={3}>
                                                     <VStack gap={2} width="100%">
-                                                        <span className="font-mono text-[11px] break-all text-muted-foreground">{entry.targetPath}</span>
+                                                        <span className="font-mono text-metadata break-all text-muted-foreground">{entry.targetPath}</span>
                                                         <HStack gap={2} align="center">
                                                             <Button
                                                                 label={t('steps.models.copyPath')}
@@ -789,7 +787,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                     <div className="w-full max-w-2xl space-y-6">
                         <div className="space-y-2 text-center">
                             <div className="flex justify-center">
-                                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-bg/15 text-accent">
                                     <Check className="h-6 w-6" />
                                 </span>
                             </div>
@@ -800,7 +798,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                         <div className="space-y-3">
                             <div className="space-y-1 text-center sm:text-left">
                                 <h3 className="flex items-center justify-center gap-2 text-base font-semibold sm:justify-start">
-                                    <FileVideo className="w-4 h-4 text-primary" />
+                                    <FileVideo className="w-4 h-4 text-accent" />
                                     {t('steps.tutorial.title')}
                                 </h3>
                                 <p className="text-xs text-muted-foreground">{t('steps.tutorial.desc')}</p>
@@ -809,7 +807,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                             <div className="space-y-3 pt-1">
                                 <div className="space-y-2 rounded-xl border bg-card p-4 shadow-xs">
                                     <div className="flex items-center gap-2 text-xs font-semibold text-foreground sm:text-sm">
-                                        <Folder className="w-4 h-4 shrink-0 text-primary" />
+                                        <Folder className="w-4 h-4 shrink-0 text-accent" />
                                         <span>{t('steps.tutorial.method1Title')}</span>
                                     </div>
                                     <p className="text-xs text-muted-foreground leading-relaxed">{t('steps.tutorial.method1Desc')}</p>
@@ -820,7 +818,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
 
                                 <div className="space-y-2 rounded-xl border bg-card p-4 shadow-xs">
                                     <div className="flex items-center gap-2 text-xs font-semibold text-foreground sm:text-sm">
-                                        <FileVideo className="w-4 h-4 shrink-0 text-primary" />
+                                        <FileVideo className="w-4 h-4 shrink-0 text-accent" />
                                         <span>{t('steps.tutorial.method2Title')}</span>
                                     </div>
                                     <p className="text-xs text-muted-foreground leading-relaxed">{t('steps.tutorial.method2Desc')}</p>

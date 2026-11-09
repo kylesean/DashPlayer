@@ -139,7 +139,7 @@ export default function OverlayControlBar({
                 className={cn(
                     'w-full max-w-4xl px-3.5 py-1.5 rounded-xl border transition-all duration-300 shadow-2xl backdrop-blur-md',
                     // 未激活时半透明，激活时常亮
-                    'bg-black/70 hover:bg-black/85 border-white/15',
+                    'bg-media-bg/70 hover:bg-media-bg/85 border-media-fg/15',
                     barVisible ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-2',
                     maskAdjust.ghost && 'opacity-25 pointer-events-none'
                 )}
