@@ -23,7 +23,7 @@ const execFileAsync = promisify(execFile);
 /** 仓库根目录。 */
 const projectDir = fileURLToPath(new URL('../../', import.meta.url));
 
-/** 夹具输出目录（会被用例直接引用，随仓库入库）。 */
+/** 夹具输出目录（会被用例直接引用；产物在 `qa/.gitignore` 里排除，由本脚本按需生成）。 */
 const outputDir = path.join(projectDir, 'qa', 'fixtures', 'media');
 
 /** 句子数量：足够撑出可滚动列表（约 30+ 行）。 */

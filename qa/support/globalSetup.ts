@@ -19,11 +19,44 @@ import path from 'node:path';
  */
 const projectDir = path.resolve(__dirname, '..', '..');
 
-/** 构建产物入口：存在即认为构建过。 */
-const BUILD_ENTRY = path.join(projectDir, '.vite', 'build', 'main.js');
+/**
+ * 读取 package.json 的 `main`，即应用真正的启动入口。
+ *
+ * 为什么派生而不是手写：曾硬编码 `.vite/build/main.js`，而 forge 的实际产物是
+ * `main.cjs`（package.json 的 `main` 就指向它）。于是 `existsSync` 永远为 false、
+ * 构建 mtime 恒为 0，过期判断永远成立——每跑一次 QA 都白付一次约 25 秒的全量重建。
+ *
+ * @returns 相对仓库根入口路径。
+ */
+const readPackageMain = (): string => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8')) as {
+        main?: string;
+    };
+    if (!pkg.main) {
+        throw new Error('package.json 缺少 main 字段，无法定位构建产物入口');
+    }
+    return pkg.main;
+};
 
-/** 需要参与「过期」判断的源码目录。 */
-const SOURCE_DIRS = ['src', 'qa/support'];
+/** 构建产物入口：存在且不比源码旧就认为构建可用。 */
+const BUILD_ENTRY = path.join(projectDir, readPackageMain());
+
+/**
+ * 需要参与「过期」判断的源码目录。
+ *
+ * 只放真正进产物的目录。此前这里还包含 `qa/support`，于是改一句 QA 夹具的注释
+ * 都会触发一次约 25 秒的全量重建——`qa/support/*.ts` 不参与应用构建，那个耦合是错的。
+ * 构建脚本本身单独列进 `SOURCE_FILES`，精确到文件。
+ */
+const SOURCE_DIRS = ['src'];
+
+/**
+ * 只影响单测、不影响产物路径的命名特征。
+ *
+ * `src` 下同时住着 vitest 用例，它们不进 `.vite` 产物；把它们算进过期判断，
+ * 等于「改一条单测就重建一次应用」。
+ */
+const NON_PRODUCT_PATH_RE = /(__tests__[\\/]|\.(test|spec)\.)/;
 
 /**
  * 同样决定产物内容的单文件输入。
@@ -40,6 +73,8 @@ const SOURCE_FILES = [
     'index.html',
     'package.json',
     'pnpm-lock.yaml',
+    // 构建脚本自身：改了它，产物可能变，但 src/ 里没有任何文件变新
+    'qa/support/build.mjs',
 ];
 
 /** 媒体夹具目录与必需产物。 */
@@ -50,7 +85,7 @@ const MEDIA_FILES = ['qa-bilingual.srt', 'qa-bilingual.mp4'];
 const MOBILE_ENTRY = path.join(projectDir, 'resources', 'mobile', 'index.html');
 
 /**
- * 递归取目录下最新的 mtime（毫秒）。
+ * 递归取目录下最新的 mtime（毫秒），跳过不进产物的单测文件。
  *
  * @param dir 目录绝对路径。
  * @returns 最新 mtime；目录不存在时为 0。
@@ -67,6 +102,9 @@ const newestMtime = (dir: string): number => {
             const full = path.join(current, entry.name);
             if (entry.isDirectory()) {
                 stack.push(full);
+                continue;
+            }
+            if (NON_PRODUCT_PATH_RE.test(full)) {
                 continue;
             }
             newest = Math.max(newest, fs.statSync(full).mtimeMs);
