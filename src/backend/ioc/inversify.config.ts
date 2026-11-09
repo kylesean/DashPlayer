@@ -13,6 +13,8 @@ import { SubtitleGenerationServiceImpl } from '@/backend/services/SubtitleGenera
 import SubtitleGenerationController from '@/backend/controllers/SubtitleGenerationController';
 import ImportedDictionaryService from '@/backend/services/ImportedDictionaryService';
 import DictionaryImportController from '@/backend/controllers/DictionaryImportController';
+import EnglishDictionaryService from '@/backend/services/EnglishDictionaryService';
+import EnglishDictionaryController from '@/backend/controllers/EnglishDictionaryController';
 import {
     type SubtitleVocabularyAnalysisService,
     SubtitleVocabularyAnalysisServiceImpl,
@@ -193,6 +195,7 @@ container.bind<Controller>(TYPES.Controller).to(SystemController).inSingletonSco
 container.bind<Controller>(TYPES.Controller).to(SubtitleController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SubtitleGenerationController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(DictionaryImportController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(EnglishDictionaryController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(WatchHistoryController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SettingsController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(ParakeetModelController).inSingletonScope();
@@ -246,6 +249,9 @@ container.bind<SubtitleGenerationService>(TYPES.SubtitleGenerationService)
     .inSingletonScope();
 container.bind<ImportedDictionaryService>(TYPES.ImportedDictionaryService)
     .to(ImportedDictionaryService)
+    .inSingletonScope();
+container.bind<EnglishDictionaryService>(TYPES.EnglishDictionaryService)
+    .to(EnglishDictionaryService)
     .inSingletonScope();
 container.bind<SubtitleVocabularyAnalysisService>(TYPES.SubtitleVocabularyAnalysisService)
     .to(SubtitleVocabularyAnalysisServiceImpl)

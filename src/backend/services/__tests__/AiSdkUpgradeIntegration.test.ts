@@ -48,6 +48,7 @@ import type AiProviderService from '../AiProviderService';
 import type SettingService from '../SettingService';
 import type LocalAiService from '../LocalAiService';
 import type ImportedDictionaryService from '../ImportedDictionaryService';
+import type EnglishDictionaryService from '../EnglishDictionaryService';
 import type SentenceLearningService from '../SentenceLearningService';
 import type CacheService from '../CacheService';
 import type ResourceFallbackService from '../ResourceFallbackService';
@@ -393,6 +394,9 @@ const runTests = (): void => {
                 const importedDictionaryService = {
                     lookup: vi.fn().mockReturnValue(null),
                 } as unknown as ImportedDictionaryService;
+                const englishDictionaryService = {
+                    lookup: vi.fn().mockReturnValue(null),
+                } as unknown as EnglishDictionaryService;
                 const localAiService = {
                     getActiveModelId: vi.fn().mockResolvedValue(''),
                     generate: vi.fn().mockRejectedValue(new Error('未配置本地模型')),
@@ -409,6 +413,7 @@ const runTests = (): void => {
                     wordRepo,
                     new BuiltinDictionaryStoreImpl(builtinFixture.dbPath),
                     importedDictionaryService,
+                    englishDictionaryService,
                     localAiService,
                     resourceFallback,
                 );

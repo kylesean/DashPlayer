@@ -1,3 +1,5 @@
+import type { EnglishDictionarySense } from '@/common/contracts/english-dictionary';
+
 /**
  * OpenAI 字典中的例句项。
  */
@@ -26,7 +28,8 @@ export interface OpenAIDictionaryDefinition {
  * 说明：
  * - 该结构同时承载 AI 生成与预置词典（ECDICT）两种数据来源的单词卡；
  * - 词库元信息字段（collins/oxford/bnc/frq/tags）只有预置词典命中的结果才会填充，
- *   AI 生成结果不携带这些字段。
+ *   AI 生成结果不携带这些字段；
+ * - englishSenses 只有安装了英英释义增强包时才会填充。
  */
 export interface OpenAIDictionaryResult {
     /** 查询词。 */
@@ -35,6 +38,8 @@ export interface OpenAIDictionaryResult {
     phonetic: string;
     /** 释义列表，至少可能为空数组。 */
     definitions: OpenAIDictionaryDefinition[];
+    /** 英英释义（需要安装增强包）；未安装或未命中时为 undefined。 */
+    englishSenses?: EnglishDictionarySense[];
     /** Collins 词典星级（1-5，数值越大越常用），仅预置词典数据提供。 */
     collins?: number;
     /** Oxford 词典收录标记（0-3，>0 表示收录），仅预置词典数据提供。 */

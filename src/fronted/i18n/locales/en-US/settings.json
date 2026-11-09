@@ -468,6 +468,20 @@
             "step3Title": "3. Finish installation",
             "step3Hint": "Once the file is in place, come back and click \"Download all\" above — the app verifies and installs it for you."
         },
+        "dictionaryEnhancement": {
+            "title": "English definitions pack (optional)",
+            "description": "Download Princeton WordNet 3.1 to add English definitions, synonyms and antonyms to word cards; not bundled with the app.",
+            "install": "Download and install",
+            "installed": "Installed",
+            "notInstalled": "Not installed",
+            "downloading": "Installing…",
+            "size": "About 16 MB; works offline after install",
+            "remove": "Remove",
+            "removeConfirm": "Remove the English definitions pack? Downloaded data will be deleted.",
+            "cancel": "Cancel",
+            "installFailed": "Install failed: {{message}}",
+            "removeFailed": "Remove failed: {{message}}"
+        },
         "dictionaryPack": {
             "title": "Local dictionaries (bring your own)",
             "description": "Import dictionary files you legally own. The app bundles and downloads no copyrighted dictionary content.",

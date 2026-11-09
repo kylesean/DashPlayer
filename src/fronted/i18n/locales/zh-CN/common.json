@@ -161,5 +161,8 @@
         "parameters": "参数",
         "error": "错误",
         "result": "结果"
-    }
+    },
+    "englishSenses": "英英释义",
+    "englishSynonyms": "近义",
+    "englishAntonyms": "反义"
 }

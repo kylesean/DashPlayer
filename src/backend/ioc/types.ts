@@ -49,6 +49,7 @@ const TYPES = {
     TranscriptionEngineSelector: Symbol('TranscriptionEngineSelector'),
     SubtitleGenerationService: Symbol('SubtitleGenerationService'),
     ImportedDictionaryService: Symbol('ImportedDictionaryService'),
+    EnglishDictionaryService: Symbol('EnglishDictionaryService'),
     WhisperCppModelService: Symbol('WhisperCppModelService'),
     SherpaTtsModelService: Symbol('SherpaTtsModelService'),
     SherpaOnnxTtsCli: Symbol('SherpaOnnxTtsCli'),

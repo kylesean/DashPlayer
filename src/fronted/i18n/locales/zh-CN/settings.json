@@ -468,6 +468,20 @@
             "step3Title": "3. 完成安装",
             "step3Hint": "文件放好后，回到这里点击上方的「下载全部」，应用会自动完成校验与安装。"
         },
+        "dictionaryEnhancement": {
+            "title": "英英释义增强包（可选）",
+            "description": "下载 Princeton WordNet 3.1，为单词卡补充英文释义、同义词与反义词；不随主安装包分发。",
+            "install": "下载并安装",
+            "installed": "已安装",
+            "notInstalled": "未安装",
+            "downloading": "正在安装…",
+            "size": "约 16 MB 下载，安装后本地离线可用",
+            "remove": "删除",
+            "removeConfirm": "删除英英释义增强包？已下载的数据会被移除。",
+            "cancel": "取消",
+            "installFailed": "安装失败：{{message}}",
+            "removeFailed": "删除失败：{{message}}"
+        },
         "dictionaryPack": {
             "title": "本地词典包（自备）",
             "description": "导入你自己合法持有的词典文件；应用不内置、不下载任何版权词典。",

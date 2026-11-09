@@ -7,6 +7,7 @@ import type { MigrationFailureDetail } from '@/common/contracts/migration-failur
 import type { GpuAcceleration } from '@/common/contracts/system-info';
 import type { SubtitleResolution } from '@/common/contracts/subtitle-resolution';
 import type { ImportedDictionaryVO } from '@/common/contracts/imported-dictionary';
+import type { EnglishDictionaryStatusVO } from '@/common/contracts/english-dictionary';
 import type {OpenAIDictionaryResult} from '@/common/types/DictionaryResult';
 import type {SrtSentence, Sentence} from '@/common/types/SentenceC';
 import type {SentenceStruct} from '@/common/types/SentenceStruct';
@@ -265,6 +266,17 @@ interface DictionaryImportDef {
     'dictionary/set-enabled': { params: { id: string, enabled: boolean }, return: void };
 }
 
+interface EnglishDictionaryDef {
+    /** 英英释义增强包状态。 */
+    'dictionary-enhancement/status': { params: void, return: EnglishDictionaryStatusVO };
+    /** 下载并安装增强包；返回后台任务 ID。 */
+    'dictionary-enhancement/install': { params: void, return: number };
+    /** 取消安装任务。 */
+    'dictionary-enhancement/cancel': { params: { taskId: number }, return: void };
+    /** 删除已安装的增强包。 */
+    'dictionary-enhancement/remove': { params: void, return: void };
+}
+
 interface StorageDef {
     'storage/usage': { params: void, return: StorageUsageVO };
     'storage/status': { params: void, return: StorageStatusVO };
@@ -446,6 +458,7 @@ export type ApiDefinitions = ApiDefinition
     & SubtitleTimestampAdjustmentControllerDef
     & SubtitleGenerationDef
     & DictionaryImportDef
+    & EnglishDictionaryDef
     & StorageDef
     & SettingsDef
     & ParakeetModelDef

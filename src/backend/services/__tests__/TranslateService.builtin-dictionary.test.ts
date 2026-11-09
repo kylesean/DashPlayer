@@ -19,6 +19,7 @@ import type WordTranslatesRepository from '@/backend/services/repositories/WordT
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type ImportedDictionaryService from '@/backend/services/ImportedDictionaryService';
+import type EnglishDictionaryService from '@/backend/services/EnglishDictionaryService';
 import type ResourceFallbackService from '@/backend/services/ResourceFallbackService';
 import { BuiltinDictionaryStoreImpl } from '@/backend/infrastructure/translate/BuiltinDictionaryStoreImpl';
 import { createBuiltinDictionaryFixture } from '@/test/builtinDictionaryFixture';
@@ -67,6 +68,9 @@ describe('单词查询的预置词典优先链路', () => {
         const importedDictionaryService = {
             lookup: vi.fn().mockReturnValue(null),
         } as unknown as ImportedDictionaryService;
+        const englishDictionaryService = {
+            lookup: vi.fn().mockReturnValue(null),
+        } as unknown as EnglishDictionaryService;
         const localAiService = {
             getActiveModelId: vi.fn().mockResolvedValue(''),
             generate: vi.fn().mockRejectedValue(new Error('本地模型未配置')),
@@ -86,6 +90,7 @@ describe('单词查询的预置词典优先链路', () => {
             wordTranslatesRepository,
             builtinDictionaryStore,
             importedDictionaryService,
+            englishDictionaryService,
             localAiService,
             resourceFallback,
         );

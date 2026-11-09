@@ -14,6 +14,7 @@ import type AiProviderService from '@/backend/services/AiProviderService';
 import type SettingService from '@/backend/services/SettingService';
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
 import type ImportedDictionaryService from '@/backend/services/ImportedDictionaryService';
+import type EnglishDictionaryService from '@/backend/services/EnglishDictionaryService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type ResourceFallbackService from '@/backend/services/ResourceFallbackService';
@@ -224,6 +225,7 @@ export class TranslateServiceImpl implements TranslateService {
     private readonly wordTranslatesRepository: WordTranslatesRepository;
     private readonly builtinDictionaryStore: BuiltinDictionaryStore;
     private readonly importedDictionaryService: ImportedDictionaryService;
+    private readonly englishDictionaryService: EnglishDictionaryService;
     private readonly localAiService: LocalAiService;
     private readonly resourceFallback: ResourceFallbackService;
 
@@ -236,6 +238,7 @@ export class TranslateServiceImpl implements TranslateService {
      * @param wordTranslatesRepository 单词翻译缓存仓储。
      * @param builtinDictionaryStore 预置本地词典存储端口。
      * @param importedDictionaryService 用户导入词典服务。
+     * @param englishDictionaryService 英英释义增强包服务。
      * @param localAiService 本地大模型推理服务。
      * @param resourceFallback 资源回退状态服务。
      */
@@ -246,6 +249,7 @@ export class TranslateServiceImpl implements TranslateService {
         @inject(TYPES.WordTranslatesRepository) wordTranslatesRepository: WordTranslatesRepository,
         @inject(TYPES.BuiltinDictionaryStore) builtinDictionaryStore: BuiltinDictionaryStore,
         @inject(TYPES.ImportedDictionaryService) importedDictionaryService: ImportedDictionaryService,
+        @inject(TYPES.EnglishDictionaryService) englishDictionaryService: EnglishDictionaryService,
         @inject(TYPES.LocalAiService) localAiService: LocalAiService,
         @inject(TYPES.ResourceFallbackService) resourceFallback: ResourceFallbackService,
     ) {
@@ -255,11 +259,47 @@ export class TranslateServiceImpl implements TranslateService {
         this.wordTranslatesRepository = wordTranslatesRepository;
         this.builtinDictionaryStore = builtinDictionaryStore;
         this.importedDictionaryService = importedDictionaryService;
+        this.englishDictionaryService = englishDictionaryService;
         this.localAiService = localAiService;
         this.resourceFallback = resourceFallback;
     }
 
+    /**
+     * 查词入口：在基础单词卡上附加英英释义（仅当增强包已安装且命中的时候）。
+     *
+     * @param str 查询词。
+     * @param forceRefresh 是否绕过词典与缓存强制刷新。
+     * @param requestId 渲染层流式请求 id。
+     * @param context 查询词所在句子上下文。
+     * @returns 单词卡；无结果时返回 null。
+     */
     public async transWord(
+        str: string,
+        forceRefresh?: boolean,
+        requestId?: string,
+        context?: string
+    ): Promise<OpenAIDictionaryResult | null> {
+        const result = await this.transWordInner(str, forceRefresh, requestId, context);
+        if (!result) {
+            return result;
+        }
+        const englishSenses = this.englishDictionaryService.lookup(str);
+        if (!englishSenses || englishSenses.length === 0) {
+            return result;
+        }
+        return { ...result, englishSenses };
+    }
+
+    /**
+     * 基础查词实现：导入词典 → 内置词典 → 缓存 → 云端/本地 LLM。
+     *
+     * @param str 查询词。
+     * @param forceRefresh 是否绕过词典与缓存强制刷新。
+     * @param requestId 渲染层流式请求 id。
+     * @param context 查询词所在句子上下文。
+     * @returns 单词卡；无结果时返回 null。
+     */
+    private async transWordInner(
         str: string,
         forceRefresh?: boolean,
         requestId?: string,

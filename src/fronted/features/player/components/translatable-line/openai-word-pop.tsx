@@ -44,7 +44,8 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
 }) => {
     const { t } = useTranslation('common');
     const hasDefinitions = !!data && Array.isArray(data.definitions) && data.definitions.length > 0;
-    const hasContent = !!data && (Boolean(data.word) || hasDefinitions);
+    const hasEnglishSenses = !!data?.englishSenses?.length;
+    const hasContent = !!data && (Boolean(data.word) || hasDefinitions || hasEnglishSenses);
 
     const renderSkeleton = () => (
         <div className="p-4 space-y-4 h-full flex flex-col justify-start">
@@ -219,6 +220,38 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             ) : (
                                 <span>{t('noDefinition', { defaultValue: '暂无释义' })}</span>
                             )}
+                        </div>
+                    )}
+                    {hasEnglishSenses && (
+                        <div className="pt-3 mt-1 border-t border-border/60 space-y-3">
+                            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground select-none">
+                                {t('englishSenses', { defaultValue: 'English definitions' })}
+                            </div>
+                            {(data?.englishSenses ?? []).map((sense, senseIdx) => {
+                                const pos = formatPartOfSpeech(sense.partOfSpeech);
+                                return (
+                                    <div key={`en-${senseIdx}-${sense.definition}`} className="space-y-1 select-text">
+                                        <div className="flex items-baseline gap-2 leading-snug">
+                                            {pos && (
+                                                <span className="text-xs font-semibold italic text-muted-foreground shrink-0 select-none">
+                                                    {pos}
+                                                </span>
+                                            )}
+                                            <span className="text-sm text-foreground/90">{sense.definition}</span>
+                                        </div>
+                                        {sense.synonyms.length > 0 && (
+                                            <div className="text-xs text-muted-foreground pl-0.5">
+                                                {t('englishSynonyms', { defaultValue: '近义' })}: {sense.synonyms.join(', ')}
+                                            </div>
+                                        )}
+                                        {sense.antonyms.length > 0 && (
+                                            <div className="text-xs text-muted-foreground pl-0.5">
+                                                {t('englishAntonyms', { defaultValue: '反义' })}: {sense.antonyms.join(', ')}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
