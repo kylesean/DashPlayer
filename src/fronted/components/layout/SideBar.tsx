@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import React, { useMemo } from 'react';
-import { BookOpen, PanelLeftClose, PanelLeftOpen, Settings, Sparkles, Video, X } from 'lucide-react';
+import { BookOpen, PanelLeftClose, PanelLeftOpen, Settings, Video, X } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Center } from '@astryxdesign/core/Center';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
@@ -90,19 +90,6 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
                     </div>
                 )
             }
-            footer={
-                !isCompact ? (
-                    <div className="mx-2 mb-2 p-2.5 rounded-xl bg-accent-muted/10 border border-accent/20 select-none">
-                        <div className="flex items-center gap-1.5 text-accent font-medium text-xs mb-1">
-                            <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                            <span>{t('learningMotivationTitle', { defaultValue: '沉浸伴读' })}</span>
-                        </div>
-                        <p className="text-muted-foreground/80 text-[10px] leading-relaxed">
-                            {t('learningMotivationHint', { defaultValue: '精听盲听 · 影子跟读 · 自然语感' })}
-                        </p>
-                    </div>
-                ) : null
-            }
             footerIcons={
                 <div
                     className={cn(
@@ -117,19 +104,13 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
                         <button
                             type="button"
                             onClick={toggleSidebarCollapsed}
-                            className={cn(
-                                'flex items-center gap-2 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer',
-                                isCompact ? 'w-8 h-8 justify-center' : 'px-2 py-1.5',
-                            )}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground cursor-pointer"
                             aria-label={isCompact ? t('expandSidebar') : t('collapseSidebar')}
                         >
                             {isCompact ? (
                                 <PanelLeftOpen className="w-4 h-4" />
                             ) : (
-                                <>
-                                    <PanelLeftClose className="w-4 h-4 shrink-0" />
-                                    <span>{t('collapseSidebar')}</span>
-                                </>
+                                <PanelLeftClose className="w-4 h-4" />
                             )}
                         </button>
                     </Tooltip>
