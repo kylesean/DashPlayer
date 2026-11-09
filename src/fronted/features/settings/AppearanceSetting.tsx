@@ -53,9 +53,9 @@ const AppearanceSetting: React.FC = () => {
 
     const form = useForm<AppearanceFormValues>();
     const { setValue } = form;
-    const [currentTheme, currentFontSize, currentLanguage] = useWatch({
+    const [currentTheme, currentThemeFamily, currentFontSize, currentLanguage] = useWatch({
         control: form.control,
-        name: ['theme', 'fontSize', 'language'],
+        name: ['theme', 'themeFamily', 'fontSize', 'language'],
     });
 
     const { ready, initialize, flush } = useAutoSaveSettingsForm<AppearanceFormValues>({
@@ -113,6 +113,33 @@ const AppearanceSetting: React.FC = () => {
         },
     ];
 
+    const themeFamilyOptions = [
+        {
+            value: 'neutral' as const,
+            label: 'Neutral',
+            desc: t('appearance.themeNeutralDesc'),
+            previewColor: '#77777c',
+        },
+        {
+            value: 'stone' as const,
+            label: 'Stone',
+            desc: t('appearance.themeStoneDesc'),
+            previewColor: '#8f7154',
+        },
+        {
+            value: 'matcha' as const,
+            label: 'Matcha',
+            desc: t('appearance.themeMatchaDesc'),
+            previewColor: '#667d65',
+        },
+        {
+            value: 'butter' as const,
+            label: 'Butter',
+            desc: t('appearance.themeButterDesc'),
+            previewColor: '#d7c59c',
+        },
+    ];
+
     const languageOptions = [
         { value: 'system', label: t('appearance.languageSystem') },
         { value: 'zh-CN', label: t('appearance.languageZhCN') },
@@ -137,7 +164,59 @@ const AppearanceSetting: React.FC = () => {
                     description={t('appearance.cardDescription')}
                     icon={Palette}
                 >
-                    {/* 主题风格切换行 */}
+                    {/* Astryx 主题家族切换行 */}
+                    <SettingRow
+                        title={t('appearance.themeFamilyTitle')}
+                        description={t('appearance.themeFamilyDescription')}
+                        icon={Palette}
+                    >
+                        <Grid
+                            columns={{ minWidth: 150, max: 4 }}
+                            gap={3}
+                            width="100%"
+                        >
+                            {themeFamilyOptions.map((opt) => {
+                                const isSelected = (currentThemeFamily || 'neutral') === opt.value;
+                                return (
+                                    <SelectableCard
+                                        key={opt.value}
+                                        label={opt.label}
+                                        isSelected={isSelected}
+                                        padding={2}
+                                        onChange={() => {
+                                            if (!isSelected) {
+                                                setValue('themeFamily', opt.value, {
+                                                    shouldDirty: true,
+                                                    shouldTouch: true,
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <VStack gap={1} align="start">
+                                            <HStack vAlign="center" gap={2}>
+                                                <span
+                                                    className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs ring-1 ring-border"
+                                                    style={{ backgroundColor: opt.previewColor }}
+                                                />
+                                                <Text
+                                                    type="body"
+                                                    weight={isSelected ? 'bold' : 'medium'}
+                                                    color={isSelected ? 'primary' : 'secondary'}
+                                                >
+                                                    {opt.label}
+                                                </Text>
+                                            </HStack>
+                                            <Text type="supporting" color="secondary">
+                                                {opt.desc}
+                                            </Text>
+                                        </VStack>
+                                    </SelectableCard>
+                                );
+                            })}
+                        </Grid>
+                    </SettingRow>
+
+                    {/* 浅色/深色模式切换行 */}
                     <SettingRow
                         title={t('appearance.themeTitle')}
                         description={t('appearance.themeDescription')}

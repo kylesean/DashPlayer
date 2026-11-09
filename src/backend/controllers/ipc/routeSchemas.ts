@@ -135,6 +135,7 @@ export const shortcutSettingSaveSchema: z.ZodType<ShortcutSettingSaveVO> = z.obj
 /** 外观设置保存请求校验架构。 */
 export const appearanceSettingSchema: z.ZodType<AppearanceSettingVO> = z.object({
     theme: z.enum(['dark', 'light', 'system']),
+    themeFamily: z.enum(['neutral', 'stone', 'matcha', 'butter']).optional(),
     fontSize: z.enum(['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge']),
     language: z.enum(['system', 'zh-CN', 'en-US']),
 });

@@ -73,6 +73,7 @@ const StartupLoading: React.FC = () => {
 export const App = () => {
     const { t } = useI18nTranslation('toast');
     const theme = useSetting((s) => s.values.get('appearance.theme'));
+    const themeFamily = (useSetting((s) => s.values.get('appearance.themeFamily')) || 'neutral') as keyof typeof themes;
     const languageSetting = useSetting((s) => s.values.get('i18n.language'));
     /** 当前生效的启动门槛；null 表示两个门槛都还没读出结果。 */
     const [gate, setGate] = React.useState<StartupGate | null>(null);
@@ -171,9 +172,10 @@ export const App = () => {
 
     const effectiveThemeMode: 'light' | 'dark' | 'system' =
         theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'system';
+    const activeTheme = themes[themeFamily] || themes[defaultThemeSlug];
 
     return (
-        <Theme theme={themes[defaultThemeSlug]} mode={effectiveThemeMode}>
+        <Theme theme={activeTheme} mode={effectiveThemeMode}>
             <div className="w-full h-screen text-foreground overflow-hidden select-none font-sans">
                 {gate?.kind === 'migration-failure' && (
                     <MigrationFailureGate failure={gate.failure} />

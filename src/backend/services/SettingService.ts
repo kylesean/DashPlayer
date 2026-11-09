@@ -676,6 +676,11 @@ export class SettingServiceImpl implements SettingService {
                 ['dark', 'light', 'system'] as const,
                 'appearance.theme',
             ),
+            themeFamily: this.requireEnumValue(
+                this.getValue('appearance.themeFamily') || 'neutral',
+                ['neutral', 'stone', 'matcha', 'butter'] as const,
+                'appearance.themeFamily',
+            ),
             fontSize: this.requireEnumValue(
                 this.getValue('appearance.fontSize'),
                 ['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge'] as const,
@@ -694,6 +699,11 @@ export class SettingServiceImpl implements SettingService {
      */
     public async saveAppearanceSettings(settings: AppearanceSettingVO): Promise<void> {
         const theme = this.requireEnumValue(settings.theme, ['dark', 'light', 'system'] as const, 'appearance.theme');
+        const themeFamily = this.requireEnumValue(
+            settings.themeFamily || 'neutral',
+            ['neutral', 'stone', 'matcha', 'butter'] as const,
+            'appearance.themeFamily',
+        );
         const fontSize = this.requireEnumValue(
             settings.fontSize,
             ['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge'] as const,
@@ -704,8 +714,9 @@ export class SettingServiceImpl implements SettingService {
             ['system', 'zh-CN', 'en-US'] as const,
             'i18n.language',
         );
-        this.logger.info('update appearance settings', { theme, fontSize, language });
+        this.logger.info('update appearance settings', { theme, themeFamily, fontSize, language });
         await this.setValue('appearance.theme', theme);
+        await this.setValue('appearance.themeFamily', themeFamily);
         await this.setValue('appearance.fontSize', fontSize);
         await this.setValue('i18n.language', language);
     }

@@ -32,6 +32,7 @@ export const runtimeSettingKeys = [
     'providers.dictionary',
     'features.openai.subtitleTranslationMode',
     'appearance.theme',
+    'appearance.themeFamily',
     'appearance.fontSize',
     'i18n.language',
     'player.autoPlayNext',
@@ -48,6 +49,7 @@ export type RuntimeSettingKey = typeof runtimeSettingKeys[number];
  */
 export type RuntimeWritableSettingKey =
     | 'appearance.theme'
+    | 'appearance.themeFamily'
     | 'player.autoPlayNext'
     | 'player.pauseOnWordHover'
     | 'userSelect.playbackRateStack';

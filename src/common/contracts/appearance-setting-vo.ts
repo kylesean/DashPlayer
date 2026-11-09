@@ -4,6 +4,11 @@
 export type AppearanceTheme = 'dark' | 'light' | 'system';
 
 /**
+ * Astryx 外观主题家族选项。
+ */
+export type AppearanceThemeFamily = 'neutral' | 'stone' | 'matcha' | 'butter';
+
+/**
  * 外观字号选项。
  */
 export type AppearanceFontSize = 'fontSizeSmall' | 'fontSizeMedium' | 'fontSizeLarge';
@@ -19,8 +24,10 @@ export type AppearanceLanguage = 'system' | 'zh-CN' | 'en-US';
  * 详情与保存结构一致，统一在一个类型中，避免为相同字段结构重复声明。
  */
 export interface AppearanceSettingVO {
-    /** 主题。 */
+    /** 颜色模式（浅色/暗色/跟随系统）。 */
     theme: AppearanceTheme;
+    /** 主题家族（Neutral/Stone/Matcha/Butter）。 */
+    themeFamily?: AppearanceThemeFamily;
     /** 字号。 */
     fontSize: AppearanceFontSize;
     /** 界面语言。 */

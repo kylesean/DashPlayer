@@ -49,6 +49,7 @@ export const SettingKeyObj = {
     'services.openai.enableSentenceLearning': 'true',
     'services.openai.subtitleTranslationMode': 'zh',
     'appearance.theme': 'light',
+    'appearance.themeFamily': 'neutral',
     'appearance.fontSize': 'fontSizeLarge',
     'i18n.language': 'system',
     'player.autoPlayNext': 'false',

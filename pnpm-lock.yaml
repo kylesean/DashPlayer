@@ -30,7 +30,16 @@ importers:
       '@astryxdesign/core':
         specifier: ^0.7.11
         version: 0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@astryxdesign/theme-butter':
+        specifier: ^0.7.11
+        version: 0.7.11(@astryxdesign/core@0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)
+      '@astryxdesign/theme-matcha':
+        specifier: ^0.7.11
+        version: 0.7.11(@astryxdesign/core@0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)
       '@astryxdesign/theme-neutral':
+        specifier: ^0.7.11
+        version: 0.7.11(@astryxdesign/core@0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)
+      '@astryxdesign/theme-stone':
         specifier: ^0.7.11
         version: 0.7.11(@astryxdesign/core@0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)
       '@floating-ui/react':
@@ -532,8 +541,26 @@ packages:
       react: '>=19.0.0'
       react-dom: '>=19.0.0'
 
+  '@astryxdesign/theme-butter@0.7.11':
+    resolution: {integrity: sha512-rQAUe8vKziYcBflzcxbjAdxNfHJtWCe39tmgXA1fVovZOgMo3qJChIpynsNvwa3cok8+8rTDdenCOIsaq0+LAg==}
+    peerDependencies:
+      '@astryxdesign/core': 0.7.11
+      react: '>=19'
+
+  '@astryxdesign/theme-matcha@0.7.11':
+    resolution: {integrity: sha512-tE6G9GZzb2k3qSp8pqFo8ouwkocgxY/EQNm9IX31YlITXjVWeB/PLSR1WpmDHK4RBEdwyjYckxInQSLBxwt4Gg==}
+    peerDependencies:
+      '@astryxdesign/core': 0.7.11
+      react: '>=19'
+
   '@astryxdesign/theme-neutral@0.7.11':
     resolution: {integrity: sha512-zjI+6g/tv6TAY6i5gk2/x8zrf/Gn/io2TGXnd6IhRkhGdIhkb+zdL2bHOf4F8S5bjonHqdDiKzQ2P2AZEDyO/A==}
+    peerDependencies:
+      '@astryxdesign/core': 0.7.11
+      react: '>=19'
+
+  '@astryxdesign/theme-stone@0.7.11':
+    resolution: {integrity: sha512-CHmOzTEVt+ZnuidHkgYAE/7b4gZTzwusD1AW0OeBuamMfX5MTZ7byq9oNpRvX4IFJQnoAI7K1w4BiaPG8Xpxcg==}
     peerDependencies:
       '@astryxdesign/core': 0.7.11
       react: '>=19'
@@ -6807,7 +6834,31 @@ snapshots:
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
 
+  '@astryxdesign/theme-butter@0.7.11(@astryxdesign/core@0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)':
+    dependencies:
+      '@astryxdesign/core': 0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      lucide-react: 1.70.0(@types/react@19.3.0)(react@19.3.1)
+      react: 19.3.1
+    transitivePeerDependencies:
+      - '@types/react'
+
+  '@astryxdesign/theme-matcha@0.7.11(@astryxdesign/core@0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)':
+    dependencies:
+      '@astryxdesign/core': 0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      lucide-react: 1.70.0(@types/react@19.3.0)(react@19.3.1)
+      react: 19.3.1
+    transitivePeerDependencies:
+      - '@types/react'
+
   '@astryxdesign/theme-neutral@0.7.11(@astryxdesign/core@0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)':
+    dependencies:
+      '@astryxdesign/core': 0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      lucide-react: 1.70.0(@types/react@19.3.0)(react@19.3.1)
+      react: 19.3.1
+    transitivePeerDependencies:
+      - '@types/react'
+
+  '@astryxdesign/theme-stone@0.7.11(@astryxdesign/core@0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(@types/react@19.3.0)(react@19.3.1)':
     dependencies:
       '@astryxdesign/core': 0.7.11(@stylexjs/stylex@0.19.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       lucide-react: 1.70.0(@types/react@19.3.0)(react@19.3.1)
