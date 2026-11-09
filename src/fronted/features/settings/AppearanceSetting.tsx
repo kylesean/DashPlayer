@@ -296,6 +296,7 @@ const AppearanceSetting: React.FC = () => {
                     <SettingField
                         title={t('appearance.languageTitle')}
                         description={t('appearance.languageDescription')}
+                        testId="setting-row-language"
                     >
                         <Selector
                             label={t('appearance.languageTitle')}
