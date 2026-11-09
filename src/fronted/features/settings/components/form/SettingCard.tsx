@@ -94,7 +94,7 @@ export const SettingCard: React.FC<SettingCardProps> = ({
                 </HStack>
             )}
 
-            <Card padding={0} width="100%" variant="default">
+            <Card padding={0} width="100%" variant="transparent">
                 <VStack as="ul" role="list" gap={0}>
                     {rows.map((rowItem, index) => (
                         <VStack key={index} as="li" gap={0} width="100%">
@@ -123,7 +123,13 @@ export const SettingRow: React.FC<SettingRowProps> = ({
     className,
 }) => {
     return (
-        <VStack paddingInline={4} paddingBlock={2} gap={1} width="100%" className={className}>
+        <VStack
+            paddingInline={4}
+            paddingBlock={2}
+            gap={1}
+            width="100%"
+            className={className}
+        >
             <HStack
                 gap={3}
                 align={alignTop ? 'start' : 'center'}
