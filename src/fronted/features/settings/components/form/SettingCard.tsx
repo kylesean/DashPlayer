@@ -82,7 +82,7 @@ export const SettingCard: React.FC<SettingCardProps> = ({
                 </HStack>
             )}
 
-            <Card padding={0} width="100%" variant="muted">
+            <Card padding={0} width="100%" variant="transparent">
                 <VStack as="ul" role="list" gap={0}>
                     {rows.map((rowItem, index) => (
                         <VStack key={index} as="li" gap={0} width="100%">

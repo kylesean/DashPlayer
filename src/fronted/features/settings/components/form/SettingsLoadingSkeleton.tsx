@@ -30,7 +30,7 @@ export const SettingsLoadingSkeleton: React.FC<SettingsLoadingSkeletonProps> = (
     return (
         <SettingsPageShell title={title} description={description}>
             <VStack gap={4} width="100%">
-                <Card variant="muted" padding={4} width="100%">
+                <Card variant="transparent" padding={4} width="100%">
                     <VStack gap={4} width="100%">
                         <HStack justify="between" align="center" width="100%">
                             <VStack gap={2}>

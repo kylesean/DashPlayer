@@ -275,7 +275,7 @@ const MobileAccessSetting: React.FC = () => {
                             </Text>
                         )}
 
-                        <Card variant="muted" padding={2}>
+                        <Card variant="transparent" padding={2} className="border border-border/40 rounded-lg">
                             <VStack gap={1}>
                                 <Text size="2xs" color="secondary">
                                     • {t('mobile.remoteHint')}

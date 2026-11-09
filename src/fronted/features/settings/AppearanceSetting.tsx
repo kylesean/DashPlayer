@@ -455,7 +455,7 @@ const AppearanceSetting: React.FC = () => {
                                 </VStack>
                             ) : (
                                 <VStack gap={2} align="center" justify="center" padding={2}>
-                                    <Card variant="muted" padding={3} maxWidth={420} width="100%">
+                                    <Card variant="transparent" padding={3} maxWidth={420} width="100%" className="border border-border/60 rounded-xl">
                                         <VStack gap={1} align="center">
                                             <Text
                                                 type="body"
