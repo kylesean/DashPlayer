@@ -12,7 +12,9 @@
         "heroDescription": "选择视频，通过双语字幕和智能学习工具提升英语水平。",
         "ready": "准备就绪",
         "continueWatching": "继续观看",
-        "restartWatching": "重新观看"
+        "restartWatching": "重新观看",
+        "openMediaLibrary": "打开媒体库",
+        "exploreLibrary": "选择其他视频"
     },
     "speedSlider": {
         "favoriteHint": "勾选常用速度，按快捷键 {{shortcut}} 即可在这些速度间循环切换。",

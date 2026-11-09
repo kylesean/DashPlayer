@@ -12,7 +12,9 @@
         "heroDescription": "Pick a video and improve your English with bilingual subtitles and smart learning tools.",
         "ready": "Ready to go",
         "continueWatching": "Continue",
-        "restartWatching": "Restart"
+        "restartWatching": "Restart",
+        "openMediaLibrary": "Open Media Library",
+        "exploreLibrary": "Choose Another Video"
     },
     "speedSlider": {
         "favoriteHint": "Check your preferred speeds, then press {{shortcut}} to cycle through them.",

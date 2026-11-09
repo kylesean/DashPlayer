@@ -1,7 +1,7 @@
 import React, {useCallback} from 'react';
 import useSWR from 'swr';
 import {useNavigate} from 'react-router-dom';
-import {Play, Film} from 'lucide-react';
+import {Play, Film, FolderOpen} from 'lucide-react';
 import { Button } from '@astryxdesign/core/Button';
 import {cn} from '@/fronted/lib/utils';
 import {apiPath, SWR_KEY} from '@/fronted/lib/swr-util';
@@ -12,6 +12,7 @@ import MediaUtil from '@/common/utils/MediaUtil';
 import TimeUtil from '@/common/utils/TimeUtil';
 import {getRendererLogger} from '@/fronted/log/simple-logger';
 import { playerApi } from '@/fronted/features/player/playerApi';
+import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 const logger = getRendererLogger('PlaybackEmptyState');
@@ -110,6 +111,19 @@ const PlaybackEmptyState: React.FC<PlaybackEmptyStateProps> = ({className}) => {
                         <span className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse" />
                         {t('emptyState.ready')}
                     </div>
+
+                    <div className="mt-8 flex items-center justify-center gap-3">
+                        <Button
+                            size="md"
+                            variant="primary"
+                            icon={<FolderOpen className="h-4 w-4" />}
+                            label={t('emptyState.openMediaLibrary')}
+                            onClick={() => {
+                                void fileBrowserApi.changeWindowSize('home');
+                                navigate('/home');
+                            }}
+                        />
+                    </div>
                 </div>
             </div>
         );
@@ -159,13 +173,23 @@ const PlaybackEmptyState: React.FC<PlaybackEmptyStateProps> = ({className}) => {
                         </div>
                     )}
 
-                    <div className="flex flex-col gap-4 sm:flex-row pt-1">
+                    <div className="flex flex-col gap-3 sm:flex-row pt-1">
                         <Button
                             size="lg"
                             variant="primary"
                             label={hasProgress && !isNearEnd ? t('emptyState.continueWatching') : t('emptyState.restartWatching')}
                             icon={<Play className="h-5 w-5 fill-current" />}
                             onClick={hasProgress && !isNearEnd ? handleContinue : handleRestart}
+                        />
+                        <Button
+                            size="lg"
+                            variant="secondary"
+                            label={t('emptyState.exploreLibrary')}
+                            icon={<FolderOpen className="h-5 w-5" />}
+                            onClick={() => {
+                                void fileBrowserApi.changeWindowSize('home');
+                                navigate('/home');
+                            }}
                         />
                     </div>
                 </div>
