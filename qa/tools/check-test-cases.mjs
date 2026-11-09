@@ -1,7 +1,7 @@
 /**
  * 校验用例文档与 e2e 用例是否对得上。
  *
- * 约定见 docs/test-cases/README.md：一个设置页一份文档，文档里逐条写场景，
+ * 约定见 qa/test-cases/README.md：一个页面或范围一份文档，文档里逐条写场景，
  * 每条场景挂一个稳定 ID；同一个 ID 必须出现在该页 spec 的 test() 标题里。
  * 只改一边就会让这个脚本报错，避免文档烂掉。
  *
@@ -118,7 +118,7 @@ const parsePageDoc = (file) => {
     if (!gapsOnly) {
         specFile = lines.map((line) => line.match(SPEC_FILE_RE)).find(Boolean)?.[1];
         if (!specFile) {
-            problems.push(`${relFile} 顶部没有声明「用例文件：\`e2e/xxx.spec.ts\`」，脚本不知道该去哪找用例`);
+            problems.push(`${relFile} 顶部没有声明「用例文件：\`qa/specs/settings/xxx.spec.ts\`」，脚本不知道该去哪找用例`);
         }
     }
 
@@ -289,7 +289,7 @@ const main = () => {
         for (const problem of problems) {
             console.error(`  - ${problem}`);
         }
-        console.error('\n规范见 docs/test-cases/README.md。');
+        console.error('\n规范见 qa/test-cases/README.md。');
         process.exit(1);
     }
 
