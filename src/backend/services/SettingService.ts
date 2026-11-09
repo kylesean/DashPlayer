@@ -301,6 +301,12 @@ export class SettingServiceImpl implements SettingService {
             case 'appearance.theme':
                 value = this.requireEnumValue(value, ['dark', 'light', 'system'] as const, request.key);
                 break;
+            case 'appearance.themeFamily':
+                value = this.requireEnumValue(value, ['neutral', 'stone', 'matcha', 'butter'] as const, request.key);
+                break;
+            case 'appearance.transcriptPosition':
+                value = this.requireEnumValue(value, ['right', 'left'] as const, request.key);
+                break;
             case 'player.autoPlayNext':
             case 'player.pauseOnWordHover':
                 value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
@@ -691,6 +697,11 @@ export class SettingServiceImpl implements SettingService {
                 ['system', 'zh-CN', 'en-US'] as const,
                 'i18n.language',
             ),
+            transcriptPosition: this.requireEnumValue(
+                this.getValue('appearance.transcriptPosition') || 'right',
+                ['right', 'left'] as const,
+                'appearance.transcriptPosition',
+            ),
         };
     }
 
@@ -714,11 +725,17 @@ export class SettingServiceImpl implements SettingService {
             ['system', 'zh-CN', 'en-US'] as const,
             'i18n.language',
         );
-        this.logger.info('update appearance settings', { theme, themeFamily, fontSize, language });
+        const transcriptPosition = this.requireEnumValue(
+            settings.transcriptPosition || 'right',
+            ['right', 'left'] as const,
+            'appearance.transcriptPosition',
+        );
+        this.logger.info('update appearance settings', { theme, themeFamily, fontSize, language, transcriptPosition });
         await this.setValue('appearance.theme', theme);
         await this.setValue('appearance.themeFamily', themeFamily);
         await this.setValue('appearance.fontSize', fontSize);
         await this.setValue('i18n.language', language);
+        await this.setValue('appearance.transcriptPosition', transcriptPosition);
     }
 
     /**

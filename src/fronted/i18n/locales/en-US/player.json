@@ -239,5 +239,7 @@
     "mediaError": {
         "hint": "This video cannot be played (error code {{code}}). For local videos, convert to H.264 + AAC MP4 and retry; YouTube imports are unaffected."
     },
-    "translationFailed": "Subtitle translation failed"
+    "translationFailed": "Subtitle translation failed",
+    "dockToLeft": "Dock transcript panel to the left",
+    "dockToRight": "Dock transcript panel to the right"
 }

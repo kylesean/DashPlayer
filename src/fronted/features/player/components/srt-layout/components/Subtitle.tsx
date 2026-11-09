@@ -5,7 +5,7 @@ import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { BookOpen, LocateFixed, Repeat, X } from 'lucide-react';
+import { BookOpen, LocateFixed, PanelLeft, PanelRight, Repeat, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
@@ -30,6 +30,9 @@ export default function Subtitle() {
     const { t } = useI18nTranslation('player');
     // 「随英文字幕隐藏」把侧栏收起时，卡片文案是 opacity-0，chip 是这块空白唯一的解释
     const sidebarHiddenByEnglish = isSidebarHiddenByEnglish(syncSide, showEn);
+    const transcriptPosition = (useSetting(
+        (state) => state.values.get('appearance.transcriptPosition') ?? 'right',
+    )) as 'left' | 'right';
     const toggleEnglishShortcut = useSetting(
         (state) => state.values.get('shortcut.toggleEnglishDisplay') ?? 'e',
     );
@@ -360,6 +363,28 @@ export default function Subtitle() {
                         )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
+                        {/* 伴读面板左右停靠切换按钮 */}
+                        <Tooltip
+                            content={transcriptPosition === 'right' ? t('dockToLeft', { defaultValue: '将伴读剧本切换至左侧' }) : t('dockToRight', { defaultValue: '将伴读剧本切换至右侧' })}
+                            placement="below"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const next = transcriptPosition === 'right' ? 'left' : 'right';
+                                    void useSetting.getState().setSetting('appearance.transcriptPosition', next);
+                                }}
+                                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                                aria-label={transcriptPosition === 'right' ? t('dockToLeft') : t('dockToRight')}
+                            >
+                                {transcriptPosition === 'right' ? (
+                                    <PanelLeft className="w-3.5 h-3.5" />
+                                ) : (
+                                    <PanelRight className="w-3.5 h-3.5" />
+                                )}
+                            </button>
+                        </Tooltip>
+
                         <Tooltip
                             content={showSideTranslation ? t('hideSideTranslation', { defaultValue: '隐藏侧栏译文' }) : t('showSideTranslation', { defaultValue: '显示侧栏译文' })}
                             placement="below"

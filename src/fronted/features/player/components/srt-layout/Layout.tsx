@@ -5,7 +5,7 @@ import PodcastViewer from '@/fronted/features/player/components/subtitles/Podcas
 import MainSubtitle from './MainSubtitle';
 import Subtitle from './components/Subtitle';
 import LearningToolbar from '@/fronted/features/player/components/learning-toolbar/LearningToolbar';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { useLocalStorage } from '@uidotdev/usehooks';
@@ -25,6 +25,7 @@ import SubtitleGenerationPanel from './SubtitleGenerationPanel';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { CAPTION_CARD_ANCHOR_CLASS, CAPTION_CARD_CLASS } from '@/fronted/features/player/components/captionCardShell';
+import useSetting from '@/fronted/features/settings/settingsStore';
 
 const logger = getRendererLogger('PlaybackLayout');
 
@@ -33,7 +34,6 @@ const PlaybackLayout = () => {
     const hasSubTitle = usePlaybackSession((s) => StrUtil.isNotBlank(s.subtitlePath));
     /** 底层媒体错误码；null 表示无错误。用于在旧播放修复链路删除后给出最小诊断提示。 */
     const mediaErrorCode = usePlayer((s) => s.mediaErrorCode);
-    const showSideBar = useLayout((state) => state.showSideBar);
     const fullScreen = useLayout((s) => s.fullScreen);
     const podcastMode = useLayout(s => s.podcastMode);
     const hasSource = usePlayerState((s) => !!s.src);
@@ -46,6 +46,8 @@ const PlaybackLayout = () => {
     const [sizeOb, setSizeOb] = useLocalStorage<number>('split-size-ob', 25);
     const [sizeIa, setSizeIa] = useLocalStorage<number>('split-size-ia', 80);
     const [sizeIb, setSizeIb] = useLocalStorage<number>('split-size-ib', 20);
+    const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
+    const isLeftTranscript = transcriptPosition === 'left';
     const navigate = useNavigate();
     const { handlePlayerReady, handleAutoPlayNext } = usePlayerBridge(navigate);
 
@@ -133,6 +135,145 @@ const PlaybackLayout = () => {
         );
     }
 
+    const videoStagePanel = (
+        <ResizablePanel
+            key="video-stage-panel"
+            defaultSize={sizeOa}
+            onResize={(e) => {
+                if (fullScreen) {
+                    return;
+                }
+                logger.debug('Outer panel resized', { size: e });
+                setSizeOa(e);
+            }}
+        >
+            <div className="relative w-full h-full overflow-hidden">
+                {/* 视频与主字幕：学习页打开时只隐藏不卸载，切回播放时视频元素、播放进度与滚动位置全部保留 */}
+                <ResizablePanelGroup
+                    direction={'vertical'}
+                    className={cn('relative z-10', (learningVisible || practiceVisible) && 'invisible')}
+                >
+                    <ResizablePanel
+                        minSize={10}
+                        defaultSize={sizeIa}
+                        onResize={(e) => {
+                            if (fullScreen) {
+                                return;
+                            }
+                            setSizeIa(e);
+                        }}
+                    >
+                        <PlaybackStage
+                            className="w-full h-full"
+                            onReady={handlePlayerReady}
+                            onEnded={handleAutoPlayNext}
+                            onProvideVideoElement={setVideoElement}
+                        />
+                    </ResizablePanel>
+                    {!fullScreen && !podcastMode && (
+                        <>
+                            <ResizableHandle
+                                className={cn(
+                                    'group relative h-1.5 w-full flex items-center justify-center',
+                                    'bg-border/30 hover:bg-accent/40',
+                                    'after:hidden transition-colors duration-150 cursor-row-resize z-20'
+                                )}
+                            >
+                                <div className="w-10 h-1 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:w-14 transition-all duration-200" />
+                            </ResizableHandle>
+                            <ResizablePanel
+                                className={cn('overflow-hidden bg-surface/70 backdrop-blur-2xl')}
+                                minSize={0}
+                                defaultSize={sizeIb}
+                                onResize={(e) => {
+                                    if (fullScreen) {
+                                        return;
+                                    }
+                                    setSizeIb(e);
+                                }}
+                            >
+                                {/* 字幕内容 + 学习台：学习台占布局的一行，任何内容都盖不到它；
+                                    没有字幕时也保留学习台，训练/设置入口不会随字幕一起消失 */}
+                                <div className="group/subtitles flex h-full w-full flex-col">
+                                    <div className="min-h-0 flex-1">
+                                        {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
+                                    </div>
+                                    <LearningToolbar />
+                                </div>
+                            </ResizablePanel>
+                        </>
+                    )}
+                </ResizablePanelGroup>
+
+                {/* 播客模式：作为顶层全屏覆盖层呈现，保留底部的 PlaybackStage 与 Panel 结构完整稳定 */}
+                {podcastMode && (
+                    <PodcastViewer className="absolute inset-0 z-30" />
+                )}
+
+                {/* 跟读/听写练习页：占据视频与主字幕的位置，渲染在整句学习页之前（同 z 值，后开者覆盖） */}
+                {practiceVisible && (
+                    <div className="absolute inset-0 z-20">
+                        <PracticePanel/>
+                    </div>
+                )}
+                {practiceVisible && (
+                    <div className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-30 pointer-events-auto', CAPTION_CARD_CLASS)}>
+                        <PracticeModeButton/>
+                    </div>
+                )}
+
+                {/* 整句学习页：占据视频与主字幕的位置，与播放器同一套外壳 */}
+                {learningMounted && (
+                    <div className={cn('absolute inset-0 z-20', !learningVisible && 'invisible')}>
+                        <LearningPage/>
+                    </div>
+                )}
+
+                {/* 学习界面右下角的学习开关：外壳与播放画面胶囊同款、锚点相同，按钮落点因此不变 */}
+                {learningVisible && (
+                    <div className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-30 pointer-events-auto', CAPTION_CARD_CLASS)}>
+                        <LearningModeButton/>
+                    </div>
+                )}
+            </div>
+        </ResizablePanel>
+    );
+
+    const subtitlePanel = (
+        <ResizablePanel
+            key="subtitle-script-panel"
+            className={cn(
+                'relative overflow-hidden backdrop-blur-2xl transition-colors duration-300',
+                isLeftTranscript ? 'border-r border-border/40' : 'border-l border-border/40',
+                learningVisible
+                    ? 'bg-surface/90'
+                    : 'bg-body/60 dark:bg-body/40'
+            )}
+            defaultSize={sizeOb}
+            onResize={(e) => {
+                if (fullScreen) {
+                    return;
+                }
+                setSizeOb(e);
+            }}
+        >
+            <Subtitle />
+        </ResizablePanel>
+    );
+
+    const splitHandle = (
+        <ResizableHandle
+            key="outer-split-handle"
+            className={cn(
+                'group relative w-1.5 h-full flex items-center justify-center',
+                'bg-border/30 hover:bg-accent/40',
+                'after:hidden transition-colors duration-150 cursor-col-resize z-20'
+            )}
+        >
+            <div className="w-1 h-12 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:h-16 transition-all duration-200" />
+        </ResizableHandle>
+    );
+
     return (
         <div ref={rootContainerRef} className={containerClass}>
             {/* 媒体错误最小诊断：播放修复链路已删除，本地视频兼容性问题在这里给出明确出口 */}
@@ -165,144 +306,28 @@ const PlaybackLayout = () => {
             )}
 
             <ResizablePanelGroup
+                key={`layout-group-${transcriptPosition}`}
                 className={cn(
                     'relative z-10 bg-transparent'
                 )}
-                direction={'horizontal'}>
-                <ResizablePanel
-                    defaultSize={sizeOa}
-                    onResize={(e) => {
-                        if (fullScreen) {
-                            return;
-                        }
-                        logger.debug('Outer panel resized', { size: e });
-                        setSizeOa(e);
-                    }}
-                >
-                    <div className="relative w-full h-full overflow-hidden">
-                        {/* 视频与主字幕：学习页打开时只隐藏不卸载，切回播放时视频元素、播放进度与滚动位置全部保留 */}
-                        <ResizablePanelGroup
-                            direction={'vertical'}
-                            className={cn('relative z-10', (learningVisible || practiceVisible) && 'invisible')}
-                        >
-                            <ResizablePanel
-                                minSize={10}
-                                defaultSize={sizeIa}
-                                onResize={(e) => {
-                                    if (fullScreen) {
-                                        return;
-                                    }
-                                    setSizeIa(e);
-                                }}
-                            >
-                                <PlaybackStage
-                                    className="w-full h-full"
-                                    onReady={handlePlayerReady}
-                                    onEnded={handleAutoPlayNext}
-                                    onProvideVideoElement={setVideoElement}
-                                />
-                            </ResizablePanel>
-                            {!fullScreen && !podcastMode && (
-                                <>
-                                    <ResizableHandle
-                                        className={cn(
-                                            'group relative h-1.5 w-full flex items-center justify-center',
-                                            'bg-border/30 hover:bg-accent/40',
-                                            'after:hidden transition-colors duration-150 cursor-row-resize z-20'
-                                        )}
-                                    >
-                                        <div className="w-10 h-1 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:w-14 transition-all duration-200" />
-                                    </ResizableHandle>
-                                    <ResizablePanel
-                                        className={cn('overflow-hidden bg-surface/70 backdrop-blur-2xl')}
-                                        minSize={0}
-                                        defaultSize={sizeIb}
-                                        onResize={(e) => {
-                                            if (fullScreen) {
-                                                return;
-                                            }
-                                            setSizeIb(e);
-                                        }}
-                                    >
-                                        {/* 字幕内容 + 学习台：学习台占布局的一行，任何内容都盖不到它；
-                                            没有字幕时也保留学习台，训练/设置入口不会随字幕一起消失 */}
-                                        <div className="group/subtitles flex h-full w-full flex-col">
-                                            <div className="min-h-0 flex-1">
-                                                {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
-                                            </div>
-                                            <LearningToolbar />
-                                        </div>
-                                    </ResizablePanel>
-                                </>
-                            )}
-
-                        </ResizablePanelGroup>
-
-                        {/* 播客模式：作为顶层全屏覆盖层呈现，保留底部的 PlaybackStage 与 Panel 结构完整稳定 */}
-                        {podcastMode && (
-                            <PodcastViewer className="absolute inset-0 z-30" />
-                        )}
-
-                        {/* 跟读/听写练习页：占据视频与主字幕的位置，渲染在整句学习页之前（同 z 值，后开者覆盖） */}
-                        {practiceVisible && (
-                            <div className="absolute inset-0 z-20">
-                                <PracticePanel/>
-                            </div>
-                        )}
-                        {practiceVisible && (
-                            <div className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-30 pointer-events-auto', CAPTION_CARD_CLASS)}>
-                                <PracticeModeButton/>
-                            </div>
-                        )}
-
-                        {/* 整句学习页：占据视频与主字幕的位置，与播放器同一套外壳 */}
-                        {learningMounted && (
-                            <div className={cn('absolute inset-0 z-20', !learningVisible && 'invisible')}>
-                                <LearningPage/>
-                            </div>
-                        )}
-
-                        {/* 学习界面右下角的学习开关：外壳与播放画面胶囊同款、锚点相同，按钮落点因此不变 */}
-                        {learningVisible && (
-                            <div className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-30 pointer-events-auto', CAPTION_CARD_CLASS)}>
-                                <LearningModeButton/>
-                            </div>
-                        )}
-                    </div>
-                </ResizablePanel>
-
-                {!fullScreen && (
+                direction={'horizontal'}
+            >
+                {isLeftTranscript ? (
                     <>
-                        <ResizableHandle
-                            className={cn(
-                                'group relative w-1.5 h-full flex items-center justify-center',
-                                'bg-border/30 hover:bg-accent/40',
-                                'after:hidden transition-colors duration-150 cursor-col-resize z-20'
-                            )}
-                        >
-                            <div className="w-1 h-12 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:h-16 transition-all duration-200" />
-                        </ResizableHandle>
-                        <ResizablePanel
-                            className={cn(
-                                'relative overflow-hidden backdrop-blur-2xl transition-colors duration-300',
-                                learningVisible
-                                    ? 'bg-surface/90 border-l border-border/40'
-                                    : 'bg-body/60 dark:bg-body/40 border-l border-border/40'
-                            )}
-                            defaultSize={sizeOb}
-                            onResize={(e) => {
-                                if (fullScreen) {
-                                    return;
-                                }
-                                setSizeOb(e);
-                            }}
-                        >
-                            <Subtitle />
-                        </ResizablePanel>
-                    </>)}
+                        {!fullScreen && subtitlePanel}
+                        {!fullScreen && splitHandle}
+                        {videoStagePanel}
+                    </>
+                ) : (
+                    <>
+                        {videoStagePanel}
+                        {!fullScreen && splitHandle}
+                        {!fullScreen && subtitlePanel}
+                    </>
+                )}
             </ResizablePanelGroup>
         </div>
-    )
+    );
 }
 
 export default PlaybackLayout;

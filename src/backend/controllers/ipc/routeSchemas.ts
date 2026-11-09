@@ -56,6 +56,8 @@ export const windowStateSchema: z.ZodType<WindowState> = z.enum([
 export const runtimeSettingSaveSchema: z.ZodType<RuntimeSettingSaveRequest> = z.object({
     key: z.enum([
         'appearance.theme',
+        'appearance.themeFamily',
+        'appearance.transcriptPosition',
         'player.autoPlayNext',
         'player.pauseOnWordHover',
         'userSelect.playbackRateStack',
@@ -138,6 +140,7 @@ export const appearanceSettingSchema: z.ZodType<AppearanceSettingVO> = z.object(
     themeFamily: z.enum(['neutral', 'stone', 'matcha', 'butter']).optional(),
     fontSize: z.enum(['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge']),
     language: z.enum(['system', 'zh-CN', 'en-US']),
+    transcriptPosition: z.enum(['right', 'left']).optional(),
 });
 
 /** 存储路径设置保存请求校验架构。 */

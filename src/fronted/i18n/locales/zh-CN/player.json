@@ -239,5 +239,7 @@
     "mediaError": {
         "hint": "视频无法播放（错误码 {{code}}）。本地视频建议转成 H.264 + AAC 的 MP4 后重试；YouTube 导入的视频不受影响。"
     },
-    "translationFailed": "字幕翻译失败"
+    "translationFailed": "字幕翻译失败",
+    "dockToLeft": "将伴读剧本切换至左侧",
+    "dockToRight": "将伴读剧本切换至右侧"
 }

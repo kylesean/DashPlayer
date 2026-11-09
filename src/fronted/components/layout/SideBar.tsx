@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import React, { useMemo } from 'react';
-import { BookOpen, PanelLeftClose, Settings, Video } from 'lucide-react';
+import { BookOpen, Settings, Video } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Center } from '@astryxdesign/core/Center';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
@@ -11,7 +11,6 @@ import logoDark from '../../../../assets/logo-dark.png';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import YoutubeImportSidebarItem from '@/fronted/features/youtube-import/YoutubeImportSidebarItem';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import useLayout from '@/fronted/app/stores/layoutStore';
 
 /**
  * 左侧主导航栏属性定义。
@@ -35,7 +34,6 @@ const SideBar: React.FC<SideBarProps> = ({ compact = false }) => {
     const location = useLocation();
     const videoId = usePlaybackSession((s) => s.videoId);
     const theme = useSetting((s) => s.values.get('appearance.theme'));
-    const changeSideBar = useLayout((s) => s.changeSideBar);
 
     const isDark = useMemo(() => {
         if (theme === 'dark') return true;
@@ -109,21 +107,6 @@ const SideBar: React.FC<SideBarProps> = ({ compact = false }) => {
                     onClick={() => navigate('/settings')}
                 />
             </VStack>
-            {isPlayer && (
-                <div className="mt-auto pt-2 pb-1 px-1">
-                    <SideNavItem
-                        label={t('collapseSidebar', { defaultValue: '收起导航栏' })}
-                        icon={
-                            <Icon
-                                icon={PanelLeftClose as unknown as IconType}
-                                size="sm"
-                                color="secondary"
-                            />
-                        }
-                        onClick={() => changeSideBar(false)}
-                    />
-                </div>
-            )}
         </SideNav>
     );
 };

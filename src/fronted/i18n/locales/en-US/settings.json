@@ -64,7 +64,11 @@
         "languageDescription": "Follow your system language by default, or lock to Chinese/English for stable terminology.",
         "languageSystem": "Follow System",
         "languageZhCN": "Simplified Chinese",
-        "languageEnUS": "English"
+        "languageEnUS": "English",
+        "transcriptPositionTitle": "Script Panel Docking",
+        "transcriptPositionDescription": "Choose where the synchronized script panel docks in the player (Right for watching / Left for deep reading).",
+        "transcriptPositionRight": "Right (Default)",
+        "transcriptPositionLeft": "Left (Deep Read)"
     },
     "proxy": {
         "title": "Network Proxy",

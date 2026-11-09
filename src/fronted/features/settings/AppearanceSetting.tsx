@@ -14,7 +14,7 @@ import { applyLanguageSetting } from '@/fronted/i18n';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 import useSWR from 'swr';
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
-import { Globe, Palette, Type, Moon, Sun, Laptop } from 'lucide-react';
+import { Columns2, Globe, Laptop, Moon, Palette, PanelLeft, PanelRight, Sun, Type } from 'lucide-react';
 import { SelectableCard } from '@astryxdesign/core/SelectableCard';
 import { Grid } from '@astryxdesign/core/Grid';
 import { Selector } from '@astryxdesign/core/Selector';
@@ -53,9 +53,9 @@ const AppearanceSetting: React.FC = () => {
 
     const form = useForm<AppearanceFormValues>();
     const { setValue } = form;
-    const [currentTheme, currentThemeFamily, currentFontSize, currentLanguage] = useWatch({
+    const [currentTheme, currentThemeFamily, currentFontSize, currentLanguage, currentTranscriptPosition] = useWatch({
         control: form.control,
-        name: ['theme', 'themeFamily', 'fontSize', 'language'],
+        name: ['theme', 'themeFamily', 'fontSize', 'language', 'transcriptPosition'],
     });
 
     const { ready, initialize, flush } = useAutoSaveSettingsForm<AppearanceFormValues>({
@@ -299,6 +299,77 @@ const AppearanceSetting: React.FC = () => {
                                 }
                             }}
                         />
+                    </SettingRow>
+
+                    {/* 伴读剧本流停靠方位行 */}
+                    <SettingRow
+                        title={t('appearance.transcriptPositionTitle')}
+                        description={t('appearance.transcriptPositionDescription')}
+                        icon={Columns2}
+                    >
+                        <Grid
+                            columns={{ minWidth: 120, max: 2 }}
+                            gap={2}
+                            maxWidth={320}
+                        >
+                            <SelectableCard
+                                label={t('appearance.transcriptPositionRight')}
+                                isSelected={(currentTranscriptPosition || 'right') === 'right'}
+                                padding={2}
+                                onChange={() => {
+                                    if (currentTranscriptPosition !== 'right') {
+                                        setValue('transcriptPosition', 'right', {
+                                            shouldDirty: true,
+                                            shouldTouch: true,
+                                        });
+                                    }
+                                }}
+                            >
+                                <VStack gap={1.5} align="center" justify="center">
+                                    <Icon
+                                        icon={PanelRight as unknown as Parameters<typeof Icon>[0]['icon']}
+                                        size="sm"
+                                        color={(currentTranscriptPosition || 'right') === 'right' ? 'accent' : 'secondary'}
+                                    />
+                                    <Text
+                                        type="supporting"
+                                        weight={(currentTranscriptPosition || 'right') === 'right' ? 'semibold' : undefined}
+                                        color={(currentTranscriptPosition || 'right') === 'right' ? 'primary' : 'secondary'}
+                                    >
+                                        {t('appearance.transcriptPositionRight')}
+                                    </Text>
+                                </VStack>
+                            </SelectableCard>
+
+                            <SelectableCard
+                                label={t('appearance.transcriptPositionLeft')}
+                                isSelected={currentTranscriptPosition === 'left'}
+                                padding={2}
+                                onChange={() => {
+                                    if (currentTranscriptPosition !== 'left') {
+                                        setValue('transcriptPosition', 'left', {
+                                            shouldDirty: true,
+                                            shouldTouch: true,
+                                        });
+                                    }
+                                }}
+                            >
+                                <VStack gap={1.5} align="center" justify="center">
+                                    <Icon
+                                        icon={PanelLeft as unknown as Parameters<typeof Icon>[0]['icon']}
+                                        size="sm"
+                                        color={currentTranscriptPosition === 'left' ? 'accent' : 'secondary'}
+                                    />
+                                    <Text
+                                        type="supporting"
+                                        weight={currentTranscriptPosition === 'left' ? 'semibold' : undefined}
+                                        color={currentTranscriptPosition === 'left' ? 'primary' : 'secondary'}
+                                    >
+                                        {t('appearance.transcriptPositionLeft')}
+                                    </Text>
+                                </VStack>
+                            </SelectableCard>
+                        </Grid>
                     </SettingRow>
 
                     {/* 实时字幕预览区域 */}

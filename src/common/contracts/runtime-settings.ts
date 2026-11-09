@@ -34,6 +34,7 @@ export const runtimeSettingKeys = [
     'appearance.theme',
     'appearance.themeFamily',
     'appearance.fontSize',
+    'appearance.transcriptPosition',
     'i18n.language',
     'player.autoPlayNext',
     'player.pauseOnWordHover',
@@ -50,6 +51,7 @@ export type RuntimeSettingKey = typeof runtimeSettingKeys[number];
 export type RuntimeWritableSettingKey =
     | 'appearance.theme'
     | 'appearance.themeFamily'
+    | 'appearance.transcriptPosition'
     | 'player.autoPlayNext'
     | 'player.pauseOnWordHover'
     | 'userSelect.playbackRateStack';

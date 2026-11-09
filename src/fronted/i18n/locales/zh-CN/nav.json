@@ -8,5 +8,6 @@
     "backNavUp": "返回上一级",
     "backNavRecentHint": "查看最近打开的项目",
     "backNavCurrentDir": "当前目录：{{dir}}",
-    "youtubeImport": "导入 YouTube 视频"
+    "youtubeImport": "导入 YouTube 视频",
+    "collapseSidebar": "收起导航栏"
 }

@@ -14,6 +14,11 @@ export type AppearanceThemeFamily = 'neutral' | 'stone' | 'matcha' | 'butter';
 export type AppearanceFontSize = 'fontSizeSmall' | 'fontSizeMedium' | 'fontSizeLarge';
 
 /**
+ * 伴读剧本流面板停靠方位。
+ */
+export type TranscriptPosition = 'right' | 'left';
+
+/**
  * 界面语言选项。
  */
 export type AppearanceLanguage = 'system' | 'zh-CN' | 'en-US';
@@ -32,4 +37,6 @@ export interface AppearanceSettingVO {
     fontSize: AppearanceFontSize;
     /** 界面语言。 */
     language: AppearanceLanguage;
+    /** 伴读剧本流面板停靠方位（右侧默认 / 左侧精读）。 */
+    transcriptPosition?: TranscriptPosition;
 }

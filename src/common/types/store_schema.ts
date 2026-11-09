@@ -51,6 +51,7 @@ export const SettingKeyObj = {
     'appearance.theme': 'light',
     'appearance.themeFamily': 'neutral',
     'appearance.fontSize': 'fontSizeLarge',
+    'appearance.transcriptPosition': 'right',
     'i18n.language': 'system',
     'player.autoPlayNext': 'false',
     'player.pauseOnWordHover': 'false',

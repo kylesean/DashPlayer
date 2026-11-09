@@ -8,5 +8,6 @@
     "backNavUp": "Go up one level",
     "backNavRecentHint": "Browse recently opened projects",
     "backNavCurrentDir": "Current folder: {{dir}}",
-    "youtubeImport": "Import YouTube video"
+    "youtubeImport": "Import YouTube video",
+    "collapseSidebar": "Collapse Navigation"
 }
