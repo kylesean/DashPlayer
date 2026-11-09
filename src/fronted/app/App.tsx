@@ -1,7 +1,8 @@
 import { createRoot } from 'react-dom/client';
 import React, { useEffect } from 'react';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { HashRouter, Link as RouterLink, type LinkProps as RouterLinkProps, Navigate, Route, Routes } from 'react-router-dom';
+import { LinkProvider } from '@astryxdesign/core/Link';
 import HomePage from '@/fronted/features/file-browser/HomePage';
 import TitleBarLayout from '@/fronted/components/layout/TitleBarLayout';
 import YoutubeImportDialogHost from '@/fronted/features/youtube-import/YoutubeImportDialogHost';
@@ -26,7 +27,7 @@ import { getOnboardingCompletedVersion } from '@/fronted/features/onboarding/onb
 import { MigrationFailureGate } from '@/fronted/features/migration-failure/MigrationFailureGate';
 import { getMigrationFailureDetail } from '@/fronted/features/migration-failure/migrationFailureApi';
 import type { MigrationFailureDetail } from '@/common/contracts/migration-failure';
-import { Button } from '@/fronted/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
 import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
@@ -92,6 +93,29 @@ const StartupLoading: React.FC = () => {
         </div>
     );
 };
+
+/**
+ * 将 Astryx LinkProvider 期望的 href/className/children 等属性桥接到 React Router 的 Link。
+ * 针对外部链接（http/https/mailto 等）自动回退为原生 a 标签。
+ */
+const RouterLinkAdapter = React.forwardRef<HTMLAnchorElement, { href?: string; to?: string } & Omit<RouterLinkProps, 'to'>>(
+    ({ href, to, children, ...props }, ref) => {
+        const dest = to ?? href;
+        if (dest && (/^https?:\/\/|^mailto:|^tel:/.test(dest) || props.target === '_blank')) {
+            return (
+                <a ref={ref} href={dest} {...props}>
+                    {children}
+                </a>
+            );
+        }
+        return (
+            <RouterLink ref={ref} to={dest ?? '#'} {...props}>
+                {children}
+            </RouterLink>
+        );
+    }
+);
+RouterLinkAdapter.displayName = 'RouterLinkAdapter';
 
 /**
  * DashPlayer 桌面端根组件，负责启动门槛判定、主题语言同步及全局路由。
@@ -177,14 +201,12 @@ export const App = () => {
                             <span className="font-semibold text-xs">{versionTitle}</span>
                             <Button
                                 size="sm"
-                                className="h-7 px-3 text-xs shrink-0"
+                                label={t('updateAvailableAction')}
                                 onClick={() => {
                                     toast.dismiss(tState.id);
                                     void backendClient.call('system/open-url', latest.url);
                                 }}
-                            >
-                                {t('updateAvailableAction')}
-                            </Button>
+                            />
                         </div>
                     ),
                     {
@@ -219,7 +241,8 @@ export const App = () => {
                 )}
                 {gate?.kind === 'main' && (
                     <HashRouter>
-                        <Routes>
+                        <LinkProvider component={RouterLinkAdapter}>
+                            <Routes>
                             <Route path="/" element={<HomePage />} />
                             <Route path="home" element={<HomePage />} />
                             <Route element={<TitleBarLayout />}>
@@ -286,7 +309,8 @@ export const App = () => {
                             </Route>
                         </Routes>
                         <YoutubeImportDialogHost />
-                    </HashRouter>
+                    </LinkProvider>
+                </HashRouter>
                 )}
                 {gate === null && <StartupLoading />}
             </div>

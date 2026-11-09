@@ -1,12 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import React, { useMemo } from 'react';
-import { BookOpen, PanelLeftClose, PanelLeftOpen, Settings, Video, X } from 'lucide-react';
+import { BookOpen, PanelLeftClose, PanelLeftOpen, Settings, Video } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Center } from '@astryxdesign/core/Center';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
 import { SideNav, SideNavItem } from '@astryxdesign/core/SideNav';
 import { VStack } from '@astryxdesign/core/VStack';
-import { Tooltip } from '@astryxdesign/core/Tooltip';
 import logoLight from '../../../../assets/logo-light.png';
 import logoDark from '../../../../assets/logo-dark.png';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
@@ -97,35 +97,22 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
                         isCompact ? 'justify-center' : 'justify-between px-2',
                     )}
                 >
-                    <Tooltip
-                        content={isCompact ? t('expandSidebar', { defaultValue: '展开导航栏' }) : t('collapseSidebar', { defaultValue: '收起导航栏' })}
-                        placement="end"
-                    >
-                        <button
-                            type="button"
-                            onClick={toggleSidebarCollapsed}
-                            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground cursor-pointer"
-                            aria-label={isCompact ? t('expandSidebar') : t('collapseSidebar')}
-                        >
-                            {isCompact ? (
-                                <PanelLeftOpen className="w-4 h-4" />
-                            ) : (
-                                <PanelLeftClose className="w-4 h-4" />
-                            )}
-                        </button>
-                    </Tooltip>
+                    <IconButton
+                        label={isCompact ? t('expandSidebar', { defaultValue: '展开导航栏' }) : t('collapseSidebar', { defaultValue: '收起导航栏' })}
+                        icon={<Icon icon={isCompact ? PanelLeftOpen : PanelLeftClose} size="sm" />}
+                        variant="ghost"
+                        size="sm"
+                        onClick={toggleSidebarCollapsed}
+                    />
 
                     {inPlayer && !isCompact && (
-                        <Tooltip content={t('hideSidebar', { defaultValue: '完全收起侧栏' })} placement="above">
-                            <button
-                                type="button"
-                                onClick={() => changeSideBar(false)}
-                                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer"
-                                aria-label={t('hideSidebar')}
-                            >
-                                <X className="w-3.5 h-3.5" />
-                            </button>
-                        </Tooltip>
+                        <IconButton
+                            label={t('hideSidebar', { defaultValue: '完全收起侧栏' })}
+                            icon={<Icon icon="close" size="sm" />}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => changeSideBar(false)}
+                        />
                     )}
                 </div>
             }
@@ -135,6 +122,11 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
 
                 <SideNavItem
                     label={t('playbackLab')}
+                    href={
+                        videoId && videoId !== 'undefined'
+                            ? `/player/${videoId}?sideBarAnimation=false`
+                            : '/player?sideBarAnimation=false'
+                    }
                     icon={
                         <Icon
                             icon={Video as unknown as IconType}
@@ -154,6 +146,7 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
 
                 <SideNavItem
                     label={t('vocabularyStudio')}
+                    href="/vocabulary"
                     icon={
                         <Icon
                             icon={BookOpen as unknown as IconType}
@@ -167,6 +160,7 @@ const SideBar: React.FC<SideBarProps> = ({ compact, inPlayer = false }) => {
 
                 <SideNavItem
                     label={t('settingsCenter')}
+                    href="/settings"
                     icon={
                         <Icon
                             icon={Settings as unknown as IconType}

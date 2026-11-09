@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Center } from '@astryxdesign/core/Center';
 import { Spinner } from '@astryxdesign/core/Spinner';
+import { Layout, LayoutContent, LayoutHeader } from '@astryxdesign/core/Layout';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
 import { useTranslation } from 'react-i18next';
 import useLayout from '@/fronted/app/stores/layoutStore';
@@ -21,18 +22,30 @@ const TitleBarLayout: React.FC = () => {
     const fullScreen = useLayout((s) => s.fullScreen);
 
     return (
-        <div className="w-full h-screen bg-body text-primary flex flex-col overflow-hidden select-none">
-            {!fullScreen && (
-                <div className="w-full h-8 shrink-0 bg-background/90 backdrop-blur-md border-b border-border/40 flex items-center z-50">
-                    <TitleBar className="w-full h-full" />
-                </div>
-            )}
-            <Suspense fallback={<Center height="fill"><Spinner label={t('loading')} /></Center>}>
-                <div className="flex-1 h-0 w-full relative">
-                    <Outlet />
-                </div>
-            </Suspense>
-        </div>
+        <Layout
+            height="fill"
+            // padding={0}：LayoutHeader 默认给内层加 8px 内边距，
+            // 会把 32px 的标题栏挤成 16px 内容 + 48px 溢出，
+            // 导致窗口控制按钮高度不一、与标题栏错位
+            header={
+                !fullScreen ? (
+                    <LayoutHeader height={32} hasDivider padding={0}>
+                        {/* 标题栏给固定 32px：LayoutHeader 的内层是 auto 高度，
+                            用 h-full 只能拿到内容高度（16px），控制按钮会高低不齐 */}
+                        <TitleBar className="w-full h-8" />
+                    </LayoutHeader>
+                ) : undefined
+            }
+            content={
+                <LayoutContent padding={0} isScrollable={false}>
+                    <Suspense fallback={<Center height="fill"><Spinner label={t('loading')} /></Center>}>
+                        <div className="w-full h-full relative">
+                            <Outlet />
+                        </div>
+                    </Suspense>
+                </LayoutContent>
+            }
+        />
     );
 };
 

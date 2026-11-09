@@ -95,7 +95,7 @@ export const engineSelectionSaveSchema: z.ZodType<EngineSelectionSettingVO> = z.
         }),
     }),
     providers: z.object({
-        subtitleTranslationEngine: z.enum(['openai', 'local', 'tencent', 'none', 'invalid']),
+        subtitleTranslationEngine: z.enum(['openai', 'local', 'local-mt', 'tencent', 'none', 'invalid']),
         dictionaryEngine: z.enum(['openai', 'local', 'none', 'invalid']),
     }),
     invalidValues: z.object({

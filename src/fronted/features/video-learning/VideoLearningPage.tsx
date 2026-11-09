@@ -11,6 +11,11 @@ import { videoLearningApi } from '@/fronted/features/video-learning/videoLearnin
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { Pagination } from '@astryxdesign/core/Pagination';
 import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
+import { HStack } from '@astryxdesign/core/HStack';
 import toast from 'react-hot-toast';
 import { cn } from '@/fronted/lib/utils';
 
@@ -522,7 +527,7 @@ export default function VideoLearningPage() {
       {/* 主体内容区域：双栏现代化卡片工作台 */}
       <div className="flex-1 min-h-0 grid grid-cols-[480px_minmax(0,1fr)] gap-5 px-6 pb-5 pt-1 overflow-hidden">
         {/* 左栏卡片：生词库 */}
-        <div className="flex flex-col rounded-2xl border border-border/70 bg-card p-4 shadow-2xs min-h-0">
+        <Card padding={4} height="100%" className="min-h-0 overflow-hidden">
           <WordSidebar
             words={words}
             loading={loading}
@@ -536,19 +541,19 @@ export default function VideoLearningPage() {
             onEditWord={setEditingWord}
             onWordDeleted={handleWordDeleted}
           />
-        </div>
+        </Card>
 
         {/* 右栏工作区：片段探索与即时播放 */}
-        <div className="flex-1 flex flex-col gap-4 min-h-0 overflow-hidden">
+        <VStack gap={4} height="100%" width="100%" className="min-h-0 overflow-hidden flex-1">
           {/* 上半部分：片段浏览卡片 */}
-          <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-border/70 bg-card p-4 shadow-2xs">
+          <Card padding={4} height="100%" className="flex-1 min-h-0 flex flex-col overflow-hidden">
             {/* 片段卡片头部栏：统计与紧凑分页 */}
-            <div className="flex items-center justify-between pb-3 mb-2 border-b border-border/40 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-foreground tracking-tight">
+            <HStack vAlign="center" hAlign="between" className="pb-3 mb-2 border-b border-border/40 shrink-0" width="100%">
+              <HStack vAlign="center" gap={2}>
+                <Text type="body" weight="semibold">
                   {selectedWord ? `${selectedWord.word}` : t('vocabularyStudio.title')}
-                </span>
-                <span className="text-xs text-muted-foreground tabular-nums">
+                </Text>
+                <Text type="supporting" color="secondary" className="tabular-nums">
                   {totalClips > 0
                     ? t('vocabularyStudio.pagination.summary', {
                       start: clipRangeStart,
@@ -556,8 +561,8 @@ export default function VideoLearningPage() {
                       total: totalClips,
                     })
                     : t('vocabularyStudio.pagination.empty')}
-                </span>
-              </div>
+                </Text>
+              </HStack>
 
               {totalPages > 1 && (
                 <div className="ml-auto">
@@ -576,15 +581,15 @@ export default function VideoLearningPage() {
                   />
                 </div>
               )}
-            </div>
+            </HStack>
 
             <div className="flex-1 min-h-0 overflow-auto">
               {clips.length === 0 ? (
                 <div className="h-full w-full rounded-xl border border-dashed border-border/60 p-8 flex flex-col gap-4 items-center justify-center text-center">
-                  <h3 className="text-base font-semibold">{t('vocabularyStudio.empty.title')}</h3>
-                  <p className="text-xs text-muted-foreground leading-5 max-w-sm">
+                  <Heading level={3}>{t('vocabularyStudio.empty.title')}</Heading>
+                  <Text type="supporting" color="secondary" className="max-w-sm text-center">
                     {t('vocabularyStudio.empty.guideAdd')}
-                  </p>
+                  </Text>
                   <Button
                     variant="secondary"
                     size="sm"
@@ -605,7 +610,7 @@ export default function VideoLearningPage() {
                 />
               )}
             </div>
-          </div>
+          </Card>
 
           {/* 下半部分：内嵌播放器面板 */}
           <div className="shrink-0">
@@ -619,7 +624,7 @@ export default function VideoLearningPage() {
               forcePlayKey={forcePlayKey}
             />
           </div>
-        </div>
+        </VStack>
       </div>
 
       <WordEditDialog

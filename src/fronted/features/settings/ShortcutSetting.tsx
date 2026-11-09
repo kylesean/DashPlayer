@@ -27,6 +27,7 @@ import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
+import { Table, TableBody, TableCell, TableRow } from '@astryxdesign/core/Table';
 
 import { SettingKeyObj } from '@/common/types/store_schema';
 import type { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
@@ -95,7 +96,7 @@ const formatKeySymbol = (key: string): string => {
 /**
  * 快捷键组合展示组件
  *
- * 将逗号分隔的快捷键解析为 Astryx Kbd 徽章组合。
+ * 将逗号分隔的快捷键解析为 Astryx Kbd 徽章组合，并辅以无障碍语义文本以保证符号可读性与无障碍断言。
  */
 const KeyBadge: React.FC<{ keys: string }> = ({ keys }) => {
     if (!keys || keys.trim() === '') {
@@ -105,7 +106,12 @@ const KeyBadge: React.FC<{ keys: string }> = ({ keys }) => {
     return (
         <HStack gap={2} vAlign="center" wrap="wrap">
             {list.map((shortcut) => (
-                <Kbd key={shortcut} keys={shortcut.toLowerCase()} />
+                <span key={shortcut} className="inline-flex items-center gap-1">
+                    <Kbd keys={shortcut.toLowerCase()} />
+                    <span className="sr-only">
+                        {shortcut.split('+').map(formatKeySymbol).join('+')}
+                    </span>
+                </span>
             ))}
         </HStack>
     );
@@ -248,11 +254,8 @@ const RecordDialogBody: React.FC<RecordDialogBodyProps> = ({
     // 挂载即开启录制并聚焦录制面板，卸载时自动停止监听
     React.useEffect(() => {
         start();
-        const focusTimer = window.setTimeout(() => {
-            recordContainerRef.current?.focus();
-        }, 50);
+        recordContainerRef.current?.focus();
         return () => {
-            window.clearTimeout(focusTimer);
             stop();
         };
     }, [start, stop]);
@@ -273,15 +276,16 @@ const RecordDialogBody: React.FC<RecordDialogBodyProps> = ({
                     <button
                         ref={recordContainerRef}
                         type="button"
+                        data-autofocus=""
                         onFocus={() => {
                             setIsListening(true);
-                            start();
                         }}
-                        onBlur={() => {
-                            setIsListening(false);
-                            stop();
+                        onClick={() => {
+                            if (!recordedShortcut) {
+                                start();
+                            }
+                            recordContainerRef.current?.focus();
                         }}
-                        onClick={() => recordContainerRef.current?.focus()}
                         className="w-full bg-transparent border-0 p-0 cursor-pointer outline-none"
                     >
                         <VStack gap={2} hAlign="center" vAlign="center">
@@ -289,7 +293,7 @@ const RecordDialogBody: React.FC<RecordDialogBodyProps> = ({
                                 <StatusDot
                                     variant={isListening ? 'accent' : 'neutral'}
                                     label={isListening ? listeningPrompt : t('shortcut.clickToListen')}
-                                    isPulsing={isListening}
+                                    isPulsing={isListening && !recordedShortcut}
                                 />
                                 <Text size="sm" weight="medium" color={isListening ? 'accent' : 'secondary'}>
                                     {isListening ? listeningPrompt : t('shortcut.clickToListen')}
@@ -298,7 +302,12 @@ const RecordDialogBody: React.FC<RecordDialogBodyProps> = ({
 
                             <HStack vAlign="center" justify="center" minHeight={40}>
                                 {recordedShortcut ? (
-                                    <Kbd keys={recordedShortcut.toLowerCase()} />
+                                    <span className="inline-flex items-center gap-1">
+                                        <Kbd keys={recordedShortcut.toLowerCase()} />
+                                        <span className="sr-only">
+                                            {recordedShortcut.split('+').map(formatKeySymbol).join('+')}
+                                        </span>
+                                    </span>
                                 ) : (
                                     <Text size="xsm" color="secondary">
                                         {t('shortcut.listeningPromptHint')}
@@ -566,37 +575,41 @@ const ShortcutSetting: React.FC = () => {
                             description={group.description}
                             icon={group.icon as unknown as IconType}
                         >
-                            {group.items.map((item) => (
-                                <Controller
-                                    key={item.key}
-                                    name={item.key}
-                                    control={control}
-                                    render={({ field }) => (
-                                        <ShortcutRow
-                                            title={item.title}
-                                            description={item.description}
-                                            value={field.value ?? ''}
-                                            defaultValue={SettingKeyObj[toShortcutStoreKey(item.key)]}
-                                            onChange={(val) => {
-                                                field.onChange(val);
-                                                flush().catch(() => null);
-                                            }}
-                                            editLabel={t('shortcut.edit')}
-                                            resetDefaultLabel={t('shortcut.resetDefault')}
-                                            dialogTitle={t('shortcut.dialogTitle')}
-                                            dialogDescription={t('shortcut.dialogDescription')}
-                                            saveChangesLabel={t('shortcut.saveChanges')}
-                                            currentShortcutsLabel={t('shortcut.dialogCurrentShortcuts')}
-                                            emptyShortcutsLabel={t('shortcut.dialogNoShortcuts')}
-                                            addRecordedLabel={t('shortcut.dialogAddRecorded')}
-                                            removeShortcutLabel={t('shortcut.dialogRemoveShortcut')}
-                                            dialogResetDefaultLabel={t('shortcut.dialogResetDefault')}
-                                            listeningPrompt={t('shortcut.listeningPrompt')}
-                                            clearAllLabel={t('shortcut.clearAll')}
+                            <Table density="compact" dividers="rows">
+                                <TableBody>
+                                    {group.items.map((item) => (
+                                        <Controller
+                                            key={item.key}
+                                            name={item.key}
+                                            control={control}
+                                            render={({ field }) => (
+                                                <ShortcutRow
+                                                    title={item.title}
+                                                    description={item.description}
+                                                    value={field.value ?? ''}
+                                                    defaultValue={SettingKeyObj[toShortcutStoreKey(item.key)]}
+                                                    onChange={(val) => {
+                                                        field.onChange(val);
+                                                        flush().catch(() => null);
+                                                    }}
+                                                    editLabel={t('shortcut.edit')}
+                                                    resetDefaultLabel={t('shortcut.resetDefault')}
+                                                    dialogTitle={t('shortcut.dialogTitle')}
+                                                    dialogDescription={t('shortcut.dialogDescription')}
+                                                    saveChangesLabel={t('shortcut.saveChanges')}
+                                                    currentShortcutsLabel={t('shortcut.dialogCurrentShortcuts')}
+                                                    emptyShortcutsLabel={t('shortcut.dialogNoShortcuts')}
+                                                    addRecordedLabel={t('shortcut.dialogAddRecorded')}
+                                                    removeShortcutLabel={t('shortcut.dialogRemoveShortcut')}
+                                                    dialogResetDefaultLabel={t('shortcut.dialogResetDefault')}
+                                                    listeningPrompt={t('shortcut.listeningPrompt')}
+                                                    clearAllLabel={t('shortcut.clearAll')}
+                                                />
+                                            )}
                                         />
-                                    )}
-                                />
-                            ))}
+                                    ))}
+                                </TableBody>
+                            </Table>
                         </SettingCard>
                     ))
                 )}
@@ -649,13 +662,15 @@ const ShortcutRow: React.FC<{
     const isDefault = value === defaultValue;
 
     return (
-        <SettingRow
-            title={title}
-            description={description}
-        >
-            <HStack gap={3} align="center" justify="end">
+        <TableRow>
+            <TableCell>
+                <VStack gap={0.5} width={280}>
+                    <Text type="body" weight="medium">{title}</Text>
+                    <Text type="supporting" color="secondary" maxLines={1}>{description}</Text>
+                </VStack>
+            </TableCell>
+            <TableCell>
                 <div
-                    role="button"
                     tabIndex={0}
                     onClick={() => setIsDialogOpen(true)}
                     onKeyDown={(e) => {
@@ -664,13 +679,14 @@ const ShortcutRow: React.FC<{
                             setIsDialogOpen(true);
                         }
                     }}
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    className="cursor-pointer hover:opacity-80 transition-opacity inline-flex items-center"
                     title={editLabel}
                 >
                     <KeyBadge keys={value} />
                 </div>
-
-                <HStack gap={1} align="center">
+            </TableCell>
+            <TableCell>
+                <HStack gap={1} align="center" justify="end">
                     <IconButton
                         label={editLabel}
                         tooltip={editLabel}
@@ -690,30 +706,30 @@ const ShortcutRow: React.FC<{
                         onClick={() => onChange(defaultValue)}
                     />
                 </HStack>
-            </HStack>
 
-            <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} width={500}>
-                {isDialogOpen && (
-                    <RecordDialogBody
-                        title={title}
-                        initialShortcuts={parseShortcutList(value)}
-                        defaultValue={defaultValue}
-                        dialogTitle={dialogTitle}
-                        dialogDescription={dialogDescription}
-                        saveChangesLabel={saveChangesLabel}
-                        currentShortcutsLabel={currentShortcutsLabel}
-                        emptyShortcutsLabel={emptyShortcutsLabel}
-                        addRecordedLabel={addRecordedLabel}
-                        removeShortcutLabel={removeShortcutLabel}
-                        resetDefaultLabel={dialogResetDefaultLabel}
-                        listeningPrompt={listeningPrompt}
-                        clearAllLabel={clearAllLabel}
-                        onSubmit={onChange}
-                        onClose={() => setIsDialogOpen(false)}
-                    />
-                )}
-            </Dialog>
-        </SettingRow>
+                <Dialog isOpen={isDialogOpen} onOpenChange={setIsDialogOpen} width={500} purpose="form">
+                    {isDialogOpen && (
+                        <RecordDialogBody
+                            title={title}
+                            initialShortcuts={parseShortcutList(value)}
+                            defaultValue={defaultValue}
+                            dialogTitle={dialogTitle}
+                            dialogDescription={dialogDescription}
+                            saveChangesLabel={saveChangesLabel}
+                            currentShortcutsLabel={currentShortcutsLabel}
+                            emptyShortcutsLabel={emptyShortcutsLabel}
+                            addRecordedLabel={addRecordedLabel}
+                            removeShortcutLabel={removeShortcutLabel}
+                            resetDefaultLabel={dialogResetDefaultLabel}
+                            listeningPrompt={listeningPrompt}
+                            clearAllLabel={clearAllLabel}
+                            onSubmit={onChange}
+                            onClose={() => setIsDialogOpen(false)}
+                        />
+                    )}
+                </Dialog>
+            </TableCell>
+        </TableRow>
     );
 };
 

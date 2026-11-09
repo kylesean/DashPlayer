@@ -1,8 +1,6 @@
 import React from 'react';
-import {
-    SegmentedControl,
-    SegmentedControlItem,
-} from '@astryxdesign/core/SegmentedControl';
+import { cn } from '@/fronted/lib/utils';
+import { HStack } from '@astryxdesign/core/HStack';
 import { VStack } from '@astryxdesign/core/VStack';
 import { Text } from '@astryxdesign/core/Text';
 
@@ -25,7 +23,7 @@ export interface SliderInputProps {
 }
 
 /**
- * 档位分段切换器：基于 Astryx SegmentedControl 实现，提供符合规范的单选切换交互。
+ * 档位分段切换器：基于 Astryx 布局原语与语义按钮实现，支持键盘交互与高可见度选中环。
  *
  * @param props 组件属性。
  * @returns 切换器 JSX 元素。
@@ -40,23 +38,43 @@ const SliderInput: React.FC<SliderInputProps> = ({
     return (
         <VStack gap={1}>
             {title && <Text type="label">{title}</Text>}
-            <SegmentedControl
-                label={title || 'Segment options'}
-                value={defaultValue}
-                onChange={setValue}
-                size="sm"
+            <HStack
+                gap={1}
+                padding={1}
+                className="inline-flex items-center rounded-xl bg-muted/60 dark:bg-neutral-800/80 border border-border/60 select-none"
             >
-                {values.map((val) => {
+                {values.map((val, idx) => {
+                    const isSelected = defaultValue === val;
                     const label = valueLabelMap?.[val] ?? val;
+
+                    // 视觉字号阶梯示意：A 小中大
+                    const fontScaleClass =
+                        idx === 0
+                            ? 'text-xs'
+                            : idx === 1
+                            ? 'text-sm'
+                            : 'text-base';
+
                     return (
-                        <SegmentedControlItem
+                        <button
                             key={val}
-                            value={val}
-                            label={label}
-                        />
+                            type="button"
+                            onClick={() => {
+                                setValue(val);
+                            }}
+                            className={cn(
+                                'flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer',
+                                isSelected
+                                    ? 'bg-background text-foreground shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
+                            )}
+                        >
+                            <span className={cn('font-serif font-bold opacity-80', fontScaleClass)}>A</span>
+                            <span>{label}</span>
+                        </button>
                     );
                 })}
-            </SegmentedControl>
+            </HStack>
         </VStack>
     );
 };

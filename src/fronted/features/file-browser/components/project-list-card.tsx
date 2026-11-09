@@ -7,12 +7,7 @@ import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import TimeUtil from '@/common/utils/TimeUtil';
-import {
-    ContextMenu,
-    ContextMenuContent,
-    ContextMenuItem,
-    ContextMenuTrigger
-} from '@/fronted/components/ui/context-menu';
+import { ContextMenu } from '@astryxdesign/core/ContextMenu';
 import UrlUtil from '@/common/utils/UrlUtil';
 import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
 import PathUtil from '@/common/utils/PathUtil';
@@ -27,6 +22,7 @@ const logger = getRendererLogger('ProjectListCard');
 
 const ProjectListCard = ({
     video,
+    className,
     onSelected
 }: {
     video: WatchHistoryVO;
@@ -58,13 +54,28 @@ const ProjectListCard = ({
 
     return (
         <ContextMenu
-            onOpenChange={(open) => {
-                setContextMenu(open);
-            }}
+            className={className}
+            label={video.fileName}
+            items={[
+                {
+                    label: i18n.t('common:showInExplorer'),
+                    onClick: async () => {
+                        await fileBrowserApi.openFolder(video.basePath);
+                    },
+                },
+                {
+                    label: i18n.t('common:delete'),
+                    variant: 'destructive',
+                    onClick: async () => {
+                        await fileBrowserApi.deleteWatchHistoryGroup(video.id);
+                        await swrApiMutate('watch-history/list');
+                    },
+                },
+            ]}
+            onOpenChange={setContextMenu}
         >
-            <ContextMenuTrigger>
-                <div
-                    ref={containerRef}
+            <div
+                ref={containerRef}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
@@ -156,24 +167,6 @@ const ProjectListCard = ({
                         </Text>
                     </VStack>
                 </div>
-            </ContextMenuTrigger>
-            <ContextMenuContent>
-                <ContextMenuItem
-                    onClick={async () => {
-                        await fileBrowserApi.openFolder(video.basePath);
-                    }}
-                >
-                    {i18n.t('common:showInExplorer')}
-                </ContextMenuItem>
-                <ContextMenuItem
-                    onClick={async () => {
-                        await fileBrowserApi.deleteWatchHistoryGroup(video.id);
-                        await swrApiMutate('watch-history/list');
-                    }}
-                >
-                    {i18n.t('common:delete')}
-                </ContextMenuItem>
-            </ContextMenuContent>
         </ContextMenu>
     );
 };

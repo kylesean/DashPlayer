@@ -3,7 +3,7 @@ import { History, RotateCcw } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 
 import { cn } from '@/fronted/lib/utils';
-import { Input } from '@/fronted/components/ui/input';
+import { NumberInput } from '@astryxdesign/core/NumberInput';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerState } from '@/fronted/features/player/playerState';
@@ -62,17 +62,20 @@ export default function TimeAdjustPanel() {
             >
                 +0.2s
             </button>
-            <div className="flex w-20 shrink-0 items-center gap-1">
-                <Input
-                    type="number"
+            <div className="w-24 shrink-0">
+                <NumberInput
+                    label={field === 'start' ? t('subtitle.beginLabel') : t('subtitle.endLabel')}
+                    isLabelHidden
+                    size="sm"
+                    width="100%"
                     step={0.05}
-                    className="h-7 px-1.5 text-center font-mono text-[11px]"
-                    value={draft[field]}
-                    onChange={(e) => setDraft((d) => ({ ...d, [field]: e.target.value }))}
-                    onBlur={() => applyDraft(field, draft[field])}
-                    onKeyDown={(e) => { if (e.key === 'Enter') applyDraft(field, draft[field]); }}
+                    units="s"
+                    value={Number.parseFloat(draft[field]) || 0}
+                    onChange={(val) => {
+                        setDraft((d) => ({ ...d, [field]: val.toFixed(2) }));
+                        applyDraft(field, String(val));
+                    }}
                 />
-                <span className="text-[10px] text-muted-foreground">s</span>
             </div>
         </div>
     );

@@ -1,4 +1,4 @@
-import { Button } from '@/fronted/components/ui/button';
+import { Button } from '@astryxdesign/core/Button';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -23,11 +23,9 @@ export function ModeSwitchToast({ mode, onCancel }: ModeSwitchToastProps) {
             <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted"
+                label={t('restore')}
                 onClick={onCancel}
-            >
-                {t('restore')}
-            </Button>
+            />
         </div>
     );
 }

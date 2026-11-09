@@ -1,6 +1,6 @@
 import React from 'react';
 import { RefreshCw, Star, Loader2 } from 'lucide-react';
-import { Badge } from '@astryxdesign/core/Badge';
+import { Token } from '@astryxdesign/core/Token';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import Playable from '@/fronted/components/shared/common/Playable';
 import { cn } from '@/fronted/lib/utils';
@@ -107,18 +107,19 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                     </span>
                                 ) : null}
                                 {data.oxford ? (
-                                    <Badge variant="teal" label="Oxford" />
+                                    <Token size="sm" color="teal" label="Oxford" />
                                 ) : null}
                                 {data.bnc ? (
-                                    <Badge variant="neutral" label={`BNC #${data.bnc}`} />
+                                    <Token size="sm" color="gray" label={`BNC #${data.bnc}`} />
                                 ) : null}
                                 {data.frq ? (
-                                    <Badge variant="cyan" label={`COCA #${data.frq}`} />
+                                    <Token size="sm" color="cyan" label={`COCA #${data.frq}`} />
                                 ) : null}
                                 {dictTags.map((tag) => (
-                                    <Badge
+                                    <Token
                                         key={tag}
-                                        variant="neutral"
+                                        size="sm"
+                                        color="gray"
                                         label={t(DICT_TAG_I18N_KEYS[tag])}
                                     />
                                 ))}

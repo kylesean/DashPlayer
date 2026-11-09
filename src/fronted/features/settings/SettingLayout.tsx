@@ -82,30 +82,33 @@ const SettingLayout: React.FC = () => {
             height="fill"
             start={
                 <LayoutPanel width={240} isScrollable={false} hasDivider padding={2}>
-                    <SideNav
-                        header={
-                            <SideNavHeading
-                                heading={t('layoutTitle')}
-                                icon={<Icon icon={Settings as unknown as IconType} size="sm" />}
-                            />
-                        }
-                    >
-                        {SETTING_ITEMS.map((item) => (
-                            <SideNavItem
-                                key={item.key}
-                                label={t(item.labelKey)}
-                                icon={
-                                    <Icon
-                                        icon={item.icon as unknown as IconType}
-                                        size="sm"
-                                        color={currentKey === item.key ? 'primary' : 'secondary'}
-                                    />
-                                }
-                                isSelected={currentKey === item.key}
-                                onClick={() => navigate(`/settings/${item.key}`)}
-                            />
-                        ))}
-                    </SideNav>
+                    <aside className="h-full flex flex-col w-full">
+                        <SideNav
+                            header={
+                                <SideNavHeading
+                                    heading={t('layoutTitle')}
+                                    icon={<Icon icon={Settings as unknown as IconType} size="sm" />}
+                                />
+                            }
+                        >
+                            {SETTING_ITEMS.map((item) => (
+                                <SideNavItem
+                                    key={item.key}
+                                    label={t(item.labelKey)}
+                                    icon={
+                                        <Icon
+                                            icon={item.icon as unknown as IconType}
+                                            size="sm"
+                                            color={currentKey === item.key ? 'primary' : 'secondary'}
+                                        />
+                                    }
+                                    isSelected={currentKey === item.key}
+                                    href={`/settings/${item.key}`}
+                                    onClick={() => navigate(`/settings/${item.key}`)}
+                                />
+                            ))}
+                        </SideNav>
+                    </aside>
                 </LayoutPanel>
             }
             content={
@@ -126,10 +129,12 @@ const SettingLayout: React.FC = () => {
                         </LayoutHeader>
                     }
                     content={
-                        <LayoutContent padding={6} isScrollable>
-                            <VStack width="100%" maxWidth={960} gap={6} paddingBlockEnd={8} className="mx-auto">
-                                <Outlet />
-                            </VStack>
+                        <LayoutContent padding={6} isScrollable role="main">
+                            <main role="main" className="w-full">
+                                <VStack width="100%" maxWidth={960} gap={6} paddingBlockEnd={8} className="mx-auto">
+                                    <Outlet />
+                                </VStack>
+                            </main>
                         </LayoutContent>
                     }
                 />

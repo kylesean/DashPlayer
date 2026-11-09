@@ -327,10 +327,11 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
             return new Map();
         }
 
-        const provider = await this.settingService.getCurrentTranslationProvider();
-        if (!provider) {
+        const rawProvider = await this.settingService.getCurrentTranslationProvider();
+        if (!rawProvider) {
             throw new Error('未启用字幕翻译服务');
         }
+        const provider = rawProvider === 'local-mt' ? 'local' : rawProvider;
 
         const { mode, storageMode, style, localModelId } = await this.resolveCurrentStorageContext(provider);
 
@@ -375,10 +376,11 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
     }
 
     public async clearTranslationCache(): Promise<number> {
-        const provider = await this.settingService.getCurrentTranslationProvider();
-        if (!provider) {
+        const rawProvider = await this.settingService.getCurrentTranslationProvider();
+        if (!rawProvider) {
             throw new Error('未启用字幕翻译服务');
         }
+        const provider = rawProvider === 'local-mt' ? 'local' : rawProvider;
         const { storageMode } = await this.resolveCurrentStorageContext(provider);
         const deleted = await this.sentenceTranslatesRepository.deleteByMode(storageMode);
         this.logger.info('已清除当前配置的字幕翻译缓存', { provider, storageMode, deleted });
@@ -455,11 +457,12 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
             .map((sentence) => sentence.index)
             .sort((left, right) => left - right);
 
-        const provider = await this.settingService.getCurrentTranslationProvider();
-        if (!provider) {
+        const rawProvider = await this.settingService.getCurrentTranslationProvider();
+        if (!rawProvider) {
             this.scheduler.release(fileHash, input.rendererSessionId);
             throw new Error('未启用字幕翻译服务');
         }
+        const provider: TranslationProvider = rawProvider === 'local-mt' ? 'local' : rawProvider;
 
         if (provider === 'tencent') {
             this.scheduler.updateDemand({

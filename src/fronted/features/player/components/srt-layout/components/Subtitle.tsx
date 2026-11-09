@@ -414,21 +414,34 @@ export default function Subtitle() {
                         </div>
                     )}
 
-                    {/* 侧栏译文被关掉后就地提示并给回开按钮 */}
-                    {!showSideTranslation && (
-                        <div className="absolute right-2 top-2 z-10 pointer-events-none">
-                            <button
-                                type="button"
-                                onClick={() => changeShowSideTranslation()}
-                                title={sidebarHiddenByEnglish ? t('controlBox.sidebarHiddenNow') : undefined}
-                                className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-0.5 text-[10px] leading-tight text-muted-foreground backdrop-blur transition-colors hover:text-foreground cursor-pointer"
-                            >
-                                <span>{t('controlBox.sideTranslationHiddenChip')}</span>
-                                <span aria-hidden="true">·</span>
-                                <span className="font-medium">{t('controlBox.sideTranslationShowAction')}</span>
-                            </button>
-                        </div>
-                    )}
+                    {/* 侧栏译文切换控制入口：支持直接点击切换并供自动化测试与快捷操作使用 */}
+                    <div className="absolute right-2 top-2 z-10 pointer-events-none">
+                        <button
+                            type="button"
+                            data-testid="side-translation-toggle"
+                            aria-pressed={showSideTranslation}
+                            onClick={() => changeShowSideTranslation()}
+                            title={sidebarHiddenByEnglish ? t('controlBox.sidebarHiddenNow') : undefined}
+                            className={cn(
+                                'pointer-events-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] leading-tight backdrop-blur transition-colors cursor-pointer',
+                                showSideTranslation
+                                    ? 'bg-muted/40 text-muted-foreground/60 hover:text-foreground hover:bg-muted/80'
+                                    : 'bg-muted/80 text-muted-foreground hover:text-foreground'
+                            )}
+                        >
+                            <span>
+                                {showSideTranslation
+                                    ? t('controlBox.showSideTranslation')
+                                    : t('controlBox.sideTranslationHiddenChip')}
+                            </span>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-medium">
+                                {showSideTranslation
+                                    ? t('controlBox.sidebarFollowsEnglishActive', '开启')
+                                    : t('controlBox.sideTranslationShowAction')}
+                            </span>
+                        </button>
+                    </div>
                 </div>
             </div>
         );

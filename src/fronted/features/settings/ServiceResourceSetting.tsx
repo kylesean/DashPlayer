@@ -454,7 +454,7 @@ const ServiceResourceSetting: React.FC = () => {
         ...(subtitleEngine === 'openai' && !!watched.openai?.featureModels?.subtitleTranslation && !availableModels.includes(watched.openai.featureModels.subtitleTranslation)
             ? [{ value: `openai:${watched.openai.featureModels.subtitleTranslation}`, label: watched.openai.featureModels.subtitleTranslation, disabled: true }]
             : []),
-        { value: 'local', label: t('resources.preference.engineLocalAi') },
+        { value: 'local-mt', label: t('resources.preference.engineLocalBase') },
         { value: 'none', label: t('resources.preference.engineNone') },
     ], [availableModels, subtitleEngine, watched.openai?.featureModels?.subtitleTranslation, t]);
 
@@ -514,6 +514,7 @@ const ServiceResourceSetting: React.FC = () => {
                     headerAction={renderCapabilityIcons([
                         { cap: CAPABILITY_TTS, active: true },
                         { cap: CAPABILITY_TRANSCRIPTION, active: true },
+                        { cap: CAPABILITY_TRANSLATION, active: subtitleEngine === 'local-mt' || subtitleEngine === 'local' },
                     ])}
                 >
                     <ResourcePackCard
@@ -631,8 +632,8 @@ const ServiceResourceSetting: React.FC = () => {
                                 size="sm"
                                 width={224}
                             />
-                            {subtitleEngine === 'local' && !(localAiStatus?.models.some((model) => model.ready) ?? false) && (
-                                <Text size="2xs" color="disabled">{t('resources.preference.notReadyHint')}</Text>
+                            {(subtitleEngine === 'local-mt' || subtitleEngine === 'local') && (
+                                <Text size="2xs" color="secondary">{t('resources.preference.localMtZhOnlyHint')}</Text>
                             )}
                         </VStack>
                     </SettingRow>

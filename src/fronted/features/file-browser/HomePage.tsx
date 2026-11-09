@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
@@ -7,13 +7,15 @@ import ProjectListCard from '@/fronted/features/file-browser/components/project-
 import ProjectListItem from '@/fronted/features/file-browser/components/project-list-item';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
-import { Layout, LayoutContent, LayoutPanel } from '@astryxdesign/core/Layout';
+import { Layout, LayoutContent, LayoutHeader, LayoutPanel } from '@astryxdesign/core/Layout';
 import { HStack } from '@astryxdesign/core/HStack';
 import { VStack } from '@astryxdesign/core/VStack';
 import { Grid } from '@astryxdesign/core/Grid';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { Center } from '@astryxdesign/core/Center';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { SideNav, SideNavItem } from '@astryxdesign/core/SideNav';
 import useSWR from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
 import {
@@ -98,35 +100,30 @@ const HomePage = () => {
         <Layout
             height="fill"
             header={
-                <div className="w-full h-9 shrink-0">
-                    <TitleBar maximizable={false} className="w-full h-9" />
-                </div>
+                <LayoutHeader height={36} hasDivider={false}>
+                    <TitleBar maximizable={false} className="w-full h-full" />
+                </LayoutHeader>
             }
             start={
                 <LayoutPanel width={220} padding={3} hasDivider={false}>
                     <VStack gap={6} height="100%" justify="between">
-                        <VStack gap={6}>
+                        <VStack gap={4}>
                             {/* 品牌字标固定用正文字体：主题标题字体（如 Matcha 的 Playwrite）
                                 字宽很大，放进 220px 侧栏会折成两行 */}
-                            <Heading level={1} weight="bold" className="font-sans">
+                            <Heading level={1} weight="bold" className="font-sans px-2">
                                 DashPlayer
                             </Heading>
-                            <VStack gap={1}>
-                                {navItems.map((item) => {
-                                    const Icon = item.icon;
-                                    return (
-                                        <Link
-                                            key={item.path}
-                                            onClick={() => fileBrowserApi.changeWindowSize('player')}
-                                            to={item.path}
-                                            className="group flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-secondary hover:text-primary hover:bg-muted/70 transition-all duration-150"
-                                        >
-                                            <Icon className="h-4 w-4 stroke-[1.8] text-secondary group-hover:text-accent transition-colors shrink-0" />
-                                            <span>{item.title}</span>
-                                        </Link>
-                                    );
-                                })}
-                            </VStack>
+                            <SideNav>
+                                {navItems.map((item) => (
+                                    <SideNavItem
+                                        key={item.path}
+                                        label={item.title}
+                                        icon={<Icon icon={item.icon as unknown as IconType} size="sm" />}
+                                        href={item.path}
+                                        onClick={() => fileBrowserApi.changeWindowSize('player')}
+                                    />
+                                ))}
+                            </SideNav>
                         </VStack>
                     </VStack>
                 </LayoutPanel>

@@ -301,7 +301,7 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                     <ScrollableArea label="Presets" height={440}>
                         <VStack gap={2}>
                             {CLOUD_AI_PROVIDER_PRESETS.map((preset) => (
-                                <Card key={preset.id} variant="default" padding={3}>
+                                <Card key={preset.id} variant="default" padding={3} className="rounded-lg">
                                     <VStack gap={2}>
                                         <HStack justify="between" vAlign="center" gap={3}>
                                             <HStack gap={2} vAlign="center">
@@ -315,9 +315,11 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                                                 onClick={() => applyPreset(preset.id)}
                                             />
                                         </HStack>
-                                        <Text size="xsm" color="secondary" hasTabularNumbers wordBreak="break-all">
-                                            {preset.endpoint}
-                                        </Text>
+                                        <div className="font-mono">
+                                            <Text size="xsm" color="secondary" hasTabularNumbers wordBreak="break-all">
+                                                {preset.endpoint}
+                                            </Text>
+                                        </div>
                                         <HStack justify="between" vAlign="center" gap={2}>
                                             <Text size="2xs" color="secondary" wordBreak="break-all">
                                                 {preset.consoleUrl}

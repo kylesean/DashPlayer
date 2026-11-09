@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { cn } from '@/fronted/lib/utils';
 import {
     SliderInput,
     SettingCard,
@@ -273,13 +274,11 @@ const AppearanceSetting: React.FC = () => {
                             {themeOptions.map((opt) => {
                                 const isSelected = selectedThemeMode === opt.value;
                                 return (
-                                    <SelectableCard
+                                    <button
                                         key={opt.value}
-                                        label={opt.label}
-                                        isSelected={isSelected}
-                                        isDisabled={isDarkOnlyTheme}
-                                        padding={2}
-                                        onChange={() => {
+                                        type="button"
+                                        disabled={isDarkOnlyTheme}
+                                        onClick={() => {
                                             if (isDarkOnlyTheme) {
                                                 return;
                                             }
@@ -290,18 +289,16 @@ const AppearanceSetting: React.FC = () => {
                                                 });
                                             }
                                         }}
+                                        className={cn(
+                                            'flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-xl border text-xs font-medium transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+                                            isSelected
+                                                ? 'bg-background text-foreground border-border shadow-xs ring-1 ring-black/5 dark:ring-white/10'
+                                                : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                                        )}
                                     >
-                                        <VStack gap={1.5} align="center" justify="center">
-                                            <Icon icon={opt.icon} size="sm" color={isSelected ? 'accent' : 'secondary'} />
-                                            <Text
-                                                type="supporting"
-                                                weight={isSelected ? 'semibold' : undefined}
-                                                color={isSelected ? 'primary' : 'secondary'}
-                                            >
-                                                {opt.label}
-                                            </Text>
-                                        </VStack>
-                                    </SelectableCard>
+                                        <Icon icon={opt.icon} size="sm" color={isSelected ? 'accent' : 'secondary'} />
+                                        <span>{opt.label}</span>
+                                    </button>
                                 );
                             })}
                         </Grid>

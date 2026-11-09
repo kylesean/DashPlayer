@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { cn } from "@/fronted/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
-import { Button } from '@/fronted/components/ui/button';
-import { Input } from '@/fronted/components/ui/input';
-import { Checkbox } from '@/fronted/components/ui/checkbox';
+import { Button } from '@astryxdesign/core/Button';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
@@ -84,14 +83,13 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                     aria-expanded={open}
                     size="sm"
                     variant="ghost"
+                    label={`${speed.toFixed(2)}x`}
                     className={cn(
                         // 默认 hover 跟随应用主题（亮色宿主）；深色控制条由 triggerClassName 覆盖
                         'h-8 px-2.5 rounded-lg text-xs font-mono text-inherit hover:bg-black/5 dark:hover:bg-white/15 transition-colors',
                         triggerClassName
                     )}
-                >
-                    <span className="font-mono">{speed.toFixed(2)}x</span>
-                </Button>
+                />
             </PopoverTrigger>
             <PopoverContent
                 side="top"
@@ -124,12 +122,14 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                                             placement="end"
                                         >
                                             <div className="flex items-center">
-                                                <Checkbox
-                                                    checked={isFavorite}
-                                                    onCheckedChange={(checked) => {
-                                                        toggleFavorite(num, Boolean(checked));
+                                                <CheckboxInput
+                                                    value={isFavorite}
+                                                    onChange={(checked) => {
+                                                        toggleFavorite(num, checked);
                                                     }}
-                                                    className="w-3.5 h-3.5 rounded border-white/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground"
+                                                    label={`${num}x favorite`}
+                                                    isLabelHidden
+                                                    size="sm"
                                                     id={`speed-check-${num}`}
                                                 />
                                             </div>
@@ -145,14 +145,14 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                 <div className="px-0.5 pt-2">
                     <div className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 focus-within:bg-white/10 border border-white/10 focus-within:border-primary/60 rounded-lg px-2 py-1 transition-colors">
                         <span className="text-[11px] text-secondary font-sans shrink-0">{t('speedSlider.custom')}</span>
-                        <Input
+                        <input
                             ref={inputRef}
                             defaultValue={speed}
                             type="number"
                             min={0.25}
                             max={16}
                             step={0.25}
-                            className="h-5 p-0 bg-transparent border-0 text-right text-xs font-mono text-primary focus-visible:ring-0 focus-visible:ring-offset-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full h-5 p-0 bg-transparent border-0 text-right text-xs font-mono text-primary focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     handleCustomSpeedSubmit(e.currentTarget.value);
