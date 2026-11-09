@@ -1,68 +1,7 @@
-# 仓库约定
+# DashPlayer
 
-## 注释规范
-- 注释一律使用中文，避免中英混杂。
-- 新增/修改的 function/method 在顶部写 JSDoc：说明意图、关键入参/出参、不直观的行为与边界条件。
-- 新增/修改的 `type`/`interface`/`class` 写顶部 JSDoc；含义/单位/约束不直观的字段写字段级注释，含义一眼可懂的变量不用注释。
+DashPlayer 是一个独立维护的现代视频播放与沉浸式语言学习桌面应用。
 
-## 测试规范
-写或改测试前，先读 `docs/testing-guidelines.md`（测试规约：分层策略、依赖注入约定、内存库基建、mock 边界）。e2e 用例集中在 `qa/`（由 QA 团队维护，开发只读）：要读或改用例先看 `qa/README.md`（运行方式、fixtures 用法、页面用例写法、已知坑与维护边界）。核心红线：
-
-- 测试必须断言真实业务行为（返回值、数据库状态、DOM），禁止以 mock 调用断言为主；服务层测试一律使用内存 SQLite（`createMemoryDb()`），禁止 mock 仓储层。
-- 服务类依赖一律构造函数注入，禁止属性注入后测试强转私有字段。
-- `src/fronted/components/ui/`（shadcn 生成）等第三方代码不写测试；删除模块时同步删除对应测试，不留孤儿测试与死配置。
-- 禁止用 `.skip`、删断言、放宽期望值让测试变绿；测试挂了先修根因。
-- 修改公开行为时必须同步更新对应测试；`describe` / `it` 文案统一使用中文白话，表达真实业务行为，避免过度技术术语。
-- 未明确要求编写或修改测试时，不要新增测试文件，也不要因默认流程补测试。
-
-## 提交与发版
-- 提交信息使用 Conventional Commits（`feat:` / `fix:` / `chore:` / `docs:` / `refactor:` / `test:` / `build:` / `ci:`）。**这条是硬约束**：Release Please 靠提交类型决定版本号和 changelog，无类型的提交会被直接忽略，等于白做了不发版。
-- 每个提交只做一件事，不捆绑无关改动。
-- 发版流程已全自动化：合并到 main 的提交由 Release Please 自动攒发版 PR（含版本号和 changelog）；合并该 PR 会自动打 tag 并创建 Release，tag 推送触发 `.github/workflows/release.yml` 四平台构建，产物自动挂到 Release。**不要手动改 `package.json` 的 version 或手动打 tag**。
-- CI 中没有 lint / 测试质量门，发版前质量靠本地把关（`pnpm lint`、`pnpm test:run`）。
-- PR 应说明背景、验证步骤，UI 流程变化时附截图；涉及 `drizzle/` 迁移或要求重新执行 `pnpm run download` 时必须注明。
-
-## 安全
-- 外部服务密钥（有道、腾讯、OpenAI、Sherpa ONNX）只能通过应用内设置或本地安全存储配置，严禁提交密钥或生成数据到仓库。
-
-## Agent 注意事项
-- 这是个人开源项目，偏好简单务实的方案，避免过度设计。
-- 实现新功能或重构前，先读 `docs/architecture-guidelines.md` 并遵守其文件摆放与分层规则。
-- 涉及并发控制、限流、让步调度、锁顺序或重入（如 ffmpeg/whisper 任务并发、gpt/tts 请求限流）时，先读 `docs/concurrency-kernel-usage.md` 按其约定实现。
-- 涉及日志产出、崩溃归因、`job`/`traceId`/`module` 等检索键时，先读 `docs/observability.md`：故障排查由 AI 只读 JSONL 日志完成，日志形状与检索键是契约的一部分。
-- Drizzle 迁移（`drizzle/migrations/`）是自动生成的，禁止手改；改 `src/backend/infrastructure/db/tables/` 下的 schema 后执行 `pnpm drizzle-kit generate`。
-- 禁止编写 fallback 掩盖配置或数据问题（含前端默认值兜底、静默回退、隐式纠偏）；数据异常必须尽早失败并显式暴露。
-- 问题一律根因修复，不以“最小改动”为决策依据；允许为从根源解决而重构，并主动删除旧方案的遗留、兼容分支和死代码。
-- 如果发现值得新增的约定，先询问再写入本文件。
-
-<!-- ASTRYX:START -->
-Astryx v0.7.11 · 174 components
-CLI: run every command as `pnpm exec astryx <cmd>` (shown below as `astryx ...`).
-
-SETUP (once, in app entry e.g. main.tsx) — without these, components render unstyled:
-  import "@astryxdesign/core/reset.css";
-  import "@astryxdesign/core/astryx.css";
-
-WORKFLOW — start every page from a template, never from scratch:
-1. `astryx build "<idea>"` — names the template to scaffold from and the parts it lacks.
-2. `astryx template <name> <path>` — scaffold it; keep its frame, gap and padding; replace the content.
-3. `astryx template <Block>` for parts it lacks; `astryx component <Name>` to read props before using one.
-Changing an existing page? Keep it: skip step 2 and add blocks/components inside its sections.
-Before you deliver a build, run `astryx doctor --built <dir>`; don't deliver it if it fails.
-
-RULES:
-- No <div> — components handle all layout and spacing.
-- Read `astryx docs layout` before changing a template's frame.
-- Dense data = rows (Table, List/Item), not Card-wrapped lists. Badge = counts only.
-- Style with component props first, then Tailwind utilities backed by tokens. No raw hex/px.
-- Palettes and custom colors go through the theme, never :root overrides. Run `astryx theme add <slug>` to import; `theme eject <slug>` only forks source. See `astryx docs theme`.
-- SELF-CHECK: re-read the file; replace any style={{…}}, raw <div>/<span>, imported .css/@apply, or hardcoded/arbitrary value (bg-[#fff], p-[13px]) with the component or a token-backed utility.
-
-`astryx help` lists every command. Key ones beyond the workflow:
-  search "<query>"   find any component / hook / doc / template
-  discover <words>   integrations you could add
-  docs <topic>       getting-started, principles, tokens, theme … (`astryx docs` lists all)
-  docs cli           commands and API reference
-  docs authoring     build an integration package, and every field it holds
-  upgrade --from <old version> --apply   run after a dependency bump
-<!-- ASTRYX:END -->
+## 开发原则
+- 遵循通用工程最佳实践、现代化代码设计与整洁架构。
+- 保持务实、简单与高内聚，不进行过度设计，根据具体问题灵活权衡与实现。
