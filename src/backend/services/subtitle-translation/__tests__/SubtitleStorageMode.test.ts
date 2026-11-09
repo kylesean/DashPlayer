@@ -43,8 +43,8 @@ describe('字幕翻译缓存键按配置隔离', () => {
     });
 
     it('本地引擎缓存键编入策略版本，与旧策略的缓存天然隔离', () => {
-        const current = buildSubtitleStorageMode('local', 'translategemma-4b-q4_k_m', 'zh', '');
-        expect(current).toBe('local#v4#translategemma-4b-q4_k_m#zh#');
-        expect(current).not.toBe(buildSubtitleStorageMode('openai', 'translategemma-4b-q4_k_m', 'zh', ''));
+        const current = buildSubtitleStorageMode('local', 'qwen3.5-2b-q4_k_m', 'zh', '');
+        expect(current).toBe('local#v4#qwen3.5-2b-q4_k_m#zh#');
+        expect(current).not.toBe(buildSubtitleStorageMode('openai', 'qwen3.5-2b-q4_k_m', 'zh', ''));
     });
 });

@@ -4,8 +4,8 @@ import type { TranslationMode } from '@/common/types/TranslationResult';
 /**
  * 字幕批量翻译的采样温度：翻译属近确定性任务，必须取 0（贪心）。
  *
- * 实测依据：TranslateGemma 4B 在默认采样下 43%~69% 的请求不翻译，而是在槽内
- * 列出多候选译文并附推荐语（RL 奖励行为泄漏），temp=0 失控率 0%；填槽语法
+ * 实测依据：本地小模型（当时为 TranslateGemma 4B，该条目已从模型目录移除）在默认采样下
+ * 43%~69% 的请求不翻译，而是在槽内列出多候选译文并附推荐语（RL 奖励行为泄漏），temp=0 失控率 0%；填槽语法
  * 只能约束输出形状，管不住"合法 JSON 里的多余内容"，因此采样温度必须由
  * 这里兜住。贪心的重复循环风险由逐槽长度上限兜底（触顶显式报错重试）。
  */
@@ -29,7 +29,7 @@ export const LOCAL_TRANSLATION_RETRY_TEMPERATURE = 0.3;
  * （本策略要修的坏译文恰好在旧缓存里）。v2：行式输出改为源文锚定
  * 填槽，翻译链路温度降至 0.3。v3：zh 模式槽位预算收紧（见
  * subtitleFillSlotLimit），抑制双语叠排下译文过长的爆行。
- * v4：采样温度降至 0（TranslateGemma 多候选泄漏的实测结论）。
+ * v4：采样温度降至 0（本地小模型多候选泄漏的实测结论）。
  */
 export const LOCAL_SUBTITLE_STRATEGY_VERSION = 4;
 

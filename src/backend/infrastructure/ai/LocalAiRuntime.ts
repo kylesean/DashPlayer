@@ -568,14 +568,6 @@ export class LocalAiRuntime implements LocalAiService {
             throw new Error('llama.cpp 运行时缺失，请重新执行 yarn run download 或重新安装应用');
         }
         await this.ensureSonameAliases();
-        // 声明了模板覆盖的模型先把模板落进模型目录（自愈：手动删除后启动即重写），
-        // 再以 --chat-template-file 启动；这类 GGUF 的内嵌模板与纯字符串消息
-        // 不兼容，不覆盖会导致 llama-server 启动即退出。
-        let chatTemplateFile: string | null = null;
-        if (model.chatTemplate) {
-            chatTemplateFile = path.join(path.dirname(modelPath), 'chat-template.jinja');
-            await fs.promises.writeFile(chatTemplateFile, model.chatTemplate, 'utf8');
-        }
         const port = await this.reservePort();
         signal.throwIfAborted();
         const endpoint = `http://127.0.0.1:${port}`;
@@ -583,7 +575,6 @@ export class LocalAiRuntime implements LocalAiService {
         const child = spawn(this.runtimePath(), [
             '--model', modelPath, '--host', '127.0.0.1', '--port', String(port),
             '--ctx-size', String(LOCAL_TOTAL_CTX), '--parallel', String(LOCAL_PARALLEL_SLOTS), '--jinja', '--no-webui',
-            ...(chatTemplateFile ? ['--chat-template-file', chatTemplateFile] : []),
             '--chat-template-kwargs', '{"enable_thinking":false}', '--reasoning-budget', '0',
             // 带后端库时把全部层放进 GPU；纯 CPU 包传 0 保持纯 CPU 推理。
             '--n-gpu-layers', gpuRequested ? '99' : '0',
