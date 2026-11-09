@@ -22,6 +22,7 @@ import {
     whisperRuntimeAssetName,
     whisperRuntimeReleaseAssetUrl,
 } from './whisper-runtime-meta.mjs';
+import {ffmpegRuntimeArchive} from './ffmpeg-runtime-meta.mjs';
 
 const getGithubToken = () => process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
 
@@ -140,10 +141,22 @@ const findFirstFile = (dir, predicate, maxDepth = 6, depth = 0) => {
     return null;
 };
 
-const downloadAndExtractBinaryFromZip = async ({url, outputPath, binaryNameCandidates}) => {
+/**
+ * 下载 zip 归档并从中取出目标二进制。
+ *
+ * 传入 sha/algo 时，归档本身在解压前就要通过摘要校验：下载内容对不上就删掉半截文件并抛错，
+ * 绝不把未校验的内容解到目标路径（ffmpeg/ffprobe 是运行时被直接执行的二进制，见
+ * scripts/ffmpeg-runtime-meta.mjs 里为什么必须校验）。
+ *
+ * @param {{url: string, outputPath: string, binaryNameCandidates: string[], sha?: string, algo?: string}} param
+ *   url 归档地址；outputPath 二进制目标路径；binaryNameCandidates 归档里可接受的二进制文件名；
+ *   sha 可选摘要（校验用）；algo 摘要算法。
+ * @returns {Promise<void>}
+ */
+const downloadAndExtractBinaryFromZip = async ({url, outputPath, binaryNameCandidates, sha, algo = 'sha256'}) => {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dashplayer-download-'));
     const archivePath = path.join(tmpRoot, 'asset.zip');
-    await download({url, dir: tmpRoot, file: 'asset.zip'});
+    await download({url, dir: tmpRoot, file: 'asset.zip', sha, algo});
 
     const extractDir = path.join(tmpRoot, 'extract');
     await extractZip(archivePath, extractDir);
@@ -313,37 +326,6 @@ const isLlamaRuntimeReady = (runtimeDir, executableName, dependencyPrefixes) => 
         && dependencyPrefixes.every((prefix) => entries.some((entry) => entry.startsWith(prefix)));
 };
 
-const ffmpegUrls = {
-    ffmpeg: {
-        darwin: {
-            arm64: 'https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/snapshot/ffmpeg.zip',
-            x64: 'https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/snapshot/ffmpeg.zip',
-        },
-        linux: {
-            arm64: 'https://ffmpeg.martin-riedl.de/redirect/latest/linux/arm64/snapshot/ffmpeg.zip',
-            x64: 'https://ffmpeg.martin-riedl.de/redirect/latest/linux/amd64/snapshot/ffmpeg.zip',
-        },
-        win32: {
-            x64: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
-            arm64: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-winarm64-gpl.zip',
-        }
-    },
-    ffprobe: {
-        darwin: {
-            arm64: 'https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/snapshot/ffprobe.zip',
-            x64: 'https://ffmpeg.martin-riedl.de/redirect/latest/macos/amd64/snapshot/ffprobe.zip',
-        },
-        linux: {
-            arm64: 'https://ffmpeg.martin-riedl.de/redirect/latest/linux/arm64/snapshot/ffprobe.zip',
-            x64: 'https://ffmpeg.martin-riedl.de/redirect/latest/linux/amd64/snapshot/ffprobe.zip',
-        },
-        win32: {
-            x64: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip',
-            arm64: 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-winarm64-gpl.zip',
-        }
-    }
-};
-
 ////////////////////
 setProxy();
 const dir = path.join(process.cwd(), 'lib');
@@ -370,12 +352,15 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
         file,
     });
     if (res === 'need_download') {
-        const downloadUrl = ffmpegUrls.ffmpeg?.[platform]?.[arch];
-        if (!downloadUrl) {
+        // 版本与摘要都来自 scripts/ffmpeg-runtime-meta.mjs：固定 URL + 发布方公布的 SHA-256。
+        const archive = ffmpegRuntimeArchive('ffmpeg', platform, arch);
+        if (!archive) {
             throw new Error(`Unsupported platform/arch for ffmpeg: ${platform}/${arch}`);
         }
         await downloadAndExtractBinaryFromZip({
-            url: downloadUrl,
+            url: archive.url,
+            sha: archive.sha256,
+            algo: 'sha256',
             outputPath: path.join(dir, file),
             binaryNameCandidates: platform === 'win32' ? ['ffmpeg.exe'] : ['ffmpeg'],
         });
@@ -390,12 +375,15 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
         file,
     });
     if (res === 'need_download') {
-        const downloadUrl = ffmpegUrls.ffprobe?.[platform]?.[arch];
-        if (!downloadUrl) {
+        // 与 ffmpeg 共用同一份版本坐标来源；Windows 上两者本就来自同一个 zip。
+        const archive = ffmpegRuntimeArchive('ffprobe', platform, arch);
+        if (!archive) {
             throw new Error(`Unsupported platform/arch for ffprobe: ${platform}/${arch}`);
         }
         await downloadAndExtractBinaryFromZip({
-            url: downloadUrl,
+            url: archive.url,
+            sha: archive.sha256,
+            algo: 'sha256',
             outputPath: path.join(dir, file),
             binaryNameCandidates: platform === 'win32' ? ['ffprobe.exe'] : ['ffprobe'],
         });
@@ -605,14 +593,17 @@ async function fetchToFile({url, dest, file, sha, algo}) {
     console.info(chalk.green(`✅ File ${file} downloaded successfully`));
     const hash = await hashFile(dest, {algo});
     if (sha !== undefined && hash !== sha) {
-        // 内容对不上：常见原因是下载被截断，带 HASH_MISMATCH 让上层重下一次
+        // 内容对不上：常见原因是下载被截断（带 HASH_MISMATCH 让上层重下一次），
+        // 也可能是来源被顶替。半截文件必须立刻删掉，绝不能留在磁盘上被当成已下载好的归档。
+        fs.rmSync(dest, {force: true});
         throw Object.assign(new Error(`File ${file} ${algo} mismatch`), {code: 'HASH_MISMATCH'});
     }
 }
 
 /**
- * 下载文件并校验可选的 SHA1 摘要。
+ * 下载文件并校验可选的 SHA1 / SHA256 摘要。
  * 瞬时网络故障（DNS 抖动、连接重置、5xx、下载被截断）会退避重试，重试用尽才失败。
+ * 摘要校验不通过时同样算失败：半截文件会被删掉，错误继续向上抛，绝不留下未校验的内容。
  *
  * @param url {string} 下载地址。
  * @param dir {string} 保存目录。
@@ -621,6 +612,7 @@ async function fetchToFile({url, dest, file, sha, algo}) {
  * @param algo {'sha1' | 'sha256'} 摘要算法，默认 sha1（历史资产只带 SHA1 清单）。
  * @param hint {string | undefined} 失败时追加的排障提示（例如缺产物时该去跑哪个工作流）。
  * @returns {Promise<void>} 下载完成后结束。
+ * @throws 下载失败或摘要校验不通过时抛出，调用方无需再自行 exit。
  */
 async function download({url, dir, file, sha, algo = 'sha1', hint}) {
     const dest = path.join(dir, file);
@@ -629,12 +621,15 @@ async function download({url, dir, file, sha, algo = 'sha1', hint}) {
         await withNetworkRetry(() => fetchToFile({url, dest, file, sha, algo}), {label: `download ${file}`});
         console.info(chalk.green(`✅ File ${file} valid`));
     } catch (err) {
+        // 失败收尾：删掉半截/坏文件（别让下次把它当成已下载的归档），再把错误抛出去，
+        // 由顶层以非零退出码结束整个脚本——校验不过必须硬失败，不能带着坏内容继续。
+        fs.rmSync(dest, {force: true});
         console.error(
             chalk.red(
                 `❌ Failed to download ${url}: ${err}.${hint ? `\n${hint}` : ''}\nPlease try again using command \`pnpm download\``
             )
         );
-        process.exit(1);
+        throw err;
     }
 }
 
