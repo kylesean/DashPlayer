@@ -173,7 +173,7 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             throw error;
         }
         this.activeImports.set(videoId, taskId);
-        // 后台长任务不继承 IPC 的 traceId，用 job 键标注日志（见 docs/observability.md）。
+        // 后台长任务不继承 IPC 的 traceId，用 job 键标注日志，便于按任务串起整条链路。
         this.logger.info('youtube import start', { job: `download:${videoId}`, taskId, url });
         void this.runImport(taskId, url, videoId)
             .finally(() => this.activeImports.delete(videoId));
