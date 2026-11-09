@@ -40,20 +40,45 @@
 - **后续可选**：把 `deriveSentenceEndMode` 接到工具栏，让「当前模式」由派生值渲染，
   而不是各组件自行组合布尔值。
 
-### 2. 字幕翻译调度会话
+### 2. 字幕翻译调度会话（已收敛）
 
 - **位置**：`src/backend/services/subtitle-translation/SubtitleTranslationScheduler.ts`
-- **隐式状态**：每个 `fileHash` 的会话内，`pendingJobs` / `runningJobs` /
-  `completedIndices` / `deadIndices` / `inFlightIndices` 五个集合共同表达
-  「待认领 → 执行中 → 完成 / 死信 / 被丢弃」。
-- **风险点**：同一字幕坐标可能同时出现在多个集合里（重试入队、跳转导致窗口移动），
-  目前靠 `isBatchInCurrentWindow` 与 `MAX_REQUEUE_COUNT` 两个局部判断兜住。
-  新增一种失败处理路径时，很容易忘记同步清理 `inFlightIndices`。
-- **建议**：为「单个字幕坐标」抽一个显式 `BatchState = queued | running | completed |
-  dead | dropped`，用 `Map<number, BatchState>` 取代集合交集推导。收益主要在 DX/AX：
-  状态可以被打日志、被断言，不必反推。
-- **为何暂不动**：这是翻译主链路的热路径，当前有 2 个测试文件覆盖；改造应在有
-  实测收益时单独进行，不与其它改动混在一起。
+- **原隐式状态**：每个 `fileHash` 的会话内，`completedIndices` / `deadIndices` /
+  `inFlightIndices` 三个集合共同表达「一个坐标现在处于什么阶段」，
+  再叠加 `pendingJobs` / `runningJobs` 推导「待认领 → 执行中 → 完成 / 死信 / 被丢弃」。
+- **真实风险（不是假想）**：三个集合是**同一件事的三个布尔位**，
+  `in-flight` 的清理只写在 `.finally()` 一处。新增失败路径（例如以后要支持
+  「部分取消」）时漏一次清理，坐标就永久停在在途，既不重试也不报错，
+  表现为「这几句字幕永远没有译文」，且日志里看不出异常。
+- **本次处理**：
+  - 新增 `subtitle-translation-index-state.ts`：
+    `SubtitleIndexState = 'queued' | 'in-flight' | 'completed' | 'dead'`，
+    用 `Map<number, SubtitleIndexState>` 取代三集合交集推导（`queued` 不落表，
+    避免为整份字幕预填空状态）。
+  - `releaseInFlightIndices` 只回退仍处于 `in-flight` 的坐标。
+    **注意这不是修原实现的 bug**：原来三个集合彼此独立，`inFlightIndices.delete()`
+    不会碰到 `completedIndices` / `deadIndices`。合并成单表后，「删除在途」与
+    「抹掉终态」变成了同一条写路径，因此必须显式加守卫；否则收尾会把同一批次里
+    已标成 `completed` / `dead` 的坐标一起打回待调度，造成死信复活与重复翻译。
+    这条守卫正是这次重构自身引入的风险，已用单测钉住。
+  - 失败去向收敛为纯函数 `decideFailedBatchOutcome`，判定顺序显式写成
+    「无重试坐标 > 离开窗口 > 重试耗尽 > 重新入队」。顺序本身是产品决策
+    （离开窗口的批次即使重试耗尽也只记 `dropped`），现在有单测钉住。
+  - `MAX_REQUEUE_COUNT` 保持导出，测试不再硬编码。
+- **顺带修掉的一个真实契约缺陷**：`knownBatchStarts` 只按批次起点记忆「建过批次」。
+  若同一会话内 `sentenceIndices` 变多（增量转录追加、或意群开关导致同 `fileHash`
+  重切分），该区间里新出现的坐标会因起点已登记而被**永久跳过**。
+  已用探针测试复现（首次 3 句、扩到 5 句时只翻译了前 3 句），
+  修复为「坐标集合变化时清空 `knownBatchStarts`」，重建时已完成的坐标由状态表过滤，
+  不会重复翻译。
+  - **可达性如实标注**：本 fork 目前没有增量转录写入路径，重载字幕也会先释放会话，
+    所以这是**契约健壮性缺陷**，不是当前线上的用户可见故障。
+    但它是「静默少翻译」类问题，一旦接入增量字幕就会立刻变成真实故障，因此一并修掉。
+- **测试**：`__tests__/subtitle-translation-index-state.test.ts`（5 例）
+  + 调度器新增 2 例（坐标变多必须补建批次、坐标不变不得重复建批次）。
+  变异验证：去掉 `releaseInFlightIndices` 的条件判断 → 状态表用例转红；
+  删掉 `.finally()` 里的释放调用 → 调度器 2 例转红；
+  去掉 `knownBatchStarts.clear()` → 新增用例转红。
 
 ### 3. 跟读录音（`usePracticeRecorder`）
 
@@ -247,3 +272,16 @@
 
 **最终验证**：`pnpm run test:base run` → 81 个文件、617 个用例（608 通过 / 9 跳过）；
 `tsc --noEmit` 无错误；`eslint` 无 error。
+
+### 第四轮：P0 调度器收敛（本轮）
+
+把 #2 从「建议」落成实现，同时顺带查出一个静默少翻译的契约缺陷。
+
+| 项目 | 结论 |
+|---|---|
+| 三集合反推同一状态 | **结构性风险**（非当前故障）：`in-flight` 清理只在一处，新增失败路径漏清理即静默少翻译 |
+| `knownBatchStarts` 跳过新增坐标 | **确认为契约缺陷**：探针测试复现「3 句扩到 5 句只译前 3 句」；当前无增量转录写入路径，故非线上故障 |
+| 失败去向判定顺序 | 原本散在 3 个 `if` 里，收敛为纯函数并加断言 |
+
+验证：`pnpm run test:base run` → 82 个文件、624 个用例（615 通过 / 9 跳过）；
+`tsc --noEmit` 无错误；`eslint` 无 error。三处变异均按预期转红。

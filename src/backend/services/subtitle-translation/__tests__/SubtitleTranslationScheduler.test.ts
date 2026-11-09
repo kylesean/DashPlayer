@@ -220,4 +220,62 @@ describe('字幕翻译调度器', () => {
         await flushAsync();
         expect(inFlight).toHaveLength(countAfterDeadLetter);
     });
+
+    it('同一会话内字幕坐标变多时，已建批次区间内的新坐标仍会被翻译', async () => {
+        const inFlight: Array<{ request: SubtitleTranslationBatchRequest<TestContext>; deferred: DeferredBatch }> = [];
+        const scheduler = new SubtitleTranslationScheduler<TestContext>({
+            executeBatch: (request) => {
+                const deferred = createDeferred();
+                inFlight.push({ request, deferred });
+                return deferred.promise;
+            },
+        });
+
+        // 首次需求只有 3 句：批次 0 建好并完成。
+        scheduler.updateDemand(buildDemand({
+            sentenceIndices: [0, 1, 2],
+        }));
+        expect(inFlight).toHaveLength(1);
+        expect(inFlight[0].request.indices).toEqual([0, 1, 2]);
+        inFlight[0].deferred.resolve({ completedIndices: [0, 1, 2], failedIndices: [], cancelled: false });
+        await flushAsync();
+
+        // 同一会话内坐标扩到 5 句：批次 0 里多出 3、4，必须补建批次。
+        // 若按「批次起点已登记」直接跳过，这两句会永久没有译文。
+        scheduler.updateDemand(buildDemand({
+            demandId: 2,
+            sentenceIndices: [0, 1, 2, 3, 4],
+        }));
+        expect(inFlight).toHaveLength(2);
+        expect(inFlight[1].request.indices).toEqual([3, 4]);
+
+        // 已完成的 0..2 不能因为重建批次而被重复翻译。
+        expect(inFlight[1].request.indices).not.toContain(0);
+        inFlight[1].deferred.resolve({ completedIndices: [3, 4], failedIndices: [], cancelled: false });
+        await flushAsync();
+        expect(inFlight).toHaveLength(2);
+    });
+
+    it('坐标集合不变时不会重复建批次', async () => {
+        const inFlight: Array<{ request: SubtitleTranslationBatchRequest<TestContext>; deferred: DeferredBatch }> = [];
+        const scheduler = new SubtitleTranslationScheduler<TestContext>({
+            executeBatch: (request) => {
+                const deferred = createDeferred();
+                inFlight.push({ request, deferred });
+                return deferred.promise;
+            },
+        });
+
+        scheduler.updateDemand(buildDemand());
+        expect(inFlight).toHaveLength(2);
+        for (const batch of inFlight) {
+            batch.deferred.resolve({ completedIndices: batch.request.indices, failedIndices: [], cancelled: false });
+        }
+        await flushAsync();
+
+        // 播放位置推进但坐标集合不变：不能因为「集合未变」判定失效而重复翻译。
+        scheduler.updateDemand(buildDemand({ demandId: 2, currentIndex: 5 }));
+        await flushAsync();
+        expect(inFlight).toHaveLength(2);
+    });
 });

@@ -1,3 +1,14 @@
+import {
+    collectSchedulableIndices,
+    decideFailedBatchOutcome,
+    getIndexState,
+    markIndicesCompleted,
+    markIndicesDead,
+    markIndicesInFlight,
+    releaseInFlightIndices,
+    type SubtitleIndexState,
+} from './subtitle-translation-index-state';
+
 const SUBTITLE_BATCH_SIZE = 5;
 const SUBTITLE_WINDOW_BATCH_COUNT = 4;
 const SUBTITLE_WINDOW_BATCH_BEFORE_COUNT = 1;
@@ -15,6 +26,23 @@ const MAX_CONSUMERS = 4;
  * 「无限重试」这种真实回归无法被发现。
  */
 export const MAX_REQUEUE_COUNT = 2;
+
+/**
+ * 判断两份稳定坐标列表是否完全一致。
+ *
+ * 调度器只在坐标集合变化时重建已建批次记录，因此这里的比较必须对顺序敏感：
+ * 坐标顺序变化意味着批次划分本身可能变化，按「变了」处理更安全。
+ *
+ * @param left 上一轮坐标列表。
+ * @param right 本轮坐标列表。
+ * @returns 长度与逐项坐标均相同时返回 true。
+ */
+function areSameIndices(left: readonly number[], right: readonly number[]): boolean {
+    if (left.length !== right.length) {
+        return false;
+    }
+    return left.every((index, position) => index === right[position]);
+}
 
 export type SubtitleTranslationPriority = 'high' | 'low';
 
@@ -172,12 +200,13 @@ interface SubtitleTranslationSession<TContext> {
     sentenceIndices: number[];
     /** 当前窗口起始批次（坐标空间）。 */
     currentBatchStart: number;
-    /** 已完成的字幕稳定坐标。 */
-    completedIndices: Set<number>;
-    /** 在本次会话中已经进入死信状态的字幕稳定坐标。 */
-    deadIndices: Set<number>;
-    /** 已经分配给运行任务的字幕稳定坐标。 */
-    inFlightIndices: Set<number>;
+    /**
+     * 每个字幕稳定坐标的调度状态。
+     *
+     * 未出现在表中的坐标即为待调度；`completed` / `dead` 是终态，
+     * `in-flight` 在批次收尾时释放。
+     */
+    indexStates: Map<number, SubtitleIndexState>;
     /** 当前有效窗口中已经创建过的批次起点。 */
     knownBatchStarts: Set<number>;
     /** 等待消费者认领的任务。 */
@@ -254,7 +283,18 @@ export default class SubtitleTranslationScheduler<TContext> {
         existing.demandId = demand.demandId;
         existing.rendererSessionId = demand.rendererSessionId;
         existing.currentIndex = currentIndex;
+        const sentenceIndicesChanged = !areSameIndices(
+            existing.sentenceIndices,
+            demand.sentenceIndices
+        );
         existing.sentenceIndices = demand.sentenceIndices;
+        if (sentenceIndicesChanged) {
+            // 坐标集合变化时必须允许已建批次重建：`knownBatchStarts` 只按批次起点
+            // 记忆「建过批次」，若同一区间后来多出坐标（增量转录追加、意群开关
+            // 导致同 fileHash 重切分），新坐标会因起点已登记而永久跳过翻译。
+            // 已完成的坐标在重建时会被状态表过滤掉，不会重复翻译。
+            existing.knownBatchStarts.clear();
+        }
         existing.context = demand.context;
         existing.currentBatchStart = this.getBatchStart(currentIndex);
         this.refreshWindow(existing);
@@ -306,9 +346,7 @@ export default class SubtitleTranslationScheduler<TContext> {
             currentIndex,
             sentenceIndices: demand.sentenceIndices,
             currentBatchStart: this.getBatchStart(currentIndex),
-            completedIndices: new Set(),
-            deadIndices: new Set(),
-            inFlightIndices: new Set(),
+            indexStates: new Map(),
             knownBatchStarts: new Set(),
             pendingJobs: [],
             runningJobs: new Map(),
@@ -361,11 +399,7 @@ export default class SubtitleTranslationScheduler<TContext> {
             }
 
             const indices = this.getBatchIndices(session, batchStart)
-                .filter((index) =>
-                    !session.completedIndices.has(index)
-                    && !session.deadIndices.has(index)
-                    && !session.inFlightIndices.has(index)
-                );
+                .filter((index) => getIndexState(session.indexStates, index) === 'queued');
             if (indices.length === 0) {
                 session.knownBatchStarts.add(batchStart);
                 return;
@@ -435,11 +469,7 @@ export default class SubtitleTranslationScheduler<TContext> {
             return undefined;
         }
 
-        const availableIndices = job.indices.filter((index) =>
-            !session.completedIndices.has(index)
-            && !session.deadIndices.has(index)
-            && !session.inFlightIndices.has(index)
-        );
+        const availableIndices = collectSchedulableIndices(session.indexStates, job.indices);
         if (availableIndices.length === 0) {
             return this.takeNextPendingJob(session);
         }
@@ -447,7 +477,7 @@ export default class SubtitleTranslationScheduler<TContext> {
         job.indices = availableIndices;
         job.priority = this.getPriority(job.batchStart, session.currentBatchStart);
         session.runningJobs.set(job.batchId, job);
-        job.indices.forEach((index) => session.inFlightIndices.add(index));
+        markIndicesInFlight(session.indexStates, job.indices);
         return job;
     }
 
@@ -480,11 +510,9 @@ export default class SubtitleTranslationScheduler<TContext> {
                     return;
                 }
 
-                result.completedIndices.forEach((index) => {
-                    session.completedIndices.add(index);
-                });
+                markIndicesCompleted(session.indexStates, result.completedIndices);
                 const failedIndices = result.failedIndices.filter((index) =>
-                    !session.completedIndices.has(index)
+                    getIndexState(session.indexStates, index) !== 'completed'
                 );
                 // 会话已被释放/替换时不再重试：结果已写缓存，重试对死会话无意义。
                 if (
@@ -512,7 +540,7 @@ export default class SubtitleTranslationScheduler<TContext> {
                 }
             })
             .finally(() => {
-                job.indices.forEach((index) => session.inFlightIndices.delete(index));
+                releaseInFlightIndices(session.indexStates, job.indices);
                 session.runningJobs.delete(job.batchId);
                 if (this.sessions.get(session.fileHash) === session) {
                     this.refreshWindow(session);
@@ -535,15 +563,22 @@ export default class SubtitleTranslationScheduler<TContext> {
         indices: number[],
         request: SubtitleTranslationBatchRequest<TContext>
     ): void {
-        const retryableIndices = indices.filter((index) =>
-            !session.completedIndices.has(index)
-            && !session.deadIndices.has(index)
-        );
-        if (retryableIndices.length === 0) {
+        const retryableIndices = indices.filter((index) => {
+            const state = getIndexState(session.indexStates, index);
+            return state !== 'completed' && state !== 'dead';
+        });
+        const outcome = decideFailedBatchOutcome({
+            retryableCount: retryableIndices.length,
+            inCurrentWindow: this.isBatchInCurrentWindow(session, job.batchStart),
+            requeueCount: job.requeueCount,
+            maxRequeueCount: MAX_REQUEUE_COUNT,
+        });
+
+        if (outcome === 'ignore') {
             return;
         }
 
-        if (!this.isBatchInCurrentWindow(session, job.batchStart)) {
+        if (outcome === 'dropped') {
             this.options.onBatchDropped?.({
                 ...request,
                 indices: retryableIndices,
@@ -551,8 +586,8 @@ export default class SubtitleTranslationScheduler<TContext> {
             return;
         }
 
-        if (job.requeueCount >= MAX_REQUEUE_COUNT) {
-            retryableIndices.forEach((index) => session.deadIndices.add(index));
+        if (outcome === 'dead-letter') {
+            markIndicesDead(session.indexStates, retryableIndices);
             this.options.onBatchDeadLetter?.({
                 ...request,
                 indices: retryableIndices,
