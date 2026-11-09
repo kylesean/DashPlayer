@@ -49,6 +49,9 @@ export default class WatchHistoryController implements Controller {
     }
 
     public async detail(id: string): Promise<WatchHistoryVO | null> {
+        if (!id) {
+            return null;
+        }
         return this.watchHistoryService.detail(id);
     }
 
@@ -104,8 +107,8 @@ export default class WatchHistoryController implements Controller {
         registerRoute('watch-history/group-delete', (p) => this.groupDelete(p), {
             schema: nonEmptyStringSchema,
         });
-        registerRoute('watch-history/detail', (p) => this.detail(p), {
-            schema: nonEmptyStringSchema,
+        registerRoute('watch-history/detail', (p: string) => this.detail(p), {
+            schema: z.string(),
         });
         registerRoute('watch-history/player-detail', (p) => this.playerDetail(p), {
             schema: nonEmptyStringSchema,
