@@ -3,7 +3,18 @@ const SUBTITLE_WINDOW_BATCH_COUNT = 4;
 const SUBTITLE_WINDOW_BATCH_BEFORE_COUNT = 1;
 const HIGH_PRIORITY_BATCH_COUNT = 2;
 const MAX_CONSUMERS = 4;
-const MAX_REQUEUE_COUNT = 2;
+
+/**
+ * 单个批次的最大重试次数。
+ *
+ * 达到上限后该批次的剩余字幕进入死信状态，不再重试，避免持续失败的批次
+ * 在窗口内无限循环占用消费者。
+ *
+ * 导出是为了让测试引用同一份取值：测试里硬编码 2 会在有人调整策略时
+ * 变成「测试失败但行为正确」的假警报，而硬编码 99 这类放宽则会让
+ * 「无限重试」这种真实回归无法被发现。
+ */
+export const MAX_REQUEUE_COUNT = 2;
 
 export type SubtitleTranslationPriority = 'high' | 'low';
 

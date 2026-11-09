@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import SubtitleTranslationScheduler, {
+    MAX_REQUEUE_COUNT,
     type SubtitleTranslationBatchRequest,
     type SubtitleTranslationBatchResult,
     type SubtitleTranslationDemand,
@@ -171,6 +172,11 @@ describe('字幕翻译调度器', () => {
     });
 
     it('持续失败的批次在达到重试上限后进入死信，不再无限重试', async () => {
+        // 上限本身必须是一个有限的小值：若被改成极大数（等价于无限重试），
+        // 下面的循环会以同一常量自洽通过，因此这里单独钉住量级。
+        expect(MAX_REQUEUE_COUNT).toBeGreaterThan(0);
+        expect(MAX_REQUEUE_COUNT).toBeLessThanOrEqual(5);
+
         const inFlight: Array<{ request: SubtitleTranslationBatchRequest<TestContext>; deferred: DeferredBatch }> = [];
         const onBatchRequeued = vi.fn();
         const onBatchDeadLetter = vi.fn();
@@ -191,7 +197,6 @@ describe('字幕翻译调度器', () => {
         await flushAsync();
 
         // 第二个批次持续失败：每次都把整批标为 failed，直到触发死信。
-        const MAX_REQUEUE_COUNT = 2;
         for (let attempt = 0; attempt <= MAX_REQUEUE_COUNT; attempt += 1) {
             const current = inFlight[inFlight.length - 1];
             expect(current).toBeDefined();
