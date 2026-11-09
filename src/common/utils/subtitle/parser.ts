@@ -315,3 +315,43 @@ export function parseAss(assContent: Nullable<string>): SrtLine[] {
 
     return srtLines;
 }
+
+/**
+ * 把秒数格式化为 SRT 时间戳（HH:MM:SS,mmm）。
+ *
+ * @param seconds 秒数；负值与精度误差按 0 处理。
+ * @returns SRT 时间戳文本。
+ */
+function secondsToSrtTime(seconds: number): string {
+    const totalMs = Math.max(0, Math.round(seconds * 1000));
+    const ms = totalMs % 1000;
+    const totalSeconds = Math.floor(totalMs / 1000);
+    const s = totalSeconds % 60;
+    const m = Math.floor(totalSeconds / 60) % 60;
+    const h = Math.floor(totalSeconds / 3600);
+    const pad = (value: number, width: number): string => String(value).padStart(width, '0');
+    return `${pad(h, 2)}:${pad(m, 2)}:${pad(s, 2)},${pad(ms, 3)}`;
+}
+
+/**
+ * 把结构化字幕行序列化为 SRT 文本。
+ *
+ * 仅输出英文内容：中文译文由翻译链路后置生成，不属于字幕文件本身。
+ * 结束时间早于开始时间时按开始时间钳制，保证 SRT 时间轴合法。
+ *
+ * @param lines 已按时间排序的字幕行。
+ * @returns 纯文本 SRT 内容；空输入返回空字符串。
+ */
+export function toSrtContent(lines: readonly SrtLine[]): string {
+    if (lines.length === 0) {
+        return '';
+    }
+    return lines
+        .map((line) => {
+            const start = secondsToSrtTime(line.start);
+            const end = secondsToSrtTime(Math.max(line.start, line.end));
+            return `${line.index}\n${start}${TIME_ARROW}${end}\n${line.contentEn.trim()}`;
+        })
+        .join('\n\n') + '\n';
+}
+

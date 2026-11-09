@@ -246,6 +246,13 @@ interface SubtitleTimestampAdjustmentControllerDef {
     'subtitle-timestamp/update': { params: SubtitleTimestampAdjustmentInput, return: void };
 }
 
+interface SubtitleGenerationDef {
+    /** 为无字幕视频启动本地 ASR 字幕生成；返回后台任务 ID。 */
+    'subtitle-generation/start': { params: { videoId: string }, return: number };
+    /** 取消字幕生成任务。 */
+    'subtitle-generation/cancel': { params: { taskId: number }, return: void };
+}
+
 interface StorageDef {
     'storage/usage': { params: void, return: StorageUsageVO };
     'storage/status': { params: void, return: StorageStatusVO };
@@ -425,6 +432,7 @@ export type ApiDefinitions = ApiDefinition
     & SherpaTtsModelDef
     & MediaDef
     & SubtitleTimestampAdjustmentControllerDef
+    & SubtitleGenerationDef
     & StorageDef
     & SettingsDef
     & ParakeetModelDef

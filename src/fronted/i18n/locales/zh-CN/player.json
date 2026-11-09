@@ -218,5 +218,14 @@
         "nextVideo": "下一个视频",
         "repeatSentence": "重复当前句"
     },
+    "subtitleGeneration": {
+        "title": "这个视频没有可用字幕",
+        "description": "可以用本地语音识别生成英文字幕（需先在设置中下载识别模型）",
+        "start": "生成字幕",
+        "cancel": "取消",
+        "running": "正在识别语音…",
+        "done": "字幕生成完成",
+        "failed": "字幕生成失败：{{message}}"
+    },
     "translationFailed": "字幕翻译失败"
 }

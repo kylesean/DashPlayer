@@ -218,5 +218,14 @@
         "nextVideo": "Next video",
         "repeatSentence": "Loop current sentence"
     },
+    "subtitleGeneration": {
+        "title": "This video has no subtitles",
+        "description": "Generate English subtitles locally with speech recognition (download a model in Settings first)",
+        "start": "Generate subtitles",
+        "cancel": "Cancel",
+        "running": "Recognizing speech…",
+        "done": "Subtitles generated",
+        "failed": "Subtitle generation failed: {{message}}"
+    },
     "translationFailed": "Subtitle translation failed"
 }

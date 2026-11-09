@@ -20,6 +20,7 @@ import PracticePanel from '@/fronted/features/practice/PracticePanel';
 import PracticeModeButton from '@/fronted/features/player/components/srt-layout/PracticeModeButton';
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import LearningModeButton from './LearningModeButton';
+import SubtitleGenerationPanel from './SubtitleGenerationPanel';
 import { CAPTION_CARD_ANCHOR_CLASS, CAPTION_CARD_CLASS } from '@/fronted/features/player/components/captionCardShell';
 
 const logger = getRendererLogger('PlaybackLayout');
@@ -213,7 +214,7 @@ const PlaybackLayout = () => {
                                             setSizeIb(e);
                                         }}
                                     >
-                                        <MainSubtitle />
+                                        {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
                                     </ResizablePanel>
                                 </>
                             )}

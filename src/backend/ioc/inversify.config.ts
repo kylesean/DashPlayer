@@ -8,6 +8,9 @@ import type SrtTimeAdjustService from '@/backend/services/SrtTimeAdjustService';
 import { SrtTimeAdjustServiceImpl } from '@/backend/services/SrtTimeAdjustService';
 import type SubtitleService from '@/backend/services/SubtitleService';
 import { SubtitleServiceImpl } from '@/backend/services/SubtitleService';
+import type SubtitleGenerationService from '@/backend/services/SubtitleGenerationService';
+import { SubtitleGenerationServiceImpl } from '@/backend/services/SubtitleGenerationService';
+import SubtitleGenerationController from '@/backend/controllers/SubtitleGenerationController';
 import {
     type SubtitleVocabularyAnalysisService,
     SubtitleVocabularyAnalysisServiceImpl,
@@ -186,6 +189,7 @@ container.bind<Controller>(TYPES.Controller).to(MediaController).inSingletonScop
 container.bind<Controller>(TYPES.Controller).to(StorageController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SystemController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SubtitleController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(SubtitleGenerationController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(WatchHistoryController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SettingsController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(ParakeetModelController).inSingletonScope();
@@ -234,6 +238,9 @@ container.bind<SentencePracticeService>(TYPES.SentencePracticeService).to(Senten
 container.bind<VideoLearningService>(TYPES.VideoLearningService).to(VideoLearningServiceImpl).inSingletonScope();
 container.bind<SrtTimeAdjustService>(TYPES.SrtTimeAdjustService).to(SrtTimeAdjustServiceImpl).inSingletonScope();
 container.bind<SubtitleService>(TYPES.SubtitleService).to(SubtitleServiceImpl).inSingletonScope();
+container.bind<SubtitleGenerationService>(TYPES.SubtitleGenerationService)
+    .to(SubtitleGenerationServiceImpl)
+    .inSingletonScope();
 container.bind<SubtitleVocabularyAnalysisService>(TYPES.SubtitleVocabularyAnalysisService)
     .to(SubtitleVocabularyAnalysisServiceImpl)
     .inSingletonScope();

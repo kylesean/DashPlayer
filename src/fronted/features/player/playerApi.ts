@@ -243,4 +243,22 @@ export const playerApi = {
     translateWord: (params: { word: string; forceRefresh?: boolean; requestId?: string; context?: string }) =>
         backendClient.call('ai-trans/word', params),
 
+    /**
+     * 为无字幕视频启动本地字幕生成。
+     *
+     * @param videoId 观看历史记录 ID。
+     * @returns 后台任务 ID。
+     */
+    startSubtitleGeneration: (videoId: string) =>
+        backendClient.call('subtitle-generation/start', { videoId }),
+
+    /**
+     * 取消字幕生成任务。
+     *
+     * @param taskId 后台任务 ID。
+     * @returns 取消请求完成后结束。
+     */
+    cancelSubtitleGeneration: (taskId: number) =>
+        backendClient.call('subtitle-generation/cancel', { taskId }),
+
 };
