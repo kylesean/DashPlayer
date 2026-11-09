@@ -5,8 +5,8 @@ import { cn } from '@/fronted/lib/utils';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import useChatPanel from '@/fronted/features/chat/chatStore';
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
+import { exitOverlayView, togglePlayerView } from '@/fronted/features/player/lib/player-view-controller';
 import {
     CAPTION_CARD_BUTTON_CLASS,
     CAPTION_CARD_IDLE_CLASS,
@@ -33,11 +33,14 @@ export default function PracticeModeButton({ variant = 'capsule' }: { variant?: 
             toast.error(t('panel.noSentence'));
             return;
         }
-        const next = !visible;
-        // 两个覆盖面板共享同一块区域:打开任一方时收起另一方
-        useChatPanel.getState().hideLearning();
-        usePracticePanel.getState().setVisible(next);
-        if (next) {
+        if (visible) {
+            // 退出练习同样要回到进入前的底层视图：音频文件原来是播客模式。
+            exitOverlayView();
+            return;
+        }
+        // 互斥由统一入口处理：打开练习会收起学习页与播客模式。
+        const next = togglePlayerView('practice');
+        if (next === 'practice') {
             playerActions.pause();
         }
     };

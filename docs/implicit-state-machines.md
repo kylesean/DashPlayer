@@ -104,16 +104,38 @@
 
 ## P1：规则散落，新增入口易破坏
 
-### 4. 播放器「模态视图」互斥
+### 4. 播放器「模态视图」互斥（已收敛，并修掉一处真实 UX 故障）
 
 - **位置**：`chatStore.learningVisible`、`practiceStore.visible`、`layoutStore.podcastMode`
 - **约束**：整句学习页、跟读面板、播客模式三者互斥；快捷键层还依赖
   `learningVisible || practiceRecording` 决定是否禁用播放键。
-- **现状**：互斥靠调用点手动 `hideLearning()` / `setVisible(false)` 配对，
-  例如 `LearningModeButton`、`PracticeModeButton`、`PlayerShortcut` 各自处理。
-- **建议**：抽一个 `playerViewMode = 'play' | 'learning' | 'practice' | 'podcast'`
-  的单一字段 + `switchView()`，三个 store 只保留各自的面板内部状态。
-  这是 UX 收益最大的一处：现在的「打开 A 忘了关 B」只能靠每个入口自觉。
+- **原现状**：互斥靠调用点手动 `hideLearning()` / `setVisible(false)` 配对，
+  四个入口（`LearningModeButton`、`PracticeModeButton`、`PlayerShortcut`、
+  `Subtitle.tsx` 点字幕跳转）各自处理，谁漏一次就叠两层。
+- **已确认的真实缺陷（本轮修复）**：播客层是 `z-30` 全屏覆盖，学习页是 `z-20`，
+  而学习快捷键**不受播客模式限制**。播客模式下按学习键会
+  暂停播放 + 把 `learningVisible` 置真，但页面被播客层盖住——
+  用户看到的是「播放莫名停了、界面没变」，且此时学习页确实在跑后台请求。
+  `LearningModeButton` 与 `PracticeModeButton` 只收练习/学习，没人收播客，
+  所以三个入口在播客下都会踩到。
+- **本次处理**：
+  - 新增 `src/fronted/features/player/lib/player-view-mode.ts`：
+    `PlayerViewMode = 'play' | 'learning' | 'practice' | 'podcast'`，
+    `viewModeFlags` 是唯一一份「打开某视图时另外两个必须是什么」的定义；
+    `derivePlayerViewMode` 按覆盖层优先级（播客 > 练习 > 学习）退化非法组合；
+    `resolveViewToggle` / `isViewToggleActive` 表达按钮语义。带 5 个单测。
+  - 新增 `player-view-sync.ts`（只碰练习与播客，打断依赖环）与
+    `player-view-controller.ts`（唯一写入点 `setPlayerViewMode` / `togglePlayerView`
+    / `exitOverlayView`），带 8 个集成单测。
+  - 四个入口全部改走统一入口；`chatStore` 进入学习页时也调用
+    `beginOverlayView('learning')`，覆盖「建会话成功后才落状态」的那条路径。
+  - **没有换掉三个字段**：UI 读取方式、store 对外形状、快捷键判定全部保持不变，
+    只把写入收敛到一处。这是刻意的取舍——换字段会牵动十几个组件，
+    收益（DX）却和收敛写入点一样。
+- **同时避开一个我差点引入的回归**：音频文件的播客模式是唯一有画面的舞台。
+  若「学习页 → 返回」直接落到 `play`，音频会看到没有画面的黑屏舞台。
+  因此覆盖层进入时记录底层视图，`exitOverlayView()` 按记录值还原
+  （播客 → 学习 → 返回仍是播客）。这一点有 3 个单测钉住，变异后转红。
 
 ### 5. 字幕滚动（`useSubtitleScroll`）
 

@@ -17,6 +17,7 @@ import { usePlaybackSession } from '@/fronted/features/player/playbackSessionSto
 import usePracticePanel from './practiceStore';
 import { practiceApi } from './practiceApi';
 import { usePracticeRecorder } from './usePracticeRecorder';
+import { exitOverlayView } from '@/fronted/features/player/lib/player-view-controller';
 import type { SentencePracticeMode, SentencePracticeResultVO, SentencePracticeWordResult } from '@/common/contracts/sentence-practice';
 
 const logger = getRendererLogger('PracticePanel');
@@ -104,7 +105,8 @@ const PracticePanel = () => {
     const visible = usePracticePanel((s) => s.visible);
     const mode = usePracticePanel((s) => s.mode);
     const setMode = usePracticePanel((s) => s.setMode);
-    const setVisible = usePracticePanel((s) => s.setVisible);
+    // 面板关闭必须走统一退出入口，不能直接 setVisible(false)：
+    // 音频文件原来在播客模式，直接关闭会落到没有画面的普通舞台。
     const currentSentence = usePlayerState((s) => s.currentSentence);
     const playing = usePlayerState((s) => s.playing);
     const [result, setResult] = useState<SentencePracticeResultVO | null>(null);
@@ -241,7 +243,8 @@ const PracticePanel = () => {
                     icon={<X className="h-4 w-4" />}
                     variant="ghost"
                     size="sm"
-                    onClick={() => setVisible(false)}
+                    // 走统一退出入口：音频文件原来在播客模式，关闭练习必须回到播客。
+                    onClick={() => exitOverlayView()}
                 />
             </div>
 

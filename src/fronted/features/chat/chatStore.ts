@@ -14,6 +14,7 @@ import { chatApi } from '@/fronted/features/chat/chatApi';
 import type { AnalysisStreamEvent, DeepPartial } from '@/common/types/analysis';
 import type { AiUnifiedAnalysisRes } from '@/common/types/aiRes/AiUnifiedAnalysisRes';
 import type { Sentence } from '@/common/types/SentenceC';
+import { beginOverlayView } from '@/fronted/features/player/lib/player-view-sync';
 
 /** 整句学习面板中需要跨组件共享的状态。 */
 export type ChatPanelState = {
@@ -148,6 +149,10 @@ const chatLogger = getRendererLogger('useChatPanel');
 const enterLearning = () => {
     learningCloseRequested = false;
     usePlayer.getState().pause();
+    // 学习页是覆盖层，必须先把练习面板与播客模式收掉。
+    // 否则播客模式下按学习快捷键会「暂停了播放，但页面被播客层盖住」——
+    // 用户看到的是播放莫名停止，而不是学习页打开。
+    beginOverlayView('learning');
     useChatPanel.setState({ learningVisible: true });
 };
 
@@ -293,6 +298,8 @@ const startSessionForTopic = async (
     // 冻结内容先摆上页面：整句补全与译文此刻已经确定，等建会话返回再显示只会白等一次 IPC。
     // 这里会清掉上一句的解析与对话：换句子就是换一份学习内容，上一句的解析不再适用；
     // 同一句重进不走这条路径（见 reopenLearning），解析与后台生成都不会被打断。
+    // 竞争视图在落状态之前收掉：学习页可见与「播客/练习仍然盖在上面」不能同时成立。
+    beginOverlayView('learning');
     useChatPanel.setState({
         ...empty(),
         topicText: text,

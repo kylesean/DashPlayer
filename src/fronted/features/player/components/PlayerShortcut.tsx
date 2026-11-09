@@ -9,6 +9,7 @@ import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
+import { exitOverlayView } from '@/fronted/features/player/lib/player-view-controller';
 
 /**
  * 规范化快捷键配置字符串，去除空白项。
@@ -168,9 +169,15 @@ export default function PlayerShortCut() {
 
     useHotkeys(process(shortcuts.aiChat), () => {
         // 同一个快捷键开关学习页：进入时学习页会自行暂停播放，返回时不动播放状态。
-        // 与 LearningModeButton 同口径：两个覆盖面板共享同一块区域，打开学习页时收起练习面板
-        usePracticePanel.getState().setVisible(false);
-        useChatPanel.getState().toggleLearning().catch((error) => {
+        // 已打开时用 exitOverlayView 退出：音频文件原来在播客模式，必须回到播客，
+        // 直接 hideLearning 会掉进没有画面的普通舞台。
+        if (useChatPanel.getState().learningVisible) {
+            exitOverlayView();
+            return;
+        }
+        // 视图互斥（含播客模式）由 chatStore 的进入路径统一收口，
+        // 否则播客模式下按这个键会「暂停了播放但页面被播客层盖住」。
+        useChatPanel.getState().createFromCurrent().catch((error) => {
             toast.error(error instanceof Error ? error.message : String(error));
         });
     }, []);

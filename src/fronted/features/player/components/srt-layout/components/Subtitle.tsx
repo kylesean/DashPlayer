@@ -19,6 +19,7 @@ import { PLAYER_SIDEBAR_SCROLLER_TESTID } from '@/fronted/features/player/dev/sc
 import useBoundary from '@/fronted/features/player/hooks/useBoundary';
 import useChatPanel from '@/fronted/features/chat/chatStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
+import { exitOverlayView } from '@/fronted/features/player/lib/player-view-controller';
 import type { Sentence } from '@/common/types/SentenceC';
 
 export default function Subtitle() {
@@ -179,7 +180,8 @@ export default function Subtitle() {
             playerActions.clearVirtualGroup();
             // 学习页打开期间点击字幕视为正常跳转：先关闭学习页，再按常规跳转到该句
             if (useChatPanel.getState().learningVisible) {
-                useChatPanel.getState().hideLearning();
+                // 走统一退出入口：音频文件原来在播客模式，必须回到播客而不是空白舞台。
+                exitOverlayView();
             }
             playerActions.gotoSentence(sentence);
             if (scrollState === 'USER_BROWSING') {
