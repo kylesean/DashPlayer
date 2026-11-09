@@ -607,6 +607,7 @@ const ServiceResourceSetting: React.FC = () => {
                         >
                             <SettingField
                                 title={t('resources.preference.subtitleLabel')}
+                                testId="setting-row-subtitle-translation"
                                 description={usesLocalSubtitle
                                     ? t('resources.preference.localMtZhOnlyHint')
                                     : t('resources.preference.subtitleDesc')}
@@ -631,6 +632,7 @@ const ServiceResourceSetting: React.FC = () => {
                             <VStack gap={3} width="100%">
                                 <SettingField
                                     title={t('resources.preference.styleLabel')}
+                                    testId="setting-row-subtitle-style"
                                     description={t('resources.preference.styleDesc')}
                                 >
                                     <Selector
@@ -664,6 +666,7 @@ const ServiceResourceSetting: React.FC = () => {
 
                             <SettingField
                                 title={t('resources.preference.dictionaryLabel')}
+                                testId="setting-row-dictionary"
                                 description={localDictionaryMissing
                                     ? t('resources.preference.notReadyHint')
                                     : t('resources.preference.dictionaryDesc')}
@@ -687,6 +690,7 @@ const ServiceResourceSetting: React.FC = () => {
 
                             <SettingField
                                 title={t('resources.preference.sentenceLabel')}
+                                testId="setting-row-sentence-learning"
                                 description={t('resources.preference.sentenceDesc')}
                             >
                                 <Selector

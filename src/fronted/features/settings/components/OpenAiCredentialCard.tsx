@@ -156,7 +156,10 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
             <Divider variant="subtle" />
 
             {/* API Format */}
-            <SettingField title={t('serviceCredentials.openai.apiFormatLabel')}>
+            <SettingField
+                title={t('serviceCredentials.openai.apiFormatLabel')}
+                testId="setting-row-api-format"
+            >
                 <Selector
                     label={t('serviceCredentials.openai.apiFormatLabel')}
                     isLabelHidden

@@ -451,7 +451,10 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                         </SettingField>
 
                         {item.key === 'transcription' && (
-                            <SettingField title={t('resources.pack.engineLabel')}>
+                            <SettingField
+                                title={t('resources.pack.engineLabel')}
+                                testId="setting-row-transcription"
+                            >
                                 <Selector
                                     label={t('resources.pack.engineLabel')}
                                     isLabelHidden
