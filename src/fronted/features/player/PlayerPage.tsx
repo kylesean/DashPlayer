@@ -42,6 +42,7 @@ const PlayerWithControlsPage = () => {
     const { data: windowState } = useSWR(SWR_KEY.WINDOW_SIZE, playerApi.getWindowState);
     const isMac = useSystem((s) => s.isMac);
     const showSideBar = useLayout((state) => state.showSideBar);
+    const sidebarCollapsed = useLayout((state) => state.sidebarCollapsed);
     const titleBarHeight = useLayout((state) => state.titleBarHeight);
     const uiFullScreen = useLayout((s) => s.fullScreen);
     const videoLoaded = usePlaybackSession((s) => s.videoLoaded);
@@ -287,11 +288,18 @@ const PlayerWithControlsPage = () => {
             return next;
         });
     }, [setSearchParams]);
+    const isCompact = !w('xl') || sidebarCollapsed;
+
     return (
         <div className={cn('relative w-full h-full flex flex-row overflow-hidden bg-background')}>
             {showSideBar && (
-                <div className="shrink-0 h-full z-20">
-                    <SideBar compact={!w('xl')} />
+                <div
+                    className={cn(
+                        'shrink-0 h-full z-20 transition-all duration-200 border-r border-border/40 bg-surface/50 backdrop-blur-md',
+                        isCompact ? 'w-14' : 'w-52',
+                    )}
+                >
+                    <SideBar compact={isCompact} inPlayer />
                 </div>
             )}
             <div className="flex-1 h-full w-full relative overflow-hidden">

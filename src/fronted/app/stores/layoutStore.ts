@@ -25,6 +25,8 @@ export type UseLayoutState = {
     podcastMode: boolean;
     /** 是否正在整句对话学习面板中交互。 */
     chatting: boolean;
+    /** 主侧边栏是否处于收起为紧凑图标轨的状态。 */
+    sidebarCollapsed: boolean;
 };
 
 /** 全局布局状态修改动作。 */
@@ -37,6 +39,25 @@ export type UseLayoutActions = {
     setPodcastMode: (mode: boolean) => void;
     /** 更新对话学习输入激活态。 */
     changeChatting: (chatting: boolean) => void;
+    /** 设置主侧边栏紧凑状态。 */
+    setSidebarCollapsed: (collapsed: boolean) => void;
+    /** 切换主侧边栏紧凑状态。 */
+    toggleSidebarCollapsed: () => void;
+};
+
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'dashplayer.sidebar_collapsed';
+
+const readInitialSidebarCollapsed = (): boolean => {
+    if (typeof window === 'undefined') return false;
+    try {
+        const stored = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+        if (stored !== null) {
+            return stored === 'true';
+        }
+    } catch {
+        // 忽略存储访问异常
+    }
+    return false;
 };
 
 /**
@@ -45,6 +66,7 @@ export type UseLayoutActions = {
 const useLayout = create<UseLayoutState & UseLayoutActions>()(
     subscribeWithSelector((set) => ({
         showSideBar: true,
+        sidebarCollapsed: readInitialSidebarCollapsed(),
         chatting: false,
         titleBarHeight: 0,
         width: '2xl',
@@ -52,6 +74,25 @@ const useLayout = create<UseLayoutState & UseLayoutActions>()(
         fullScreen: false,
         changeSideBar: (show: boolean) => {
             set({ showSideBar: show });
+        },
+        setSidebarCollapsed: (collapsed: boolean) => {
+            try {
+                localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(collapsed));
+            } catch {
+                // 忽略存储访问异常
+            }
+            set({ sidebarCollapsed: collapsed });
+        },
+        toggleSidebarCollapsed: () => {
+            set((state) => {
+                const next = !state.sidebarCollapsed;
+                try {
+                    localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(next));
+                } catch {
+                    // 忽略存储访问异常
+                }
+                return { sidebarCollapsed: next };
+            });
         },
         changeFullScreen: (full: boolean) => {
             set({ fullScreen: full });

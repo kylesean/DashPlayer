@@ -9,5 +9,9 @@
     "backNavRecentHint": "Browse recently opened projects",
     "backNavCurrentDir": "Current folder: {{dir}}",
     "youtubeImport": "Import YouTube video",
-    "collapseSidebar": "Collapse Navigation"
+    "collapseSidebar": "Collapse Navigation",
+    "expandSidebar": "Expand Navigation",
+    "hideSidebar": "Hide Sidebar",
+    "learningMotivationTitle": "Immersive Flow",
+    "learningMotivationHint": "Intensive listening · Shadowing · Natural flow"
 }
