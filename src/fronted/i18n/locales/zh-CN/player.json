@@ -241,5 +241,10 @@
     },
     "translationFailed": "字幕翻译失败",
     "dockToLeft": "将伴读剧本切换至左侧",
-    "dockToRight": "将伴读剧本切换至右侧"
+    "dockToRight": "将伴读剧本切换至右侧",
+    "subtitleScript": "伴读剧本",
+    "sideTranslation": "译",
+    "hideSideTranslation": "隐藏侧栏译文",
+    "showSideTranslation": "显示侧栏译文",
+    "cancelLoop": "取消选区循环"
 }

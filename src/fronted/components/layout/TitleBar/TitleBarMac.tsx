@@ -4,9 +4,11 @@ import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import { SWR_KEY, swrMutate } from '@/fronted/lib/swr-util';
 
 /**
- * macOS 自定义标题栏容器。
+ * macOS 标题栏容器。
  *
  * 保留窗口左上角 80px 原生交通灯预留区域（避免拖拽事件冲突），并在可拖拽区域双击时执行窗口 Zoom 缩放切换。
+ *
+ * @returns macOS 顶栏容器 JSX 元素。
  */
 const TitleBarMac = () => {
     const handleDoubleClick = React.useCallback(async () => {
@@ -20,10 +22,11 @@ const TitleBarMac = () => {
     }, []);
 
     return (
-        <div className={cn('w-full h-10 absolute top-0 z-50 flex pointer-events-none')}>
-            <div className={cn('no-drag w-20 h-full pointer-events-auto')} />
+        <div className={cn('w-full h-full flex items-center')}>
+            {/* macOS 原生交通灯预留区域（80px） */}
+            <div className={cn('no-drag w-20 h-full shrink-0')} />
             <div
-                className={cn('drag flex-1 h-full pointer-events-auto')}
+                className={cn('drag flex-1 h-full min-w-0')}
                 onDoubleClick={handleDoubleClick}
             />
         </div>

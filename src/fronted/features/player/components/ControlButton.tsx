@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/fronted/lib/utils';
@@ -7,7 +6,7 @@ import { useSubtitleScrollState } from '@/fronted/features/player/hooks/useSubti
 import { swrApiMutate } from '@/fronted/lib/swr-util';
 import { useHotkeys } from 'react-hotkeys-hook';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { PanelLeftOpen } from 'lucide-react';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 
 const process = (values: string) =>
@@ -55,7 +54,7 @@ export default function ControlButton() {
                     animate={{ opacity: 1, scale: 1, x: 0 }}
                     exit={{ opacity: 0, scale: 0.9, x: -10 }}
                     transition={{ duration: 0.18 }}
-                    className="fixed top-3.5 left-3.5 z-40 pointer-events-auto select-none"
+                    className="absolute top-3.5 left-3.5 z-40 pointer-events-auto select-none"
                 >
                     <Tooltip content={panelTooltipText} placement="end">
                         <button

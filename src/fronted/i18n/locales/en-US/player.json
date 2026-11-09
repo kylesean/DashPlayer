@@ -241,5 +241,10 @@
     },
     "translationFailed": "Subtitle translation failed",
     "dockToLeft": "Dock transcript panel to the left",
-    "dockToRight": "Dock transcript panel to the right"
+    "dockToRight": "Dock transcript panel to the right",
+    "subtitleScript": "Transcript",
+    "sideTranslation": "Trans",
+    "hideSideTranslation": "Hide sidebar translation",
+    "showSideTranslation": "Show sidebar translation",
+    "cancelLoop": "Cancel loop"
 }

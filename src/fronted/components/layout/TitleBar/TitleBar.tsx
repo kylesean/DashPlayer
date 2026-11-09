@@ -2,6 +2,7 @@ import TitleBarWindows from './TitleBarWindows';
 import TitleBarMac from './TitleBarMac';
 import useSystem from '@/fronted/app/stores/systemStore';
 import { useEffect } from 'react';
+import { cn } from '@/fronted/lib/utils';
 
 /** 桌面端自定义标题栏属性。 */
 export interface TitleBarProps {
@@ -13,9 +14,11 @@ export interface TitleBarProps {
 
 /**
  * 按当前操作系统分发桌面端标题栏，并维护窗口失焦/聚焦状态类名。
+ *
+ * @param props 标题栏配置参数。
+ * @returns 标题栏 JSX 元素。
  */
 const TitleBar = ({ className = '', maximizable = true }: TitleBarProps) => {
-    const isWindows = useSystem((s) => s.isWindows);
     const isMac = useSystem((s) => s.isMac);
 
     useEffect(() => {
@@ -37,21 +40,16 @@ const TitleBar = ({ className = '', maximizable = true }: TitleBarProps) => {
     }, []);
 
     return (
-        <>
-            {isWindows ? (
-                <TitleBarWindows
-                    className={className}
-                    maximizable={maximizable}
-                />
-            ) : isMac ? (
+        <div className={cn('w-full h-full flex items-center select-none', className)}>
+            {isMac ? (
                 <TitleBarMac />
             ) : (
                 <TitleBarWindows
-                    className={className}
+                    className="w-full h-full"
                     maximizable={maximizable}
                 />
             )}
-        </>
+        </div>
     );
 };
 
