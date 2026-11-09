@@ -206,16 +206,24 @@
   以及「收尾中拒绝一切导航」的回归断言。
   变异验证：给 `finishing` 加回 `BACK` / `OPEN_MANUAL` 两条边 → 回归用例转红。
 
-### 9. 窗口尺寸模式（`WindowPortImpl`）
+### 9. 窗口尺寸模式（`WindowPortImpl`，已收敛）
 
 - **位置**：`src/backend/infrastructure/window/WindowPortImpl.ts`
-- **隐式状态**：`WindowState = 'normal' | 'maximized' | 'minimized' | 'fullscreen' |
-  'closed' | 'home' | 'player'`
-- **现状**：`home` 是唯一异步收尾的状态，用 `homeResolveToken` 作废过期请求，
-  再依据窗口管理器行为决定「锁死 / 让路」。这段判定写得很好，但它是**隐式的三态**：
-  锁定中 / 已让路 / 已作废，只体现在两个 `if` 里。
-- **建议**：把 `applyHomeWindowMode` 的三种结局显式返回
-  （`locked | yielded-size | yielded-late-resize`），日志与测试都能直接断言。
+  + `src/backend/infrastructure/window/home-window-outcome.ts`
+- **隐式状态**：`home` 是唯一异步收尾的状态，用 `homeResolveToken` 作废过期请求，
+  再依据窗口管理器行为决定「锁死 / 让路」。
+- **原现状**：判定逻辑**本身是正确的**（含 Wayland 下必须在 setSize 之前观测的
+  那条关键约束），但三种结局只体现在两个 `if` 与日志字符串里：
+  `locked: false, reason: 'size-imposed'` / `reason: 'late-resize'` / `locked: true`。
+  新增窗口管理器适配时只能靠读日志猜，也没有任何测试覆盖。
+- **本次处理**：抽出 `decideHomePlacement` / `decideLockedOutcome`，
+  结局枚举化为 `locked | yielded-size | yielded-late-resize | aborted`，
+  日志改为直接带 `outcome` 字段（`aborted` 以前**完全没有日志**，
+  用户反馈「窗口状态没生效」时无从判断是作废还是没跑）。
+  行为零变化，`HOME_WIDTH/HEIGHT` 与所有时序常量均未改动。
+- **测试**：`__tests__/home-window-outcome.test.ts`（6 例）。这是
+  `WindowPortImpl` 的**首个测试**——此前整个文件零覆盖。
+  变异验证：把 `decideLockedOutcome` 改成恒返回 `locked` → 2 例转红。
 
 ### 10. 设置自动保存（`useAutoSaveSettingsForm`，已收敛并修掉一处丢字缺陷）
 

@@ -5,6 +5,11 @@ import TYPES from '@/backend/ioc/types';
 import type MainWindowRegistry from '@/backend/infrastructure/system/MainWindowRegistry';
 import type { WindowState } from '@/common/types/Types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
+import {
+    decideHomePlacement,
+    decideLockedOutcome,
+    type HomeWindowOutcome,
+} from '@/backend/infrastructure/window/home-window-outcome';
 
 /** 首页的设计尺寸，与 src/main.ts 创建窗口时的初始尺寸保持一致。 */
 const HOME_WIDTH = 1200;
@@ -99,15 +104,16 @@ export default class WindowPortImpl implements WindowPort {
 
         const observed = await this.waitForStableSize(win);
         if (token !== this.homeResolveToken || win.isDestroyed()) {
+            this.logHomeOutcome('aborted', null);
             return;
         }
 
-        if (observed[0] !== HOME_WIDTH || observed[1] !== HOME_HEIGHT) {
+        if (decideHomePlacement(observed, [HOME_WIDTH, HOME_HEIGHT]) === 'yield-size') {
             // 窗口管理器在管几何：让路——不请求尺寸，并显式释放约束，
             // 因为 setResizable 在部分实现下本身会留下临时约束
             win.setResizable(true);
             win.setMaximizable(true);
-            this.logger.info('home window mode applied', { locked: false, reason: 'size-imposed', size: observed });
+            this.logHomeOutcome('yielded-size', observed);
             return;
         }
 
@@ -119,15 +125,37 @@ export default class WindowPortImpl implements WindowPort {
         // 此时必须撤销锁死，否则窗口会被设计尺寸钉住
         const overridden = await this.waitForSizeOverride(win, LOCK_WATCH_MS);
         if (token !== this.homeResolveToken || win.isDestroyed()) {
+            this.logHomeOutcome('aborted', null);
             return;
         }
-        if (overridden) {
+        const outcome = decideLockedOutcome(overridden);
+        if (outcome === 'yielded-late-resize') {
             win.setResizable(true);
             win.setMaximizable(true);
-            this.logger.info('home window mode applied', { locked: false, reason: 'late-resize', size: this.readSize(win) });
+            this.logHomeOutcome(outcome, this.readSize(win));
         } else {
-            this.logger.info('home window mode applied', { locked: true, reason: 'size-stable' });
+            this.logHomeOutcome(outcome, observed);
         }
+    }
+
+    /**
+     * 记录首页窗口模式的结局。
+     *
+     * 四种结局现在都能在日志里直接搜到，也能被单测按名字断言，
+     * 不必再从 `locked: false` + `reason` 的组合里反推发生了什么。
+     *
+     * @param outcome 收尾结局。
+     * @param size 相关尺寸；作废时没有可信尺寸，传 null。
+     */
+    private logHomeOutcome(
+        outcome: HomeWindowOutcome,
+        size: readonly [number, number] | null
+    ): void {
+        this.logger.info('home window mode applied', {
+            outcome,
+            locked: outcome === 'locked',
+            size,
+        });
     }
 
     /**
