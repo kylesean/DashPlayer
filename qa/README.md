@@ -26,13 +26,13 @@ node qa/tools/check-player-scroll.mjs                                # 播放器
 - 用例串行执行（`workers: 1`）；单条用例真实启动一次应用，约 2~4 秒。
 - 首次运行会按需下载 Electron 二进制到 `node_modules/electron`，需要网络。
 - 生成媒体夹具需要本机有 `ffmpeg` / `ffprobe`（`qa/fixtures/make-fixtures.mjs`）。
-- 首次拉取本分支后要先装依赖：`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 yarn install`。`@playwright/test` 是这套基建引入的依赖；跳过浏览器下载是因为用例只用 Electron，用不到 Playwright 自带的 Chromium。
-- 目前未接入 CI，PR 前本地跑通上面第一条命令即可。
+- 首次拉取本分支后要先装依赖：`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install`。`@playwright/test` 是这套基建引入的依赖；跳过浏览器下载是因为用例只用 Electron，用不到 Playwright 自带的 Chromium。
+- **端到端用例本身不进 CI**：需要真实 Electron + 显示环境，单轮约 7 分钟，容易因环境抖动误报，所以由维护者本地按需执行（PR 前跑通上面第一条命令）。CI 里只跑 `check-test-cases.mjs` 这条只读文档校验，见第 8 节。
 
 ## 3. 工作原理
 
 - **只能走开发态**：打包产物被 FusesPlugin 关闭 `--inspect`，Playwright 无法接管；因此用例以 `electron .` 启动，读取 `.vite/` 构建产物。
-- **构建脚本**：`qa/support/build.mjs` 复用 forge 的 Vite 配置（`ViteConfigGenerator`）生成 `.vite/build` + `.vite/renderer/main_window`；不需要 `yarn download` 拉取的原生资源（whisper / ffmpeg 等不参与）。
+- **构建脚本**：`qa/support/build.mjs` 复用 forge 的 Vite 配置（`ViteConfigGenerator`）生成 `.vite/build` + `.vite/renderer/main_window`；不需要 `pnpm run download` 拉取的原生资源（whisper / ffmpeg 等不参与）。
 - **数据隔离**：每个用例独占临时 userData 目录（`--user-data-dir`），数据库、日志、配置全部落在里面，用例结束自动删除；启动后立刻校验隔离生效，一旦 `--user-data-dir` 失效会尽早失败，避免写坏本机真实数据。
 - **越过首次引导**：引导完成标记存在数据库里、启动前无法预置；fixture 通过真实 IPC（与应用内「跳过」同一个后端入口 `system/config/set`）写入标记后 `page.reload()`，让启动门槛重新判定，全程不使用 mock。
 
@@ -74,8 +74,8 @@ const restarted = await launchAppSession(userDataDir);
 | `openSettingsSection(page, '网络代理', ready)` | 从首页进「设置中心」再切到指定栏目，并等该页标志性元素出现 |
 | `switchSettingsSection(page, '外观', ready)` | 已经在设置中心时切到另一个栏目（用例中途离开当前页、验证挂起的改动是否提交） |
 | `reloadSettingsPage(page, ready)` | 重新加载当前设置页（HashRouter 保留路由），验证值来自后端回读 |
-| `selectInRow(page, 行内独有文案)` | 定位某一设置行里的下拉框；同页多个 Select 时按行缩小范围 |
-| `chooseInRow(page, 行内独有文案, '选项文案')` | 在指定行点开下拉框并选中一项 |
+| `selectInRow(page, 行标题)` | 定位某一设置行里的下拉框。只认行标识：行标题必须在 `ROW_TEST_ID_BY_TEXT` 里登记（对应产品侧 `SettingField` 的 `testId`），未登记会直接抛错，不做文案模糊匹配 |
+| `chooseInRow(page, 行标题, '选项文案')` | 在指定行点开下拉框并选中一项 |
 
 `openSettingsSection` 与 `switchSettingsSection` 分开，是为了让「从一个设置页切到另一个」的用例只经历一次导航——切走的瞬间正是要验证的时机，不能有多余的中间跳转。
 
@@ -92,6 +92,7 @@ const restarted = await launchAppSession(userDataDir);
 | 只读页（无可填字段的守卫） | `qa/specs/settings/about-settings.spec.ts` |
 | 服务类开关 + 跨端 HTTP 断言（令牌鉴权） | `qa/specs/settings/mobile-access-settings.spec.ts` |
 | 保存时机（改完立刻切走） | 各页 spec 里都有一条：`qa/specs/settings/appearance-settings.spec.ts` 的 SET-APP-09 最简洁 |
+| 应用外壳的机制性约束（只在构建产物里存在的行为） | `qa/specs/app/renderer-security.spec.ts` |
 
 1. **入口定位用 getByRole**：`link` / `button` / `heading` + 中文文案（fixture 已固定 `i18n.language: 'zh-CN'`，不随宿主系统语言漂移）；避免 CSS 选择器。设置页导航走 `openSettingsSection`，不要手写点击链接——侧边栏与其它导航区可能出现同名入口。
 2. **「用户填了但没保存」是这套用例的首要防范对象**：设置页没有保存按钮，改动由页面防抖自动保存，所以每条用例都按三段式写——① 操作控件；② `expect.poll(() => readConfigValue(...))` 断言值真进了配置文件；③ `reloadSettingsPage` 后断言界面回显。只做第 ① 步，或只断言界面 state，都可能在「保存链路断了」时假通过。涉及保存时机的用例还要多走一步「切到别的栏目再切回来」，因为整页 reload 会清掉前端缓存，验不到缓存过期一类的问题（见下面的已知坑）。
@@ -172,14 +173,15 @@ node qa/fixtures/make-fixtures.mjs     # 生成 36 句双语 SRT + 480x270 小�
 node qa/tools/check-player-scroll.mjs  # 播放器滚动锚定检查：输出 JSON 摘要 + 语义化退出码
 ```
 
-`qa/tools/check-player-scroll.mjs` 的退出码是 **0 通过 / 1 红 / 3 空通过（识别到 0 条观测）/ 4 环境不符（node 不是 22，或埋点缺失）**——「空通过」与「环境不符」单独占一个码，避免它们被误读成绿灯。
+`qa/tools/check-player-scroll.mjs` 的退出码是 **0 通过 / 1 红 / 3 空通过（识别到 0 条观测）/ 4 环境不符（node 与 `.nvmrc` 不在同一条工具链上，或埋点缺失）**——「空通过」与「环境不符」单独占一个码，避免它们被误读成绿灯。版本门禁在跑用例之前判定：版本不对时不会白跑两套策略再报错；判据直接读 `.nvmrc`（与 CI 的 `node-version-file` 同一个来源），不在工具里另存一份允许表。
 
-参考用例：`qa/specs/player/player-scroll-anchor.spec.ts`（每轮都先 `console.log` 一段 JSON 再断言，断言失败也能拿到现场）。写滚动类用例时注意两点：
+参考用例：`qa/specs/player/player-scroll-anchor.spec.ts`（每轮都先 `console.log` 一段 JSON 再断言，断言失败也能拿到现场）。写滚动类用例时注意三点：
 
-1. **起点要钉住并确认钉住**：应用自身有「钉在边界 → 停歇后平滑归顶」的定时编排，写完 `scrollTop` 就走，起点会变成 0 附近的二值分布。用例里用 `pinScrollTop` 反复写到连续两次读数一致。
-2. **虚拟列表会回收 DOM 节点**：锚点身份只能靠 `data-index`，不能用节点引用；「哪些行还在渲染范围内」用 `[data-testid="sentence-card"][data-index="N"]` 是否存在判断。
+1. **起点只能用真实滚轮输入构造，不能直接写 `scrollTop`**：`Subtitle.tsx` 的 `wheel` 监听是把自动跟随切到 `USER_BROWSING` 的唯一入口。绕过它，首屏自动跟随仍生效，几百毫秒内就把位置拉回顶部（实测 `900 → 409 → 396 → 63 → 4`），「切换前快照」与「用例采样」量的不是同一个起点。用例里用 `wheelToScrollTop`（`page.mouse.wheel`）构造起点，位置才稳定。
+2. **点开关时不要让指针停在标题栏上**：`locator.click()` 会先把真实指针移到元素中心；侧栏译文开关在列表**上方**的标题栏里，指针停在那儿之后 `mouse.wheel()` 滚的是标题栏，表现为「滚轮完全没反应」。用例里用 `element.click()` 派发 DOM 事件，不碰指针。
+3. **虚拟列表会回收 DOM 节点**：锚点身份只能靠 `data-index`，不能用节点引用；「哪些行还在渲染范围内」用 `[data-testid="sentence-card"][data-index="N"]` 是否存在判断。构造「锚点被回收」时甩到**底部**而不是写死深度——行高随译文开关在 350–700px 之间变化，写死的深度可能仍落在 overscan 缓冲里，场景根本构造不出来。
 
-滚动锚定的规格常量（起点 900、守卫 >850、甩动深度、收敛阈值、testid）集中在 `qa/support/scroll-anchor-protocol.ts`：调场景只改这一个文件。
+滚动锚定的规格常量（起点 900、守卫 >850、甩到底部、收敛阈值）集中在 `qa/support/scroll-anchor-protocol.ts`；元素 testid 与日志前缀在 `src/common/constants/player-scroll-protocol.ts`（产品与用例共用一份，改名会在 `tsc` 阶段失败）。
 
 ## 6. 红线
 
@@ -204,13 +206,14 @@ node qa/tools/check-player-scroll.mjs  # 播放器滚动锚定检查：输出 JS
 
 本目录由 QA 团队维护，开发只读。为了让「不乱写」有强制手段，规矩分两层：
 
-**机器强制（CI/本地 lint 会拦）**
+**机器强制（CI 会拦）**
 
 - `qa/**` 只允许 import `@/common/**` 的类型与常量（或等价的 `../../src/common/**` 相对路径）。
   `@/fronted/**`、`@/backend/**` 等内部实现一律禁止——运行期契约只能走 `window.__dpDebug` 与 URL 参数，
-  否则用例会跟着实现细节一起腐烂，产品一重构就全红。
-- `src/**` 不允许 import `qa/**`：产品代码不能依赖用例。
-- 用例 ID 与文档的绑定由 `node qa/tools/check-test-cases.mjs` 强制（只改一边就报错），这条别削弱。
+  否则用例会跟着实现细节一起腐烂，产品一重构就全红。由 `eslint.config.mjs` 的 `no-restricted-imports` 强制。
+- `src/**` 不允许 import `qa/**`：产品代码不能依赖用例。同样由 `eslint.config.mjs` 强制。
+- 用例 ID 与文档的绑定由 `node qa/tools/check-test-cases.mjs` 强制（只改一边就报错）。
+  这个脚本已接进 CI（`Test case docs` 步骤），不是「记得手动跑」的君子协定。
 
 **人审强制（下面三条写死在 review 清单里）**
 
