@@ -106,7 +106,9 @@ const HomePage = () => {
                 <LayoutPanel width={220} padding={3} hasDivider={false}>
                     <VStack gap={6} height="100%" justify="between">
                         <VStack gap={6}>
-                            <Heading level={1} weight="bold">
+                            {/* 品牌字标固定用正文字体：主题标题字体（如 Matcha 的 Playwrite）
+                                字宽很大，放进 220px 侧栏会折成两行 */}
+                            <Heading level={1} weight="bold" className="font-sans">
                                 DashPlayer
                             </Heading>
                             <VStack gap={1}>
