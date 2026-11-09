@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { recordScrollRequest } from '@/fronted/features/player/dev/scrollWriteLog';
+import { SCROLL_TIMERS } from '@/fronted/features/player/lib/subtitle-scroll-timers';
 
 /** 字幕容器或字幕行在视口坐标系中的上下安全边界。 */
 export interface ScrollBoundary {
@@ -28,20 +29,6 @@ export type ScrollState =
     | 'NORMAL'
     /** 卡片/全屏模式切换期间界面跳变，冻结一切判定 */
     | 'PAUSE_MEASUREMENT';
-
-/** 滚动状态机的定时常量（毫秒） */
-const TIMING = {
-    /** 用户浏览态下，当前句回到边界内后恢复跟读的延时 */
-    RESUME_NORMAL: 150,
-    /** 自动滚动结束后回归 NORMAL 的沉降延时 */
-    AUTO_SETTLE: 300,
-    /** 底部两阶段编排：等待切句停歇的防抖时长 */
-    PIN_DEBOUNCE: 250,
-    /** 第二阶段平滑归顶后的沉降延时 */
-    TOP_SETTLE: 500,
-    /** 模式切换期间冻结测量的时长 */
-    PAUSE_MEASUREMENT: 500,
-};
 
 export type SubtitleScrollState = {
     internal: {
@@ -132,7 +119,7 @@ const useSubtitleScroll = create(
             };
 
             /** 延迟回归 NORMAL；自动滚动期间的每次 scroll 事件都会重置该计时 */
-            const delaySetNormal = (delay = TIMING.AUTO_SETTLE) => {
+            const delaySetNormal = (delay: number = SCROLL_TIMERS.AUTO_SETTLE.delay) => {
                 const internal = get().internal;
                 if (internal.scrollStatusTimer) {
                     clearTimeout(internal.scrollStatusTimer);
@@ -232,7 +219,7 @@ const useSubtitleScroll = create(
                     if (cs === 'USER_BROWSING') {
                         // 只有当前句重新回到安全边界内时，才恢复 NORMAL 状态
                         if (inBoundary()) {
-                            delaySetNormal(TIMING.RESUME_NORMAL);
+                            delaySetNormal(SCROLL_TIMERS.RESUME_NORMAL.delay);
                         }
                         return;
                     }
@@ -272,7 +259,7 @@ const useSubtitleScroll = create(
                         // 同一下标会被当成「新目标」而把用户滚到的位置拉回当前句
                         internal.lastSyncIndex = listPosition;
                         if (ref && inBoundary()) {
-                            delaySetNormal(TIMING.RESUME_NORMAL);
+                            delaySetNormal(SCROLL_TIMERS.RESUME_NORMAL.delay);
                         }
                         return;
                     }
@@ -385,8 +372,8 @@ const useSubtitleScroll = create(
                             align: 'start',
                             behavior: 'smooth',
                         });
-                        delaySetNormal(TIMING.TOP_SETTLE);
-                    }, TIMING.PIN_DEBOUNCE);
+                        delaySetNormal(SCROLL_TIMERS.TOP_SETTLE.delay);
+                    }, SCROLL_TIMERS.PIN_DEBOUNCE.delay);
                 },
                 onUserFinishScrolling: () => {
                     const { virtuoso, currentListPosition } = get().internal;
@@ -422,7 +409,7 @@ const useSubtitleScroll = create(
                     get().internal.visibleRange = range;
 
                     if (get().scrollState === 'USER_BROWSING' && inBoundary()) {
-                        delaySetNormal(TIMING.RESUME_NORMAL);
+                        delaySetNormal(SCROLL_TIMERS.RESUME_NORMAL.delay);
                     }
                 },
                 /**
@@ -442,7 +429,7 @@ const useSubtitleScroll = create(
                         }
                         set({ scrollState });
                         get().onScrolling();
-                    }, TIMING.PAUSE_MEASUREMENT);
+                    }, SCROLL_TIMERS.PAUSE_MEASUREMENT.delay);
                 },
                 delaySetNormal,
                 onUserInterrupt: () => {

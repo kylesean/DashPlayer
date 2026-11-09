@@ -137,15 +137,21 @@
   因此覆盖层进入时记录底层视图，`exitOverlayView()` 按记录值还原
   （播客 → 学习 → 返回仍是播客）。这一点有 3 个单测钉住，变异后转红。
 
-### 5. 字幕滚动（`useSubtitleScroll`）
+### 5. 字幕滚动（`useSubtitleScroll`，已抽表）
 
 - **位置**：`src/fronted/features/player/hooks/useSubtitleScroll.ts`
+  + `src/fronted/features/player/lib/subtitle-scroll-timers.ts`
 - **隐式状态**：`ScrollState = 'NORMAL' | 'AUTO_SCROLLING' | 'USER_BROWSING' |
-  'PAUSE_MEASUREMENT'`，转移由 `TIMING` 里的 5 个定时器驱动。
-- **现状**：状态有类型、有注释，但没有集中转移函数；多个 `setTimeout` 回调各自
-  重新读取 `get().scrollState` 再决定是否落状态。
-- **建议**：保留现有实现，仅把「定时器 → 目标状态」的映射抽成常量表，
-  让 5 个魔法时长与状态对应关系在一处可见。改动小、风险低。
+  'PAUSE_MEASUREMENT'`，转移由 5 个 `setTimeout` 驱动。
+- **原现状**：5 个时长是散落各处的魔法数字，只能靠读 `setTimeout` 旁边的注释
+  才知道哪个数字对应哪个状态。状态机本身逻辑正确，**这不是缺陷**。
+- **本次处理**：`SCROLL_TIMERS` 把「延时 → 目标状态 → 存在理由」放在一处，
+  并新增 `RESTORE` 目标语义表达「测量冻结是暂停后放回，不是进入固定状态」。
+  逻辑与时长数值完全不变，只改可读性（纯 DX/AX 收益）。
+- **测试**：`lib/__tests__/subtitle-scroll-timers.test.ts`（5 例）钉住
+  量级区间（50–1000ms）、目标语义，以及「归顶沉降必须长于切句防抖」
+  这条容易被误改的时序约束。既有 16 例滚动行为测试全部保持通过。
+  变异验证：把 `TOP_SETTLE` 改成 100ms → 时序约束用例转红。
 
 ### 6. 后台任务（`DpTaskState`）
 
