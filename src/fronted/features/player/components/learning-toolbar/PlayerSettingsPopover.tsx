@@ -71,6 +71,7 @@ export default function PlayerSettingsPopover({
     const showCn = usePlayerUi((s) => s.showCn);
     const showSourceZh = usePlayerUi((s) => s.showSourceZh);
     const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
+    const transcriptPosition = useSetting((s) => s.values.get('appearance.transcriptPosition') ?? 'right');
     const showSideTranslation = usePlayerUi((s) => s.showSideTranslation);
     const syncSide = usePlayerUi((s) => s.syncSide);
     const changeShowEn = usePlayerUi((s) => s.changeShowEn);
@@ -171,6 +172,18 @@ export default function PlayerSettingsPopover({
                     onActivate={() => changeSentenceBlockMode()}
                 />
                 <p className={ROW_HINT}>{t('controlBox.sentenceBlockModeHint')}</p>
+                {/* 剧本停靠方向：布局偏好，从剧本标题栏挪进来，标题栏只保留与当前句相关的操作 */}
+                <ControlPopoverRow
+                    checked={transcriptPosition === 'left'}
+                    label={t('controlBox.transcriptDockLeft')}
+                    title={t('controlBox.transcriptDockLeftHint')}
+                    onActivate={() => {
+                        void setSetting(
+                            'appearance.transcriptPosition',
+                            transcriptPosition === 'left' ? 'right' : 'left',
+                        );
+                    }}
+                />
 
                 {/* 字幕文件：解析阶段改的是句子数据，必须重开视频 */}
                 <div className={CONTROL_POPOVER_SEPARATOR} />

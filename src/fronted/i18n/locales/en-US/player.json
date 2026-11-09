@@ -101,6 +101,8 @@
         "displayModeLabel": "Display",
         "sentenceBlockMode": "Sentence blocks (view a few together)",
         "sentenceBlockModeHint": "Changes how lines are shown and looped; the subtitle file stays untouched.",
+        "transcriptDockLeft": "Dock script on the left",
+        "transcriptDockLeftHint": "Turn off to dock it on the right; applies immediately.",
         "subtitleFileLabel": "Subtitle file",
         "meaningGroupResegmentation": "Merge fragments (reopen video)",
         "meaningGroupResegmentationHint": "Merges half-sentence lines into full sentences while parsing; this changes the subtitle data.",
@@ -240,11 +242,6 @@
         "hint": "This video cannot be played (error code {{code}}). For local videos, convert to H.264 + AAC MP4 and retry; YouTube imports are unaffected."
     },
     "translationFailed": "Subtitle translation failed",
-    "dockToLeft": "Dock transcript panel to the left",
-    "dockToRight": "Dock transcript panel to the right",
     "subtitleScript": "Transcript",
-    "sideTranslation": "Trans",
-    "hideSideTranslation": "Hide sidebar translation",
-    "showSideTranslation": "Show sidebar translation",
     "cancelLoop": "Cancel loop"
 }

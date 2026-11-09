@@ -101,6 +101,8 @@
         "displayModeLabel": "显示方式",
         "sentenceBlockMode": "整句显示（几句一起看）",
         "sentenceBlockModeHint": "只改“怎么显示、按什么循环”，字幕文件本身不动。",
+        "transcriptDockLeft": "剧本停靠在左侧",
+        "transcriptDockLeftHint": "关掉则停靠在右侧，切换后立即生效。",
         "subtitleFileLabel": "字幕文件",
         "meaningGroupResegmentation": "碎句合并（重开视频生效）",
         "meaningGroupResegmentationHint": "解析时把半句一行的碎字幕合并成完整句子，改的是字幕数据。",
@@ -240,11 +242,6 @@
         "hint": "视频无法播放（错误码 {{code}}）。本地视频建议转成 H.264 + AAC 的 MP4 后重试；YouTube 导入的视频不受影响。"
     },
     "translationFailed": "字幕翻译失败",
-    "dockToLeft": "将伴读剧本切换至左侧",
-    "dockToRight": "将伴读剧本切换至右侧",
     "subtitleScript": "伴读剧本",
-    "sideTranslation": "译",
-    "hideSideTranslation": "隐藏侧栏译文",
-    "showSideTranslation": "显示侧栏译文",
     "cancelLoop": "取消选区循环"
 }

@@ -5,7 +5,7 @@ import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { BookOpen, LocateFixed, PanelLeft, PanelRight, Repeat, X } from 'lucide-react';
+import { BookOpen, LocateFixed, Repeat, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
@@ -30,9 +30,6 @@ export default function Subtitle() {
     const { t } = useI18nTranslation('player');
     // 「随英文字幕隐藏」把侧栏收起时，卡片文案是 opacity-0，chip 是这块空白唯一的解释
     const sidebarHiddenByEnglish = isSidebarHiddenByEnglish(syncSide, showEn);
-    const transcriptPosition = (useSetting(
-        (state) => state.values.get('appearance.transcriptPosition') ?? 'right',
-    )) as 'left' | 'right';
     const toggleEnglishShortcut = useSetting(
         (state) => state.values.get('shortcut.toggleEnglishDisplay') ?? 'e',
     );
@@ -363,46 +360,7 @@ export default function Subtitle() {
                         )}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                        {/* 伴读面板左右停靠切换按钮 */}
-                        <Tooltip
-                            content={transcriptPosition === 'right' ? t('dockToLeft') : t('dockToRight')}
-                            placement="below"
-                        >
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const next = transcriptPosition === 'right' ? 'left' : 'right';
-                                    void useSetting.getState().setSetting('appearance.transcriptPosition', next);
-                                }}
-                                className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
-                                aria-label={transcriptPosition === 'right' ? t('dockToLeft') : t('dockToRight')}
-                            >
-                                {transcriptPosition === 'right' ? (
-                                    <PanelLeft className="w-3.5 h-3.5" />
-                                ) : (
-                                    <PanelRight className="w-3.5 h-3.5" />
-                                )}
-                            </button>
-                        </Tooltip>
-
-                        <Tooltip
-                            content={showSideTranslation ? t('hideSideTranslation') : t('showSideTranslation')}
-                            placement="below"
-                        >
-                            <button
-                                type="button"
-                                onClick={() => changeShowSideTranslation()}
-                                className={twJoin(
-                                    'px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors cursor-pointer border',
-                                    showSideTranslation
-                                        ? 'bg-accent-muted/20 text-accent border-accent/30 hover:bg-accent-muted/30'
-                                        : 'bg-muted/60 text-muted-foreground border-transparent hover:bg-muted hover:text-foreground'
-                                )}
-                            >
-                                {t('sideTranslation')}
-                            </button>
-                        </Tooltip>
-
+                        {/* 停靠方向与侧栏译文都收进学习台设置里，这里只留在浏览时才有意义的“回到当前句” */}
                         {scrollState === 'USER_BROWSING' && currentListPosition >= 0 && (
                             <Tooltip content={t('controlButton.backToPlayhead')} placement="below">
                                 <button
@@ -440,20 +398,6 @@ export default function Subtitle() {
                             Header: () => <div className={cn('h-1')} />,
                         }}
                     />
-
-                    {/* 浏览离开播放点时的悬浮提示胶囊：平滑回到当前句 */}
-                    {scrollState === 'USER_BROWSING' && currentListPosition >= 0 && (
-                        <div className="absolute bottom-5 inset-x-0 z-20 flex justify-center pointer-events-none">
-                            <button
-                                type="button"
-                                onClick={() => syncIntoView(currentListPosition)}
-                                className="pointer-events-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface/90 border border-border/80 shadow-md backdrop-blur-md text-xs font-medium text-accent hover:bg-surface hover:scale-105 active:scale-95 transition-all duration-150 cursor-pointer"
-                            >
-                                <LocateFixed className="w-3.5 h-3.5 animate-pulse" />
-                                <span>{t('controlButton.backToPlayhead', { defaultValue: '回到当前播放行' })}</span>
-                            </button>
-                        </div>
-                    )}
 
                     {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
                     {sidebarHiddenByEnglish && (
