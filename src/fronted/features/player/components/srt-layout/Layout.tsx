@@ -5,7 +5,7 @@ import PodcastViewer from '@/fronted/features/player/components/subtitles/Podcas
 import MainSubtitle from './MainSubtitle';
 import Subtitle from './components/Subtitle';
 import LearningToolbar from '@/fronted/features/player/components/learning-toolbar/LearningToolbar';
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import type { ImperativePanelGroupHandle } from 'react-resizable-panels';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
@@ -60,98 +60,8 @@ const PlaybackLayout = () => {
     const navigate = useNavigate();
     const { handlePlayerReady, handleAutoPlayNext } = usePlayerBridge(navigate);
 
-    const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
-    const ambientCanvasRef = useRef<HTMLCanvasElement>(null);
     const rootContainerRef = useRef<HTMLDivElement>(null);
 
-    // 在根容器底层驱动空间环境光：动态感知视频实际相对位置与比例，实现不规则空间光场投射
-    useEffect(() => {
-        if (!videoElement || podcastMode || !hasSource) {
-            return undefined;
-        }
-        let animationFrameId: number | undefined;
-        let cancelled = false;
-        let lastDrawTime = 0;
-        let lastCanvasW = 0;
-        let lastCanvasH = 0;
-        const fps = 24;
-        const drawInterval = 1000 / fps;
-
-        /** 把当前视频帧画进环境光画布（只依赖画面尺寸，不关心播放状态）。 */
-        const drawAmbient = () => {
-            const backgroundCanvas = ambientCanvasRef.current;
-            const rootContainer = rootContainerRef.current;
-            if (!backgroundCanvas || !rootContainer || videoElement.readyState < 2 || videoElement.seeking) {
-                return;
-            }
-            const ctx = backgroundCanvas.getContext('2d', { alpha: false });
-            if (!ctx) {
-                return;
-            }
-            const rootRect = rootContainer.getBoundingClientRect();
-            const videoRect = videoElement.getBoundingClientRect();
-
-            const ratio = window.devicePixelRatio || 1;
-            const resolutionFactor = 0.2; // 高性能低分辨率缓冲绘制
-            const scaledRootW = Math.max(1, Math.floor(rootRect.width * ratio * resolutionFactor));
-            const scaledRootH = Math.max(1, Math.floor(rootRect.height * ratio * resolutionFactor));
-
-            if (scaledRootW !== lastCanvasW || scaledRootH !== lastCanvasH) {
-                backgroundCanvas.width = scaledRootW;
-                backgroundCanvas.height = scaledRootH;
-                lastCanvasW = scaledRootW;
-                lastCanvasH = scaledRootH;
-            }
-
-            // 动态计算视频在根容器中的真实绝对坐标与尺寸（自动适应普通分栏拖拽与全屏居中）
-            const relX = (videoRect.left - rootRect.left) / rootRect.width;
-            const relY = (videoRect.top - rootRect.top) / rootRect.height;
-            const relW = videoRect.width / rootRect.width;
-            const relH = videoRect.height / rootRect.height;
-
-            // 柔和向外溢出延伸（Padding Expansion），让光晕自然蔓延渗透到右侧和下方
-            const expandFactor = 0.25;
-            const drawX = Math.max(0, (relX - relW * expandFactor) * scaledRootW);
-            const drawY = Math.max(0, (relY - relH * expandFactor) * scaledRootH);
-            const drawW = Math.min(scaledRootW, (relW * (1 + expandFactor * 2)) * scaledRootW);
-            const drawH = Math.min(scaledRootH, (relH * (1 + expandFactor * 2)) * scaledRootH);
-
-            ctx.drawImage(videoElement, drawX, drawY, drawW, drawH);
-        };
-
-        const syncVideos = () => {
-            if (cancelled) return;
-            const now = performance.now();
-            if (now - lastDrawTime >= drawInterval) {
-                // 播放中才持续重绘；暂停/拖动由下面的事件各补一帧
-                if (!videoElement.paused) {
-                    drawAmbient();
-                }
-                lastDrawTime = now;
-            }
-            if (cancelled) return;
-            animationFrameId = requestAnimationFrame(syncVideos);
-        };
-
-        // 暂停、拖动、加载完成时也画一帧：否则视频周围只剩应用底色，看起来像一块灰板
-        const repaint = () => drawAmbient();
-        videoElement.addEventListener('pause', repaint);
-        videoElement.addEventListener('seeked', repaint);
-        videoElement.addEventListener('loadeddata', repaint);
-        // 打开时视频可能已经加载完成（不会再触发 loadeddata）
-        drawAmbient();
-
-        animationFrameId = requestAnimationFrame(syncVideos);
-        return () => {
-            cancelled = true;
-            videoElement.removeEventListener('pause', repaint);
-            videoElement.removeEventListener('seeked', repaint);
-            videoElement.removeEventListener('loadeddata', repaint);
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-        };
-    }, [videoElement, podcastMode, hasSource]);
 
     const containerClass = cn(
         'relative w-full h-full flex flex-col overflow-hidden bg-background'
@@ -164,6 +74,29 @@ const PlaybackLayout = () => {
             </div>
         );
     }
+
+    /**
+     * 把视频/剧本的分栏恢复成默认比例。
+     *
+     * 面板顺序会随笔剧停靠方向翻转，所以重置值必须按当前顺序给出；
+     * 同时写回 localStorage，下一次打开还是这个比例。
+     */
+    const resetOuterLayout = () => {
+        outerGroupRef.current?.setLayout(
+            isLeftTranscript
+                ? [DEFAULT_OUTER_TRANSCRIPT_SIZE, DEFAULT_OUTER_VIDEO_SIZE]
+                : [DEFAULT_OUTER_VIDEO_SIZE, DEFAULT_OUTER_TRANSCRIPT_SIZE]
+        );
+        setSizeOa(DEFAULT_OUTER_VIDEO_SIZE);
+        setSizeOb(DEFAULT_OUTER_TRANSCRIPT_SIZE);
+    };
+
+    /** 把舞台/主字幕的竖向分栏恢复成默认比例。 */
+    const resetInnerLayout = () => {
+        innerGroupRef.current?.setLayout([DEFAULT_INNER_STAGE_SIZE, DEFAULT_INNER_SUBTITLE_SIZE]);
+        setSizeIa(DEFAULT_INNER_STAGE_SIZE);
+        setSizeIb(DEFAULT_INNER_SUBTITLE_SIZE);
+    };
 
     const videoStagePanel = (
         <ResizablePanel
@@ -197,12 +130,13 @@ const PlaybackLayout = () => {
                             className="w-full h-full"
                             onReady={handlePlayerReady}
                             onEnded={handleAutoPlayNext}
-                            onProvideVideoElement={setVideoElement}
                         />
                     </ResizablePanel>
                     {!fullScreen && !podcastMode && (
                         <>
                             <ResizableHandle
+                                onDoubleClick={resetInnerLayout}
+                                title={t('layout.resetSplitHint')}
                                 className={cn(
                                     'group relative h-1.5 w-full flex items-center justify-center',
                                     'bg-border/30 hover:bg-accent/40',
@@ -291,29 +225,6 @@ const PlaybackLayout = () => {
         </ResizablePanel>
     );
 
-    /**
-     * 把视频/剧本的分栏恢复成默认比例。
-     *
-     * 面板顺序会随笔剧停靠方向翻转，所以重置值必须按当前顺序给出；
-     * 同时写回 localStorage，下一次打开还是这个比例。
-     */
-    const resetOuterLayout = () => {
-        outerGroupRef.current?.setLayout(
-            isLeftTranscript
-                ? [DEFAULT_OUTER_TRANSCRIPT_SIZE, DEFAULT_OUTER_VIDEO_SIZE]
-                : [DEFAULT_OUTER_VIDEO_SIZE, DEFAULT_OUTER_TRANSCRIPT_SIZE]
-        );
-        setSizeOa(DEFAULT_OUTER_VIDEO_SIZE);
-        setSizeOb(DEFAULT_OUTER_TRANSCRIPT_SIZE);
-    };
-
-    /** 把舞台/主字幕的竖向分栏恢复成默认比例。 */
-    const resetInnerLayout = () => {
-        innerGroupRef.current?.setLayout([DEFAULT_INNER_STAGE_SIZE, DEFAULT_INNER_SUBTITLE_SIZE]);
-        setSizeIa(DEFAULT_INNER_STAGE_SIZE);
-        setSizeIb(DEFAULT_INNER_SUBTITLE_SIZE);
-    };
-
     const splitHandle = (
         <ResizableHandle
             key="outer-split-handle"
@@ -337,29 +248,6 @@ const PlaybackLayout = () => {
                     {t('mediaError.hint', { code: mediaErrorCode })}
                 </div>
             )}
-            {/* 顶层全局真实空间环境光 Canvas：覆盖整个播放器窗口 */}
-            <canvas
-                ref={ambientCanvasRef}
-                className={cn(
-                    'absolute inset-0 w-full h-full pointer-events-none transition-opacity duration-500 z-0',
-                    'blur-[80px] saturate-[1.1] brightness-[0.78]',
-                    'dark:blur-[80px] dark:saturate-[1.15] dark:brightness-[0.52]',
-                    videoElement ? 'opacity-80 dark:opacity-75' : 'opacity-0',
-                    podcastMode && 'hidden'
-                )}
-            />
-
-            {/* 高性能全局氛围渐变滤镜：压暗背景，提高画质沉浸感与文字可读性 */}
-            {!podcastMode && (
-                <div
-                    className={cn(
-                        'absolute inset-0 pointer-events-none transition-colors duration-300 z-0',
-                        'bg-gradient-to-b from-black/15 via-black/10 to-black/25',
-                        'dark:bg-gradient-to-b dark:from-black/45 dark:via-black/25 dark:to-black/65'
-                    )}
-                />
-            )}
-
             <ResizablePanelGroup
                 ref={outerGroupRef}
                 key={`layout-group-${transcriptPosition}`}

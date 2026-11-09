@@ -101,6 +101,8 @@
         "displayModeLabel": "Display",
         "sentenceBlockMode": "Sentence blocks (view a few together)",
         "sentenceBlockModeHint": "Changes how lines are shown and looped; the subtitle file stays untouched.",
+        "ambientLight": "Ambient light",
+        "ambientLightHint": "Adds a blurred glow around the picture; off by default and uses more power.",
         "transcriptDockLeft": "Dock script on the left",
         "transcriptDockLeftHint": "Turn off to dock it on the right; applies immediately.",
         "subtitleFileLabel": "Subtitle file",

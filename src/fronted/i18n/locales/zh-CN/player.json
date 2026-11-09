@@ -101,6 +101,8 @@
         "displayModeLabel": "显示方式",
         "sentenceBlockMode": "整句显示（几句一起看）",
         "sentenceBlockModeHint": "只改“怎么显示、按什么循环”，字幕文件本身不动。",
+        "ambientLight": "环境光",
+        "ambientLightHint": "在画面外补一圈模糊光晕；默认关闭，开启会增加显卡与电量开销。",
         "transcriptDockLeft": "剧本停靠在左侧",
         "transcriptDockLeftHint": "关掉则停靠在右侧，切换后立即生效。",
         "subtitleFileLabel": "字幕文件",

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { Eraser, History, SlidersHorizontal } from 'lucide-react';
+import { Eraser, History, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSWR, { useSWRConfig } from 'swr';
 import toast from 'react-hot-toast';
@@ -72,6 +72,8 @@ export default function PlayerSettingsPopover({
     const showSourceZh = usePlayerUi((s) => s.showSourceZh);
     const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
     const transcriptPosition = useSetting((s) => s.values.get('appearance.transcriptPosition') ?? 'right');
+    const ambientLight = usePlayerUi((s) => s.ambientLight);
+    const toggleAmbientLight = usePlayerUi((s) => s.toggleAmbientLight);
     const showSideTranslation = usePlayerUi((s) => s.showSideTranslation);
     const syncSide = usePlayerUi((s) => s.syncSide);
     const changeShowEn = usePlayerUi((s) => s.changeShowEn);
@@ -173,6 +175,13 @@ export default function PlayerSettingsPopover({
                 />
                 <p className={ROW_HINT}>{t('controlBox.sentenceBlockModeHint')}</p>
                 {/* 剧本停靠方向：布局偏好，从剧本标题栏挪进来，标题栏只保留与当前句相关的操作 */}
+                <ControlPopoverRow
+                    checked={ambientLight}
+                    icon={<Sparkles className={CONTROL_POPOVER_ICON} />}
+                    label={t('controlBox.ambientLight')}
+                    title={t('controlBox.ambientLightHint')}
+                    onActivate={() => toggleAmbientLight()}
+                />
                 <ControlPopoverRow
                     checked={transcriptPosition === 'left'}
                     label={t('controlBox.transcriptDockLeft')}
