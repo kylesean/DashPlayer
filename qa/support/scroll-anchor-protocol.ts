@@ -16,8 +16,18 @@ export const START_SCROLL_TOP = 900;
 /** 起点必须真的超过这个值，否则守卫不成立（用例判红）。 */
 export const MIN_START_SCROLL_TOP = 850;
 
-/** 「锚点行被回收」场景里甩到的深度（布局像素）。 */
-export const FLING_SCROLL_TOP = 2800;
+/**
+ * 「锚点行被回收」场景里的甩动位移（布局像素），取一个**远大于任何可能内容高度**的值。
+ *
+ * 为什么不再写死一个绝对深度（原值 2800）：字幕行高随译文开关在约 350–700px 之间变化，
+ * 36 句的内容高度实测在 10.7k–22.2k 之间浮动，2800 只落在第 3–4 行附近，
+ * 锚点行（通常是第 1 行）依然在 `minOverscanItemCount` 的缓冲里，场景根本构造不出来
+ * （实测甩到 2900 后渲染范围仍是 [0..6]，用例只能 skip）。
+ *
+ * 甩到「底部」与行高、总句数都无关：锚点在第 1 行时必然远在缓冲区之外，
+ * 而浏览器会把滚轮位移夹在 `scrollHeight - clientHeight`，不会真的溢出。
+ */
+export const FLING_TO_END_WHEEL_DELTA = 1_000_000;
 
 /** 每轮次数量：同一场景连跑三次，用来暴露时序抖动。 */
 export const ROUNDS = 3;
@@ -28,14 +38,24 @@ export const MIN_CONTENT_HEIGHT_DELTA = 20;
 /** 收敛阈值（布局像素）：末轮残差小于它才算收敛。 */
 export const CONVERGE_EPSILON_PX = 1;
 
-/** 侧栏滚动容器的稳定 testid。 */
-export const SCROLLER_TESTID = 'player-sidebar-scroller';
+/**
+ * 单轮允许的滚动写入上限（请求类与直接写**各算一次**）。
+ *
+ * 等于产品侧 `MAX_ROUNDS`（3）：每一轮最多一次写入，跑满轮次就是上限。
+ * 这里不复用产品常量是有意的——QA 要能独立于实现改动指出「写多了」，
+ * 若直接 import 产品常量，产品把上限调大时用例会跟着一起放水。
+ */
+export const MAX_SCROLL_WRITES = 3;
 
-/** 字幕行的稳定 testid（行上带 data-index / data-current）。 */
-export const SENTENCE_CARD_TESTID = 'sentence-card';
-
-/** 「侧栏译文」开关的稳定 testid（状态只认 aria-pressed）。 */
-export const SIDE_TRANSLATION_TESTID = 'side-translation-toggle';
-
-/** 诊断日志前缀：机读出口（tools/check-player-scroll.mjs）按它切观测行。 */
-export const OBSERVATION_PREFIX = '[player-scroll-anchor] ';
+/**
+ * 元素标识与日志前缀**不在这里定义**，而在 `src/common/constants/player-scroll-protocol.ts`。
+ *
+ * 理由：它们是产品与用例共用的运行期契约。产品侧（`Subtitle.tsx` 挂 DOM、
+ * `scrollWriteLog.ts` 找容器）与用例侧必须引用同一份，改名才会在 `tsc` 阶段失败，
+ * 而不是让 e2e 静默定位不到元素。
+ *
+ * 本文件只保留**纯 QA 侧**的规格数值（起点、轮数、阈值），那些数字产品不该知道。
+ * 本文件因此保持零 import：`check-player-scroll.mjs` 会用 Node 的类型擦除直接 `import()` 它，
+ * 一旦这里出现相对导入（没有扩展名），Node 的 ESM 解析就会失败。
+ * 需要 testid 的调用方从 `src/common/constants/player-scroll-protocol.ts` 直接引用。
+ */

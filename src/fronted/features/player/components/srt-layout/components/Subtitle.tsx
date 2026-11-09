@@ -15,7 +15,11 @@ import useLayout from '@/fronted/app/stores/layoutStore';
 import { cn } from '@/fronted/lib/utils';
 import useSubtitleScroll, { useSubtitleScrollState } from '@/fronted/features/player/hooks/useSubtitleScroll';
 import { useSideTranslationHold } from '@/fronted/features/player/hooks/useSideTranslationHold';
-import { PLAYER_SIDEBAR_SCROLLER_TESTID } from '@/fronted/features/player/dev/scrollWriteLog';
+import {
+    PLAYER_SIDEBAR_SCROLLER_TESTID,
+    SENTENCE_CARD_TESTID,
+    SIDE_TRANSLATION_TOGGLE_TESTID,
+} from '@/common/constants/player-scroll-protocol';
 import useBoundary from '@/fronted/features/player/hooks/useBoundary';
 import useChatPanel from '@/fronted/features/chat/chatStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
@@ -288,7 +292,7 @@ export default function Subtitle() {
                 onMouseDown={handleMouseDown(item, listPosition)}
                 onMouseEnter={handleMouseEnter(item, listPosition)}
                 onMouseUp={handleMouseUp}
-                data-testid="sentence-card"
+                data-testid={SENTENCE_CARD_TESTID}
                 data-index={item.index}
                 data-current={isCurrent ? 'true' : 'false'}
             >
@@ -366,7 +370,7 @@ export default function Subtitle() {
                         <Tooltip content={t('controlBox.sideTranslationHint')} placement="below">
                             <button
                                 type="button"
-                                data-testid="side-translation-toggle"
+                                data-testid={SIDE_TRANSLATION_TOGGLE_TESTID}
                                 aria-pressed={showSideTranslation}
                                 aria-label={t('controlBox.showSideTranslation')}
                                 onClick={() => changeShowSideTranslation()}

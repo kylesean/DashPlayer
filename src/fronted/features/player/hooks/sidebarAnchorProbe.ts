@@ -8,7 +8,7 @@
  * 坐标约定：`getBoundingClientRect()` 是视觉像素，`scrollTop` / `clientHeight` / `offsetTop` 是布局像素；
  * 容器被 CSS transform 缩放时两者不等，因此缩放比例必须**每次实测**，不能写死为 1。
  */
-import { SENTENCE_CARD_TESTID } from '@/fronted/features/player/dev/scrollWriteLog';
+import { SENTENCE_CARD_TESTID } from '@/common/constants/player-scroll-protocol';
 import type { AnchorSample } from './scrollTarget';
 
 /** 判定「布局稳定」所需的连续不变帧数。 */

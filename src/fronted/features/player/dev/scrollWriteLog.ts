@@ -10,6 +10,7 @@
  * 不会和 `playerDebug.ts` 形成循环依赖；生产构建里所有写入都只返回一次性对象、不入缓冲。
  */
 import { isDevMode } from '@/fronted/lib/devMode';
+import { PLAYER_SIDEBAR_SCROLLER_TESTID } from '@/common/constants/player-scroll-protocol';
 
 /** 滚动写入的来源类型。 */
 export type ScrollWriteKind =
@@ -89,12 +90,6 @@ const MAX_SCROLL_WRITES = 200;
 
 /** 保留的 hold 记录条数上限。 */
 const MAX_HOLD_RECORDS = 50;
-
-/** 侧栏滚动容器的稳定 testid（与 Subtitle.tsx 上的挂载保持一致）。 */
-export const PLAYER_SIDEBAR_SCROLLER_TESTID = 'player-sidebar-scroller';
-
-/** 字幕行的稳定 testid。 */
-export const SENTENCE_CARD_TESTID = 'sentence-card';
 
 /** 滚动写入的环形缓冲；对外的引用恒为同一个数组，调用方可以按下标切片比较前后差异。 */
 const scrollWrites: ScrollWriteEntry[] = [];
