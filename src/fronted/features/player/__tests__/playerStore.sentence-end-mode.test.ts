@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { usePlayer } from '@/fronted/features/player/playerStore';
+import { deriveSentenceEndMode } from '@/fronted/features/player/lib/sentence-end-mode';
 
 // playerStore 在模块加载时会拉取设置与窗口信息；这里只关心句末模式的状态转移，
 // 把外部 IPC 与音频能力全部替身掉，避免测试依赖真实后端。
@@ -113,5 +114,45 @@ describe('playerStore 句末模式互斥', () => {
         usePlayer.getState().setAutoPause(false);
 
         expect(enabledCount()).toBe(0);
+    });
+
+    it('UI 派生模式与 store 实际生效的字段一致（脏状态下也成立）', () => {
+        // 这条钉的是「两个文件之间的顺序对齐」：`deriveSentenceEndMode` 的裁决顺序
+        // 必须与 `onTimeUpdate` 的分支顺序一致，否则 UI 会显示一个引擎不执行的模式。
+        //
+        // 正常路径（互斥由 setter 保证）逐个验证：
+        const cases: Array<[() => void, string]> = [
+            [() => usePlayer.getState().setAutoPause(true), 'autoPause'],
+            [() => usePlayer.getState().setSingleRepeat(true), 'singleRepeat'],
+            [() => usePlayer.getState().setShadowing(true), 'shadowing'],
+            [() => usePlayer.getState().setSentenceLoop({ times: 3 }), 'sentenceLoop'],
+        ];
+        for (const [activate, expected] of cases) {
+            usePlayer.setState({
+                autoPause: false,
+                singleRepeat: false,
+                shadowing: false,
+                sentenceLoop: null,
+            });
+            activate();
+            const s = usePlayer.getState();
+            expect(
+                deriveSentenceEndMode(
+                    { autoPause: s.autoPause, singleRepeat: s.singleRepeat, shadowing: s.shadowing },
+                    s.sentenceLoop !== null,
+                ),
+                expected,
+            ).toBe(expected);
+        }
+
+        // 脏状态（绕过 setter 直接写字段）：引擎会先命中 autoPause 分支，UI 必须同样显示 autoPause
+        usePlayer.setState({ autoPause: true, singleRepeat: true, shadowing: true, sentenceLoop: null });
+        const dirty = usePlayer.getState();
+        expect(
+            deriveSentenceEndMode(
+                { autoPause: dirty.autoPause, singleRepeat: dirty.singleRepeat, shadowing: dirty.shadowing },
+                dirty.sentenceLoop !== null,
+            ),
+        ).toBe('autoPause');
     });
 });

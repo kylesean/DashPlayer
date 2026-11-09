@@ -37,12 +37,22 @@ export interface SentenceEndModeFlags {
 }
 
 /**
- * 多个标志同时为真时的裁决顺序。
+ * 多个标志同时为真时的裁决顺序，**必须与引擎 `onTimeUpdate` 的判定顺序一致**。
  *
- * 正常情况下永远只有一个为真；这里给历史脏状态一个确定答案，
- * 避免不同订阅方对「当前模式」得出不同结论。
+ * `playerStore.onTimeUpdate` 是唯一决定「句末到底发生什么」的地方，它按
+ * 尾部预览 → 瞬态计划 → `sentenceLoop` → `autoPause` → `singleRepeat` →
+ * `hoverRepeat` → `shadowing` 逐段 `if (...) return`。也就是说脏状态下
+ * **先命中的那个分支赢**，`autoPause` 会压过 `singleRepeat`，而 `singleRepeat`
+ * 又压过 `shadowing`。
+ *
+ * 本常量此前写成 `shadowing → singleRepeat → autoPause`，与引擎正好相反。
+ * 后果不是「显示错一个标签」这么轻：任何按本函数渲染「当前模式」的 UI，
+ * 在脏状态下都会显示一个**引擎并不会执行**的模式。既然这份文档把本函数当作
+ * 「当前模式的唯一事实源」，顺序就必须跟引擎对齐。
+ *
+ * 注意 `hoverRepeat` 不在此列：它是叠加在持久模式之上的瞬态覆盖层，不参与互斥。
  */
-const MODE_PRIORITY: SentenceEndBooleanMode[] = ['shadowing', 'singleRepeat', 'autoPause'];
+const MODE_PRIORITY: SentenceEndBooleanMode[] = ['autoPause', 'singleRepeat', 'shadowing'];
 
 /**
  * 由标志推导当前生效的持久句末模式。

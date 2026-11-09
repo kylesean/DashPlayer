@@ -31,6 +31,7 @@ import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { TrainingSettingsDialog } from '@/fronted/features/player/components/TrainingSettingsDialog';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { formatShortcut } from '@/fronted/features/player/components/formatShortcut';
+import { deriveSentenceEndMode } from '@/fronted/features/player/lib/sentence-end-mode';
 import {
     TOOLBAR_BADGE,
     TOOLBAR_TEXT_BUTTON,
@@ -90,18 +91,33 @@ export default function TrainingMenuButton({
     const loopTimesActive = sentenceLoop !== null && !sentenceLoop.rates;
     const loopRatesActive = sentenceLoop !== null && !!sentenceLoop.rates;
     const trainingActive = sentenceLoop !== null || skipGap || shadowing || rewindOnResume;
-    // 模式身份由按钮文字表达（图标固定一颗，不再逐模式换图标、换色），优先级与 tooltip 一致
-    const trainingLabel = singleRepeat
-        ? t('controlBar.modeSingleRepeat')
-        : autoPause
-        ? t('controlBar.modeAutoPause')
-        : shadowing
-        ? t('controlBar.modeShadowing')
-        : loopTimesActive
-        ? t('controlBar.modeLoopTimes', { times: trainingConfig.repeatTimes })
-        : loopRatesActive
-        ? t('controlBar.modeLoopRates')
-        : t('controlBar.modeTraining');
+    // 模式身份由按钮文字表达（图标固定一颗，不再逐模式换图标、换色）。
+    //
+    // 「当前是哪个模式」不再由本组件自己按单句循环 → 句末暂停 → 跟读的顺序拼三元表达式：
+    // 那个顺序与引擎 `onTimeUpdate` 的分支顺序（autoPause 先于 singleRepeat）相反，
+    // 一旦出现多模式并存的脏状态，按钮会显示一个引擎并不执行的模式。
+    // 现在统一走 `deriveSentenceEndMode`，UI 与引擎共用同一份裁决顺序。
+    const activeSentenceEndMode = deriveSentenceEndMode(
+        { autoPause, singleRepeat, shadowing },
+        sentenceLoop !== null,
+    );
+    const trainingLabel = (() => {
+        switch (activeSentenceEndMode) {
+            case 'singleRepeat':
+                return t('controlBar.modeSingleRepeat');
+            case 'autoPause':
+                return t('controlBar.modeAutoPause');
+            case 'shadowing':
+                return t('controlBar.modeShadowing');
+            case 'sentenceLoop':
+                // 逐句循环有两种配置（×N / 递进倍速），标签不同
+                return loopRatesActive
+                    ? t('controlBar.modeLoopRates')
+                    : t('controlBar.modeLoopTimes', { times: trainingConfig.repeatTimes });
+            default:
+                return t('controlBar.modeTraining');
+        }
+    })();
 
     // 进度徽章里的数字：按总数位数补零，避免 9→10 这类跨位时把按钮撑宽
     const loopCountText = activePlan
@@ -116,27 +132,33 @@ export default function TrainingMenuButton({
         ? `calc(${5 + loopTotalDigits * 2 + 3}ch + 0.625rem)` // 「1.00x」+ 间距 + 「(N/M)」
         : `calc(${loopTotalDigits * 2 + 1}ch + 0.5rem)`; // 「N/M」；影子跟读倒计时位数更少，共用同一槽位
 
-    const trainingTooltipContent = singleRepeat
-        ? `${t('controlBar.tooltipSingleRepeat')}${formatShortcut(repeatShortcut)}`
-        : autoPause
-        ? `${t('controlBar.tooltipAutoPause')}${formatShortcut(autoPauseShortcut)}`
-        : shadowing
-        ? `${t('controlBar.tooltipShadowing')}${shadowingPause ? t('controlBar.tooltipShadowingPausing') : ''}`
-        : loopTimesActive
-        ? t('controlBar.tooltipLoopTimes', {
-            times: trainingConfig.repeatTimes,
-            done: (activePlan?.loopDone ?? 0) + 1,
-            total: activePlan?.loopTotal ?? trainingConfig.repeatTimes,
-        })
-        : loopRatesActive
-        ? t('controlBar.tooltipLoopRates', {
-            rate: playbackRate,
-            done: (activePlan?.loopDone ?? 0) + 1,
-            total: activePlan?.loopTotal ?? trainingConfig.progressiveRates.length,
-        })
-        : trainingActive
-        ? t('controlBar.tooltipTrainingActive')
-        : t('controlBar.tooltipTrainingIdle');
+    // tooltip 与按钮文字共用同一个派生模式，避免「按钮说 A、悬浮提示说 B」
+    const trainingTooltipContent = (() => {
+        switch (activeSentenceEndMode) {
+            case 'singleRepeat':
+                return `${t('controlBar.tooltipSingleRepeat')}${formatShortcut(repeatShortcut)}`;
+            case 'autoPause':
+                return `${t('controlBar.tooltipAutoPause')}${formatShortcut(autoPauseShortcut)}`;
+            case 'shadowing':
+                return `${t('controlBar.tooltipShadowing')}${shadowingPause ? t('controlBar.tooltipShadowingPausing') : ''}`;
+            case 'sentenceLoop':
+                return loopRatesActive
+                    ? t('controlBar.tooltipLoopRates', {
+                        rate: playbackRate,
+                        done: (activePlan?.loopDone ?? 0) + 1,
+                        total: activePlan?.loopTotal ?? trainingConfig.progressiveRates.length,
+                    })
+                    : t('controlBar.tooltipLoopTimes', {
+                        times: trainingConfig.repeatTimes,
+                        done: (activePlan?.loopDone ?? 0) + 1,
+                        total: activePlan?.loopTotal ?? trainingConfig.repeatTimes,
+                    });
+            default:
+                return trainingActive
+                    ? t('controlBar.tooltipTrainingActive')
+                    : t('controlBar.tooltipTrainingIdle');
+        }
+    })();
 
     return (
         <>

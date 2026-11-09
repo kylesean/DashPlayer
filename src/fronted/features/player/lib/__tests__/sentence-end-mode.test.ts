@@ -59,8 +59,26 @@ describe('句末模式状态机', () => {
         const dirty: SentenceEndModeFlags = { autoPause: true, singleRepeat: true, shadowing: false };
         expect(hasSentenceEndModeConflict(dirty, false)).toBe(true);
         // 裁决顺序固定，保证不同订阅方得出同一结论
-        expect(deriveSentenceEndMode(dirty, false)).toBe('singleRepeat');
+        expect(deriveSentenceEndMode(dirty, false)).toBe('autoPause');
         expect(hasSentenceEndModeConflict(off, true)).toBe(false);
         expect(hasSentenceEndModeConflict(dirty, true)).toBe(true);
+    });
+
+    it('裁决顺序必须与引擎 onTimeUpdate 的分支顺序一致', () => {
+        // 引擎在 playerStore.onTimeUpdate 里按
+        //   sentenceLoop → autoPause → singleRepeat → hoverRepeat → shadowing
+        // 逐段 `if (...) return`，先命中的分支赢。这里把「全部打开」的脏状态
+        // 逐层剥掉，断言 derive 出来的模式与引擎实际会执行的那个一致。
+        const all: SentenceEndModeFlags = { autoPause: true, singleRepeat: true, shadowing: true };
+
+        // 全开：sentenceLoop 最优先
+        expect(deriveSentenceEndMode(all, true)).toBe('sentenceLoop');
+        // 关掉 loop：autoPause 赢（引擎里它排在 singleRepeat 之前）
+        expect(deriveSentenceEndMode(all, false)).toBe('autoPause');
+        // 再关掉 autoPause：singleRepeat 赢
+        expect(deriveSentenceEndMode({ ...all, autoPause: false }, false)).toBe('singleRepeat');
+        // 只剩 shadowing
+        expect(deriveSentenceEndMode({ ...all, autoPause: false, singleRepeat: false }, false))
+            .toBe('shadowing');
     });
 });
