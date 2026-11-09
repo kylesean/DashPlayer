@@ -3,6 +3,9 @@ import { Virtuoso } from 'react-virtuoso';
 import { useShallow } from 'zustand/react/shallow';
 import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { LocateFixed, Repeat, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
@@ -324,61 +327,126 @@ export default function Subtitle() {
 
     const render = () => {
         return (
-            <div className="w-full h-full relative" ref={setBoundaryRef}>
-                <Virtuoso
-                    onScroll={onScrolling}
-                    scrollerRef={handleScrollerRef}
-                    increaseViewportBy={200}
-                    minOverscanItemCount={{ top: 3, bottom: 6 }}
-                    defaultItemHeight={55}
-                    ref={setVirtuoso}
-                    className={twJoin(
-                        'h-full w-full overflow-y-auto text-stone-600 dark:text-neutral-200 py-2',
-                        'scrollbar-thin scrollbar-thumb-rounded-full',
-                        'scrollbar-thumb-stone-300/60 dark:scrollbar-thumb-neutral-700/60 hover:scrollbar-thumb-stone-400 dark:hover:scrollbar-thumb-neutral-500',
-                        showSideBar && 'scrollbar-none'
-                    )}
-                    data={subtitle}
-                    rangeChanged={handleRangeChanged}
-                    itemContent={renderItem}
-                    components={{
-                        Footer: () => <div className="h-52" />,
-                        Header: () => <div className={cn('h-0.5')} />,
-                    }}
-                />
-
-                {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
-                {sidebarHiddenByEnglish && (
-                    <div className="absolute inset-x-0 top-4 z-10 flex justify-center pointer-events-none">
-                        <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/85 px-3 py-1 text-[11px] leading-tight text-muted-foreground backdrop-blur shadow-xs">
-                            <span>{t('controlBox.sidebarHiddenByEnglish')}</span>
-                            <span aria-hidden="true">·</span>
-                            <span className="font-medium">
-                                {t('controlBox.sidebarHiddenByEnglishAction', {
-                                    shortcut: toggleEnglishShortcut.toUpperCase(),
-                                })}
+            <div className="w-full h-full flex flex-col relative" ref={setBoundaryRef}>
+                {/* 伴读剧本流状态栏 */}
+                <div className="shrink-0 px-3 py-1.5 flex items-center justify-between border-b border-border/30 bg-background/50 backdrop-blur-md z-10 text-xs select-none">
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-muted-foreground">{t('subtitleScript', { defaultValue: '伴读剧本' })}</span>
+                        {subtitle.length > 0 && (
+                            <span className="text-[11px] font-mono text-muted-foreground/70">
+                                {subtitle.length} 句
                             </span>
-                        </div>
+                        )}
+                        {virtualGroup.active && virtualGroup.sentences.length > 1 && (
+                            <div className="flex items-center gap-1">
+                                <Badge
+                                    variant="teal"
+                                    icon={<Repeat className="w-2.5 h-2.5" />}
+                                    label={`${virtualGroup.sentences.length} 句循环`}
+                                />
+                                <Tooltip content={t('cancelLoop', { defaultValue: '取消选区循环' })} placement="below">
+                                    <button
+                                        type="button"
+                                        onClick={() => playerActions.clearVirtualGroup()}
+                                        className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                                        aria-label={t('cancelLoop', { defaultValue: '取消选区循环' })}
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                </Tooltip>
+                            </div>
+                        )}
                     </div>
-                )}
-
-                {/* 侧栏译文被关掉后就地提示并给回开按钮。
-                    放在 Virtuoso 之外（absolute，不设 Header/Footer）：既不占列表行高，
-                    也不会随句子卡片一起淡出——侧栏被收起时它必须还在，否则用户看不出发生了什么。 */}
-                {!showSideTranslation && (
-                    <div className="absolute right-2 top-2 z-10 pointer-events-none">
-                        <button
-                            type="button"
-                            onClick={() => changeShowSideTranslation()}
-                            title={sidebarHiddenByEnglish ? t('controlBox.sidebarHiddenNow') : undefined}
-                            className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-0.5 text-[10px] leading-tight text-muted-foreground backdrop-blur transition-colors hover:text-foreground"
+                    <div className="flex items-center gap-1.5">
+                        <Tooltip
+                            content={showSideTranslation ? t('hideSideTranslation', { defaultValue: '隐藏侧栏译文' }) : t('showSideTranslation', { defaultValue: '显示侧栏译文' })}
+                            placement="below"
                         >
-                            <span>{t('controlBox.sideTranslationHiddenChip')}</span>
-                            <span aria-hidden="true">·</span>
-                            <span className="font-medium">{t('controlBox.sideTranslationShowAction')}</span>
-                        </button>
+                            <button
+                                type="button"
+                                onClick={() => changeShowSideTranslation()}
+                                className={twJoin(
+                                    'px-2 py-0.5 rounded text-[11px] font-medium transition-colors cursor-pointer',
+                                    showSideTranslation
+                                        ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                                        : 'bg-muted/60 text-muted-foreground hover:bg-muted'
+                                )}
+                            >
+                                {t('sideTranslation', { defaultValue: '译' })}
+                            </button>
+                        </Tooltip>
+
+                        {scrollState === 'USER_BROWSING' && currentListPosition >= 0 && (
+                            <Tooltip content={t('controlButton.backToPlayhead')} placement="below">
+                                <button
+                                    type="button"
+                                    onClick={() => syncIntoView(currentListPosition)}
+                                    className="p-1 rounded-md text-amber-500 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                                    aria-label={t('controlButton.backToPlayhead')}
+                                >
+                                    <LocateFixed className="w-3.5 h-3.5 animate-pulse" />
+                                </button>
+                            </Tooltip>
+                        )}
                     </div>
-                )}
+                </div>
+
+                <div className="flex-1 min-h-0 relative">
+                    <Virtuoso
+                        onScroll={onScrolling}
+                        scrollerRef={handleScrollerRef}
+                        increaseViewportBy={200}
+                        minOverscanItemCount={{ top: 3, bottom: 6 }}
+                        defaultItemHeight={55}
+                        ref={setVirtuoso}
+                        className={twJoin(
+                            'h-full w-full overflow-y-auto text-stone-600 dark:text-neutral-200 py-2',
+                            'scrollbar-thin scrollbar-thumb-rounded-full',
+                            'scrollbar-thumb-stone-300/60 dark:scrollbar-thumb-neutral-700/60 hover:scrollbar-thumb-stone-400 dark:hover:scrollbar-thumb-neutral-500',
+                            showSideBar && 'scrollbar-none'
+                        )}
+                        data={subtitle}
+                        rangeChanged={handleRangeChanged}
+                        itemContent={renderItem}
+                        components={{
+                            Footer: () => <div className="h-52" />,
+                            Header: () => <div className={cn('h-0.5')} />,
+                        }}
+                    />
+
+                    {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
+                    {sidebarHiddenByEnglish && (
+                        <div className="absolute inset-x-0 top-4 z-10 flex justify-center pointer-events-none">
+                            <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/85 px-3 py-1 text-[11px] leading-tight text-muted-foreground backdrop-blur shadow-xs">
+                                <span>{t('controlBox.sidebarHiddenByEnglish')}</span>
+                                <span aria-hidden="true">·</span>
+                                <span className="font-medium">
+                                    {t('controlBox.sidebarHiddenByEnglishAction', {
+                                        shortcut: toggleEnglishShortcut.toUpperCase(),
+                                    })}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 侧栏译文被关掉后就地提示并给回开按钮。
+                        放在 Virtuoso 之外（absolute，不设 Header/Footer）：既不占列表行高，
+                        也不会随句子卡片一起淡出——侧栏被收起时它必须还在，否则用户看不出发生了什么。 */}
+                    {!showSideTranslation && (
+                        <div className="absolute right-2 top-2 z-10 pointer-events-none">
+                            <button
+                                type="button"
+                                onClick={() => changeShowSideTranslation()}
+                                title={sidebarHiddenByEnglish ? t('controlBox.sidebarHiddenNow') : undefined}
+                                className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-muted/80 px-2 py-0.5 text-[10px] leading-tight text-muted-foreground backdrop-blur transition-colors hover:text-foreground cursor-pointer"
+                            >
+                                <span>{t('controlBox.sideTranslationHiddenChip')}</span>
+                                <span aria-hidden="true">·</span>
+                                <span className="font-medium">{t('controlBox.sideTranslationShowAction')}</span>
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         );
     };
