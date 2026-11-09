@@ -176,14 +176,29 @@
   **空串版本号等价于从未完成引导**（后端未写配置时的真实返回形态）。
   变异验证：把 `failure?.failed` 改成恒假 → 纯函数 2 例 + 组件 1 例同时转红。
 
-### 8. 引导流程（`OnboardingView`）
+### 8. 引导流程（`OnboardingView`，已收敛并修掉一处真实竞态）
 
-- **位置**：`src/fronted/features/onboarding/OnboardingView.tsx:208`
-- **隐式状态**：`screen = 'storage' | 'download' | 'manual' | 'done'`
-- **现状**：`setScreen` 有 5 个调用点，前进/后退/跳过/手动下载四条路径。
-  `finishing` 与 `downloadingBundle` 两个布尔又叠加在 `screen` 之上表达「正在收尾」。
-- **建议**：与 #3 同法，抽 `nextScreen(screen, event)`；把 `finishing` 并入
-  `screen = 'finishing'`，消除「screen=download 且 finishing=true」这种组合态。
+- **位置**：`src/fronted/features/onboarding/OnboardingView.tsx`
+  + `src/fronted/features/onboarding/lib/onboarding-screen.ts`
+- **原隐式状态**：`screen = 'storage' | 'download' | 'manual' | 'done'`，
+  再叠加 `finishing` 与 `downloadingBundle` 两个布尔表达「正在收尾 / 正在下载」。
+- **已确认的真实缺陷（本轮修复）**：`finishing` 是叠加在 `download` 上的布尔值，
+  收尾期间「返回」按钮只在 `downloadingBundle` 时禁用、「手动下载」入口完全没禁。
+  用户点「跳过」开始收尾后，仍可点返回或手动下载跳到别的屏幕，
+  而 `finishOnboarding()` 的 await 结束后会无条件 `setScreen('done')`——
+  用户被从手动下载页**硬拽到完成页**，中间填的路径/选择全部白做。
+  慢 IPC（本地引擎探测可达数秒）把这个窗口拉得很宽。
+- **本次处理**：
+  - `OnboardingScreen` 增加 `'finishing'` 成员，`finishing` 不再是独立布尔。
+  - 转移表 `TRANSITIONS` 是唯一一份合法转移定义，`transitionOnboardingScreen`
+    对非法事件返回 `null`，`dispatch` 直接忽略。收尾中只接受
+    `FINISH_OK` / `FINISH_FAILED`，导航事件全部被拒。
+  - 收尾期间保留下载页的视觉位置并给 `role="status"` 反馈，
+    避免「点了没反应 → 重复点击」。
+- **测试**：`lib/__tests__/onboarding-screen.test.ts`（8 例），
+  覆盖主路径、手动下载旁支、收尾失败回退、完成页终态、非法事件矩阵、
+  以及「收尾中拒绝一切导航」的回归断言。
+  变异验证：给 `finishing` 加回 `BACK` / `OPEN_MANUAL` 两条边 → 回归用例转红。
 
 ### 9. 窗口尺寸模式（`WindowPortImpl`）
 

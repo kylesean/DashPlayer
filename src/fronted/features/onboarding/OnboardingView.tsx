@@ -34,6 +34,12 @@ import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase
 import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import toast from 'react-hot-toast';
 import { CURRENT_ONBOARDING_VERSION } from '@/common/constants/onboarding';
+import {
+    isFinishing,
+    transitionOnboardingScreen,
+    type OnboardingEvent,
+    type OnboardingScreen,
+} from '@/fronted/features/onboarding/lib/onboarding-screen';
 
 // 版本号与 QA fixture 共用同一常量：两边各写一份字面量时，bump 后 QA 会静默失效。
 export { CURRENT_ONBOARDING_VERSION } from '@/common/constants/onboarding';
@@ -206,9 +212,26 @@ async function fetchOnboardingStatuses() {
 export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) => {
     const { t } = useI18nTranslation('onboarding');
 
-    /** 当前屏幕：选择保存位置 → 下载运行环境 →（手动下载）→ 完成页（撒花 + 上手技巧）。 */
-    const [screen, setScreen] = useState<'storage' | 'download' | 'manual' | 'done'>('storage');
-    const [finishing, setFinishing] = useState(false);
+    /**
+     * 当前屏幕：选择保存位置 → 下载运行环境 →（手动下载）→ 收尾中 → 完成页。
+     *
+     * 收尾是独立屏幕而不是 `download` 上叠加的布尔值：只有这样，
+     * 「收尾中不能返回、不能开手动下载」才是类型与转移表能保证的事，
+     * 而不是靠每个按钮各自记得加 `isDisabled`。
+     */
+    const [screen, setScreen] = useState<OnboardingScreen>('storage');
+    const finishing = isFinishing(screen);
+
+    /**
+     * 派发一个引导事件。
+     *
+     * 非法转移直接忽略，避免「收尾途中被导航打断」这类竞态。
+     *
+     * @param event 触发事件。
+     */
+    const dispatch = React.useCallback((event: OnboardingEvent): void => {
+        setScreen((current) => transitionOnboardingScreen(current, event) ?? current);
+    }, []);
 
     // 存储位置（页面左下角的小元素，默认值可直接用）
     const [storagePath, setStoragePath] = useState('');
@@ -419,7 +442,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
      * 词典固定走内置词库（引擎关闭），超出词库的查询留到设置页再配。
      */
     const finishOnboarding = async () => {
-        setFinishing(true);
+        dispatch('START_FINISH');
         try {
             const [current, whisperCpp] = await Promise.all([
                 settingsApi.getEngineSelection(),
@@ -436,11 +459,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                 await settingsApi.saveTranscriptionEngine('whisper-cpp');
             }
             await markOnboardingCompleted(CURRENT_ONBOARDING_VERSION);
-            setScreen('done');
+            dispatch('FINISH_OK');
         } catch (error) {
             toast.error(error instanceof Error ? error.message : String(error));
-        } finally {
-            setFinishing(false);
+            // 失败退回下载页：用户能重试，也能改走手动下载。
+            dispatch('FINISH_FAILED');
         }
     };
 
@@ -490,7 +513,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
         if (downloadingBundle) {
             await cancelBundleDownload();
         }
-        setScreen('manual');
+        dispatch('OPEN_MANUAL');
     };
 
     /** 取消当前项的下载并中断队列。 */
@@ -512,6 +535,28 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
             </header>
 
             {screen !== 'done' && <DotRippleBackground active={downloadingBundle} />}
+
+            {/*
+              收尾中：保留下载页的视觉位置，只把主操作区换成「正在收尾」。
+              收尾通常只有一次 IPC 往返，但本地推理引擎探测可能慢到几秒，
+              这里必须有可见反馈，否则用户会以为按钮没响应而重复点击。
+            */}
+            {finishing && (
+                <main className="relative z-10 flex flex-1 items-center justify-center px-8 pb-14">
+                    <div
+                        role="status"
+                        aria-label={t('steps.download.finishing', { defaultValue: '正在完成设置…' })}
+                        className="flex w-full max-w-xl flex-col items-center gap-4 text-center"
+                    >
+                        <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-bg/12 text-accent">
+                            <Check className="h-7 w-7" />
+                        </span>
+                        <p className="text-sm text-muted-foreground">
+                            {t('steps.download.finishing', { defaultValue: '正在完成设置…' })}
+                        </p>
+                    </div>
+                </main>
+            )}
 
             {screen === 'storage' && (
                 <main className="relative z-10 flex flex-1 items-center justify-center px-8 pb-10">
@@ -563,13 +608,13 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                             variant="primary"
                             size="lg"
                             endContent={<Icon icon={ArrowRight as unknown as IconType} size="sm" />}
-                            onClick={() => setScreen('download')}
+                            onClick={() => dispatch('NEXT')}
                         />
                     </div>
                 </main>
             )}
 
-            {screen === 'download' && (
+            {(screen === 'download' || finishing) && (
                 <>
                     {/* 返回：左上角小元素 */}
                     <div className="absolute top-11 left-6 z-20">
@@ -579,7 +624,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                             size="sm"
                             isDisabled={downloadingBundle}
                             icon={<Icon icon={ArrowLeft as unknown as IconType} size="sm" />}
-                            onClick={() => setScreen('storage')}
+                            onClick={() => dispatch('BACK')}
                         />
                     </div>
 
@@ -696,7 +741,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                 variant="ghost"
                                 size="sm"
                                 icon={<Icon icon={ArrowLeft as unknown as IconType} size="sm" />}
-                                onClick={() => setScreen('download')}
+                                onClick={() => dispatch('CLOSE_MANUAL')}
                             />
                         </div>
 
