@@ -3,8 +3,10 @@ import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import useSWR from 'swr';
 import { Keyboard, Loader2, Mic, Pause, Play, RotateCcw, Square, Volume2, X } from 'lucide-react';
-import { Button } from '@/fronted/components/ui/button';
-import { Textarea } from '@/fronted/components/ui/textarea';
+import { Button } from '@astryxdesign/core/Button';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { Badge } from '@astryxdesign/core/Badge';
+import { TextArea } from '@astryxdesign/core/TextArea';
 import { cn } from '@/fronted/lib/utils';
 import UrlUtil from '@/common/utils/UrlUtil';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
@@ -49,35 +51,40 @@ const ScoreRing = ({ score }: { score: number }) => {
 };
 
 /**
- * 逐词反馈 chips 的配色:绿=正确,黄=有出入,红=漏词,灰=多词。
- */
-const WORD_CHIP_CLASS: Record<SentencePracticeWordResult['status'], string> = {
-    match: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300',
-    sub: 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300',
-    missing: 'bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300',
-    extra: 'bg-stone-200 text-stone-600 dark:bg-neutral-700 dark:text-neutral-300',
-};
-
-/**
  * 逐词对齐结果展示:按原句词序排列,sub 显示「期望→听到」,missing 划掉期望词。
  */
 const WordChips = ({ words }: { words: SentencePracticeWordResult[] }) => (
     <div className="flex flex-wrap gap-1.5">
-        {words.map((word, idx) => (
-            <span
-                key={idx}
-                className={cn('rounded-md px-2 py-1 text-xs font-medium', WORD_CHIP_CLASS[word.status])}
-            >
-                {word.status === 'sub' && (
-                    <>
-                        {word.expected}
-                        <span className="opacity-70"> → {word.heard}</span>
-                    </>
-                )}
-                {word.status === 'missing' && <span className="line-through opacity-70">{word.expected}</span>}
-                {(word.status === 'match' || word.status === 'extra') && (word.expected || word.heard)}
-            </span>
-        ))}
+        {words.map((word, idx) => {
+            let labelText: React.ReactNode = word.expected || word.heard;
+            let variant: 'success' | 'warning' | 'error' | 'neutral' = 'neutral';
+
+            if (word.status === 'match') {
+                variant = 'success';
+                labelText = word.expected;
+            } else if (word.status === 'sub') {
+                variant = 'warning';
+                labelText = (
+                    <span>
+                        {word.expected} <span className="opacity-70 font-normal">→ {word.heard}</span>
+                    </span>
+                );
+            } else if (word.status === 'missing') {
+                variant = 'error';
+                labelText = <span className="line-through opacity-80">{word.expected}</span>;
+            } else {
+                variant = 'neutral';
+                labelText = word.heard || word.expected;
+            }
+
+            return (
+                <Badge
+                    key={idx}
+                    variant={variant}
+                    label={labelText}
+                />
+            );
+        })}
     </div>
 );
 
@@ -205,9 +212,13 @@ const PracticePanel = () => {
             {/* 头部:标题 + 关闭 */}
             <div className="flex items-center justify-between px-6 pt-4 pb-2">
                 <h2 className="text-base font-semibold">{t('panel.title')}</h2>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setVisible(false)}>
-                    <X className="h-4 w-4" />
-                </Button>
+                <IconButton
+                    label={t('common:close', { defaultValue: '关闭' })}
+                    icon={<X className="h-4 w-4" />}
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVisible(false)}
+                />
             </div>
 
             {/* 原句区:听写模式提交前隐藏原文 */}
@@ -215,23 +226,19 @@ const PracticePanel = () => {
                 <div className="rounded-2xl border border-border/70 bg-card p-4 flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                         <Button
-                            variant="outline"
+                            variant="secondary"
                             size="sm"
-                            className="h-8 gap-1.5 rounded-lg"
+                            icon={playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                            label={playing ? t('panel.stop') : t('panel.playSentence')}
                             onClick={playing ? () => playerActions.pause() : playSentence}
-                        >
-                            {playing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-                            {playing ? t('panel.stop') : t('panel.playSentence')}
-                        </Button>
+                        />
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 gap-1.5 rounded-lg"
+                            icon={<RotateCcw className="h-3.5 w-3.5" />}
+                            label={t('panel.replay')}
                             onClick={playSentence}
-                        >
-                            <RotateCcw className="h-3.5 w-3.5" />
-                            {t('panel.replay')}
-                        </Button>
+                        />
                     </div>
                     {(!isDictation || dictationRevealed || result) ? (
                         <p className="text-lg leading-relaxed font-medium text-foreground">{currentSentence.text}</p>
@@ -252,7 +259,7 @@ const PracticePanel = () => {
                         type="button"
                         onClick={() => setMode(m)}
                         className={cn(
-                            'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+                            'rounded-full px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer',
                             mode === m
                                 ? 'bg-foreground text-background'
                                 : 'text-muted-foreground hover:text-foreground hover:bg-muted/70',
@@ -280,7 +287,7 @@ const PracticePanel = () => {
                                 void startRecording();
                             }}
                             className={cn(
-                                'flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-full border-2 transition-all',
+                                'flex h-24 w-24 flex-col items-center justify-center gap-1 rounded-full border-2 transition-all cursor-pointer',
                                 recorderPhase === 'recording'
                                     ? 'border-red-400 bg-red-500/10 text-red-600 dark:text-red-400 animate-pulse'
                                     : 'border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/60',
@@ -307,25 +314,33 @@ const PracticePanel = () => {
                         <p className="text-xs text-muted-foreground">{t('shadowing.hint')}</p>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-3">
-                        <Textarea
+                    <div
+                        className="flex flex-col gap-3"
+                        onKeyDown={(e) => {
+                            // Ctrl/Cmd+Enter 提交,普通回车换行
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                e.preventDefault();
+                                void submitDictation();
+                            }
+                        }}
+                    >
+                        <TextArea
+                            label={t('dictation.placeholder')}
+                            isLabelHidden
                             value={typed}
-                            onChange={(e) => setTyped(e.target.value)}
+                            onChange={(val) => setTyped(val)}
                             placeholder={t('dictation.placeholder')}
-                            className="min-h-24 text-base"
-                            onKeyDown={(e) => {
-                                // Ctrl/Cmd+Enter 提交,普通回车换行
-                                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                                    e.preventDefault();
-                                    void submitDictation();
-                                }
-                            }}
+                            rows={3}
+                            width="100%"
                         />
                         <div className="flex items-center gap-2">
-                            <Button size="sm" className="gap-1.5 rounded-lg" onClick={() => void submitDictation()}>
-                                <Keyboard className="h-3.5 w-3.5" />
-                                {t('dictation.submit')}
-                            </Button>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                icon={<Keyboard className="h-3.5 w-3.5" />}
+                                label={t('dictation.submit')}
+                                onClick={() => void submitDictation()}
+                            />
                             <span className="text-[10px] text-muted-foreground/70">Ctrl + Enter</span>
                         </div>
                     </div>
@@ -347,30 +362,26 @@ const PracticePanel = () => {
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className="h-7 px-2 text-xs gap-1.5 w-fit"
+                                        icon={<Volume2 className="h-3.5 w-3.5" />}
+                                        label={t('result.playMine')}
                                         onClick={() => playRecording(result.audioPath!)}
-                                    >
-                                        <Volume2 className="h-3.5 w-3.5" />
-                                        {t('result.playMine')}
-                                    </Button>
+                                    />
                                 )}
                             </div>
                         </div>
                         <WordChips words={result.words} />
                         <div className="flex items-center gap-2">
                             <Button
-                                variant="outline"
+                                variant="secondary"
                                 size="sm"
-                                className="h-8 gap-1.5 rounded-lg"
+                                icon={<RotateCcw className="h-3.5 w-3.5" />}
+                                label={t('result.retry')}
                                 onClick={() => {
                                     setResult(null);
                                     setDictationRevealed(false);
                                     if (mode === 'shadowing') playSentence();
                                 }}
-                            >
-                                <RotateCcw className="h-3.5 w-3.5" />
-                                {t('result.retry')}
-                            </Button>
+                            />
                         </div>
                     </div>
                 )}
