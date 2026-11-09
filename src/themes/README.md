@@ -5,12 +5,25 @@
 
 ## 为什么需要本地主题
 
-1. **中文回退**：官方主题的拉丁字体（Figtree / DM Sans / Outfit / Playwrite）没有中文字形，
+1. **中文回退**：官方主题的拉丁字体（Figtree / Montserrat / Fustat / DM Sans /
+   Playwrite / Poppins / Outfit / Fraunces / Albert Sans 等）没有中文字形，
    中文会按主题自带的 generic family 回落（Matcha 的标题甚至会落到系统衬线）。
    这里保留主题的拉丁字体，只把中文回退显式写成无衬线字族，避免中英混排跳字形。
 2. **浅色卡片层级**：官方主题在 light 模式下把 `background-card/surface/popover` 全部定为纯白。
    工作台的大部分面积都是 Card，切主题时几乎看不出变化；这里给浅色面加一层很淡的主题色，
    深色值沿用官方主题，不破坏暗色层级。
+
+## 字体
+
+主题字体全部自托管在 `src/fronted/styles/fonts/`，由 `scripts/download-fonts.mjs` 生成
+`src/fronted/styles/fonts.css`（只保留 latin / latin-ext 子集，中文走系统字体）。
+这样运行时不再请求 Google Fonts，大陆网络与离线场景都不会回落到系统字体。
+
+新增或调整主题字体后：
+
+```bash
+node scripts/download-fonts.mjs
+```
 
 ## 目录约定
 

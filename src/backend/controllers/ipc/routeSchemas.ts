@@ -1,6 +1,9 @@
 import { z } from 'zod';
 
-import type { SimpleClipQuery } from '@/common/api/dto';import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
+import type { SimpleClipQuery } from '@/common/api/dto';import {
+    APPEARANCE_THEME_FAMILIES,
+    type AppearanceSettingVO,
+} from '@/common/contracts/appearance-setting-vo';
 import type { MobileAccessSettingSaveVO } from '@/common/contracts/mobile-access-setting-vo';
 import type { ProxySettingSaveVO } from '@/common/contracts/proxy-setting-vo';
 import type { RuntimeSettingSaveRequest } from '@/common/contracts/runtime-settings';
@@ -137,7 +140,7 @@ export const shortcutSettingSaveSchema: z.ZodType<ShortcutSettingSaveVO> = z.obj
 /** 外观设置保存请求校验架构。 */
 export const appearanceSettingSchema: z.ZodType<AppearanceSettingVO> = z.object({
     theme: z.enum(['dark', 'light', 'system']),
-    themeFamily: z.enum(['neutral', 'stone', 'matcha', 'butter']).optional(),
+    themeFamily: z.enum(APPEARANCE_THEME_FAMILIES).optional(),
     fontSize: z.enum(['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge']),
     language: z.enum(['system', 'zh-CN', 'en-US']),
     transcriptPosition: z.enum(['right', 'left']).optional(),

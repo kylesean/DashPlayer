@@ -23,7 +23,10 @@ import {
 import type { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import type { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
 import type { ProxySettingDetailVO, ProxySettingSaveVO } from '@/common/contracts/proxy-setting-vo';
-import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
+import {
+    APPEARANCE_THEME_FAMILIES,
+    type AppearanceSettingVO,
+} from '@/common/contracts/appearance-setting-vo';
 import type { StorageSettingVO } from '@/common/contracts/storage-setting-vo';
 import { getSubtitleDefaultStyle } from '@/common/constants/openaiSubtitlePrompts';
 import { readSystemProxy } from '@/backend/infrastructure/system/proxy/readSystemProxy';
@@ -302,7 +305,7 @@ export class SettingServiceImpl implements SettingService {
                 value = this.requireEnumValue(value, ['dark', 'light', 'system'] as const, request.key);
                 break;
             case 'appearance.themeFamily':
-                value = this.requireEnumValue(value, ['neutral', 'stone', 'matcha', 'butter'] as const, request.key);
+                value = this.requireEnumValue(value, APPEARANCE_THEME_FAMILIES, request.key);
                 break;
             case 'appearance.transcriptPosition':
                 value = this.requireEnumValue(value, ['right', 'left'] as const, request.key);
@@ -684,7 +687,7 @@ export class SettingServiceImpl implements SettingService {
             ),
             themeFamily: this.requireEnumValue(
                 this.getValue('appearance.themeFamily') || 'neutral',
-                ['neutral', 'stone', 'matcha', 'butter'] as const,
+                APPEARANCE_THEME_FAMILIES,
                 'appearance.themeFamily',
             ),
             fontSize: this.requireEnumValue(
@@ -712,7 +715,7 @@ export class SettingServiceImpl implements SettingService {
         const theme = this.requireEnumValue(settings.theme, ['dark', 'light', 'system'] as const, 'appearance.theme');
         const themeFamily = this.requireEnumValue(
             settings.themeFamily || 'neutral',
-            ['neutral', 'stone', 'matcha', 'butter'] as const,
+            APPEARANCE_THEME_FAMILIES,
             'appearance.themeFamily',
         );
         const fontSize = this.requireEnumValue(

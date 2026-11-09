@@ -18,8 +18,8 @@ export const dpStoneTheme = defineTheme({
     tokens: {
         '--font-family-body': `Figtree, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, ${CJK_FALLBACK}`,
         '--font-family-heading': `Montserrat, "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, ${CJK_FALLBACK}`,
-        '--color-background-card': ['#fbfbfe', '#25252a'],
-        '--color-background-surface': ['#f9f9fd', '#1b1b21'],
-        '--color-background-popover': ['#fbfbfe', '#302f36'],
+        '--color-background-card': ['#f5f6fa', '#25252a'],
+        '--color-background-surface': ['#fafbfd', '#1b1b21'],
+        '--color-background-popover': ['#fafbfd', '#302f36'],
     },
 });

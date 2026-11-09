@@ -18,8 +18,8 @@ export const dpButterTheme = defineTheme({
     tokens: {
         '--font-family-body': `Outfit, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, ${CJK_FALLBACK}`,
         '--font-family-heading': `Outfit, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, ${CJK_FALLBACK}`,
-        '--color-background-card': ['#fffdf3', '#3a2a1f'],
-        '--color-background-surface': ['#fffceb', '#2e2117'],
-        '--color-background-popover': ['#fffdf3', '#3a2a1f'],
+        '--color-background-card': ['#fff7d3', '#3a2a1f'],
+        '--color-background-surface': ['#fff9e0', '#2e2117'],
+        '--color-background-popover': ['#fff7d3', '#3a2a1f'],
     },
 });

@@ -19,8 +19,8 @@ export const dpMatchaTheme = defineTheme({
     tokens: {
         '--font-family-body': `"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, ${CJK_FALLBACK}`,
         '--font-family-heading': `"Playwrite US Trad", Georgia, "Times New Roman", ${CJK_FALLBACK}`,
-        '--color-background-card': ['#fbfbf2', '#1e2016'],
-        '--color-background-surface': ['#f7f7ea', '#1a1c14'],
-        '--color-background-popover': ['#fbfbf2', '#3e481d'],
+        '--color-background-card': ['#f7f8e8', '#1e2016'],
+        '--color-background-surface': ['#f4f5e4', '#1a1c14'],
+        '--color-background-popover': ['#f7f8e8', '#3e481d'],
     },
 });

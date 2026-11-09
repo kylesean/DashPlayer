@@ -39,15 +39,26 @@ import type { AppearanceThemeFamily } from '@/common/contracts/appearance-settin
  * 持久化的主题家族值 → 本地主题 slug。
  *
  * 本地主题在官方主题基础上补了中文回退与浅色卡片层级，slug 带 `dp-` 前缀；
- * 但后端存储仍沿用 neutral/stone/matcha/butter，避免改历史数据。
- * 用 `satisfies` 保证四套家族都有对应主题，新增家族时编译期就会报错。
+ * 但后端存储仍沿用 neutral/stone/gothic/matcha/y2k/butter/chocolate，避免改历史数据。
+ * 用 `satisfies` 保证每套家族都有对应主题，新增家族时编译期就会报错。
  */
 const THEME_SLUG_BY_FAMILY = {
     neutral: 'dp-neutral',
     stone: 'dp-stone',
+    gothic: 'dp-gothic',
     matcha: 'dp-matcha',
+    y2k: 'dp-y2k',
     butter: 'dp-butter',
+    chocolate: 'dp-chocolate',
 } as const satisfies Record<AppearanceThemeFamily, ThemeSlug>;
+
+/**
+ * 深色专用主题。
+ *
+ * Gothic 的 token 是绝对值而不是 light-dark 对，切到浅色模式会出现
+ * 深色主题配浅色原生控件。选中这些主题时强制走 dark 模式。
+ */
+const DARK_ONLY_THEME_SLUGS: ReadonlySet<ThemeSlug> = new Set<ThemeSlug>(['dp-gothic']);
 
 const UPDATE_CHECK_DELAY_MS = 6000;
 const UPDATE_TOAST_ID = 'update-available';
@@ -89,6 +100,10 @@ export const App = () => {
     const { t } = useI18nTranslation('toast');
     const theme = useSetting((s) => s.values.get('appearance.theme'));
     const themeFamily = useSetting((s) => s.values.get('appearance.themeFamily')) || 'neutral';
+    // 主题家族由后端枚举校验过；这里显式收窄，非法值在渲染前直接失败
+    const themeSlug = THEME_SLUG_BY_FAMILY[themeFamily as AppearanceThemeFamily];
+    // 深色专用主题（如 Gothic）无视保存的浅色/跟随系统设置，强制 dark
+    const isDarkOnlyTheme = themeSlug !== undefined && DARK_ONLY_THEME_SLUGS.has(themeSlug);
     const languageSetting = useSetting((s) => s.values.get('i18n.language'));
     /** 当前生效的启动门槛；null 表示两个门槛都还没读出结果。 */
     const [gate, setGate] = React.useState<StartupGate | null>(null);
@@ -118,7 +133,7 @@ export const App = () => {
 
     // 同步外观主题到 html 根节点：支持 light、dark 及跟随系统（system）
     useEffect(() => {
-        const rawTheme = theme || 'light';
+        const rawTheme = isDarkOnlyTheme ? 'dark' : theme || 'light';
         const resolveEffectiveTheme = (): 'dark' | 'light' => {
             if (rawTheme === 'dark') return 'dark';
             if (rawTheme === 'light') return 'light';
@@ -141,7 +156,7 @@ export const App = () => {
                 mediaQuery.removeEventListener('change', listener);
             };
         }
-    }, [theme]);
+    }, [theme, isDarkOnlyTheme]);
 
     useEffect(() => {
         applyLanguageSetting(languageSetting).catch(() => undefined);
@@ -185,10 +200,9 @@ export const App = () => {
         return () => window.clearTimeout(timer);
     }, [t]);
 
-    const effectiveThemeMode: 'light' | 'dark' | 'system' =
-        theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'system';
-    // 主题家族由后端枚举校验过；这里再显式收窄一次，避免非法值静默落到默认主题
-    const themeSlug: ThemeSlug | undefined = THEME_SLUG_BY_FAMILY[themeFamily as AppearanceThemeFamily];
+    const effectiveThemeMode: 'light' | 'dark' | 'system' = isDarkOnlyTheme
+        ? 'dark'
+        : theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'system';
     if (!themeSlug) {
         throw new Error(`未知的主题家族：${themeFamily}`);
     }

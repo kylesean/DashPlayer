@@ -184,7 +184,7 @@
     --color-accent: light-dark(#225bff, #fdee8c);
     --color-accent-muted: light-dark(#225bff33, #fdee8c40);
     --color-neutral: light-dark(#1d1c110f, #f3f2e21a);
-    --color-background-surface: light-dark(#fffceb, #2e2117);
+    --color-background-surface: light-dark(#fff9e0, #2e2117);
     --color-background-body: light-dark(#fdfbe4, #261a13);
     --color-overlay: light-dark(#1d1c1180, #261a13cc);
     --color-overlay-hover: light-dark(#1d1c110d, #f3f2e20d);
@@ -214,8 +214,8 @@
     --color-icon-primary: light-dark(#1d1c11, #f3f2e2);
     --color-icon-secondary: light-dark(#605f52, #adac9e);
     --color-icon-disabled: light-dark(#adac9e, #605f52);
-    --color-background-card: light-dark(#fffdf3, #3a2a1f);
-    --color-background-popover: light-dark(#fffdf3, #3a2a1f);
+    --color-background-card: light-dark(#fff7d3, #3a2a1f);
+    --color-background-popover: light-dark(#fff7d3, #3a2a1f);
     --color-background-inverted: light-dark(#1d1c11, #fdfbe4);
     --color-error: light-dark(#821b00, #ffc5b5);
     --color-error-muted: light-dark(#821b0033, #ffc5b540);

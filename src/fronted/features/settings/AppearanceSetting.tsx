@@ -128,10 +128,23 @@ const AppearanceSetting: React.FC = () => {
             previewColor: 'light-dark(#25252a, #f0f0f9)',
         },
         {
+            value: 'gothic' as const,
+            label: 'Gothic',
+            desc: t('appearance.themeGothicDesc'),
+            previewColor: 'light-dark(#e8f1f6, #e8f1f6)',
+        },
+        {
             value: 'matcha' as const,
             label: 'Matcha',
             desc: t('appearance.themeMatchaDesc'),
             previewColor: 'light-dark(#3e481d, #c0cba9)',
+        },
+        {
+            value: 'y2k' as const,
+            label: 'Y2K',
+            desc: t('appearance.themeY2kDesc'),
+            // Y2K 的记忆点是长春花蓝页面，而不是深棕 accent
+            previewColor: 'light-dark(#cccffa, #edeffc)',
         },
         {
             value: 'butter' as const,
@@ -139,7 +152,18 @@ const AppearanceSetting: React.FC = () => {
             desc: t('appearance.themeButterDesc'),
             previewColor: 'light-dark(#225bff, #fdee8c)',
         },
+        {
+            value: 'chocolate' as const,
+            label: 'Chocolate',
+            desc: t('appearance.themeChocolateDesc'),
+            previewColor: 'light-dark(#8c5927, #d4a06a)',
+        },
     ];
+
+    /** Gothic 是深色专用主题：色彩模式选项禁用，避免用户以为浅色没生效。 */
+    const isDarkOnlyTheme = currentThemeFamily === 'gothic';
+    /** 深色专用主题下，色彩模式始终显示为深色（保存值不变，切回其他主题后恢复）。 */
+    const selectedThemeMode = isDarkOnlyTheme ? 'dark' : currentTheme;
 
     const languageOptions = [
         { value: 'system', label: t('appearance.languageSystem') },
@@ -227,7 +251,11 @@ const AppearanceSetting: React.FC = () => {
                     {/* 浅色/深色模式切换行 */}
                     <SettingRow
                         title={t('appearance.themeTitle')}
-                        description={t('appearance.themeDescription')}
+                        description={
+                            isDarkOnlyTheme
+                                ? t('appearance.darkOnlyThemeHint')
+                                : t('appearance.themeDescription')
+                        }
                         icon={Palette}
                     >
                         <Grid
@@ -236,14 +264,18 @@ const AppearanceSetting: React.FC = () => {
                             maxWidth={360}
                         >
                             {themeOptions.map((opt) => {
-                                const isSelected = currentTheme === opt.value;
+                                const isSelected = selectedThemeMode === opt.value;
                                 return (
                                     <SelectableCard
                                         key={opt.value}
                                         label={opt.label}
                                         isSelected={isSelected}
+                                        isDisabled={isDarkOnlyTheme}
                                         padding={2}
                                         onChange={() => {
+                                            if (isDarkOnlyTheme) {
+                                                return;
+                                            }
                                             if (!isSelected) {
                                                 setValue('theme', opt.value, {
                                                     shouldDirty: true,
