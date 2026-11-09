@@ -272,6 +272,8 @@ const RecordDialogBody: React.FC<RecordDialogBodyProps> = ({
             {/* 录制捕获面板 */}
             <Card variant={isListening ? 'muted' : 'default'} padding={4}>
                 <VStack gap={3} hAlign="center" vAlign="center">
+                    {/* 原生 button：这里要的是一个能拿焦点、承接键盘事件的录制面板，
+                        Astryx Button 的视觉与语义都不适合当作捕获区 */}
                     <button
                         ref={recordContainerRef}
                         type="button"

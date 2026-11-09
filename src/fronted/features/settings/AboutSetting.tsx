@@ -110,7 +110,7 @@ const AboutSetting: React.FC = () => {
                             />
                             <VStack gap={1}>
                                 <HStack vAlign="center" gap={2}>
-                                    <Heading level={3}>DashPlayer</Heading>
+                                    <Heading level={4}>DashPlayer</Heading>
                                     {currentVersion && (
                                         <Token
                                             label={`v${currentVersion}`}

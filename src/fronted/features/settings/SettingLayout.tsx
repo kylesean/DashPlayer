@@ -83,6 +83,9 @@ const SettingLayout: React.FC = () => {
             start={
                 <LayoutPanel width={240} isScrollable={false} hasDivider padding={2}>
                     <aside className="h-full flex flex-col w-full">
+                        {/* SideNav 默认固定 260px，而面板内容区只有 224px，
+                            不拉满会撑出横向滚动条 */}
+                        <div className="w-full [&_.astryx-side-nav]:!w-full">
                         <SideNav
                             header={
                                 <SideNavHeading
@@ -108,6 +111,7 @@ const SettingLayout: React.FC = () => {
                                 />
                             ))}
                         </SideNav>
+                        </div>
                     </aside>
                 </LayoutPanel>
             }

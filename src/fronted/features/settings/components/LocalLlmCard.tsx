@@ -2,11 +2,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
     CheckCircle2,
-    Copy,
     Cpu,
     Download,
-    ExternalLink,
-    FolderOpen,
     Gauge,
     Square,
     Trash2,
@@ -24,7 +21,11 @@ import { Text } from '@astryxdesign/core/Text';
 import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
 
-import { ManualDownloadGuide } from '@/fronted/components/shared/ManualDownloadGuide';
+import {
+    ManualDownloadGuide,
+    ManualDownloadPathRow,
+    ManualDownloadSourceRow,
+} from '@/fronted/components/shared/ManualDownloadGuide';
 import type { LocalAiStatus } from '@/common/contracts/local-ai';
 
 export interface LocalLlmCardProps {
@@ -271,94 +272,44 @@ export const LocalLlmCard: React.FC<LocalLlmCardProps> = ({
             {/* 手动下载与导入教程：仅内置模型未就绪时出现 */}
             {builtinModel && !builtinModel.ready && (
                 <ManualDownloadGuide title={t('serviceCredentials.localAi.customGuideTitle')}>
-                    <VStack gap={1.5}>
-                        <Text weight="semibold" size="sm">{t('serviceCredentials.localModel.step1Title')}</Text>
+                    <VStack gap={1} width="100%">
+                        <Text type="label">{t('serviceCredentials.localModel.step1Title')}</Text>
                         {builtinModel.downloadUrls.length > 0 ? (
-                            <>
-                                <Text size="xsm" color="secondary">
-                                    {t('serviceCredentials.localModel.modelToDownload', {
-                                        model: `${builtinModel.name}（${t('serviceCredentials.localAi.aboutSize', { size: builtinModel.sizeLabel })}）`,
-                                    })}
-                                </Text>
-                                <Card variant="default" padding={2}>
-                                    <VStack gap={2}>
-                                        {builtinModel.downloadUrls.map((url, index) => (
-                                            <VStack key={url} gap={1}>
-                                                <HStack gap={1.5} vAlign="start">
-                                                    {index > 0 && (
-                                                        <Token
-                                                            label={t('serviceCredentials.localModel.backupSource')}
-                                                            size="sm"
-                                                            color="orange"
-                                                        />
-                                                    )}
-                                                    <Text size="2xs" color="secondary" wordBreak="break-all" hasTabularNumbers>
-                                                        {url}
-                                                    </Text>
-                                                </HStack>
-                                                <HStack gap={1}>
-                                                    <Button
-                                                        label={t('serviceCredentials.localModel.copyDownloadUrl')}
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon={<Icon icon={Copy as unknown as IconType} size="xsm" />}
-                                                        onClick={() => onCopy(url)}
-                                                    />
-                                                    <Button
-                                                        label={t('serviceCredentials.localModel.openInBrowser')}
-                                                        size="sm"
-                                                        variant="ghost"
-                                                        icon={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
-                                                        onClick={() => onOpenUrl(url)}
-                                                    />
-                                                </HStack>
-                                            </VStack>
-                                        ))}
-                                    </VStack>
-                                </Card>
-                            </>
+                            <VStack gap={1.5} width="100%">
+                                {builtinModel.downloadUrls.map((url, index) => (
+                                    <ManualDownloadSourceRow
+                                        key={url}
+                                        url={url}
+                                        isBackup={index > 0}
+                                        backupLabel={t('serviceCredentials.localModel.backupSource')}
+                                        copyLabel={t('serviceCredentials.localModel.copyDownloadUrl')}
+                                        openLabel={t('serviceCredentials.localModel.openInBrowser')}
+                                        onCopy={() => onCopy(url)}
+                                        onOpen={() => onOpenUrl(url)}
+                                    />
+                                ))}
+                            </VStack>
                         ) : (
-                            <Text size="xsm" color="secondary">
+                            <Text type="supporting" color="secondary">
                                 {t('serviceCredentials.localAi.customGuideStep1')}
                             </Text>
                         )}
                     </VStack>
 
-                    <VStack gap={1.5}>
-                        <Text weight="semibold" size="sm">{t('serviceCredentials.localModel.step2Title')}</Text>
-                        <Card variant="default" padding={3}>
-                            <VStack gap={2}>
-                                <Text size="2xs" color="secondary" wordBreak="break-all" hasTabularNumbers>
-                                    {status?.modelsDirectory ?? ''}
-                                </Text>
-                                <HStack gap={2}>
-                                    <Button
-                                        label={t('serviceCredentials.localAi.copyPath')}
-                                        size="sm"
-                                        variant="secondary"
-                                        isDisabled={!status}
-                                        icon={<Icon icon={Copy as unknown as IconType} size="xsm" />}
-                                        onClick={() => status && onCopy(status.modelsDirectory)}
-                                    />
-                                    <Button
-                                        label={t('common.openFolder')}
-                                        size="sm"
-                                        variant="secondary"
-                                        isDisabled={!status}
-                                        icon={<Icon icon={FolderOpen as unknown as IconType} size="xsm" />}
-                                        onClick={() => status && onOpenFolder(status.modelsDirectory)}
-                                    />
-                                </HStack>
-                            </VStack>
-                        </Card>
+                    <VStack gap={1} width="100%">
+                        <Text type="label">{t('serviceCredentials.localModel.step2Title')}</Text>
+                        <ManualDownloadPathRow
+                            path={status?.modelsDirectory ?? ''}
+                            copyLabel={t('serviceCredentials.localAi.copyPath')}
+                            openLabel={t('common.openFolder')}
+                            onCopy={() => status && onCopy(status.modelsDirectory)}
+                            onOpenFolder={() => status && onOpenFolder(status.modelsDirectory)}
+                        />
                     </VStack>
 
-                    <Card variant="muted" padding={2}>
-                        <VStack gap={1}>
-                            <Text weight="semibold" size="sm">{t('serviceCredentials.localModel.step3Title')}</Text>
-                            <Text size="xsm" color="secondary">{t('serviceCredentials.localAi.customGuideStep3')}</Text>
-                        </VStack>
-                    </Card>
+                    <Text type="supporting" color="secondary">
+                        {t('serviceCredentials.localModel.step3Title')} {t('serviceCredentials.localAi.customGuideStep3')}
+                    </Text>
                 </ManualDownloadGuide>
             )}
 

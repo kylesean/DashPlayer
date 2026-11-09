@@ -1,11 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    ChevronDown,
-    ChevronRight,
-    Copy,
     Download,
-    ExternalLink,
     FolderOpen,
     Square,
     Trash2,
@@ -15,10 +11,10 @@ import toast from 'react-hot-toast';
 import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
 import { Divider } from '@astryxdesign/core/Divider';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
 import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { Selector } from '@astryxdesign/core/Selector';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
@@ -26,9 +22,14 @@ import { Text } from '@astryxdesign/core/Text';
 import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
 
-import { ManualDownloadGuide } from '@/fronted/components/shared/ManualDownloadGuide';
+import {
+    ManualDownloadGuide,
+    ManualDownloadPathRow,
+    ManualDownloadSourceRow,
+} from '@/fronted/components/shared/ManualDownloadGuide';
 import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
+import { SettingField } from '@/fronted/features/settings/components/form/SettingSection';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 import type { TranscriptionEngine } from '@/common/contracts/transcription-engine';
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
@@ -77,8 +78,9 @@ interface PackItem {
 /**
  * 本地基础资源包卡片：发音、字幕识别二合一。
  *
- * 默认只显示"就绪状态 + 一个下载按钮"，下载时是一条整体进度（按项数均分），
- * 识别方式、手动下载教程等技术细节收在「查看详情」里。
+ * 顶部是整体状态与下载按钮，下载时是一条整体进度（按项数均分）；
+ * 下面固定列出「发音 / 字幕识别」两项的状态，识别方式直接可改，
+ * 只有缺少文件时才在该项下面出现手动下载教程。
  */
 export interface ResourcePackCardProps {
     /** 当前字幕识别方式。 */
@@ -102,7 +104,6 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
 }) => {
     const { t } = useTranslation('settings');
 
-    const [expanded, setExpanded] = React.useState(false);
     const [downloading, setDownloading] = React.useState(false);
     const [deleting, setDeleting] = React.useState(false);
     const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
@@ -418,146 +419,93 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                 />
             )}
 
-            {/* 技术细节折叠切换 */}
-            <HStack vAlign="center">
-                <Button
-                    label={expanded ? t('resources.pack.hideDetails') : t('resources.pack.showDetails')}
-                    size="sm"
-                    variant="ghost"
-                    icon={<Icon icon={(expanded ? ChevronDown : ChevronRight) as unknown as IconType} size="sm" />}
-                    onClick={() => setExpanded((prev) => !prev)}
-                />
-            </HStack>
+            <Divider variant="subtle" />
 
-            {expanded && (
-                <VStack gap={4}>
-                    <Divider />
-                    {items.map((item) => (
-                        <VStack key={item.key} gap={3}>
-                            <HStack justify="between" vAlign="center" wrap="wrap" gap={2}>
-                                <VStack gap={1}>
-                                    <HStack gap={2} vAlign="center">
-                                        <Text weight="medium" size="sm">{item.title}</Text>
-                                        <Token
-                                            label={item.ready ? t('resources.pack.itemReady') : t('resources.pack.itemMissing')}
-                                            size="sm"
-                                            color={item.ready ? 'green' : 'gray'}
-                                        />
-                                    </HStack>
-                                    <Text size="xsm" color="secondary">{item.description}</Text>
+            {/* 两项资源固定展示：状态一眼可见，识别方式不再藏在详情里 */}
+            <VStack gap={3} width="100%">
+                {items.map((item, index) => (
+                    <VStack key={item.key} gap={2} width="100%">
+                        {index > 0 && <Divider variant="subtle" />}
+
+                        <SettingField
+                            title={item.title}
+                            description={item.description}
+                        >
+                            <Token
+                                label={item.ready
+                                    ? t('resources.pack.itemReady')
+                                    : t('resources.pack.itemMissing')}
+                                size="sm"
+                                color={item.ready ? 'green' : 'gray'}
+                            />
+                            {item.ready && (
+                                <IconButton
+                                    label={t('common.openFolder')}
+                                    tooltip={t('common.openFolder')}
+                                    size="sm"
+                                    variant="ghost"
+                                    icon={<Icon icon={FolderOpen as unknown as IconType} size="sm" />}
+                                    onClick={() => openFolder(item.targetPath).catch(() => null)}
+                                />
+                            )}
+                        </SettingField>
+
+                        {item.key === 'transcription' && (
+                            <SettingField title={t('resources.pack.engineLabel')}>
+                                <Selector
+                                    label={t('resources.pack.engineLabel')}
+                                    isLabelHidden
+                                    value={transcriptionEngine}
+                                    onChange={(val) => onChangeEngine(val as TranscriptionEngine)}
+                                    options={engineOptions}
+                                    size="sm"
+                                    width={200}
+                                />
+                            </SettingField>
+                        )}
+
+                        {!item.ready && item.urls.length > 0 && (
+                            <ManualDownloadGuide title={t('resources.pack.manualTitle')}>
+                                <VStack gap={1} width="100%">
+                                    <Text type="label">{t('resources.pack.step1Title')}</Text>
+                                    <Text type="supporting" color="secondary">
+                                        {t('resources.pack.manualModel', { model: item.modelLabel })}
+                                    </Text>
+                                    <VStack gap={1.5} width="100%">
+                                        {item.urls.map((url, urlIndex) => (
+                                            <ManualDownloadSourceRow
+                                                key={url}
+                                                url={url}
+                                                isBackup={urlIndex > 0}
+                                                backupLabel={t('resources.pack.backupSource')}
+                                                copyLabel={t('resources.pack.copyUrl')}
+                                                openLabel={t('resources.pack.openInBrowser')}
+                                                onCopy={() => { copyText(url).catch(() => null); }}
+                                                onOpen={() => { openUrl(url).catch(() => null); }}
+                                            />
+                                        ))}
+                                    </VStack>
                                 </VStack>
-                                {item.ready && (
-                                    <Button
-                                        label={t('common.openFolder')}
-                                        size="sm"
-                                        variant="secondary"
-                                        icon={<Icon icon={FolderOpen as unknown as IconType} size="sm" />}
-                                        onClick={() => openFolder(item.targetPath).catch(() => null)}
+
+                                <VStack gap={1} width="100%">
+                                    <Text type="label">{t('resources.pack.step2Title')}</Text>
+                                    <ManualDownloadPathRow
+                                        path={item.targetPath}
+                                        copyLabel={t('resources.pack.copyPath')}
+                                        openLabel={t('common.openFolder')}
+                                        onCopy={() => { copyText(item.targetPath).catch(() => null); }}
+                                        onOpenFolder={() => { openFolder(item.targetPath).catch(() => null); }}
                                     />
-                                )}
-                            </HStack>
+                                </VStack>
 
-                            {item.key === 'transcription' && (
-                                <HStack gap={2} vAlign="center">
-                                    <Text size="xsm" color="secondary">{t('resources.pack.engineLabel')}</Text>
-                                    <Selector
-                                        label={t('resources.pack.engineLabel')}
-                                        isLabelHidden
-                                        value={transcriptionEngine}
-                                        onChange={(val) => onChangeEngine(val as TranscriptionEngine)}
-                                        options={engineOptions}
-                                        size="sm"
-                                        width={200}
-                                    />
-                                </HStack>
-                            )}
-
-                            {!item.ready && (
-                                <ManualDownloadGuide variant="plain" title={t('resources.pack.manualTitle')}>
-                                    <VStack gap={1.5}>
-                                        <Text weight="semibold" size="sm">{t('resources.pack.step1Title')}</Text>
-                                        <Text size="xsm" color="secondary">
-                                            {t('resources.pack.manualModel', { model: item.modelLabel })}
-                                        </Text>
-                                        {item.urls.length > 0 && (
-                                            <Card variant="default" padding={2}>
-                                                <VStack gap={2}>
-                                                    {item.urls.map((url, index) => (
-                                                        <VStack key={url} gap={1}>
-                                                            <HStack gap={1.5} vAlign="start">
-                                                                {index > 0 && (
-                                                                    <Token
-                                                                        label={t('resources.pack.backupSource')}
-                                                                        size="sm"
-                                                                        color="orange"
-                                                                    />
-                                                                )}
-                                                                <Text size="2xs" color="secondary" wordBreak="break-all" hasTabularNumbers>
-                                                                    {url}
-                                                                </Text>
-                                                            </HStack>
-                                                            <HStack gap={1}>
-                                                                <Button
-                                                                    label={t('resources.pack.copyUrl')}
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    icon={<Icon icon={Copy as unknown as IconType} size="xsm" />}
-                                                                    onClick={() => copyText(url).catch(() => null)}
-                                                                />
-                                                                <Button
-                                                                    label={t('resources.pack.openInBrowser')}
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    icon={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
-                                                                    onClick={() => openUrl(url).catch(() => null)}
-                                                                />
-                                                            </HStack>
-                                                        </VStack>
-                                                    ))}
-                                                </VStack>
-                                            </Card>
-                                        )}
-                                    </VStack>
-
-                                    <VStack gap={1.5}>
-                                        <Text weight="semibold" size="sm">{t('resources.pack.step2Title')}</Text>
-                                        <Card variant="default" padding={3}>
-                                            <VStack gap={2}>
-                                                <Text size="2xs" color="secondary" wordBreak="break-all" hasTabularNumbers>
-                                                    {item.targetPath}
-                                                </Text>
-                                                <HStack gap={2}>
-                                                    <Button
-                                                        label={t('resources.pack.copyPath')}
-                                                        size="sm"
-                                                        variant="secondary"
-                                                        icon={<Icon icon={Copy as unknown as IconType} size="xsm" />}
-                                                        onClick={() => copyText(item.targetPath).catch(() => null)}
-                                                    />
-                                                    <Button
-                                                        label={t('common.openFolder')}
-                                                        size="sm"
-                                                        variant="secondary"
-                                                        icon={<Icon icon={FolderOpen as unknown as IconType} size="xsm" />}
-                                                        onClick={() => openFolder(item.targetPath).catch(() => null)}
-                                                    />
-                                                </HStack>
-                                            </VStack>
-                                        </Card>
-                                    </VStack>
-
-                                    <Card variant="muted" padding={2}>
-                                        <VStack gap={1}>
-                                            <Text weight="semibold" size="sm">{t('resources.pack.step3Title')}</Text>
-                                            <Text size="xsm" color="secondary">{t('resources.pack.step3Hint')}</Text>
-                                        </VStack>
-                                    </Card>
-                                </ManualDownloadGuide>
-                            )}
-                        </VStack>
-                    ))}
-                </VStack>
-            )}
+                                <Text type="supporting" color="secondary">
+                                    {t('resources.pack.step3Title')} {t('resources.pack.step3Hint')}
+                                </Text>
+                            </ManualDownloadGuide>
+                        )}
+                    </VStack>
+                ))}
+            </VStack>
         </VStack>
     );
 };
