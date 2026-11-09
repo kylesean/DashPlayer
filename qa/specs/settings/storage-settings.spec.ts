@@ -69,7 +69,7 @@ test.describe('存储设置', () => {
         await libraryInput.fill(nextPath);
 
         // 本页的保存还带着「读取新目录状态」的附加动作，卸载时同样不能把挂起的路径丢掉
-        await switchSettingsSection(page, '外观', page.getByRole('button', { name: '深色' }));
+        await switchSettingsSection(page, '外观', page.getByRole('radio', { name: '深色' }));
         await expect.poll(() => readConfigValue(userDataDir, 'storage.path')).toBe(nextPath);
 
         await switchSettingsSection(page, '存储', page.getByRole('heading', { name: '存储管理' }));

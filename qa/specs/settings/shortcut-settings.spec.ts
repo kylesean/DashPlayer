@@ -14,14 +14,17 @@ async function openShortcutSetting(page: Page): Promise<void> {
  * @param title 该行的中文功能名（如「单句重播」）。
  */
 function shortcutRow(page: Page, title: string): Locator {
-    return page.getByRole('row').filter({ hasText: title });
+    return page.getByTestId('shortcut-row').filter({ hasText: title });
 }
 
-/** 打开某行的编辑弹窗（铅笔按钮）。 */
+/** 打开某行的编辑弹窗（点击键位徽章）。 */
 async function openShortcutDialog(page: Page, title: string): Promise<Locator> {
     await shortcutRow(page, title).getByRole('button').first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
+    // 弹窗挂载后才会把焦点交给录制面板；等它开始监听再按键，
+    // 否则按键可能落在页面其它控件上，或与残留按键拼成错误的组合键。
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.hasAttribute('data-autofocus')))).toBe(true);
     return dialog;
 }
 
@@ -125,7 +128,7 @@ test.describe('快捷键设置', () => {
 
         // 关键：弹窗保存只是把改动交回整页表单，紧接着离开，不给 600ms 防抖留时间。
         // 快捷键改键是整份表单一起保存的，离开时挂起的改动丢了会连带丢掉其它行的改动。
-        await switchSettingsSection(page, '外观', page.getByRole('button', { name: '深色' }));
+        await switchSettingsSection(page, '外观', page.getByRole('radio', { name: '深色' }));
 
         await expect.poll(() => readConfigValue(userDataDir, 'shortcut.repeatSingleSentence')).toBe('r,y');
 

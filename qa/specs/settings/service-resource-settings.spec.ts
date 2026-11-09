@@ -313,7 +313,7 @@ test.describe('服务与资源设置', () => {
 
         // 关键：填完立刻离开，不给 600ms 防抖留时间。密钥是最不能丢的值，
         // 用户填完随手切走若静默丢失，会表现为「填了密钥但还是提示未配置」。
-        await switchSettingsSection(page, '外观', page.getByRole('button', { name: '深色' }));
+        await switchSettingsSection(page, '外观', page.getByRole('radio', { name: '深色' }));
 
         await expect.poll(() => readConfigValue(userDataDir, 'apiKeys.openAi.key')).toBe(API_KEY);
 

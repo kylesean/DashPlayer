@@ -66,7 +66,7 @@ test.describe('网络代理设置', () => {
 
         // 关键：改完立刻离开，不给 600ms 防抖留时间。离开时挂起的改动必须被提交，
         // 否则用户「填完随手切走」的改动会静默消失，正是最常被投诉的丢值场景。
-        await switchSettingsSection(page, '外观', page.getByRole('button', { name: '深色' }));
+        await switchSettingsSection(page, '外观', page.getByRole('radio', { name: '深色' }));
 
         await expect.poll(() => readConfigValue(userDataDir, 'proxy.mode')).toBe('custom');
         await expect.poll(() => readConfigValue(userDataDir, 'proxy.url')).toBe(PROXY_URL);

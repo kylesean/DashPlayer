@@ -12,7 +12,22 @@ type ThemeLabel = keyof typeof THEME_CLASS;
  * @param page 应用主窗口页面。
  */
 async function openAppearanceSetting(page: Page): Promise<void> {
-    await openSettingsSection(page, '外观', page.getByRole('button', { name: '深色' }));
+    await openSettingsSection(page, '外观', colorModeRadio(page, '深色'));
+}
+
+/** 色彩模式分段控件（SegmentedControl 渲染为 radiogroup）。 */
+function colorModeGroup(page: Page): Locator {
+    return page.getByRole('radiogroup', { name: '色彩模式' });
+}
+
+/** 色彩模式里的某个档位。 */
+function colorModeRadio(page: Page, label: ThemeLabel): Locator {
+    return colorModeGroup(page).getByRole('radio', { name: label });
+}
+
+/** 界面字号分段控件。 */
+function fontSizeGroup(page: Page): Locator {
+    return page.getByRole('radiogroup', { name: '界面字号' });
 }
 
 /**
@@ -22,31 +37,18 @@ async function openAppearanceSetting(page: Page): Promise<void> {
  * @param theme 按钮文案：「深色」或「浅色」。
  */
 async function switchTheme(page: Page, theme: ThemeLabel): Promise<void> {
-    await page.getByRole('button', { name: theme }).click();
+    await colorModeRadio(page, theme).click();
     await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${THEME_CLASS[theme]}\\b`));
 }
 
 /**
- * 定位「界面字号」那一行，行内有小/中/大三个按钮。
- *
- * @param page 应用主窗口页面。
- */
-function fontSizeRow(page: Page): Locator {
-    return page
-        .locator('div')
-        .filter({ hasText: '调整主要界面的文字尺寸' })
-        .filter({ has: page.getByRole('button') })
-        .last();
-}
-
-/**
- * 取字号行里的某个档位按钮。
+ * 取字号分段控件里的某个档位。
  *
  * @param page 应用主窗口页面。
  * @param label 档位文案：「小」「中」或「大」。
  */
 function fontSizeButton(page: Page, label: string): Locator {
-    return fontSizeRow(page).getByRole('button').filter({ hasText: label });
+    return fontSizeGroup(page).getByRole('radio', { name: label });
 }
 
 test.describe('外观设置', () => {
@@ -80,7 +82,7 @@ test.describe('外观设置', () => {
             // 再进外观页确认选中项回显为深色：选中态来自后端读回的设置，
             // 能排除「只是启动兜底类名恰好是深色」的假通过
             await openAppearanceSetting(restarted.page);
-            await expect(restarted.page.getByRole('button', { name: '深色' })).toHaveClass(/ring-1/);
+            await expect(colorModeRadio(restarted.page, '深色')).toBeChecked();
         } finally {
             await restarted.close();
         }
@@ -91,16 +93,16 @@ test.describe('外观设置', () => {
         await openAppearanceSetting(page);
 
         // 全新配置的默认字号是「大」，选中态体现在按钮的 ring 上
-        await expect(fontSizeButton(page, '大')).toHaveClass(/ring-1/);
+        await expect(fontSizeButton(page, '大')).toBeChecked();
 
         await fontSizeButton(page, '小').click();
 
         await expect.poll(() => readConfigValue(userDataDir, 'appearance.fontSize')).toBe('fontSizeSmall');
 
         // 重进页面：选中档位来自后端回读，而不是页面里的临时 state
-        await reloadSettingsPage(page, page.getByRole('button', { name: '深色' }));
-        await expect(fontSizeButton(page, '小')).toHaveClass(/ring-1/);
-        await expect(fontSizeButton(page, '大')).not.toHaveClass(/ring-1/);
+        await reloadSettingsPage(page, colorModeRadio(page, '深色'));
+        await expect(fontSizeButton(page, '小')).toBeChecked();
+        await expect(fontSizeButton(page, '大')).not.toBeChecked();
     });
 
     test('[SET-APP-04] 切换界面语言后写入配置，重进页面按所选语言渲染', async ({ session, userDataDir }) => {
@@ -142,7 +144,7 @@ test.describe('外观设置', () => {
             // 上面的写盘断言才是证明「真的覆盖了」的那一半，两者一起才闭合。
             await expect(restarted.page.locator('html')).toHaveClass(/\blight\b/);
             await openAppearanceSetting(restarted.page);
-            await expect(restarted.page.getByRole('button', { name: '浅色' })).toHaveClass(/ring-1/);
+            await expect(colorModeRadio(restarted.page, '浅色')).toBeChecked();
         } finally {
             await restarted.close();
         }
@@ -152,7 +154,7 @@ test.describe('外观设置', () => {
         const page = session.page;
         await openAppearanceSetting(page);
 
-        await page.getByRole('button', { name: '深色' }).click();
+        await colorModeRadio(page, '深色').click();
         await expect(page.locator('html')).toHaveClass(/\bdark\b/);
 
         // 关键：点完立刻离开，不给 600ms 防抖留时间。主题是立即可见的界面状态，
@@ -162,7 +164,7 @@ test.describe('外观设置', () => {
         await expect.poll(() => readConfigValue(userDataDir, 'appearance.theme')).toBe('dark');
 
         // 回到该页：选中态来自后端回读，而不是页面里残留的 state
-        await switchSettingsSection(page, '外观', page.getByRole('button', { name: '深色' }));
-        await expect(page.getByRole('button', { name: '深色' })).toHaveClass(/ring-1/);
+        await switchSettingsSection(page, '外观', colorModeRadio(page, '深色'));
+        await expect(colorModeRadio(page, '深色')).toBeChecked();
     });
 });
