@@ -58,8 +58,7 @@ test.describe('服务与资源设置', () => {
         const page = session.page;
         await openResourcesSetting(page);
 
-        // 识别方式藏在「查看详情」里，展开后才能改
-        await page.getByRole('button', { name: '查看详情' }).click();
+        // 识别方式现在固定展示在「本地资源」里，不再藏在详情后面
         await chooseInRow(page, '识别方式', '兼容模式');
         await expect.poll(() => readConfigValue(userDataDir, 'transcription.engine')).toBe('sherpa-onnx');
 
@@ -82,14 +81,12 @@ test.describe('服务与资源设置', () => {
         await expect(selectInRow(page, '词典查询')).toHaveText('不补充');
 
         await openResourcesTab(page, '本地资源');
-        await page.getByRole('button', { name: '查看详情' }).click();
         await expect(selectInRow(page, '识别方式')).toHaveText('兼容模式');
     });
 
     test('[SET-SVC-03] 识别方式在兼容模式与硬件加速之间往返切换都落盘，重进页面回显最后一次选择', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
-        await page.getByRole('button', { name: '查看详情' }).click();
 
         // 默认是硬件加速，先切到兼容模式，确认同一个下拉换回来也能写回配置
         await expect(selectInRow(page, '识别方式')).toHaveText('硬件加速（推荐）');
@@ -100,7 +97,6 @@ test.describe('服务与资源设置', () => {
         await expect.poll(() => readConfigValue(userDataDir, 'transcription.engine')).toBe('whisper-cpp');
 
         await reloadSettingsPage(page, page.getByRole('heading', { name: '服务与资源' }));
-        await page.getByRole('button', { name: '查看详情' }).click();
         await expect(selectInRow(page, '识别方式')).toHaveText('硬件加速（推荐）');
     });
 
