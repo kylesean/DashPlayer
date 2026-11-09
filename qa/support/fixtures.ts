@@ -8,9 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { ONBOARDING_COMPLETED_VERSION_KEY } from '../../src/common/constants/systemConfigKeys';
-
-/** 当前引导版本号，与 OnboardingView 的 CURRENT_ONBOARDING_VERSION 一致。 */
-const ONBOARDING_VERSION = '1';
+import { CURRENT_ONBOARDING_VERSION } from '../../src/common/constants/onboarding';
 
 /** 仓库根目录（本文件在 `qa/support/` 下）；`electron .` 会读取 package.json 的 main（.vite/build/main.js）。 */
 const projectRoot = path.resolve(__dirname, '..', '..');
@@ -58,6 +56,28 @@ export function readConfigValue(userDataDir: string, key: string): unknown {
 }
 
 /**
+ * 判断凭据类设置是否已经持久化。
+ *
+ * 凭据在 `safeStorage` 可用时以 `dp-enc:` 密文落盘（macOS / Windows 默认可用，
+ * Linux 取决于有没有系统密钥环），不可用时才是明文。断言不该绑定某一种编码：
+ * 绑定明文会让同一份用例在 macOS 上必红，绑定密文则在无密钥环的 Linux 上必红。
+ *
+ * 真正的「用户可见」验证是重进页面后密钥回显，各用例都另有断言。
+ *
+ * @param userDataDir 用例独占的 userData 目录。
+ * @param key 形如 apiKeys.openAi.key 的点号路径。
+ * @param plaintext 期望的明文值。
+ * @returns 已写入（明文或密文）时为 true。
+ */
+export function isSecretPersisted(userDataDir: string, key: string, plaintext: string): boolean {
+    const raw = readConfigValue(userDataDir, key);
+    if (typeof raw !== 'string' || raw.length === 0) {
+        return false;
+    }
+    return raw === plaintext || raw.startsWith('dp-enc:');
+}
+
+/**
  * 创建用例独占的 userData 目录，并预置配置让运行环境确定且不污染真实数据：
  * - i18n.language 固定为中文，断言依赖的界面文案不随宿主系统语言漂移；
  * - storage.path 指向临时目录，避免应用在文档目录下创建媒体库。
@@ -92,7 +112,7 @@ async function passOnboardingGate(page: Page): Promise<void> {
             electron: { call: (path: string, param: unknown) => Promise<unknown> };
         }).electron;
         await handler.call('system/config/set', params);
-    }, { key: ONBOARDING_COMPLETED_VERSION_KEY, value: ONBOARDING_VERSION });
+    }, { key: ONBOARDING_COMPLETED_VERSION_KEY, value: CURRENT_ONBOARDING_VERSION });
     await page.reload();
     // 主界面（首页）导航里的「设置中心」入口，是引导页不会出现的内容
     await page.getByRole('link', { name: '设置中心' }).waitFor();

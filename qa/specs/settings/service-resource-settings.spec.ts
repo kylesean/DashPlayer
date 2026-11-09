@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test';
-import { readConfigValue, launchAppSession, test } from '../../support/fixtures';
+import { isSecretPersisted, launchAppSession, readConfigValue, test } from '../../support/fixtures';
 import { openSettingsSection, reloadSettingsPage, switchSettingsSection, chooseInRow, selectInRow } from '../../support/settings-page';
 
 /** 进入服务与资源设置页。 */
@@ -42,7 +42,7 @@ test.describe('服务与资源设置', () => {
         await page.getByRole('button', { name: '添加' }).click();
         await expect(page.getByRole('cell', { name: NEW_MODEL })).toBeVisible();
 
-        await expect.poll(() => readConfigValue(userDataDir, 'apiKeys.openAi.key')).toBe(API_KEY);
+        await expect.poll(() => isSecretPersisted(userDataDir, 'apiKeys.openAi.key', API_KEY)).toBe(true);
         await expect.poll(() => readConfigValue(userDataDir, 'apiKeys.openAi.endpoint')).toBe(ENDPOINT);
         // 模型清单以换行文本落盘；断言包含而不是全等，避免绑死内置默认模型
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).toContain(NEW_MODEL);
@@ -253,7 +253,7 @@ test.describe('服务与资源设置', () => {
             await openResourcesSetting(first.page);
             await openResourcesTab(first.page, '云端服务');
             await first.page.getByPlaceholder('sk-...').fill(API_KEY);
-            await expect.poll(() => readConfigValue(userDataDir, 'apiKeys.openAi.key')).toBe(API_KEY);
+            await expect.poll(() => isSecretPersisted(userDataDir, 'apiKeys.openAi.key', API_KEY)).toBe(true);
         } finally {
             await first.close();
         }
@@ -311,7 +311,7 @@ test.describe('服务与资源设置', () => {
         // 用户填完随手切走若静默丢失，会表现为「填了密钥但还是提示未配置」。
         await switchSettingsSection(page, '外观', page.getByRole('radio', { name: '深色' }));
 
-        await expect.poll(() => readConfigValue(userDataDir, 'apiKeys.openAi.key')).toBe(API_KEY);
+        await expect.poll(() => isSecretPersisted(userDataDir, 'apiKeys.openAi.key', API_KEY)).toBe(true);
 
         // 回到该页：密钥来自后端回读，而不是页面里残留的输入
         await switchSettingsSection(page, '服务与资源', page.getByRole('heading', { name: '服务与资源' }));

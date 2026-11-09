@@ -33,8 +33,10 @@ import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installa
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import toast from 'react-hot-toast';
+import { CURRENT_ONBOARDING_VERSION } from '@/common/constants/onboarding';
 
-export const CURRENT_ONBOARDING_VERSION = '1';
+// 版本号与 QA fixture 共用同一常量：两边各写一份字面量时，bump 后 QA 会静默失效。
+export { CURRENT_ONBOARDING_VERSION } from '@/common/constants/onboarding';
 
 /** 离线资源包内资源项的标识；数组顺序即下载顺序（先小后大）。 */
 type BundleItemKey = 'tts' | 'transcription';
