@@ -169,4 +169,50 @@ describe('字幕翻译调度器', () => {
         await flushAsync();
         expect(inFlight).toHaveLength(3);
     });
+
+    it('持续失败的批次在达到重试上限后进入死信，不再无限重试', async () => {
+        const inFlight: Array<{ request: SubtitleTranslationBatchRequest<TestContext>; deferred: DeferredBatch }> = [];
+        const onBatchRequeued = vi.fn();
+        const onBatchDeadLetter = vi.fn();
+        const scheduler = new SubtitleTranslationScheduler<TestContext>({
+            executeBatch: (request) => {
+                const deferred = createDeferred();
+                inFlight.push({ request, deferred });
+                return deferred.promise;
+            },
+            onBatchRequeued,
+            onBatchDeadLetter,
+        });
+
+        scheduler.updateDemand(buildDemand());
+
+        // 第一批正常完成，把窗口推进到第二个批次。
+        inFlight[0].deferred.resolve({ completedIndices: [0, 1, 2, 3, 4], failedIndices: [], cancelled: false });
+        await flushAsync();
+
+        // 第二个批次持续失败：每次都把整批标为 failed，直到触发死信。
+        const MAX_REQUEUE_COUNT = 2;
+        for (let attempt = 0; attempt <= MAX_REQUEUE_COUNT; attempt += 1) {
+            const current = inFlight[inFlight.length - 1];
+            expect(current).toBeDefined();
+            current.deferred.resolve({
+                completedIndices: [],
+                failedIndices: current.request.indices,
+                cancelled: false,
+            });
+            await flushAsync();
+        }
+
+        // 重试次数用尽后不再产生新批次，且只上报一次死信。
+        expect(onBatchRequeued).toHaveBeenCalledTimes(MAX_REQUEUE_COUNT);
+        expect(onBatchDeadLetter).toHaveBeenCalledTimes(1);
+        const deadLetter = onBatchDeadLetter.mock.calls[0][0];
+        expect(deadLetter.indices).toEqual([5, 6, 7, 8, 9]);
+        expect(deadLetter.requeueCount).toBe(MAX_REQUEUE_COUNT);
+
+        // 死信之后该批次不会再被执行。
+        const countAfterDeadLetter = inFlight.length;
+        await flushAsync();
+        expect(inFlight).toHaveLength(countAfterDeadLetter);
+    });
 });

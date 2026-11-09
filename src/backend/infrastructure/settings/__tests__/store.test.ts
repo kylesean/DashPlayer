@@ -8,9 +8,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 const persisted = new Map<string, unknown>();
 
+/** 记录 FakeStore 被构造时的参数，供权限断言使用。 */
+const storeConstructorOptions: Array<{ name?: string; configFileMode?: number }> = [];
+
 vi.mock('electron-store', () => ({
     default: class FakeStore {
-        public constructor(public readonly options: { name?: string; configFileMode?: number }) {}
+        public constructor(public readonly options: { name?: string; configFileMode?: number }) {
+            storeConstructorOptions.push(options);
+        }
 
         public get(key: string, fallback?: unknown): unknown {
             return persisted.has(key) ? persisted.get(key) : fallback;
@@ -65,16 +70,20 @@ const importStore = async () => {
 describe('设置存储的凭据加密', () => {
     beforeEach(() => {
         persisted.clear();
+        storeConstructorOptions.length = 0;
         encryptionAvailable = true;
         vi.resetModules();
     });
 
     it('配置文件权限收紧到 0600', async () => {
-        const { storeGet } = await importStore();
-        expect(typeof storeGet).toBe('function');
-        // Store 的构造参数在 mock 里被记录，用于断言 configFileMode。
-        const electronStoreModule = await import('electron-store');
-        expect(electronStoreModule.default).toBeDefined();
+        await importStore();
+
+        // 配置文件里存着云端 API 密钥，默认的 0644 会让同机器的其他账号直接读到，
+        // 因此构造 Store 时必须显式收紧到 0o600。
+        expect(storeConstructorOptions.length).toBeGreaterThan(0);
+        for (const options of storeConstructorOptions) {
+            expect(options.configFileMode).toBe(0o600);
+        }
     });
 
     it('写入凭据时落盘的是密文，读取时还原成明文', async () => {

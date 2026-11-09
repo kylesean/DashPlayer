@@ -1,4 +1,4 @@
-import { DpTaskState } from '@/common/contracts/dp-task';
+import { isTerminalDpTaskState } from '@/common/contracts/dp-task';
 import type { DpTask } from '@/common/contracts/dp-task';
 import type { YoutubeImportTaskResult } from '@/common/contracts/youtube-import';
 
@@ -29,6 +29,4 @@ export const parseTaskResult = (task: DpTask): YoutubeImportTaskResult | null =>
  * 任务是否已到达终态（成功/失败/取消），判定口径与任务中心订阅逻辑一致。
  */
 export const isFinalTaskState = (task: DpTask): boolean =>
-    task.status === DpTaskState.DONE ||
-    task.status === DpTaskState.FAILED ||
-    task.status === DpTaskState.CANCELLED;
+    isTerminalDpTaskState(task.status);

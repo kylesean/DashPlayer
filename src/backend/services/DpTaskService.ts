@@ -1,5 +1,5 @@
 import { getMainLogger } from '@/backend/infrastructure/logger';
-import { type DpTask, DpTaskState, type DpTaskUpdate } from '@/common/contracts/dp-task';
+import { type DpTask, DpTaskState, type DpTaskUpdate, isTerminalDpTaskState } from '@/common/contracts/dp-task';
 import { LRUCache } from 'lru-cache';
 import TimeUtil from '@/common/utils/TimeUtil';
 import { inject, injectable } from 'inversify';
@@ -290,9 +290,7 @@ export class DpTaskServiceImpl implements DpTaskService {
      * @returns 任务结束状态时返回 `true`。
      */
     private isFinalState(state: string | undefined): boolean {
-        return state === DpTaskState.DONE
-            || state === DpTaskState.FAILED
-            || state === DpTaskState.CANCELLED;
+        return isTerminalDpTaskState(state);
     }
 
     /**

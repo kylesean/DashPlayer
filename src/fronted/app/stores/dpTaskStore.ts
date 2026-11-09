@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { type DpTask, DpTaskState } from '@/common/contracts/dp-task';
+import { type DpTask, isTerminalDpTaskState } from '@/common/contracts/dp-task';
 import { emptyFunc } from '@/common/utils/Util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
@@ -49,12 +49,7 @@ const useDpTaskCenter = create(
                         if (task && task !== 'init') {
                             onUpdated(task);
 
-                            const isFinalState =
-                                task.status === DpTaskState.DONE ||
-                                task.status === DpTaskState.FAILED ||
-                                task.status === DpTaskState.CANCELLED;
-
-                            if (isFinalState) {
+                            if (isTerminalDpTaskState(task.status)) {
                                 onFinish(task);
                                 unsubscribe();
                             }
