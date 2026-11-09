@@ -48,7 +48,7 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
      *
      * 参数约定：
      * - 单视频（--no-playlist），优先 mp4 容器，合成交给项目自带的 ffmpeg；
-     * - 同时抓官方与自动字幕（en/zh-Hans 系）并统一转成 srt；
+     * - 只抓英语字幕（官方或自动），统一转成 srt；
      * - 代理通过进程环境变量继承（HTTP(S)_PROXY 已由 ProxyService 写入）。
      */
     public download(request: YtDlpDownloadRequest): YtDlpRunningTask {
@@ -68,8 +68,9 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
             '-f', 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b',
             '--merge-output-format', 'mp4',
             '--write-subs', '--write-auto-subs',
-            // 只取英语与简中两轨：通配符会抓大量字幕轨，连续请求易触发 timedtext 429 限流。
-            '--sub-langs', 'en,en-orig,zh-Hans',
+            // 只取英语轨：YouTube 的 zh-Hans 绝大多数是「英语自动字幕 → 机翻」的产物，
+            // 断句与用词都不如本项目自己的翻译管线；多抓一轨只会多占带宽、多一次 429 限流机会。
+            '--sub-langs', 'en,en-orig',
             '--convert-subs', 'srt',
             // HTTP 429 限流需要退避重试；字幕逐轨下载之间再加间隔。
             '--retry-sleep', 'http:4',
