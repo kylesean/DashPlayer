@@ -42,6 +42,15 @@ const GAP_STATUS_RE = /（(未覆盖|手动)）/;
 /** 自动化用例的行首。 */
 const CASE_LINE_RE = /^\s*-\s*用例：/;
 
+/**
+ * 允许不挂场景 ID 的 spec 文件。
+ *
+ * 播放页的滚动锚定用例是一组差分实验，场景写在 qa/README.md 里而不是按页拆的文档，
+ * 所以它的 test 标题不带 SET-* 编号。除此之外任何 spec 都必须在文档里有对应场景，
+ * 否则「新增一个页面却忘了写文档」会悄无声息地通过校验。
+ */
+const SPECS_WITHOUT_IDS = new Set(['qa/specs/player/player-scroll-anchor.spec.ts']);
+
 /** 列出目录下指定后缀的文件。 */
 const listFiles = (dir, ext) =>
     fs
@@ -162,16 +171,26 @@ const scanSpecs = () => {
     const problems = [];
 
     for (const file of listSpecs()) {
-        const relFile = path.relative(REPO_ROOT, file);
+        const relFile = path.relative(REPO_ROOT, file).split(path.sep).join('/');
         const lines = fs.readFileSync(file, 'utf8').split('\n');
+        let fileHits = 0;
         lines.forEach((line, index) => {
             if (!line.includes('test(')) {
                 return;
             }
             for (const match of line.matchAll(SPEC_ID_RE)) {
                 hits.push({id: match[1], file: relFile, line: index + 1});
+                fileHits += 1;
             }
         });
+        // 零 ID 的 spec 此前完全逃过校验：没有 ID 就没有「未翻译 / 未登记」可报，
+        // 于是整份用例可以没有任何场景文档而照样通过。
+        if (fileHits === 0 && !SPECS_WITHOUT_IDS.has(relFile)) {
+            problems.push(
+                `spec 里没有任何场景 ID：${relFile}。请给每个 test 标题挂上 **[SET-XXX-NN]**，`
+                + `并在 qa/test-cases/ 里登记；若确属无 ID 的实验型用例，加入 SPECS_WITHOUT_IDS 白名单并写明理由。`
+            );
+        }
     }
 
     const seen = new Map();

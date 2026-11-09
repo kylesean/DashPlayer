@@ -81,7 +81,7 @@ const restarted = await launchAppSession(userDataDir);
 
 ## 5. 新页面用例怎么写
 
-设置中心六个页面已全覆盖（30 条用例）。**每条用例测什么、哪些场景还是缺口，看 [test-cases/](./test-cases/)（一个设置页一份文档）**；本文档只讲怎么写，按页面形态挑最近的抄：
+设置中心各页面已全覆盖。**每条用例测什么、哪些场景还是缺口、当前各页各有多少条，看 [test-cases/](./test-cases/)（一个设置页一份文档），或直接跑 `node qa/tools/check-test-cases.mjs` 看它打印的概览**——计数由工具算，本文档不手写，避免数字悄悄过期。本文档只讲怎么写，按页面形态挑最近的抄：
 
 | 页面形态 | 参考文件（都在 `qa/specs/settings/`） |
 |---|---|
@@ -90,6 +90,7 @@ const restarted = await launchAppSession(userDataDir);
 | 下拉框与自定义提示词 | `qa/specs/settings/service-resource-settings.spec.ts` |
 | 弹窗内录制 / 保存 | `qa/specs/settings/shortcut-settings.spec.ts` |
 | 只读页（无可填字段的守卫） | `qa/specs/settings/about-settings.spec.ts` |
+| 服务类开关 + 跨端 HTTP 断言（令牌鉴权） | `qa/specs/settings/mobile-access-settings.spec.ts` |
 | 保存时机（改完立刻切走） | 各页 spec 里都有一条：`qa/specs/settings/appearance-settings.spec.ts` 的 SET-APP-09 最简洁 |
 
 1. **入口定位用 getByRole**：`link` / `button` / `heading` + 中文文案（fixture 已固定 `i18n.language: 'zh-CN'`，不随宿主系统语言漂移）；避免 CSS 选择器。设置页导航走 `openSettingsSection`，不要手写点击链接——面包屑里可能出现同名链接。

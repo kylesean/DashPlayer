@@ -25,9 +25,29 @@ const BUILD_ENTRY = path.join(projectDir, '.vite', 'build', 'main.js');
 /** 需要参与「过期」判断的源码目录。 */
 const SOURCE_DIRS = ['src', 'qa/support'];
 
+/**
+ * 同样决定产物内容的单文件输入。
+ *
+ * 只比 src/ 的 mtime 是不够的：改 vite 别名、改 forge 配置、升级依赖、动 index.html
+ * 都会改变产物，但 src/ 里没有任何文件变新，于是会拿旧产物跑新代码——比不跑更糟。
+ */
+const SOURCE_FILES = [
+    'vite.main.config.ts',
+    'vite.preload.config.ts',
+    'vite.renderer.config.ts',
+    'vite.mobile.config.ts',
+    'forge.config.ts',
+    'index.html',
+    'package.json',
+    'pnpm-lock.yaml',
+];
+
 /** 媒体夹具目录与必需产物。 */
 const MEDIA_DIR = path.join(projectDir, 'qa', 'fixtures', 'media');
 const MEDIA_FILES = ['qa-bilingual.srt', 'qa-bilingual.mp4'];
+
+/** 手机页产物入口；缺失时手机访问用例会以 20 秒超时失败且看不出原因。 */
+const MOBILE_ENTRY = path.join(projectDir, 'resources', 'mobile', 'index.html');
 
 /**
  * 递归取目录下最新的 mtime（毫秒）。
@@ -62,7 +82,10 @@ const newestMtime = (dir: string): number => {
  */
 const ensureBuild = (): boolean => {
     const buildMtime = fs.existsSync(BUILD_ENTRY) ? fs.statSync(BUILD_ENTRY).mtimeMs : 0;
-    const sourceMtime = Math.max(...SOURCE_DIRS.map((dir) => newestMtime(path.join(projectDir, dir))));
+    const sourceMtime = Math.max(
+        ...SOURCE_DIRS.map((dir) => newestMtime(path.join(projectDir, dir))),
+        ...SOURCE_FILES.map((file) => fileMtime(file)),
+    );
     if (buildMtime > 0 && buildMtime >= sourceMtime) {
         return false;
     }
@@ -77,6 +100,43 @@ const ensureBuild = (): boolean => {
 };
 
 /**
+ * 取单个文件的最新 mtime。
+ *
+ * @param file 相对项目根的路径。
+ * @returns mtime 毫秒；文件不存在时为 0。
+ */
+const fileMtime = (file: string): number => {
+    const absolute = path.join(projectDir, file);
+    return fs.existsSync(absolute) ? fs.statSync(absolute).mtimeMs : 0;
+};
+
+/**
+ * 需要时构建手机页产物。
+ *
+ * resources/mobile 在 .gitignore 里，新克隆的仓库没有它；而手机访问用例会真实请求
+ * 这个静态目录，缺失时服务直接启动失败，用例停在「等访问地址出现」的 20 秒超时上，
+ * 看不出根因。这里按需构建，让「刚 clone 只需要一条命令」成立。
+ *
+ * @returns 构建发生时为 true。
+ */
+const ensureMobileWeb = (): boolean => {
+    const builtMtime = fs.existsSync(MOBILE_ENTRY) ? fs.statSync(MOBILE_ENTRY).mtimeMs : 0;
+    const sourceMtime = Math.max(newestMtime(path.join(projectDir, 'src', 'mobile')), fileMtime('vite.mobile.config.ts'));
+    if (builtMtime > 0 && builtMtime >= sourceMtime) {
+        return false;
+    }
+    const result = spawnSync(
+        process.execPath,
+        [path.join(projectDir, 'node_modules', 'vite', 'bin', 'vite.js'), 'build', '--config', 'vite.mobile.config.ts'],
+        { cwd: projectDir, stdio: 'inherit' },
+    );
+    if (result.status !== 0) {
+        throw new Error(`手机页构建失败（exit ${result.status}）`);
+    }
+    return true;
+};
+
+/**
  * 需要时生成媒体夹具。
  *
  * @returns 生成发生时为 true。
@@ -84,7 +144,13 @@ const ensureBuild = (): boolean => {
 const ensureFixtures = (): boolean => {
     const missing = MEDIA_FILES.filter((name) => !fs.existsSync(path.join(MEDIA_DIR, name)));
     if (missing.length === 0) {
-        return false;
+        // 只判缺失是不够的：改了生成脚本（句数、时间轴、分辨率）而产物还在，
+        // 用例会继续对着与文档契约不符的旧夹具跑。
+        const generatorMtime = fileMtime(path.join('qa', 'fixtures', 'make-fixtures.mjs'));
+        const fixtureMtime = fileMtime(path.join('qa', 'fixtures', 'media', 'qa-bilingual.srt'));
+        if (fixtureMtime >= generatorMtime) {
+            return false;
+        }
     }
     const result = spawnSync(process.execPath, [path.join(projectDir, 'qa', 'fixtures', 'make-fixtures.mjs')], {
         cwd: projectDir,
@@ -103,6 +169,11 @@ const ensureFixtures = (): boolean => {
  */
 export default function globalSetup(): void {
     const built = ensureBuild();
+    const mobile = ensureMobileWeb();
     const fixtures = ensureFixtures();
-    console.log(`[qa] 备料完成：${built ? '已重建 .vite' : '.vite 是最新的'}，${fixtures ? '已生成媒体夹具' : '媒体夹具已存在'}`);
+    console.log(
+        `[qa] 备料完成：${built ? '已重建 .vite' : '.vite 是最新的'}，`
+        + `${mobile ? '已重建手机页' : '手机页是最新的'}，`
+        + `${fixtures ? '已生成媒体夹具' : '媒体夹具已存在'}`,
+    );
 }

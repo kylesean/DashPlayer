@@ -22,6 +22,14 @@ export default defineConfig({
     fullyParallel: false,
     timeout: 60_000,
     expect: { timeout: 10_000 },
+    // 失败留证：真实 Electron 窗口里发生的事，事后只能靠 trace 回放。
+    // 此前三项全关，失败时只剩列表报告里的堆栈和用例自己打的日志，
+    // 而这套用例单轮要跑约 7 分钟，重新复现的成本很高。
+    // 只在失败时保留，通过时不产生任何额外 IO。
+    use: {
+        trace: 'retain-on-failure',
+        screenshot: 'only-on-failure',
+    },
     reporter: [['list']],
     globalSetup: './support/globalSetup.ts',
 });
