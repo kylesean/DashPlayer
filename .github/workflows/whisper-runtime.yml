@@ -28,10 +28,15 @@ jobs:
     steps:
       - name: Github checkout
         uses: actions/checkout@v5
+      # package.json 的 packageManager 已指向 pnpm，setup-node 会据此启用 pnpm 缓存；
+      # 不先 corepack enable 会在 setup-node 阶段报 "Unable to locate executable file: pnpm"。
+      - name: Enable Corepack
+        run: corepack enable
       - name: Use Node.js
         uses: actions/setup-node@v5
         with:
           node-version: 22.x
+          cache: pnpm
       - name: Read coordinates from scripts/whisper-runtime-meta.mjs
         id: meta
         run: |
