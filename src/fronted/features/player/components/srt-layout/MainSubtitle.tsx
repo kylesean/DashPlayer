@@ -2,27 +2,22 @@ import React, { type ReactElement, useEffect, useLayoutEffect } from 'react';
 import TranslatableLine from '@/fronted/features/player/components/subtitles/TranslatableLineWrapper';
 import NormalLine from './NormalLine';
 import useTranslation from '@/fronted/features/player/translationStore';
-import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import StrUtil from '@/common/utils/str-util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
-import useSetting from '@/fronted/features/settings/settingsStore';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
 import LearningCapsule from '@/fronted/features/player/components/control-box/LearningCapsule';
 import { CAPTION_CARD_ANCHOR_CLASS } from '@/fronted/features/player/components/captionCardShell';
 
 export default function MainSubtitle() {
-    const { t } = useI18nTranslation('player');
     const logger = getRendererLogger('MainSubtitle');
     const sentence = usePlayerState((s) => s.currentSentence);
     const srtTender = usePlayerState((s) => s.srtTender);
     const adjusted = Boolean(sentence && srtTender && srtTender.adjusted(sentence));
-    const srtHash = usePlaybackSession((s) => s.srtHash);
 
     const requestTranslation = useTranslation(state => state.requestTranslation);
     const engine = useTranslation(state => state.engine);
@@ -38,23 +33,47 @@ export default function MainSubtitle() {
 
     // 绘制前测量:先复位 --sub-scale 量自然高度,超出容器则按比例调整字号缩放(上限 1,不放大)。
     // 全部用布局口径(offsetHeight / clientHeight):播放器浮动层带 transform: scale(),
-    // getBoundingClientRect 会把测量值乘上缩放系数,而 overflow-hidden 按布局盒裁切,
-    // 两种口径混用会算错缩放比。可用高度要扣除容器上下内边距(pt-3/pb-2)。
+    // getBoundingClientRect 会把测量值乘上缩放系数,而滚动/裁切按布局盒计算,
+    // 两种口径混用会算错缩放比。可用高度要扣除内层容器的上下内边距(pt-3 / pb-14,
+    // 其中 pb-14 是给右下角学习胶囊留出的横向安全带)。
     // 无依赖数组——每次渲染都重测:译文到达、意群切换、字号设置变更都会改变内容高度。
     useLayoutEffect(() => {
-        const container = subtitleContainerRef.current;
+        const scroller = subtitleContainerRef.current;
         const content = subtitleContentRef.current;
-        if (!container || !content) return;
+        if (!scroller || !content) return;
         content.style.removeProperty('--sub-scale');
         const natural = content.offsetHeight;
-        const style = getComputedStyle(container);
-        const available = container.clientHeight
-            - (parseFloat(style.paddingTop) || 0)
-            - (parseFloat(style.paddingBottom) || 0);
+        const padHost = content.parentElement;
+        const padStyle = padHost ? getComputedStyle(padHost) : null;
+        const available = scroller.clientHeight
+            - (padStyle ? parseFloat(padStyle.paddingTop) || 0 : 0)
+            - (padStyle ? parseFloat(padStyle.paddingBottom) || 0 : 0);
         if (natural > available && available > 0) {
             const scale = Math.max(0.75, available / natural);
             content.style.setProperty('--sub-scale', scale.toFixed(3));
         }
+    });
+
+    // 字号缩到下限仍放不下时（超长意群 + 多行译文），面板改为滚动而不是把最后一行裁掉；
+    // 内容超出可视区时再把当前句滚回视野中央，保证正在读的那一句永远看得见。
+    // 只在当前句超出视野时才动 scrollTop，用户手动滚动不会被每帧抢回来。
+    useLayoutEffect(() => {
+        const scroller = subtitleContainerRef.current;
+        if (!scroller) return;
+        const active = scroller.querySelector<HTMLElement>('[data-subtitle-active="true"]');
+        if (!active) return;
+        const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+        if (maxScroll <= 0) {
+            if (scroller.scrollTop !== 0) scroller.scrollTop = 0;
+            return;
+        }
+        const viewTop = scroller.scrollTop;
+        const viewBottom = viewTop + scroller.clientHeight;
+        const elementTop = active.offsetTop;
+        const elementBottom = elementTop + active.offsetHeight;
+        if (elementTop >= viewTop && elementBottom <= viewBottom) return;
+        const target = elementTop - (scroller.clientHeight - active.offsetHeight) / 2;
+        scroller.scrollTop = Math.min(Math.max(target, 0), maxScroll);
     });
 
     // 容器尺寸变化(拖窗口/切换窗口模式)不经过 React 渲染,监听后触发一次重渲染走上面的测量
@@ -132,8 +151,9 @@ export default function MainSubtitle() {
         const lines: ReactElement[] = [];
         for (const item of block.sentences) {
             const active = item.key === sentence?.key;
+            const itemLines: ReactElement[] = [];
             if (StrUtil.isNotBlank(item.text)) {
-                lines.push(
+                itemLines.push(
                     <div
                         key={`block-first-${item.key}`}
                         className={cn('w-full shrink-0 transition-opacity', !active && 'opacity-50')}
@@ -149,7 +169,17 @@ export default function MainSubtitle() {
                     </div>
                 );
             }
-            lines.push(...renderZhLinesForBlock(item));
+            itemLines.push(...renderZhLinesForBlock(item));
+            // 每句（原文 + 它的译文）包成一组：块超出面板时，滚动定位只需要认当前句这一组
+            lines.push(
+                <div
+                    key={`block-group-${item.key}`}
+                    data-subtitle-active={active ? 'true' : 'false'}
+                    className="flex w-full flex-col items-center gap-1.5"
+                >
+                    {itemLines}
+                </div>
+            );
         }
         return lines;
     };
@@ -225,25 +255,32 @@ export default function MainSubtitle() {
             return <div className="w-full h-full" />;
         }
         return (
-            <div
-                ref={subtitleContainerRef}
-                className="relative flex flex-col w-full h-full items-center px-12 pt-3 pb-2 text-center text-textColor select-none overflow-hidden"
-            >
-                {/* 顶部弹性占位：比底部占位少，让文字动态停留在“中上”黄金位置（约 40% 高度） */}
-                <div className="w-full flex-[2] min-h-0 pointer-events-none" />
-
-                {/* 字幕内容区：永远受到外层 pt-3 顶距保护，绝不削顶 */}
+            <div className="relative w-full h-full">
+                {/* 面板高度不够时改为滚动，绝不把最后一行裁掉；滚动条隐去，避免字幕区出现一条常驻灰条。
+                    内层 min-h-full 保证内容不满一屏时仍沿用原来的「中上黄金位置」留白。 */}
                 <div
-                    ref={subtitleContentRef}
-                    className="flex flex-col justify-start items-center gap-1.5 w-full min-w-0 shrink-0"
+                    ref={subtitleContainerRef}
+                    className="relative w-full h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
-                    {ele()}
+                    <div className="flex min-h-full w-full flex-col items-center px-12 pt-3 pb-14 text-center text-textColor select-none">
+                        {/* 顶部弹性占位：比底部占位少，让文字动态停留在“中上”黄金位置（约 40% 高度） */}
+                        <div className="w-full flex-[2] min-h-0 pointer-events-none" />
+
+                        {/* 字幕内容区：永远受到外层 pt-3 顶距保护，绝不削顶 */}
+                        <div
+                            ref={subtitleContentRef}
+                            data-subtitle-active={block ? undefined : 'true'}
+                            className="flex flex-col justify-start items-center gap-1.5 w-full min-w-0 shrink-0"
+                        >
+                            {ele()}
+                        </div>
+
+                        {/* 底部弹性占位：比顶部占位更多；pb-14 另为右下角学习胶囊留出高度 */}
+                        <div className="w-full flex-[3] min-h-0 pointer-events-none" />
+                    </div>
                 </div>
 
-                {/* 底部弹性占位：比顶部占位更多 */}
-                <div className="w-full flex-[3] min-h-0 pointer-events-none" />
-
-                {/* 右下角自适应学习胶囊：聚合轨道切换、单句循环、自动暂停、跟读与AI学习、更多偏好设置 */}
+                {/* 右下角自适应学习胶囊：绝对定位、不占排版空间；内容区已用 pb-14 让开它的高度 */}
                 <LearningCapsule className={CAPTION_CARD_ANCHOR_CLASS} />
             </div>
         );
