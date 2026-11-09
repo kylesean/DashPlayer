@@ -24,10 +24,8 @@ export interface TransLineTheme {
 
 const defaultTheme: TransLineTheme = {
   container: [
-    'flex justify-between items-start rounded-lg drop-shadow-md mx-10 mt-2.5 shadow-inner z-50',
-    'bg-stone-200 dark:bg-neutral-700',
-    'text-stone-700 dark:text-neutral-200',
-    'shadow-stone-100 dark:shadow-neutral-600'
+    'flex justify-between items-start rounded-xl mx-10 mt-2.5 z-50',
+    'bg-surface text-primary border border-default shadow-xs'
   ].join(' '),
   leftIcon: 'w-10 m-2.5 h-10 flex-shrink-0',
   rightIcon: 'w-10 h-full flex items-end justify-center pb-2 flex-shrink-0',
@@ -35,9 +33,9 @@ const defaultTheme: TransLineTheme = {
     root: 'px-10 pt-2.5 pb-2.5 text-center leading-relaxed box-border'
   },
   word: {
-    hoverBgClass: 'transition-colors duration-150 hover:bg-white/95 hover:shadow-xs hover:text-stone-950 dark:hover:bg-neutral-600/80 dark:hover:text-white rounded px-1',
-    vocabHighlightClass: 'text-emerald-700 dark:text-emerald-400 font-medium underline decoration-emerald-500/50 dark:decoration-emerald-400/40 decoration-[1.5px] underline-offset-[0.22em] rounded px-0.5 transition-colors duration-150 hover:bg-emerald-500/10 dark:hover:bg-emerald-400/10 hover:decoration-emerald-600 dark:hover:decoration-emerald-300',
-    popReferenceBgClass: 'bg-white/95 shadow-xs text-stone-950 dark:bg-neutral-600/80 dark:text-white'
+    hoverBgClass: 'transition-colors duration-150 hover:bg-muted/70 hover:shadow-xs hover:text-primary rounded px-1',
+    vocabHighlightClass: 'text-accent font-medium underline decoration-accent/60 decoration-2 underline-offset-4 rounded px-0.5 transition-colors duration-150 hover:bg-accent-muted/20',
+    popReferenceBgClass: 'bg-accent-muted/20 shadow-xs text-accent font-medium rounded'
   },
   pop: {
     openaiContainer: 'w-[360px] h-[400px] bg-popover text-popover-foreground shadow-lg border border-border/80 rounded-xl overflow-hidden text-left relative flex flex-col',

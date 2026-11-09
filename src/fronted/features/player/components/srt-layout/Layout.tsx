@@ -207,14 +207,14 @@ const PlaybackLayout = () => {
                                     <ResizableHandle
                                         className={cn(
                                             'group relative h-2 w-full flex items-center justify-center',
-                                            'bg-stone-300/80 dark:bg-neutral-800/80 hover:bg-stone-200/90 dark:hover:bg-neutral-700/90',
+                                            'bg-border/60 hover:bg-border',
                                             'after:hidden transition-colors duration-150 cursor-row-resize z-20'
                                         )}
                                     >
-                                        <div className="w-10 h-1 rounded-full bg-stone-500/70 dark:bg-neutral-400/70 group-hover:bg-rose-600 dark:group-hover:bg-rose-400 group-hover:w-14 transition-all duration-200 shadow-xs" />
+                                        <div className="w-10 h-1 rounded-full bg-muted-foreground/40 group-hover:bg-accent-bg group-hover:w-14 transition-all duration-200 shadow-xs" />
                                     </ResizableHandle>
                                     <ResizablePanel
-                                        className={cn('overflow-hidden bg-stone-50/75 dark:bg-neutral-800/65 backdrop-blur-2xl')}
+                                        className={cn('overflow-hidden bg-surface/85 backdrop-blur-2xl')}
                                         minSize={0}
                                         defaultSize={sizeIb}
                                         onResize={(e) => {
@@ -276,20 +276,19 @@ const PlaybackLayout = () => {
                         <ResizableHandle
                             className={cn(
                                 'group relative w-2 h-full flex items-center justify-center',
-                                'bg-stone-300/80 dark:bg-neutral-800/80 hover:bg-stone-200/90 dark:hover:bg-neutral-700/90',
+                                'bg-border/60 hover:bg-border',
                                 'after:hidden transition-colors duration-150 cursor-col-resize z-20'
                             )}
                         >
-                            <div className="w-1 h-10 rounded-full bg-stone-500/70 dark:bg-neutral-400/70 group-hover:bg-rose-600 dark:group-hover:bg-rose-400 group-hover:h-14 transition-all duration-200 shadow-xs" />
+                            <div className="w-1 h-10 rounded-full bg-muted-foreground/40 group-hover:bg-accent-bg group-hover:h-14 transition-all duration-200 shadow-xs" />
                         </ResizableHandle>
                         <ResizablePanel
                             className={cn(
                                 'relative overflow-hidden backdrop-blur-2xl shadow-[inset_1px_1px_6px_rgba(0,0,0,0.06)] dark:shadow-[inset_1px_1px_8px_rgba(0,0,0,0.4)]',
-                                // 学习页打开时把字幕列表提亮到与学习区面板一致的浅色系，关闭时平滑恢复
                                 'transition-colors duration-300',
                                 learningVisible
-                                    ? 'bg-stone-100/85 dark:bg-neutral-800/85'
-                                    : 'bg-stone-300/60 dark:bg-neutral-950/70'
+                                    ? 'bg-surface/90 border-l border-default'
+                                    : 'bg-body/70 border-l border-default'
                             )}
                             defaultSize={sizeOb}
                             onResize={(e) => {

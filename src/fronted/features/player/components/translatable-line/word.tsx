@@ -134,7 +134,7 @@ export default function Word({
     const cleanWord = (lemma ?? word).toLowerCase().trim();
     const isVocabularyWord = cleanWord && checkIsVocab(cleanWord);
 
-    const hoverBg = classNames?.hover ?? (alwaysDark ? 'hover:bg-neutral-600' : theme.word.hoverBgClass);
+    const hoverBg = classNames?.hover ?? (alwaysDark ? 'hover:bg-muted/70' : theme.word.hoverBgClass);
     const vocabCls = isVocabularyWord ? (classNames?.vocab ?? theme.word.vocabHighlightClass) : undefined;
     // 订阅设置值本身而非直读 get()：setting() 引用稳定不触发重渲染，
     // 开关切换后已挂载的 Word 会拿旧闭包值（开关拨了第一下不灵）
@@ -372,7 +372,7 @@ export default function Word({
                         !show && ['text-transparent', Style.word_hover_bg],
                         show && hoverBg,
                         show && vocabCls,
-                        isOpen && pop && (alwaysDark ? 'bg-neutral-600' : theme.word.popReferenceBgClass),
+                        isOpen && pop && (alwaysDark ? 'bg-accent-muted/20 text-accent font-medium' : theme.word.popReferenceBgClass),
                         classNames?.word,
                     )}
                 >

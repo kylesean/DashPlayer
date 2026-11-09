@@ -13,7 +13,7 @@
  * 刻意不加边框与阴影：叠在视频上时描边和投影会让卡片显得厚重，改由半透明底色区分。
  */
 export const CAPTION_CARD_CLASS =
-    'inline-flex items-center gap-1.5 p-[3px] rounded-full bg-stone-200/70 dark:bg-neutral-700/70 backdrop-blur-sm';
+    'inline-flex items-center gap-1.5 p-[3px] rounded-full bg-surface/85 border border-border/60 text-primary shadow-xs backdrop-blur-sm';
 
 /**
  * 卡片悬浮区在画面右下角的锚点：离右边框与下边框等距，视觉上才不偏。
@@ -52,7 +52,7 @@ export const CAPTION_CARD_WIDTH_THREE_SLOT = 90;
  * 胶囊里的按钮共用这一份，避免各写一份后慢慢漂移。
  */
 export const CAPTION_CARD_IDLE_CLASS =
-    'text-stone-600 dark:text-neutral-400 hover:text-stone-900 dark:hover:text-white hover:bg-stone-300/60 dark:hover:bg-neutral-600/60';
+    'text-secondary hover:text-primary hover:bg-muted/60';
 
 /** 卡片内按钮「已生效」的色相：琥珀=收藏/微调，翠绿=整句学习，红=录音中。 */
 export type CaptionCardAccent = 'amber' | 'emerald' | 'red';

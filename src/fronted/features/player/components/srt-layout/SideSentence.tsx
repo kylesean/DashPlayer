@@ -63,7 +63,7 @@ const RepeatAudioWave = () => (
 
 const PausedIcon = () => (
     <IconTip tip="sideSentence.paused">
-        <div className="flex items-center justify-center w-4 h-4 text-stone-400 dark:text-neutral-500">
+        <div className="flex items-center justify-center w-4 h-4 text-secondary">
             <Pause className="w-3 h-3 fill-current" />
         </div>
     </IconTip>
@@ -135,10 +135,10 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                         <span
                             key={part.id}
                             className={cn(
-                                'underline decoration-dotted decoration-amber-500/80 dark:decoration-amber-400/80 underline-offset-[0.25em] transition-colors',
+                                'underline decoration-accent decoration-2 underline-offset-4 font-medium transition-colors',
                                 isCurrent
-                                    ? 'text-amber-600 dark:text-amber-300'
-                                    : 'text-foreground'
+                                    ? 'text-accent'
+                                    : 'text-accent hover:text-primary'
                             )}
                         >
                             {part.content}
@@ -156,9 +156,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                 return '';
             }
             const classes: string[] = [
-                'bg-stone-200/90 dark:bg-neutral-800/90',
-                'border-stone-400/70 dark:border-neutral-600/80',
-                'shadow-xs text-stone-900 dark:text-neutral-100',
+                'bg-accent-muted/20 border-accent text-primary shadow-xs',
             ];
 
             if (selectionState.isGroupStart && selectionState.isGroupEnd) {
@@ -187,8 +185,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                     // 卡片色调（激活与常规卡片底色非常接近、仅微调边框和文字，保持整体质感平滑统一）：
                     !selectionState?.isMember && (
                         isCurrent
-                            ? 'bg-stone-200/90 dark:bg-neutral-800/85 border-stone-400/60 dark:border-neutral-600/70 shadow-xs text-stone-900 dark:text-neutral-100'
-                            : 'bg-stone-200/70 dark:bg-neutral-800/60 border-stone-300/60 dark:border-neutral-700/50 shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:bg-stone-200/90 dark:hover:bg-neutral-800/80 hover:border-stone-400/50 dark:hover:border-neutral-600 text-stone-700 dark:text-neutral-300'
+                            ? 'bg-accent-muted/25 border-accent text-primary shadow-xs'
+                            : 'bg-surface/85 border-border/70 shadow-[0_1px_2px_rgba(0,0,0,0.02)] hover:bg-surface hover:border-border text-secondary hover:text-primary'
                     ),
                     // 被英文开关收起时整体隐去：悬停卡片仍会恢复文字与底色
                     concealed && 'bg-transparent border-transparent shadow-none',
@@ -215,7 +213,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                 {selectionState?.isMember && !selectionState.isGroupEnd && !concealed && (
                     <div
                         aria-hidden="true"
-                        className="absolute -bottom-[13px] -left-[1px] -right-[1px] h-[14px] bg-stone-200/90 dark:bg-neutral-800/90 border-l border-r border-stone-400/70 dark:border-neutral-600/80 z-0 pointer-events-none"
+                        className="absolute -bottom-[13px] -left-[1px] -right-[1px] h-[14px] bg-accent-muted/20 border-l border-r border-accent z-0 pointer-events-none"
                     />
                 )}
 
@@ -223,7 +221,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                 {selectionState?.isMember && !selectionState.isGroupEnd && !concealed && (
                     <div
                         aria-hidden="true"
-                        className="absolute -bottom-[6px] left-4 right-4 h-[1px] bg-stone-300/80 dark:bg-neutral-600/80 z-[1] pointer-events-none"
+                        className="absolute -bottom-[6px] left-4 right-4 h-[1px] bg-accent-muted/40 z-[1] pointer-events-none"
                     />
                 )}
 
@@ -257,8 +255,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                         (!fontSize || fontSize === 'fontSizeMedium') && 'text-[16px]',
                         fontSize === 'fontSizeLarge' && 'text-[18px]',
                         isCurrent
-                            ? 'text-stone-950 dark:text-white'
-                            : 'text-stone-700 dark:text-neutral-300 group-hover:text-stone-950 dark:group-hover:text-white'
+                            ? 'text-primary font-medium'
+                            : 'text-primary/90 group-hover:text-primary'
                     )}>
                         {renderHighlightedText(primaryText)}
                     </div>
@@ -272,8 +270,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceNewParam>(
                             (!fontSize || fontSize === 'fontSizeMedium') && 'text-[14px]',
                             fontSize === 'fontSizeLarge' && 'text-[15.5px]',
                             isCurrent
-                                ? 'text-stone-600 dark:text-neutral-300'
-                                : 'text-stone-500/90 dark:text-neutral-400/90 group-hover:text-stone-700 dark:group-hover:text-neutral-200'
+                                ? 'text-secondary'
+                                : 'text-secondary/80 group-hover:text-secondary'
                         )}>
                             {secondaryText}
                         </div>

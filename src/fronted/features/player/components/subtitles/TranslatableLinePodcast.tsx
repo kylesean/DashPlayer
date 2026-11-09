@@ -27,7 +27,6 @@ const TranslatableLinePodcast = ({
         <div
             className={cn(
                 'relative flex justify-between items-start w-full overflow-visible pointer-events-auto',
-                'shadow-stone-100 dark:shadow-neutral-600',
                 className
             )}
         >

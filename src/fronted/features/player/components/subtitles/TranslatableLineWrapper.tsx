@@ -40,7 +40,7 @@ export default function TranslatableLineWrapper({
   const variantConfig = variant === 'plain'
     ? {
       root: cn(
-        'relative z-10 mx-0 mt-0 rounded-none bg-transparent drop-shadow-none shadow-none text-stone-800 dark:text-neutral-200 pointer-events-auto transition-all duration-200 box-border',
+        'relative z-10 mx-0 mt-0 rounded-none bg-transparent drop-shadow-none shadow-none text-primary pointer-events-auto transition-all duration-200 box-border',
         isHidden && 'opacity-60 hover:opacity-100'
       ),
       actions: 'absolute right-2.5 top-1.5 flex items-center gap-1.5 z-20'
@@ -49,8 +49,8 @@ export default function TranslatableLineWrapper({
       root: cn(
         'relative rounded-lg drop-shadow-md mx-10 mt-2.5 shadow-inner z-50 transition-all duration-200 pointer-events-auto box-border',
         isHidden
-          ? 'bg-stone-200/80 dark:bg-neutral-800/80 text-stone-500 dark:text-neutral-400 shadow-stone-100/50 dark:shadow-neutral-900/50 hover:bg-stone-200 dark:hover:bg-neutral-700 hover:text-stone-700 dark:hover:text-neutral-200 hover:shadow-stone-100 dark:hover:shadow-neutral-600'
-          : 'bg-stone-200 dark:bg-neutral-700 text-stone-700 dark:text-neutral-200 shadow-stone-100 dark:shadow-neutral-600'
+          ? 'bg-muted/80 text-secondary border border-border/40 hover:bg-muted hover:text-primary shadow-xs'
+          : 'bg-surface text-primary border border-border/80 shadow-xs'
       ),
       actions: 'absolute right-3 top-1.5 flex items-center gap-1.5 z-20'
     };

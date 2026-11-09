@@ -69,14 +69,14 @@ export default function PodcastControlBar({
                         }}
                         onScrubCommit={handleScrubCommit}
                         className="cursor-pointer py-1"
-                        trackClassName="bg-zinc-200/70 dark:bg-zinc-800/80"
-                        rangeClassName="bg-zinc-400 dark:bg-zinc-500"
-                        thumbClassName="border-zinc-400 dark:border-zinc-500 bg-white dark:bg-zinc-900 shadow-sm"
+                        trackClassName="bg-border/60"
+                        rangeClassName="bg-accent-bg"
+                        thumbClassName="border-border bg-surface shadow-sm"
                     />
                 </div>
 
                 {/* 底部控制项与时间展示 */}
-                <div className="w-full flex justify-between items-center text-zinc-500 dark:text-zinc-400">
+                <div className="w-full flex justify-between items-center text-secondary">
                     <div className="flex gap-3.5 items-center">
                         <IconButton
                             label={playing ? '暂停' : '播放'}
@@ -93,15 +93,15 @@ export default function PodcastControlBar({
                         />
                         <PlaybackTimeReadout
                             previewTime={previewTime}
-                            className="flex items-center font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400"
-                            currentClassName="text-zinc-800 dark:text-zinc-200 font-medium"
+                            className="flex items-center font-mono text-xs tabular-nums text-secondary"
+                            currentClassName="text-primary font-medium"
                             separatorClassName="mx-1.5 opacity-40"
                             durationClassName=""
                             durationWrapperClassName="inline-flex items-center"
                         />
                     </div>
 
-                    <div className="flex justify-center items-center gap-4 text-zinc-600 dark:text-zinc-400">
+                    <div className="flex justify-center items-center gap-4 text-secondary">
                         <SpeedSlider
                             speed={playbackRate}
                             popoverOffset={CONTROL_POPOVER_OFFSET_STACKED_BAR}
@@ -112,11 +112,11 @@ export default function PodcastControlBar({
                             onMutedChange={(nextMuted) => playerActions.setMuted(nextMuted)}
                             volume={volume}
                             onVolumeChange={(nextVolume) => playerActions.setVolume(nextVolume)}
-                            sliderTrackClassName="bg-zinc-200/70 dark:bg-zinc-800/80"
-                            sliderRangeClassName="bg-zinc-400 dark:bg-zinc-500"
-                            sliderThumbClassName="border-zinc-400 dark:border-zinc-500 bg-white dark:bg-zinc-900 shadow-sm"
+                            sliderTrackClassName="bg-border/60"
+                            sliderRangeClassName="bg-accent-bg"
+                            sliderThumbClassName="border-border bg-surface shadow-sm"
                         />
-                        <span aria-hidden="true" className="h-4 w-px bg-zinc-200 dark:bg-zinc-800" />
+                        <span aria-hidden="true" className="h-4 w-px bg-border" />
                         {/* 播客模式会盖住视频条与学习台，这里必须留一个常显的出口，
                             否则用户只能在自动切换的 5 秒 toast 里点“恢复” */}
                         <button
@@ -124,7 +124,7 @@ export default function PodcastControlBar({
                             onClick={() => setPodcastModeForCurrentVideo(false)}
                             title={t('controlBar.exitPodcastHint')}
                             aria-label={t('controlBar.exitPodcast')}
-                            className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-200/60 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-secondary transition-colors hover:bg-muted hover:text-primary"
                         >
                             <MonitorPlay className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">{t('controlBar.exitPodcast')}</span>

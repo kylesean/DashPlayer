@@ -18,13 +18,13 @@ import { cn } from '@/fronted/lib/utils';
  * 而相邻的两个菜单各自持有浮层，留着淡出会让「旧菜单渐隐 + 新菜单渐显」同时在屏。
  */
 export const CONTROL_POPOVER_PANEL =
-    'p-2 outline-none bg-neutral-900/95 backdrop-blur-xl border border-white/15 text-white shadow-2xl rounded-2xl animate-in fade-in-0 zoom-in-95 duration-150 data-[state=closed]:invisible';
+    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl animate-in fade-in-0 zoom-in-95 duration-150 data-[state=closed]:invisible';
 
 /** 弹窗内的分组标题。 */
-export const CONTROL_POPOVER_LABEL = 'px-2 py-1.5 text-xs font-semibold text-neutral-400';
+export const CONTROL_POPOVER_LABEL = 'px-2 py-1.5 text-xs font-semibold text-secondary';
 
 /** 弹窗内的分隔线：拉通到面板边缘。 */
-export const CONTROL_POPOVER_SEPARATOR = '-mx-2 my-1 h-px bg-white/10';
+export const CONTROL_POPOVER_SEPARATOR = '-mx-2 my-1 h-px bg-border/60';
 
 /**
  * 弹窗底边到触发按钮顶边的间距（Radix sideOffset）。
@@ -38,7 +38,7 @@ export const CONTROL_POPOVER_OFFSET_STACKED_BAR = 44;
 export const CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR = 20;
 
 /** 行右侧的次要信息（快捷键、参数摘要）：短、等宽、压暗，过长时截断（全文挂 title）。 */
-export const CONTROL_POPOVER_HINT = 'min-w-0 truncate text-[10px] font-mono text-neutral-400';
+export const CONTROL_POPOVER_HINT = 'min-w-0 truncate text-[10px] font-mono text-secondary';
 
 /** 行内图标：不设颜色，跟随本行文字颜色。 */
 export const CONTROL_POPOVER_ICON = 'w-3.5 h-3.5 shrink-0';
@@ -49,7 +49,7 @@ export const CONTROL_POPOVER_ROW_BASE =
 const ROW_EMPHASIZED = 'bg-primary/20 text-primary font-medium';
 /** 普通行的未激活配色（深色弹层上）。 */
 export const CONTROL_POPOVER_ROW_IDLE =
-    'text-neutral-300 hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white';
+    'text-secondary hover:bg-muted/60 hover:text-primary focus-visible:bg-muted focus-visible:text-primary';
 
 export interface ControlPopoverRowProps {
     /** 勾选态：左侧勾选槽里出现勾；复选列表只用这个，不要再加整行底色 */

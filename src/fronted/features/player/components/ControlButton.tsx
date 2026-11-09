@@ -97,8 +97,7 @@ export default function ControlButton() {
                                         }}
                                         className={cn(
                                             'w-9 h-9 rounded-full flex items-center justify-center cursor-pointer select-none',
-                                            'bg-stone-900/90 text-amber-400 border border-white/20 backdrop-blur-xl shadow-md',
-                                            'dark:bg-neutral-900/90 dark:text-amber-400 dark:border-white/15',
+                                            'bg-surface/90 text-accent border border-border/80 backdrop-blur-xl shadow-md',
                                             'hover:scale-110 active:scale-95 transition-[transform,background-color] duration-150'
                                         )}
                                         aria-label={t('controlButton.backToPlayhead')}
@@ -140,9 +139,8 @@ export default function ControlButton() {
                                 }}
                                 className={cn(
                                     'w-11 h-11 rounded-full flex items-center justify-center cursor-pointer select-none group',
-                                    'bg-stone-900/90 text-stone-100 border border-white/20 backdrop-blur-xl shadow-lg',
-                                    'dark:bg-neutral-100/90 dark:text-neutral-900 dark:border-black/10',
-                                    'opacity-80 hover:opacity-100 hover:scale-105 active:scale-95 transition-[transform,opacity,background-color] duration-150'
+                                    'bg-surface/90 text-primary border border-border/80 backdrop-blur-xl shadow-lg',
+                                    'opacity-85 hover:opacity-100 hover:scale-105 active:scale-95 transition-[transform,opacity,background-color] duration-150'
                                 )}
                                 aria-label={showSideBar ? t('controlButton.closePanel') : t('controlButton.openPanel')}
                             >

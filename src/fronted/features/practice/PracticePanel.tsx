@@ -30,7 +30,7 @@ const ScoreRing = ({ score }: { score: number }) => {
     const color = score >= 80 ? '#10b981' : score >= 50 ? '#f59e0b' : '#ef4444';
     return (
         <svg width="80" height="80" viewBox="0 0 80 80" className="shrink-0">
-            <circle cx="40" cy="40" r={radius} fill="none" strokeWidth="6" className="stroke-stone-200 dark:stroke-neutral-700" />
+            <circle cx="40" cy="40" r={radius} fill="none" strokeWidth="6" className="stroke-border" />
             <circle
                 cx="40"
                 cy="40"
@@ -43,7 +43,7 @@ const ScoreRing = ({ score }: { score: number }) => {
                 strokeDashoffset={circumference * (1 - score / 100)}
                 transform="rotate(-90 40 40)"
             />
-            <text x="40" y="46" textAnchor="middle" className="fill-stone-800 dark:fill-neutral-100 text-lg font-semibold">
+            <text x="40" y="46" textAnchor="middle" className="fill-primary text-lg font-semibold">
                 {score}
             </text>
         </svg>
@@ -208,7 +208,7 @@ const PracticePanel = () => {
     const isDictation = mode === 'dictation';
 
     return (
-        <div className="flex h-full w-full flex-col bg-stone-50/95 dark:bg-neutral-900/95 backdrop-blur-2xl text-foreground">
+        <div className="flex h-full w-full flex-col bg-surface/95 backdrop-blur-2xl text-foreground">
             {/* 头部:标题 + 关闭 */}
             <div className="flex items-center justify-between px-6 pt-4 pb-2">
                 <h2 className="text-base font-semibold">{t('panel.title')}</h2>

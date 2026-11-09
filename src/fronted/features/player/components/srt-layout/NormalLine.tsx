@@ -19,7 +19,7 @@ const NormalLine = ({ text, order, source }: NormalLineParam) => {
     return (
         <div
             className={cn(
-                'my-0 mx-6 py-1 px-1 font-normal tracking-wide text-stone-600 dark:text-neutral-300 flex items-center justify-center gap-2 leading-relaxed transition-colors',
+                'my-0 mx-6 py-1 px-1 font-normal tracking-wide text-secondary flex items-center justify-center gap-2 leading-relaxed transition-colors',
                 fontSize === 'fontSizeSmall' && (order === 'second' ? FONT_SIZE["ms2-small"] : FONT_SIZE["ms3-small"]),
                 fontSize === 'fontSizeMedium' && (order === 'second' ? FONT_SIZE["ms2-medium"] : FONT_SIZE["ms3-medium"]),
                 fontSize === 'fontSizeLarge' && (order === 'second' ? FONT_SIZE["ms2-large"] : FONT_SIZE["ms3-large"]),
@@ -30,8 +30,8 @@ const NormalLine = ({ text, order, source }: NormalLineParam) => {
                     className={cn(
                         "inline-flex items-center justify-center px-1.5 py-0.2 rounded text-[10px] font-medium tracking-wider uppercase select-none opacity-70 hover:opacity-100 transition-opacity shrink-0",
                         source === 'ai'
-                            ? "text-indigo-600 dark:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20"
-                            : "text-stone-500 dark:text-neutral-400 bg-stone-500/10 border border-stone-500/20"
+                            ? "text-accent bg-accent-muted/20 border border-accent/30"
+                            : "text-secondary bg-muted border border-border"
                     )}
                     title={source === 'ai' ? t('sourceLine.aiTranslation') : t('sourceLine.originalSubtitle')}
                 >

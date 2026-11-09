@@ -400,9 +400,9 @@ export default function Subtitle() {
                         defaultItemHeight={55}
                         ref={setVirtuoso}
                         className={twJoin(
-                            'h-full w-full overflow-y-auto text-stone-600 dark:text-neutral-200 py-2',
+                            'h-full w-full overflow-y-auto text-primary py-2',
                             'scrollbar-thin scrollbar-thumb-rounded-full',
-                            'scrollbar-thumb-stone-300/60 dark:scrollbar-thumb-neutral-700/60 hover:scrollbar-thumb-stone-400 dark:hover:scrollbar-thumb-neutral-500',
+                            'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
                             showSideBar && 'scrollbar-none'
                         )}
                         data={subtitle}

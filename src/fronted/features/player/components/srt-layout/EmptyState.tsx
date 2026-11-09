@@ -141,7 +141,7 @@ const PlaybackEmptyState: React.FC<PlaybackEmptyStateProps> = ({className}) => {
                     />
                 ) : (
                     <div className="flex h-full w-full items-center justify-center bg-black">
-                        <Film className="h-24 w-24 text-zinc-600" />
+                        <Film className="h-24 w-24 text-secondary/40" />
                     </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
