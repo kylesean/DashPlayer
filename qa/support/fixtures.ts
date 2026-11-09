@@ -135,16 +135,38 @@ async function assertUserDataIsolated(userDataDir: string): Promise<void> {
 }
 
 /**
+ * 启动超时（毫秒）。
+ *
+ * Playwright 默认 30 秒。但 `qa/README.md` 第 7 节记录过「启动偶发停顿几十秒到几分钟」
+ * 的环境级问题（显示器切换器会让 Chromium 迟迟不 fork GPU 进程、不建 profile）。
+ * 用默认值，一次环境停顿就会被报成「启动超时」，而它既不是用例的问题也不是产品的问题。
+ * 这里放宽到 120 秒，并在超时时把归因写进错误信息，避免下一个人从错误方向开始排查。
+ */
+const LAUNCH_TIMEOUT_MS = 120_000;
+
+/**
  * 启动一次应用会话，并等待进入主界面。
  *
  * @param userDataDir 用例独占的 userData 目录。
  * @returns 应用会话；重启场景需先 close 再对同一目录调用本函数。
  */
 export async function launchAppSession(userDataDir: string): Promise<AppSession> {
-    const app = await electron.launch({
-        args: ['.', `--user-data-dir=${userDataDir}`],
-        cwd: projectRoot,
-    });
+    let app: ElectronApplication;
+    try {
+        app = await electron.launch({
+            args: ['.', `--user-data-dir=${userDataDir}`],
+            cwd: projectRoot,
+            timeout: LAUNCH_TIMEOUT_MS,
+        });
+    } catch (error) {
+        throw new Error(
+            `Electron 启动失败或超时（上限 ${LAUNCH_TIMEOUT_MS / 1000} 秒）。`
+            + '若日志卡在 "Debugger listening" 之后迟迟不出现 "DevTools listening"，'
+            + '先按 qa/README.md 第 7 节排查环境（显示器切换器会让启动停顿几十秒到几分钟），'
+            + '不要先怀疑用例本身。',
+            { cause: error },
+        );
+    }
     let closed = false;
     const close = async (): Promise<void> => {
         if (closed) {
@@ -166,6 +188,29 @@ export async function launchAppSession(userDataDir: string): Promise<AppSession>
     }
 }
 
+/**
+ * 收集渲染层的未捕获异常与 `console.error`。
+ *
+ * 为什么要收：这套 e2e 的价值主张是「真进程」，但断言只覆盖显式检查的那几条链路——
+ * 渲染层抛异常、React 报错只要没影响断言就是静默的，用例照样绿。
+ * trace 因 4 倍劣化被关掉（见 `qa/playwright.config.ts`），这里用零成本的方式补上观测。
+ *
+ * @param page 应用主窗口页面。
+ * @returns 取出并清空已收集内容的函数。
+ */
+function collectRendererErrors(page: Page): () => string[] {
+    const messages: string[] = [];
+    page.on('pageerror', (error) => {
+        messages.push(`[pageerror] ${error.message}`);
+    });
+    page.on('console', (message) => {
+        if (message.type() === 'error') {
+            messages.push(`[console.error] ${message.text()}`);
+        }
+    });
+    return () => messages;
+}
+
 type Fixtures = {
     /** 用例独占的 userData 目录，测试结束后自动删除。 */
     userDataDir: string;
@@ -179,9 +224,29 @@ export const test = base.extend<Fixtures>({
         await use(dir);
         await fs.promises.rm(dir, { recursive: true, force: true });
     },
-    session: async ({ userDataDir }, use) => {
+    session: async ({ userDataDir }, use, testInfo) => {
         const session = await launchAppSession(userDataDir);
-        await use(session);
-        await session.close();
+        const takeRendererErrors = collectRendererErrors(session.page);
+        try {
+            await use(session);
+        } finally {
+            const errors = takeRendererErrors();
+            if (errors.length > 0) {
+                const body = errors.join('\n');
+                if (testInfo.status === testInfo.expectedStatus) {
+                    // 通过但有渲染层错误：只提示、不制造红。
+                    // 直接判红会让历史遗留噪音把门禁变成「狼来了」，那比不报更糟。
+                    console.warn(`[qa] 渲染层出现 ${errors.length} 条错误（未影响断言）：\n${body}`);
+                } else {
+                    // 失败时把现场挂到报告上，省掉「只有截图、看不出哪一步炸了」的排查成本
+                    await testInfo.attach('renderer-errors.txt', {
+                        body,
+                        contentType: 'text/plain',
+                    });
+                }
+            }
+            // 放在 finally 里：用例失败也必须收掉进程，否则残留的 Electron 会污染后续用例
+            await session.close();
+        }
     },
 });
