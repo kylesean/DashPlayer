@@ -103,6 +103,7 @@
         "meaningGroupResegmentation": "碎句合并（重开视频生效）",
         "meaningGroupResegmentationHint": "解析时把半句一行的碎字幕合并成完整句子，改的是字幕数据。",
         "meaningGroupResegmentationChanged": "已切换，重新打开视频后生效。",
+        "timeGroupLabel": "时间",
         "playbackGroupLabel": "播放偏好",
         "sideGroupLabel": "侧栏",
         "sidebarFollowsEnglish": "随英文字幕隐藏",

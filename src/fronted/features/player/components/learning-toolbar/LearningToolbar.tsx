@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { CirclePause, Repeat1 } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
@@ -11,7 +12,6 @@ import LearningModeButton from '@/fronted/features/player/components/srt-layout/
 import { formatShortcut } from '@/fronted/features/player/components/formatShortcut';
 import PlayerSettingsPopover from './PlayerSettingsPopover';
 import SubtitleTrackSegmented from './SubtitleTrackSegmented';
-import TimeAdjustPopover from './TimeAdjustPopover';
 import TrainingMenuButton from './TrainingMenuButton';
 import {
     TOOLBAR_DIVIDER,
@@ -25,6 +25,14 @@ import {
  * 工具条是面板布局里的最后一行，不和进度条抢空间，留一点视觉呼吸即可。
  */
 const POPOVER_OFFSET = 8;
+
+/**
+ * 收起训练按钮文字的面板宽度阈值（CSS px）。
+ *
+ * 字幕面板由用户拖拽改宽，和浏览器视口无关，所以不能用 `sm:`/`md:` 这类断点；
+ * 低于这个宽度时训练按钮只留图标 + 进度徽章，把横向空间让给轨道与快捷开关。
+ */
+const TRAINING_LABEL_MIN_WIDTH = 440;
 
 /**
  * 主字幕学习台：固定在字幕面板底部的工具条。
@@ -42,10 +50,27 @@ export default function LearningToolbar() {
     const repeatShortcut = useSetting((s) => s.setting('shortcut.repeatSingleSentence'));
     const autoPauseShortcut = useSetting((s) => s.setting('shortcut.autoPause'));
 
+    const rootRef = useRef<HTMLDivElement>(null);
+    const [compact, setCompact] = useState(false);
+
+    // 面板宽度由用户拖拽改变，不走 React 渲染；用 ResizeObserver 跟着调，避免文字把工具条挤成横向滚动
+    useEffect(() => {
+        const element = rootRef.current;
+        if (!element) {
+            return;
+        }
+        const sync = () => setCompact(element.clientWidth < TRAINING_LABEL_MIN_WIDTH);
+        sync();
+        const observer = new ResizeObserver(sync);
+        observer.observe(element);
+        return () => observer.disconnect();
+    }, []);
+
     const style = TOOLBAR_TONE.panel;
 
     return (
         <div
+            ref={rootRef}
             className={cn(
                 'flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-t border-border/50 px-2',
                 'text-muted-foreground transition-opacity duration-200',
@@ -94,13 +119,12 @@ export default function LearningToolbar() {
                 </button>
             </Tooltip>
 
-            <TrainingMenuButton tone="panel" popoverOffset={POPOVER_OFFSET} />
+            <TrainingMenuButton tone="panel" popoverOffset={POPOVER_OFFSET} showLabel={!compact} />
 
             <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
 
             <PracticeModeButton variant="toolbar" />
             <LearningModeButton variant="toolbar" />
-            <TimeAdjustPopover tone="panel" popoverOffset={POPOVER_OFFSET} />
 
             <div className="flex-1" />
 

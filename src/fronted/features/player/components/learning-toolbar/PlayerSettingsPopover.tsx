@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { Eraser, SlidersHorizontal } from 'lucide-react';
+import { Eraser, History, SlidersHorizontal } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSWR, { useSWRConfig } from 'swr';
 import toast from 'react-hot-toast';
@@ -9,21 +9,25 @@ import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { cn } from '@/fronted/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import {
+    CONTROL_POPOVER_HINT,
     CONTROL_POPOVER_ICON,
     CONTROL_POPOVER_LABEL,
     CONTROL_POPOVER_PANEL,
+    CONTROL_POPOVER_ROW_BASE,
+    CONTROL_POPOVER_ROW_IDLE,
     CONTROL_POPOVER_SEPARATOR,
     ControlPopoverRow,
 } from '@/fronted/features/player/components/ControlPopover';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
+import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import { swrMutate, SWR_KEY } from '@/fronted/lib/swr-util';
 import { isSidebarHiddenByEnglish } from '@/fronted/features/player/components/sidePanelVisibility';
+import TimeAdjustPanel from './TimeAdjustPanel';
 import {
     TOOLBAR_ICON_BUTTON,
     TOOLBAR_TONE,
@@ -60,6 +64,7 @@ export default function PlayerSettingsPopover({
 }) {
     const { t } = useI18nTranslation('player');
     const [open, setOpen] = useState(false);
+    const [adjustOpen, setAdjustOpen] = useState(false);
 
     const showEn = usePlayerUi((s) => s.showEn);
     const showCn = usePlayerUi((s) => s.showCn);
@@ -79,6 +84,11 @@ export default function PlayerSettingsPopover({
     const englishTrackShortcut = useSetting((s) => s.setting('shortcut.toggleEnglishDisplay'));
 
     const autoPlayNext = usePlayer((s) => s.autoPlayNext);
+    const currentSentence = usePlayerState((s) => s.currentSentence);
+    const srtTender = usePlayerState((s) => s.srtTender);
+    const adjustDiff = currentSentence && srtTender && srtTender.adjusted(currentSentence)
+        ? srtTender.timeDiff(currentSentence)
+        : null;
     const { podcastMode, setPodcastMode, changeFullScreen } = useLayout(useShallow((s) => ({
         podcastMode: s.podcastMode,
         setPodcastMode: s.setPodcastMode,
@@ -229,12 +239,40 @@ export default function PlayerSettingsPopover({
                         const videoId = usePlaybackSession.getState().videoId;
                         if (videoId) {
                             void playerApi.setPodcastModePreference(videoId, next);
-                            void swrMutate(SWR_KEY.PLAYER_P);
                         }
                     }}
                 />
 
                 <div className={CONTROL_POPOVER_SEPARATOR} />
+                <div className={CONTROL_POPOVER_LABEL}>{t('controlBox.timeGroupLabel')}</div>
+                {/* 二级弹层：时间微调是低频、需要边看边调的操作，留在非模态浮层里，不写进设置列表 */}
+                <Popover open={adjustOpen} onOpenChange={setAdjustOpen}>
+                    <PopoverTrigger asChild>
+                        <button
+                            type="button"
+                            className={cn(CONTROL_POPOVER_ROW_BASE, CONTROL_POPOVER_ROW_IDLE)}
+                        >
+                            <span className="flex min-w-0 items-center gap-2">
+                                <span className="w-3.5 shrink-0" />
+                                <History className={CONTROL_POPOVER_ICON} />
+                                <span className="truncate">{t('subtitle.adjustTitle')}</span>
+                            </span>
+                            {adjustDiff ? (
+                                <span className={CONTROL_POPOVER_HINT}>
+                                    {`${adjustDiff.start >= 0 ? '+' : ''}${adjustDiff.start.toFixed(2)} / ${adjustDiff.end >= 0 ? '+' : ''}${adjustDiff.end.toFixed(2)}`}
+                                </span>
+                            ) : null}
+                        </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                        side="left"
+                        align="start"
+                        sideOffset={8}
+                        className="w-72 p-3.5 gap-3 shadow-xl border-border/80 bg-popover/95 backdrop-blur-md"
+                    >
+                        <TimeAdjustPanel />
+                    </PopoverContent>
+                </Popover>
                 <ControlPopoverRow
                     icon={<Eraser className={CONTROL_POPOVER_ICON} />}
                     label={t('clearAdjust.button')}

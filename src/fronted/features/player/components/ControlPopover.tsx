@@ -43,10 +43,12 @@ export const CONTROL_POPOVER_HINT = 'min-w-0 truncate text-[10px] font-mono text
 /** 行内图标：不设颜色，跟随本行文字颜色。 */
 export const CONTROL_POPOVER_ICON = 'w-3.5 h-3.5 shrink-0';
 
-const ROW_BASE =
+/** 弹层内一行的基础形状；需要自定义内容的行（如打开二级弹层）复用它，保持行高与内边距一致。 */
+export const CONTROL_POPOVER_ROW_BASE =
     'flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-xs cursor-pointer select-none transition-colors outline-none';
 const ROW_EMPHASIZED = 'bg-primary/20 text-primary font-medium';
-const ROW_IDLE =
+/** 普通行的未激活配色（深色弹层上）。 */
+export const CONTROL_POPOVER_ROW_IDLE =
     'text-neutral-300 hover:bg-white/10 hover:text-white focus-visible:bg-white/10 focus-visible:text-white';
 
 export interface ControlPopoverRowProps {
@@ -97,7 +99,7 @@ export function ControlPopoverRow({
                     onActivate();
                 }
             }}
-            className={cn(ROW_BASE, emphasize ? ROW_EMPHASIZED : ROW_IDLE, className)}
+            className={cn(CONTROL_POPOVER_ROW_BASE, emphasize ? ROW_EMPHASIZED : CONTROL_POPOVER_ROW_IDLE, className)}
         >
             <div className="flex items-center gap-2 min-w-0">
                 <span className="w-3.5 shrink-0 flex items-center justify-center">

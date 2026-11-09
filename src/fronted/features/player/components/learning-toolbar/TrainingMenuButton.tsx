@@ -49,15 +49,18 @@ import {
  * @param tone 宿主底色：字幕面板或视频画面深色条。
  * @param popoverOffset 弹窗底边到按钮顶边的间距，按宿主控制条形状取。
  * @param onMenuOpenChange 菜单/参数弹窗展开状态变化时回调：宿主据此保持可见。
+ * @param showLabel 是否显示模式文字；窄面板只留图标 + 进度徽章，tooltip 仍给出完整模式。
  */
 export default function TrainingMenuButton({
     tone,
     popoverOffset,
     onMenuOpenChange,
+    showLabel = true,
 }: {
     tone: ToolbarTone;
     popoverOffset: number;
     onMenuOpenChange?: (open: boolean) => void;
+    showLabel?: boolean;
 }) {
     const { t } = useI18nTranslation('player');
     const [trainingMenuOpen, setTrainingMenuOpen] = useState(false);
@@ -151,7 +154,7 @@ export default function TrainingMenuButton({
                             )}
                         >
                             <Dumbbell className="w-3.5 h-3.5" />
-                            <span className="font-sans">{trainingLabel}</span>
+                            {showLabel ? <span className="font-sans">{trainingLabel}</span> : null}
 
                             {/* 进度徽章槽位：宽度按模式最长内容钉死、常驻（内容缺失时透明占位），
                                 徽章数字再怎么变也不会撑宽按钮 */}

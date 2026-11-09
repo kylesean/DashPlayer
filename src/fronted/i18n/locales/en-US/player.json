@@ -103,6 +103,7 @@
         "meaningGroupResegmentation": "Merge fragments (reopen video)",
         "meaningGroupResegmentationHint": "Merges half-sentence lines into full sentences while parsing; this changes the subtitle data.",
         "meaningGroupResegmentationChanged": "Switched. Reopen the video to apply.",
+        "timeGroupLabel": "Timing",
         "playbackGroupLabel": "Playback",
         "sideGroupLabel": "Sidebar",
         "sidebarFollowsEnglish": "Hide with English",
