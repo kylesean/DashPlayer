@@ -26,6 +26,7 @@ import { storeGet } from '@/backend/infrastructure/settings/store';
 import type MobileAccessService from '@/backend/services/MobileAccessService';
 import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
 import { MEDIA_PROTOCOL_SCHEME, registerMediaProtocol } from '@/backend/infrastructure/media/MediaProtocol';
+import { installRendererSecurityGuards } from '@/backend/infrastructure/system/RendererSecurityGuard';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type MediaPathRegistry from '@/backend/services/MediaPathRegistry';
 
@@ -250,6 +251,12 @@ const createWindow = () => {
         logger.info('gpu feature status', {
             gpuFeatureStatus: app.getGPUFeatureStatus(),
         });
+    });
+    // 安全守卫：导航、开窗与权限三道闸。
+    // 必须在 loadURL/loadFile 之前装上，否则首个页面加载不受管控。
+    installRendererSecurityGuards(mainWindow, {
+        devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
+        rendererDirectory: path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}`),
     });
     // and load the index.html of the app.
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
