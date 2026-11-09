@@ -22,12 +22,14 @@ export default defineConfig({
     fullyParallel: false,
     timeout: 60_000,
     expect: { timeout: 10_000 },
-    // 失败留证：真实 Electron 窗口里发生的事，事后只能靠 trace 回放。
-    // 此前三项全关，失败时只剩列表报告里的堆栈和用例自己打的日志，
-    // 而这套用例单轮要跑约 7 分钟，重新复现的成本很高。
-    // 只在失败时保留，通过时不产生任何额外 IO。
+    // 失败留证只开截图。
+    //
+    // 实测过 trace: 'retain-on-failure'：它会在用例运行期间持续录制 DOM 快照，
+    // 代价是手机访问三条用例从 9.8 / 9.7 / 10.6 秒变成 10.6 / 39.6 / 40.4 秒
+    // （关掉 trace 复跑又回到 9.9 / 9.8 / 10.7），整轮约 7 分钟会明显拉长。
+    // 截图本身开销可忽略，且已经能在失败时给出画面证据。
+    // 需要完整回放时临时加 --trace=on，不必为常态付出这个代价。
     use: {
-        trace: 'retain-on-failure',
         screenshot: 'only-on-failure',
     },
     reporter: [['list']],

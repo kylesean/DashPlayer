@@ -151,8 +151,18 @@ function main() {
         console.error(`[check] 环境不符：node ${process.versions.node}（需要 ${REQUIRED_NODE_MAJOR}.x）`);
         return 4;
     }
-    // 空通过要优先于环境判定：没有观测时既不是「环境不符」也不是「绿」，
-    // 必须报出它自己的退出码，否则这个工具防的正是它自己报不出的那种假绿。
+    // 判定顺序是有讲究的，四条从「最不可能是被测代码的问题」到「最可能是」：
+    // 1. 用例进程本身失败（崩溃、超时、启动不起来）——此时没有观测是**症状**，
+    //    不能报成「空通过」，否则一次崩溃会被读成「跑过了只是没识别到观测」。
+    if (runs.some((run) => run.exitCode !== 0)) {
+        console.error('[check] 红：用例进程非零退出，观测不可用');
+        for (const run of runs) {
+            console.error(run.tail);
+        }
+        return 1;
+    }
+    // 2. 进程正常结束却一条观测都没有——这才是「空通过」，它既不是绿也不是环境问题，
+    //    必须报出它自己的退出码。这个工具存在的理由就是让这种假绿无法冒充成功。
     if (checks.length === 0) {
         console.error('[check] 空通过：没有识别到任何观测，不算过');
         for (const run of runs) {
@@ -160,6 +170,7 @@ function main() {
         }
         return 3;
     }
+    // 3. 观测齐了但全都说埋点缺失——环境问题，不是断言不成立。
     if (summary.instrumentation === 'absent') {
         console.error('[check] 环境不符：所有观测都报告埋点缺失（window.__dpDebug 不存在）');
         for (const run of runs) {
@@ -167,7 +178,8 @@ function main() {
         }
         return 4;
     }
-    if (summary.failures.length > 0 || runs.some((run) => run.exitCode !== 0)) {
+    // 4. 观测齐了、埋点也在，就是断言不成立。
+    if (summary.failures.length > 0) {
         console.error(`[check] 红：${summary.failures.length} 条观测不成立`);
         for (const run of runs) {
             console.error(run.tail);
