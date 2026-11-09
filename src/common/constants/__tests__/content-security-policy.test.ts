@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { DESKTOP_CONTENT_SECURITY_POLICY } from '@/common/constants/content-security-policy';
+import {
+    DESKTOP_CONTENT_SECURITY_POLICY,
+    META_IGNORED_CSP_DIRECTIVES,
+} from '@/common/constants/content-security-policy';
 
 describe('桌面渲染进程的 CSP', () => {
     it('默认来源只允许同源', () => {
@@ -30,11 +33,20 @@ describe('桌面渲染进程的 CSP', () => {
         expect(connectSrc).toBe("connect-src 'self'");
     });
 
-    it('关掉 object、base、form 与 frame 嵌入', () => {
+    it('关掉 object、base 与 form', () => {
         expect(DESKTOP_CONTENT_SECURITY_POLICY).toContain("object-src 'none'");
         expect(DESKTOP_CONTENT_SECURITY_POLICY).toContain("base-uri 'none'");
         expect(DESKTOP_CONTENT_SECURITY_POLICY).toContain("form-action 'none'");
-        expect(DESKTOP_CONTENT_SECURITY_POLICY).toContain("frame-ancestors 'none'");
+    });
+
+    it('不包含经 meta 投递时会被忽略的指令', () => {
+        // 这份策略唯一的投递通道是构建期注入的 <meta http-equiv>，
+        // 而 frame-ancestors / report-uri / sandbox 在 meta 里按规范被忽略。
+        // 留着它们不会多一层防护，只会每次加载丢一条 console 错误、
+        // 并让读代码的人误判这一层已经有人管了。
+        for (const directive of META_IGNORED_CSP_DIRECTIVES) {
+            expect(DESKTOP_CONTENT_SECURITY_POLICY).not.toContain(directive);
+        }
     });
 
     it('不放行任何通配来源', () => {
