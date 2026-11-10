@@ -28,6 +28,7 @@ import {
     ManualDownloadSourceRow,
 } from '@/fronted/components/shared/ManualDownloadGuide';
 import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
+import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { SettingField } from '@/fronted/features/settings/components/form/SettingSection';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
@@ -453,7 +454,7 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                         {item.key === 'transcription' && (
                             <SettingField
                                 title={t('resources.pack.engineLabel')}
-                                testId="setting-row-transcription"
+                                testId={SETTING_ROW_TESTIDS.transcription}
                             >
                                 <Selector
                                     label={t('resources.pack.engineLabel')}

@@ -10,8 +10,8 @@ import { openSettingsSection } from '../../support/settings-page';
  * 而不是只看界面上的文字。
  */
 
-/** 设置中心侧边栏里的栏目名。 */
-const SECTION_NAME = '手机访问';
+/** 设置中心侧边栏栏目键。 */
+const SECTION_NAME = 'mobile' as const;
 
 /** 启用开关的无障碍名。 */
 const ENABLE_SWITCH_NAME = '启用手机访问';

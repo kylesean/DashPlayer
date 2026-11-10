@@ -4,7 +4,7 @@ import { openSettingsSection, reloadSettingsPage, switchSettingsSection } from '
 
 /** 进入快捷键设置页。 */
 async function openShortcutSetting(page: Page): Promise<void> {
-    await openSettingsSection(page, '快捷键', page.getByRole('heading', { name: '快捷键' }));
+    await openSettingsSection(page, 'shortcut', page.getByRole('heading', { name: '快捷键' }));
 }
 
 /**
@@ -128,12 +128,12 @@ test.describe('快捷键设置', () => {
 
         // 关键：弹窗保存只是把改动交回整页表单，紧接着离开，不给 600ms 防抖留时间。
         // 快捷键改键是整份表单一起保存的，离开时挂起的改动丢了会连带丢掉其它行的改动。
-        await switchSettingsSection(page, '外观', page.getByRole('radio', { name: '深色' }));
+        await switchSettingsSection(page, 'appearance', page.getByRole('radio', { name: '深色' }));
 
         await expect.poll(() => readConfigValue(userDataDir, 'shortcut.repeatSingleSentence')).toBe('r,y');
 
         // 回到该页：按键来自后端回读，而不是页面里残留的输入
-        await switchSettingsSection(page, '快捷键', page.getByRole('heading', { name: '快捷键' }));
+        await switchSettingsSection(page, 'shortcut', page.getByRole('heading', { name: '快捷键' }));
         await expect(shortcutRow(page, '单句重播')).toContainText('Y');
     });
 });

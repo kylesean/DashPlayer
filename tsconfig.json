@@ -32,6 +32,7 @@
         "vite.*.config.ts",
         "vitest.config.ts",
         "forge.config.ts",
+        "forge.qa.config.ts",
         "drizzle.config.ts",
         "forge.env.d.ts"
     ],

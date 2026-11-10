@@ -72,6 +72,9 @@ node qa/tools/check-test-cases.mjs   # 文档与用例双向比对（QA 侧必�
 | [mobile-access.md](./mobile-access.md) | 手机访问 | `qa/specs/settings/mobile-access-settings.spec.ts` |
 | [about.md](./about.md) | 关于与更新 | `qa/specs/settings/about-settings.spec.ts` |
 | [renderer-security.md](./renderer-security.md) | 渲染层安全策略（应用外壳，非设置页） | `qa/specs/app/renderer-security.spec.ts` |
+| [onboarding.md](./onboarding.md) | 首次使用引导（应用外壳，非设置页） | `qa/specs/app/onboarding.spec.ts` |
+| [playback.md](./playback.md) | 播放核心链路（应用外壳，非设置页） | `qa/specs/player/playback-golden-path.spec.ts` |
+| [packaged.md](./packaged.md) | 真实打包产物冒烟（nightly / 手工） | `qa/specs/packaged/packaged-smoke.spec.ts` |
 
 「改完立刻切走会不会丢」是每个表单页共有的时机场景，所以不单开文档，就写在各自的页面文档里（各页有一条 `xx-05` 之类的用例）。下面只剩两条没法挂到任何单一页面上的机制性缺口。
 

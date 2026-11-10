@@ -22,7 +22,7 @@ import {
 } from '../../../src/common/constants/content-security-policy';
 
 test.describe('渲染层安全策略', () => {
-    test('[SET-SEC-01] 构建产物注入了桌面 CSP，且不含经 meta 投递会被忽略的指令', async ({ session }) => {
+    test('[SET-SEC-01] 构建产物注入了桌面 CSP，且不含经 meta 投递会被忽略的指令 @smoke', async ({ session }) => {
         const content = await session.page.evaluate(
             () => document
                 .querySelector('meta[http-equiv="Content-Security-Policy"]')

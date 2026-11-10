@@ -4,7 +4,7 @@ import { openSettingsSection } from '../../support/settings-page';
 
 /** 进入关于与更新设置页。 */
 async function openAboutSetting(page: Page): Promise<void> {
-    await openSettingsSection(page, '关于与更新', page.getByRole('heading', { name: '关于与更新' }));
+    await openSettingsSection(page, 'about', page.getByRole('heading', { name: '关于与更新' }));
 }
 
 test.describe('关于与更新设置', () => {
@@ -20,6 +20,10 @@ test.describe('关于与更新设置', () => {
         // 匹配到 0 个元素而空通过，「没有输入框」和「根本没找到容器」就分不出来了。
         const main = page.getByRole('main');
         await expect(main).toBeVisible();
-        await expect(main.locator('input, textarea, select')).toHaveCount(0);
+        await expect(main.getByRole('textbox')).toHaveCount(0);
+        await expect(main.getByRole('combobox')).toHaveCount(0);
+        await expect(main.getByRole('checkbox')).toHaveCount(0);
+        await expect(main.getByRole('radio')).toHaveCount(0);
+        await expect(main.getByRole('spinbutton')).toHaveCount(0);
     });
 });

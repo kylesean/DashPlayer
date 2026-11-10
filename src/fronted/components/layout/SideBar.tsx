@@ -14,6 +14,7 @@ import YoutubeImportSidebarItem from '@/fronted/features/youtube-import/YoutubeI
 import useSetting from '@/fronted/features/settings/settingsStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { cn } from '@/fronted/lib/utils';
+import { NAV_TESTIDS } from '@/common/constants/qa-testids';
 
 /**
  * 左侧主导航栏属性定义。
@@ -150,6 +151,7 @@ const SideBar: React.FC<SideBarProps> = ({
                 <YoutubeImportSidebarItem compact={isCompact} />
 
                 <SideNavItem
+                    data-testid={NAV_TESTIDS.player}
                     label={t('playbackLab')}
                     href={
                         videoId && videoId !== 'undefined'
@@ -174,6 +176,7 @@ const SideBar: React.FC<SideBarProps> = ({
                 />
 
                 <SideNavItem
+                    data-testid={NAV_TESTIDS.vocabulary}
                     label={t('vocabularyStudio')}
                     href="/vocabulary"
                     icon={
@@ -188,6 +191,7 @@ const SideBar: React.FC<SideBarProps> = ({
                 />
 
                 <SideNavItem
+                    data-testid={NAV_TESTIDS.settings}
                     label={t('settingsCenter')}
                     href="/settings"
                     icon={

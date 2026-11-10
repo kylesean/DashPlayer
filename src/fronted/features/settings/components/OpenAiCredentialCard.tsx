@@ -33,6 +33,7 @@ import type { OpenAiModelUsageFeature } from '@/common/utils/cloud-model-usage';
 import { CLOUD_AI_PROVIDER_PRESETS } from '@/common/constants/cloud-ai-provider-presets';
 import { AI_API_FORMATS, type AiApiFormat } from '@/common/utils/cloud-ai-api-format';
 import { SettingField } from '@/fronted/features/settings/components/form/SettingSection';
+import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
 
 /** 单个模型的连通性测试结果。 */
 export interface OpenAiModelTestResult {
@@ -158,7 +159,7 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
             {/* API Format */}
             <SettingField
                 title={t('serviceCredentials.openai.apiFormatLabel')}
-                testId="setting-row-api-format"
+                testId={SETTING_ROW_TESTIDS.apiFormat}
             >
                 <Selector
                     label={t('serviceCredentials.openai.apiFormatLabel')}
@@ -218,7 +219,7 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                                 const usage = usageByModel.get(model) ?? [];
 
                                 return (
-                                    <TableRow key={model}>
+                                    <TableRow key={model} data-testid={`model-row-${model}`}>
                                         <TableCell>
                                             <Text size="sm" hasTabularNumbers weight="medium">
                                                 {model}
@@ -318,12 +319,20 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                     <ScrollableArea label="Presets" height={440}>
                         <VStack gap={2}>
                             {CLOUD_AI_PROVIDER_PRESETS.map((preset) => (
-                                <Card key={preset.id} variant="default" padding={3} className="rounded-lg">
+                                <Card
+                                    key={preset.id}
+                                    data-testid={`provider-preset-${preset.id}`}
+                                    variant="default"
+                                    padding={3}
+                                    className="rounded-lg"
+                                >
                                     <VStack gap={2}>
                                         <HStack justify="between" vAlign="center" gap={3}>
                                             <HStack gap={2} vAlign="center">
                                                 <Text weight="semibold" size="sm">{preset.name}</Text>
-                                                <Token label={apiFormatLabelMap[preset.apiFormat]} size="sm" color="gray" />
+                                                <span data-testid="provider-preset-format">
+                                                    <Token label={apiFormatLabelMap[preset.apiFormat]} size="sm" color="gray" />
+                                                </span>
                                             </HStack>
                                             <Button
                                                 label={t('serviceCredentials.openai.useThisPreset')}
@@ -332,7 +341,7 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                                                 onClick={() => applyPreset(preset.id)}
                                             />
                                         </HStack>
-                                        <div className="font-mono">
+                                        <div data-testid="provider-preset-endpoint" className="font-mono">
                                             <Text size="xsm" color="secondary" hasTabularNumbers wordBreak="break-all">
                                                 {preset.endpoint}
                                             </Text>

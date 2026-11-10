@@ -2,9 +2,9 @@ import { expect, type Page, type Locator } from '@playwright/test';
 import { launchAppSession, readConfigValue, test } from '../../support/fixtures';
 import { openSettingsSection, reloadSettingsPage, selectInRow, switchSettingsSection } from '../../support/settings-page';
 
-/** 主题按钮文案到根节点主题类名的映射。 */
-const THEME_CLASS = { 深色: 'dark', 浅色: 'light' } as const;
-type ThemeLabel = keyof typeof THEME_CLASS;
+/** 主题按钮文案到根节点 `data-theme` 值的映射。 */
+const THEME_VALUE = { 深色: 'dark', 浅色: 'light' } as const;
+type ThemeLabel = keyof typeof THEME_VALUE;
 
 /**
  * 进入外观设置页：首页「设置中心」→ 设置页侧边栏「外观」。
@@ -12,7 +12,7 @@ type ThemeLabel = keyof typeof THEME_CLASS;
  * @param page 应用主窗口页面。
  */
 async function openAppearanceSetting(page: Page): Promise<void> {
-    await openSettingsSection(page, '外观', colorModeRadio(page, '深色'));
+    await openSettingsSection(page, 'appearance', colorModeRadio(page, '深色'));
 }
 
 /** 色彩模式分段控件（SegmentedControl 渲染为 radiogroup）。 */
@@ -31,14 +31,14 @@ function fontSizeGroup(page: Page): Locator {
 }
 
 /**
- * 点击主题按钮，并等待主题真正生效（根节点类名变化）。
+ * 点击主题按钮，并等待主题真正生效（根节点语义属性变化）。
  *
  * @param page 应用主窗口页面。
  * @param theme 按钮文案：「深色」或「浅色」。
  */
 async function switchTheme(page: Page, theme: ThemeLabel): Promise<void> {
     await colorModeRadio(page, theme).click();
-    await expect(page.locator('html')).toHaveClass(new RegExp(`\\b${THEME_CLASS[theme]}\\b`));
+    await expect(page.getByTestId('app-root')).toHaveAttribute('data-theme', THEME_VALUE[theme]);
 }
 
 /**
@@ -52,11 +52,11 @@ function fontSizeButton(page: Page, label: string): Locator {
 }
 
 test.describe('外观设置', () => {
-    test('[SET-APP-01] 切换主题后界面立即生效并写入配置', async ({ session, userDataDir }) => {
+    test('[SET-APP-01] 切换主题后界面立即生效并写入配置 @smoke', async ({ session, userDataDir }) => {
         await openAppearanceSetting(session.page);
 
         // 全新配置的默认主题是浅色
-        await expect(session.page.locator('html')).toHaveClass(/\blight\b/);
+        await expect(session.page.getByTestId('app-root')).toHaveAttribute('data-theme', 'light');
 
         await switchTheme(session.page, '深色');
 
@@ -77,7 +77,7 @@ test.describe('外观设置', () => {
         const restarted = await launchAppSession(userDataDir);
         try {
             // 重启后不做任何操作，界面主题直接来自持久化配置
-            await expect(restarted.page.locator('html')).toHaveClass(/\bdark\b/);
+            await expect(restarted.page.getByTestId('app-root')).toHaveAttribute('data-theme', 'dark');
 
             // 再进外观页确认选中项回显为深色：选中态来自后端读回的设置，
             // 能排除「只是启动兜底类名恰好是深色」的假通过
@@ -109,7 +109,7 @@ test.describe('外观设置', () => {
         const page = session.page;
         await openAppearanceSetting(page);
 
-        await selectInRow(page, '界面语言').click();
+        await selectInRow(page, 'language').click();
         await page.getByRole('option', { name: 'English' }).click();
 
         await expect.poll(() => readConfigValue(userDataDir, 'i18n.language')).toBe('en-US');
@@ -117,7 +117,7 @@ test.describe('外观设置', () => {
         // 重进页面：整个界面按持久化的语言设置渲染成英文，语言下拉也停在 English
         await page.reload();
         await expect(page.getByRole('heading', { name: 'Appearance' })).toBeVisible();
-        await expect(page.getByRole('combobox')).toHaveText('English');
+        await expect(selectInRow(page, 'language')).toHaveText('English');
     });
 
     test('[SET-APP-05] 主题从深色切回浅色同样落盘，重启后不回弹到深色', async ({ userDataDir }) => {
@@ -142,7 +142,7 @@ test.describe('外观设置', () => {
         try {
             // 重启后是浅色。这一步单独看说明不了问题（默认值恰好也是浅色），
             // 上面的写盘断言才是证明「真的覆盖了」的那一半，两者一起才闭合。
-            await expect(restarted.page.locator('html')).toHaveClass(/\blight\b/);
+            await expect(restarted.page.getByTestId('app-root')).toHaveAttribute('data-theme', 'light');
             await openAppearanceSetting(restarted.page);
             await expect(colorModeRadio(restarted.page, '浅色')).toBeChecked();
         } finally {
@@ -155,16 +155,16 @@ test.describe('外观设置', () => {
         await openAppearanceSetting(page);
 
         await colorModeRadio(page, '深色').click();
-        await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+        await expect(page.getByTestId('app-root')).toHaveAttribute('data-theme', 'dark');
 
         // 关键：点完立刻离开，不给 600ms 防抖留时间。主题是立即可见的界面状态，
         // 用户很容易「点完就走」，此时若丢值，重进页面选中项会退回浅色。
-        await switchSettingsSection(page, '网络代理', page.getByRole('heading', { name: '网络代理' }));
+        await switchSettingsSection(page, 'proxy', page.getByRole('heading', { name: '网络代理' }));
 
         await expect.poll(() => readConfigValue(userDataDir, 'appearance.theme')).toBe('dark');
 
         // 回到该页：选中态来自后端回读，而不是页面里残留的 state
-        await switchSettingsSection(page, '外观', colorModeRadio(page, '深色'));
+        await switchSettingsSection(page, 'appearance', colorModeRadio(page, '深色'));
         await expect(colorModeRadio(page, '深色')).toBeChecked();
     });
 });

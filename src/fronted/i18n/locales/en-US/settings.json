@@ -20,7 +20,8 @@
         "openFolderFailed": "Failed to open folder",
         "openInBrowser": "Open in browser",
         "openUrlFailed": "Failed to open link",
-        "copyFailed": "Copy failed"
+        "copyFailed": "Copy failed",
+        "delete": "Delete"
     },
     "sections": {
         "shortcut": "Shortcuts",

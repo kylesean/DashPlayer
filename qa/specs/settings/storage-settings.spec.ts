@@ -6,7 +6,7 @@ import { openSettingsSection, reloadSettingsPage, switchSettingsSection } from '
 
 /** 进入存储管理设置页。 */
 async function openStorageSetting(page: Page): Promise<void> {
-    await openSettingsSection(page, '存储', page.getByRole('heading', { name: '存储管理' }));
+    await openSettingsSection(page, 'storage', page.getByRole('heading', { name: '存储管理' }));
 }
 
 test.describe('存储设置', () => {
@@ -33,6 +33,7 @@ test.describe('存储设置', () => {
     });
 
     test('[SET-STO-02] 填了没有写权限的目录会显式报错，不落盘也不在页面上假装已保存', async ({ session, userDataDir }) => {
+        test.skip(process.platform === 'win32', 'Windows 的目录权限语义不支持 chmod 0o500 构造只读父目录');
         const page = session.page;
         await openStorageSetting(page);
 
@@ -69,10 +70,10 @@ test.describe('存储设置', () => {
         await libraryInput.fill(nextPath);
 
         // 本页的保存还带着「读取新目录状态」的附加动作，卸载时同样不能把挂起的路径丢掉
-        await switchSettingsSection(page, '外观', page.getByRole('radio', { name: '深色' }));
+        await switchSettingsSection(page, 'appearance', page.getByRole('radio', { name: '深色' }));
         await expect.poll(() => readConfigValue(userDataDir, 'storage.path')).toBe(nextPath);
 
-        await switchSettingsSection(page, '存储', page.getByRole('heading', { name: '存储管理' }));
+        await switchSettingsSection(page, 'storage', page.getByRole('heading', { name: '存储管理' }));
         await expect(page.getByPlaceholder('Documents/DashPlayer')).toHaveValue(nextPath);
     });
 });

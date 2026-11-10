@@ -4,7 +4,7 @@ import { openSettingsSection, reloadSettingsPage, switchSettingsSection } from '
 
 /** 进入网络代理设置页。 */
 async function openProxySetting(page: Page): Promise<void> {
-    await openSettingsSection(page, '网络代理', page.getByRole('heading', { name: '网络代理' }));
+    await openSettingsSection(page, 'proxy', page.getByRole('heading', { name: '网络代理' }));
 }
 
 /** 代理模式分段控件（SegmentedControl 渲染为 radiogroup）。 */
@@ -68,13 +68,13 @@ test.describe('网络代理设置', () => {
 
         // 关键：改完立刻离开，不给 600ms 防抖留时间。离开时挂起的改动必须被提交，
         // 否则用户「填完随手切走」的改动会静默消失，正是最常被投诉的丢值场景。
-        await switchSettingsSection(page, '外观', page.getByRole('radio', { name: '深色' }));
+        await switchSettingsSection(page, 'appearance', page.getByRole('radio', { name: '深色' }));
 
         await expect.poll(() => readConfigValue(userDataDir, 'proxy.mode')).toBe('custom');
         await expect.poll(() => readConfigValue(userDataDir, 'proxy.url')).toBe(PROXY_URL);
 
         // 回到该页：显示的是后端回读的值，而不是靠页面残留的输入蒙对
-        await switchSettingsSection(page, '网络代理', page.getByRole('heading', { name: '网络代理' }));
+        await switchSettingsSection(page, 'proxy', page.getByRole('heading', { name: '网络代理' }));
         await expect(proxyModeRadio(page, '自定义')).toBeChecked();
         await expect(page.getByPlaceholder('http://127.0.0.1:7890')).toHaveValue(PROXY_URL);
     });

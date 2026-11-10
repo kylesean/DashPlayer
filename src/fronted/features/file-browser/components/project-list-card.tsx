@@ -76,8 +76,10 @@ const ProjectListCard = ({
         >
             <div
                 ref={containerRef}
-                    role="button"
-                    tabIndex={0}
+                data-testid={`watch-history-card-${video.id}`}
+                data-video-id={video.id}
+                role="button"
+                tabIndex={0}
                     onKeyDown={(e) => {
                         // 仅处理容器自身的按键，避免拦截子按钮的 Enter/Space
                         if (e.currentTarget === e.target && (e.key === 'Enter' || e.key === ' ')) {

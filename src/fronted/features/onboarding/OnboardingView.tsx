@@ -529,7 +529,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
     };
 
     return (
-        <div className="relative flex h-screen w-full flex-col overflow-hidden bg-background text-foreground select-none">
+        <div
+            data-testid="onboarding-view"
+            className="relative flex h-screen w-full flex-col overflow-hidden bg-background text-foreground select-none"
+        >
             <header className="relative z-20 flex h-9 shrink-0 items-center">
                 <TitleBar maximizable={false} className="top-0 left-0 w-full h-9 z-50" />
             </header>

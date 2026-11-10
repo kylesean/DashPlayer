@@ -87,6 +87,8 @@ typings/
 
 # Vite
 .vite/
+.vite.tmp-*/
+.vite.old-*/
 
 # 手机版 React 构建产物
 resources/mobile/

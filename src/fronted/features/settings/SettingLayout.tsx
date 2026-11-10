@@ -20,6 +20,7 @@ import {
 import { SideNav, SideNavHeading, SideNavItem } from '@astryxdesign/core/SideNav';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { VStack } from '@astryxdesign/core/VStack';
+import { SETTINGS_NAV_TESTIDS, SETTINGS_SIDEBAR_TESTID } from '@/common/constants/qa-testids';
 
 /** 设置页面各分区键名联合类型。 */
 export type SettingType =
@@ -78,7 +79,7 @@ const SettingLayout: React.FC = () => {
             height="fill"
             start={
                 <LayoutPanel width={240} isScrollable={false} hasDivider padding={2}>
-                    <aside className="h-full flex flex-col w-full">
+                    <aside data-testid={SETTINGS_SIDEBAR_TESTID} className="h-full flex flex-col w-full">
                         {/* SideNav 默认固定 260px，而面板内容区只有 224px，
                             不拉满会撑出横向滚动条 */}
                         <div className="w-full [&_.astryx-side-nav]:!w-full">
@@ -93,6 +94,7 @@ const SettingLayout: React.FC = () => {
                                 {SETTING_ITEMS.map((item) => (
                                     <SideNavItem
                                         key={item.key}
+                                        data-testid={SETTINGS_NAV_TESTIDS[item.key]}
                                         label={t(item.labelKey)}
                                         icon={
                                             <Icon

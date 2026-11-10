@@ -131,6 +131,8 @@ export const App = () => {
             const effective = resolveEffectiveTheme();
             document.documentElement.classList.remove('dark', 'light');
             document.documentElement.classList.add(effective);
+            document.documentElement.dataset.testid = 'app-root';
+            document.documentElement.dataset.theme = effective;
         };
 
         applyTheme();

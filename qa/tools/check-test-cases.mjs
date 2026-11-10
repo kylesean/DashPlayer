@@ -41,6 +41,12 @@ const SPEC_FILE_RE = /用例文件：`([^`]+)`/;
 const GAP_STATUS_RE = /（(未覆盖|手动)）/;
 /** 自动化用例的行首。 */
 const CASE_LINE_RE = /^\s*-\s*用例：/;
+/**
+ * test()/test.only()/test.skip() 声明行；`test.describe` 不算用例。
+ *
+ * 缩进限制在 7 个空格以内，避免把用例体里的 `test.skip(...)` 当成新的用例声明。
+ */
+const TEST_CALL_RE = /^ {0,7}test(?:\.(?:only|skip|fixme|fail|slow))?\s*\(/;
 
 /**
  * 允许不挂场景 ID 的 spec 文件。
@@ -164,7 +170,8 @@ const parsePageDoc = (file) => {
 /**
  * 扫描 spec 里 test() 标题上的 ID。
  *
- * 只在含 `test(` 的行上取 ID，避免把注释或说明文字里的 ID 当成用例。
+ * 每个 test 调用都必须带 ID；只在 test 调用附近取 ID，避免把注释或说明文字里的
+ * ID 当成用例。标题偶尔会换行，所以往后续几行找，直到拿到第一段标题文本。
  */
 const scanSpecs = () => {
     const hits = [];
@@ -173,23 +180,35 @@ const scanSpecs = () => {
     for (const file of listSpecs()) {
         const relFile = path.relative(REPO_ROOT, file).split(path.sep).join('/');
         const lines = fs.readFileSync(file, 'utf8').split('\n');
-        let fileHits = 0;
-        lines.forEach((line, index) => {
-            if (!line.includes('test(')) {
-                return;
+        for (let index = 0; index < lines.length; index += 1) {
+            if (!TEST_CALL_RE.test(lines[index])) {
+                continue;
             }
-            for (const match of line.matchAll(SPEC_ID_RE)) {
-                hits.push({id: match[1], file: relFile, line: index + 1});
-                fileHits += 1;
+            let titleWindow = lines[index];
+            for (let offset = 1; offset < 4; offset += 1) {
+                if (titleWindow.includes('=>') || titleWindow.includes('{')) {
+                    break;
+                }
+                const next = lines[index + offset];
+                if (next === undefined || TEST_CALL_RE.test(next)) {
+                    break;
+                }
+                titleWindow += `\n${next}`;
+                if (next.includes('=>') || next.includes('{')) {
+                    break;
+                }
             }
-        });
-        // 零 ID 的 spec 此前完全逃过校验：没有 ID 就没有「未翻译 / 未登记」可报，
-        // 于是整份用例可以没有任何场景文档而照样通过。
-        if (fileHits === 0 && !SPECS_WITHOUT_IDS.has(relFile)) {
-            problems.push(
-                `spec 里没有任何场景 ID：${relFile}。请给每个 test 标题挂上 **[SET-XXX-NN]**，`
-                + `并在 qa/test-cases/ 里登记；若确属无 ID 的实验型用例，加入 SPECS_WITHOUT_IDS 白名单并写明理由。`
-            );
+            const ids = [...titleWindow.matchAll(SPEC_ID_RE)].map((match) => match[1]);
+            if (ids.length === 0 && !SPECS_WITHOUT_IDS.has(relFile)) {
+                problems.push(
+                    `${relFile}:${index + 1} 的 test 没有场景 ID。请给标题挂上 [SET-XXX-NN]，`
+                    + '并在 qa/test-cases/ 里登记；若确属无 ID 的实验型用例，加入 SPECS_WITHOUT_IDS 白名单并写明理由。'
+                );
+                continue;
+            }
+            for (const id of ids) {
+                hits.push({id, file: relFile, line: index + 1});
+            }
         }
     }
 

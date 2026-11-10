@@ -181,7 +181,7 @@ async function readScrollTop(page: Page): Promise<number> {
  * @returns 到达后的实际 scrollTop。
  */
 async function wheelToScrollTop(page: Page, target: number): Promise<number> {
-    const box = await page.locator(`[data-testid="${SCROLLER_TESTID}"]`).boundingBox();
+    const box = await page.getByTestId(SCROLLER_TESTID).boundingBox();
     if (!box) {
         throw new Error('侧栏滚动容器不可见，无法构造滚动起点');
     }
@@ -223,7 +223,7 @@ async function hasInstrumentation(page: Page): Promise<boolean> {
  * @returns 开关是否处于开启态。
  */
 async function readSideTranslation(page: Page): Promise<boolean> {
-    const pressed = await page.locator(`[data-testid="${SIDE_TRANSLATION_TESTID}"]`).getAttribute('aria-pressed');
+    const pressed = await page.getByTestId(SIDE_TRANSLATION_TESTID).getAttribute('aria-pressed');
     return pressed === 'true';
 }
 
@@ -452,7 +452,7 @@ async function runRound(
         // 「应用以为位置是自己设的」状态，实测随后被首屏跟随拉回顶部，
         // 锚点行反而一直留在渲染范围里——那样这一轮测的就不是 fail closed 了。
         await clickSideTranslationWithoutPointer(page);
-        const box = await page.locator(`[data-testid="${SCROLLER_TESTID}"]`).boundingBox();
+        const box = await page.getByTestId(SCROLLER_TESTID).boundingBox();
         if (!box) {
             throw new Error('侧栏滚动容器不可见，无法构造甩动');
         }

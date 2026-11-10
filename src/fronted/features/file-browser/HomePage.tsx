@@ -31,6 +31,7 @@ import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import YoutubeImportButton from '@/fronted/features/youtube-import/YoutubeImportButton';
 import YoutubeImportHero from '@/fronted/features/youtube-import/YoutubeImportHero';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { NAV_TESTIDS } from '@/common/constants/qa-testids';
 
 const logger = getRendererLogger('HomePage');
 
@@ -90,8 +91,8 @@ const HomePage = () => {
     }, []);
 
     const navItems = [
-        { title: t('vocabularyStudio'), path: '/vocabulary', icon: BookOpen },
-        { title: t('settingsCenter'), path: '/settings', icon: Settings },
+        { title: t('vocabularyStudio'), path: '/vocabulary', icon: BookOpen, testId: NAV_TESTIDS.vocabulary },
+        { title: t('settingsCenter'), path: '/settings', icon: Settings, testId: NAV_TESTIDS.settings },
     ];
 
     const hasHistory = vps && vps.length > 0;
@@ -120,6 +121,7 @@ const HomePage = () => {
                                     {navItems.map((item) => (
                                         <SideNavItem
                                             key={item.path}
+                                            data-testid={item.testId}
                                             label={item.title}
                                             icon={<Icon icon={item.icon as unknown as IconType} size="sm" />}
                                             href={item.path}

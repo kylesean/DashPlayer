@@ -1,0 +1,103 @@
+# 低频但高保真：全量源构建 e2e + 真实打包产物冒烟。
+#
+# 源构建 e2e 已经在 ci.yml 的 main 推送里跑；nightly 仍再跑一次，是为了在无人值守时
+# 捕获「当天依赖/环境变化导致的偶发失败」，并额外覆盖 ASAR、fuses、extraResource、
+# 原生模块 unpack 与 process.resourcesPath——这些只有真实打包产物才存在。
+name: E2E Nightly
+
+on:
+  schedule:
+    # 02:00 Asia/Shanghai（UTC 18:00）
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  source-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@v5
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'
+        run: pnpm install --frozen-lockfile
+      - name: QA locator rules
+        run: pnpm run qa:check-locators
+      - name: Install display and media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg xvfb
+      - name: E2E full
+        env:
+          QA_ELECTRON_NO_SANDBOX: '1'
+        run: xvfb-run -a pnpm run test:e2e
+      - name: Upload e2e evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-nightly-source-${{ github.run_id }}
+          path: |
+            qa/test-results/
+            qa/playwright-report/
+          if-no-files-found: ignore
+
+  packaged-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@v5
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'
+        run: pnpm install --frozen-lockfile
+      - name: QA locator rules
+        run: pnpm run qa:check-locators
+      - name: Install display and media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg xvfb
+      - name: Cache runtime binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            lib
+            resources/mobile
+          key: ${{ runner.os }}-runtime-${{ hashFiles('scripts/*-runtime-meta.mjs', 'pnpm-lock.yaml') }}
+      - name: Build mobile page
+        run: pnpm run build:mobile
+      - name: Download runtime binaries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: pnpm run download
+      - name: Package and smoke packaged app
+        env:
+          QA_ELECTRON_NO_SANDBOX: '1'
+        run: xvfb-run -a pnpm run test:e2e:packaged
+      - name: Upload packaged evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-nightly-packaged-${{ github.run_id }}
+          path: |
+            qa/test-results-packaged/
+            qa/playwright-report-packaged/
+          if-no-files-found: ignore

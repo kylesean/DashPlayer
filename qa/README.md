@@ -1,7 +1,7 @@
-# QA：端到端用例（本目录由 QA 团队维护）
+# QA：端到端用例
 
 > 用 Playwright 驱动真实 Electron 应用，覆盖跨进程链路。**这里是用例资产的唯一入口**：规范、代码、夹具、文档都在 `qa/` 下。
-> 开发不动这里（只读）：改产品行为请改 `src/`，改用例请找 QA。
+> 维护边界：QA 拥有场景清单、契约常量与评审权；开发可以维护测试实现，但改断言/场景要先过 QA review。
 > **测什么（场景清单与缺口）见 [test-cases/](./test-cases/)**；通用测试原则见本文第 6 节「红线」。
 
 ## 1. 定位
@@ -12,29 +12,32 @@
 
 ## 2. 运行
 
-不占 `package.json` 的脚本，`npx` 直接调配置即可：
+统一走 `package.json` 脚本（CI 与本地同一条命令）：
 
 ```bash
-npx playwright test -c qa/playwright.config.ts                       # 全部用例
-npx playwright test -c qa/playwright.config.ts --list                # 只列用例（不启动应用）
-npx playwright test -c qa/playwright.config.ts qa/specs/player       # 只跑某个目录
-node qa/tools/check-test-cases.mjs                                   # 用例文档 ↔ 用例 ID 双向校验
-node qa/tools/check-player-scroll.mjs                                # 播放器滚动锚定检查（JSON + 语义化退出码）
+pnpm run test:e2e                     # 全部源构建用例
+pnpm run test:e2e:smoke               # PR 门禁的 @smoke 子集
+pnpm run test:e2e:packaged            # 先打包，再跑真实打包产物冒烟（nightly / 手工）
+pnpm exec playwright test -c qa/playwright.config.ts --list   # 只列用例（不启动应用）
+pnpm run qa:check-locators            # 禁止 CSS/tag 定位器的静态检查
+node qa/tools/check-test-cases.mjs    # 用例文档 ↔ 用例 ID 双向校验
+node qa/tools/check-player-scroll.mjs # 播放器滚动锚定检查（JSON + 语义化退出码）
 ```
 
-- **备料全自动**：`qa/support/globalSetup.ts` 在用例前跑——`.vite` 产物缺失或 `src/` 比它新就重新构建（约 25 秒），媒体夹具缺失就生成。因此「刚 clone」和「改了 src 之后」都只需要上面那一条命令。
-- 用例串行执行（`workers: 1`）；单条用例真实启动一次应用，约 2~4 秒。
+- **备料全自动**：`qa/support/globalSetup.ts` 在用例前跑——`.vite` 缺失、构建输入变化、产物摘要不一致或不是生产模式时重新构建（约 8~25 秒），媒体夹具缺失就生成。因此「刚 clone」和「改了 src 之后」都只需要上面那一条命令。
+- **构建不是「有 main.cjs 就算数」**：`qa/support/build.mjs` 先构建到临时目录，全部成功后原子替换 `.vite`，并写入 `.vite/.qa-build-manifest.json`（mode、输入摘要、全部产物摘要）。globalSetup 逐项校验，fixture 再断言首窗口 URL 是 `file:`；本机开着 Vite dev server 也不能冒充生产入口。
+- 用例串行执行（`workers: 1`）；单条用例真实启动一次应用，启动约 2~4 秒、整条约 10 秒。
 - 首次运行会按需下载 Electron 二进制到 `node_modules/electron`，需要网络。
 - 生成媒体夹具需要本机有 `ffmpeg` / `ffprobe`（`qa/fixtures/make-fixtures.mjs`）。
 - 首次拉取本分支后要先装依赖：`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install`。`@playwright/test` 是这套基建引入的依赖；跳过浏览器下载是因为用例只用 Electron，用不到 Playwright 自带的 Chromium。
-- **端到端用例本身不进 CI**：需要真实 Electron + 显示环境，单轮约 7 分钟，容易因环境抖动误报，所以由维护者本地按需执行（PR 前跑通上面第一条命令）。CI 里只跑 `check-test-cases.mjs` 这条只读文档校验，见第 8 节。
+- **CI 分层**：PR 跑 `@smoke`（xvfb，约 1~2 分钟）；main 推送跑全量；nightly 跑全量 + 真实打包产物冒烟。失败自动上传截图、JUnit、HTML 报告与运行期证据。
 
 ## 3. 工作原理
 
-- **只能走开发态**：打包产物被 FusesPlugin 关闭 `--inspect`，Playwright 无法接管；因此用例以 `electron .` 启动，读取 `.vite/` 构建产物。
+- **源构建用例走开发态**：正式打包产物被 FusesPlugin 关闭 `--inspect`，Playwright 无法接管；因此日常用例以 `electron .` 启动，读取带清单的 `.vite/` 生产 bundle。真实打包产物由 `qa/playwright.packaged.config.ts` + QA 专用打包配置单独覆盖（只打开 inspect fuse，其余 fuse/asar/extraResource 与发布包一致）。
 - **构建脚本**：`qa/support/build.mjs` 复用 forge 的 Vite 配置（`ViteConfigGenerator`）生成 `.vite/build` + `.vite/renderer/main_window`；不需要 `pnpm run download` 拉取的原生资源（whisper / ffmpeg 等不参与）。
 - **数据隔离**：每个用例独占临时 userData 目录（`--user-data-dir`），数据库、日志、配置全部落在里面，用例结束自动删除；启动后立刻校验隔离生效，一旦 `--user-data-dir` 失效会尽早失败，避免写坏本机真实数据。
-- **越过首次引导**：引导完成标记存在数据库里、启动前无法预置；fixture 通过真实 IPC（与应用内「跳过」同一个后端入口 `system/config/set`）写入标记后 `page.reload()`，让启动门槛重新判定，全程不使用 mock。
+- **越过首次引导**：引导完成标记存在数据库里、启动前无法预置；fixture 通过真实 IPC（与应用内「跳过」同一个后端入口 `system/config/set`）写入标记后 `page.reload()`，让启动门槛重新判定，全程不使用 mock。这是唯一登记的 QA bootstrap 例外，只用于让设置页用例独立；引导 UI 本身由 `SET-ONB-01` 从真实引导页覆盖。
 
 开发态与生产路径的区别（写断言时会用到）：
 
@@ -71,11 +74,11 @@ const restarted = await launchAppSession(userDataDir);
 
 | 导出 | 用途 |
 |---|---|
-| `openSettingsSection(page, '网络代理', ready)` | 从首页进「设置中心」再切到指定栏目，并等该页标志性元素出现 |
-| `switchSettingsSection(page, '外观', ready)` | 已经在设置中心时切到另一个栏目（用例中途离开当前页、验证挂起的改动是否提交） |
+| `openSettingsSection(page, 'proxy', ready)` | 从首页进「设置中心」再切到指定栏目（键来自 `SETTINGS_NAV_TESTIDS`），并等该页标志性元素出现 |
+| `switchSettingsSection(page, 'appearance', ready)` | 已经在设置中心时切到另一个栏目（用例中途离开当前页、验证挂起的改动是否提交） |
 | `reloadSettingsPage(page, ready)` | 重新加载当前设置页（HashRouter 保留路由），验证值来自后端回读 |
-| `selectInRow(page, 行标题)` | 定位某一设置行里的下拉框。只认行标识：行标题必须在 `ROW_TEST_ID_BY_TEXT` 里登记（对应产品侧 `SettingField` 的 `testId`），未登记会直接抛错，不做文案模糊匹配 |
-| `chooseInRow(page, 行标题, '选项文案')` | 在指定行点开下拉框并选中一项 |
+| `selectInRow(page, rowKey)` | 定位某一设置行里的下拉框。行键来自 `SETTING_ROW_TESTIDS`（`subtitleTranslation` / `transcription` 等），不做文案模糊匹配 |
+| `chooseInRow(page, rowKey, '选项文案')` | 在指定行点开下拉框并选中一项 |
 
 `openSettingsSection` 与 `switchSettingsSection` 分开，是为了让「从一个设置页切到另一个」的用例只经历一次导航——切走的瞬间正是要验证的时机，不能有多余的中间跳转。
 
@@ -94,7 +97,7 @@ const restarted = await launchAppSession(userDataDir);
 | 保存时机（改完立刻切走） | 各页 spec 里都有一条：`qa/specs/settings/appearance-settings.spec.ts` 的 SET-APP-09 最简洁 |
 | 应用外壳的机制性约束（只在构建产物里存在的行为） | `qa/specs/app/renderer-security.spec.ts` |
 
-1. **入口定位用 getByRole**：`link` / `button` / `heading` + 中文文案（fixture 已固定 `i18n.language: 'zh-CN'`，不随宿主系统语言漂移）；避免 CSS 选择器。设置页导航走 `openSettingsSection`，不要手写点击链接——侧边栏与其它导航区可能出现同名入口。
+1. **定位分两类**：导航、设置行、列表卡片等结构性容器用 `data-testid`（产品与 QA 共用 `src/common/constants/qa-testids.ts`）；按钮、tab、dialog、heading 等有可访问名称的控件用 `getByRole` + 当前语言的 accessible name。禁止 `page.locator()` / CSS 类名 / 标签名定位，`qa/tools/check-locators.mjs` 会在 CI 拦截。设置页导航走 `openSettingsSection`，不要手写点击链接——侧边栏与其它导航区可能出现同名入口。
 2. **「用户填了但没保存」是这套用例的首要防范对象**：设置页没有保存按钮，改动由页面防抖自动保存，所以每条用例都按三段式写——① 操作控件；② `expect.poll(() => readConfigValue(...))` 断言值真进了配置文件；③ `reloadSettingsPage` 后断言界面回显。只做第 ① 步，或只断言界面 state，都可能在「保存链路断了」时假通过。涉及保存时机的用例还要多走一步「切到别的栏目再切回来」，因为整页 reload 会清掉前端缓存，验不到缓存过期一类的问题（见下面的已知坑）。
 3. **断言"操作 → 可观测结果"**：界面状态（类名 / DOM）+ 持久化结果（配置文件 / 数据库）。
 4. **用自动重试的断言**：`expect(locator).toHaveClass()`、`expect.poll()` 等；不要用 `waitForTimeout` 硬等。
@@ -193,7 +196,10 @@ node qa/tools/check-player-scroll.mjs  # 播放器滚动锚定检查：输出 JS
 
 ## 7. 已知坑
 
-- **启动偶发停顿几十秒到几分钟（环境级，与 Playwright 无关）**：`launch()` 偶尔迟迟不返回，stderr 在 `Debugger listening` 后长期不出 `DevTools listening`；停顿期间应用就绪前的 JS（建库、迁移）已完成，但 Chromium 不 fork GPU 进程、不建 profile，恢复时一次性补齐。纯手动 `electron .` 同样复现（实测停顿 17 秒至 2 分钟以上），与本项目代码、`app.evaluate()`（实测 5~64ms 正常）无关；本机触发源为显示器切换器：把本机切走期间启动一律卡住（实测 12 分钟窗口内多次尝试无一例外），切回瞬间恢复，切回后重跑即可。遇到启动超时先查切换器状态与 `journalctl -k` 的外设事件，不要怀疑用例本身。
+- **启动偶发停顿几十秒到几分钟（环境级，与 Playwright 无关）**：`launch()` 偶尔迟迟不返回，stderr 在 `Debugger listening` 后长期不出 `DevTools listening`；停顿期间应用就绪前的 JS（建库、迁移）已完成，但 Chromium 不 fork GPU 进程、不建 profile，恢复时一次性补齐。纯手动 `electron .` 同样复现（实测停顿 17 秒至 2 分钟以上），与本项目代码、`app.evaluate()`（实测 5~64ms 正常）无关；本机触发源为显示器切换器：把本机切走期间启动一律卡住（实测 12 分钟窗口内多次尝试无一例外），切回瞬间恢复，切回后重跑即可。全局测试超时 180 秒、launch 上限 120 秒，留出 teardown 余量；遇到启动超时先查切换器状态与 `journalctl -k` 的外设事件，不要怀疑用例本身。
+- **GPU 默认关闭，不污染本机环境**：fixture 默认追加 `--disable-gpu`，规避 Linux/Wayland 下 NVIDIA egl-gbm 的上游崩溃（NVIDIA/egl-gbm#9）和启动等待，避免本机出现系统级 GPU 崩溃提示。个别用例要显式验证 GPU 硬件路径时设置 `QA_DISABLE_GPU=0`。同时主进程监听 `render-process-gone` / `child-process-gone`：渲染进程非正常退出判红；GPU 进程崩溃只作为环境证据记录（失败时随 runtime-evidence 上传），不直接判产品回归。
+- **`NODE_ENV` 不能解锁 dev 能力**：`runtimeEnv.isDevelopmentMode()` 只认 `!app.isPackaged`。打包应用即使从带 `NODE_ENV=development` 的终端启动，也必须使用 `data/`、`logs/`、`config.json`，并忽略 `?file=`。`SET-PKG-01` 专门守这条边界。
+- **Windows 权限失败路径**：`chmod 0o500` 只在 POSIX 上能构造只读父目录；`SET-STO-02` 在 Windows 显式 skip，并保留原因。其它平台仍必须真实失败并断言错误横幅与旧值未被覆盖。
 - **Chromium 开关必须用 `--flag=value` 等号形式**：`--user-data-dir <path>` 写成两个 token 会被解析成"无值开关 + 位置参数"，userData 静默回退到真实目录、污染开发数据。fixture 里是 `--user-data-dir=${dir}`（另有 `assertUserDataIsolated` 兜底）；手写启动脚本时容易踩。
 - **`npm/yarn install` 后 Electron 二进制可能缺失**：仓库里 `electron` 包的 postinstall 不落盘二进制，首次跑用例时会自动补下，日志出现 `Downloading Electron binary...` 属正常。
 - **配置是嵌套 JSON**：electron-store 按点号访问，`appearance.theme` 在文件里存成 `{"appearance":{"theme":"dark"}}`；断言用 `readConfigValue`，不要按平铺 key 读。
@@ -204,7 +210,7 @@ node qa/tools/check-player-scroll.mjs  # 播放器滚动锚定检查：输出 JS
 
 ## 8. 维护边界（review 依据）
 
-本目录由 QA 团队维护，开发只读。为了让「不乱写」有强制手段，规矩分两层：
+QA 拥有场景清单、契约常量与评审权；开发可以维护测试实现，但改断言/场景必须先过 QA review。为了让「不乱写」有强制手段，规矩分两层：
 
 **机器强制（CI 会拦）**
 
@@ -214,10 +220,12 @@ node qa/tools/check-player-scroll.mjs  # 播放器滚动锚定检查：输出 JS
 - `src/**` 不允许 import `qa/**`：产品代码不能依赖用例。同样由 `eslint.config.mjs` 强制。
 - 用例 ID 与文档的绑定由 `node qa/tools/check-test-cases.mjs` 强制（只改一边就报错）。
   这个脚本已接进 CI（`Test case docs` 步骤），不是「记得手动跑」的君子协定。
+- `qa/tools/check-locators.mjs` 禁止 `page.locator()` / `page.$()`，CI 直接拦截 CSS 类名与标签定位。
+- PR 的 `@smoke`、main 的全量、nightly 的打包冒烟都在 CI 跑；失败证据（截图/JUnit/HTML/运行期进程退出记录）自动上传。
 
 **人审强制（下面三条写死在 review 清单里）**
 
-1. **定位只用 `data-testid` / `aria-*` / 语义 role**：禁 CSS 类名，禁界面文案匹配——文案会随多语言与措辞调整失效。
+1. **定位只用 `data-testid` / `aria-*` / 语义 role**：结构性容器禁 CSS 类名/tag 定位；按钮/tab/dialog 用 role + accessible name。界面文案只用于断言用户可见内容，不能拿来猜 DOM 结构。
    状态判断只认语义属性（如 `aria-pressed`），不认 class。
 2. **每条用例必须有场景守卫**：守卫不成立要**判红**（说明夹具/环境变了），不能静默 skip；
    操作前后都要断言，等待用显式超时（`expect.poll` / `toHaveX` / `waitForFunction`），不用裸 `sleep` 赌时间。

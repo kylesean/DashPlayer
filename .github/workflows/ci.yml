@@ -7,8 +7,8 @@
 # 而且 tsconfig.json 没有被任何构建脚本引用（vite/esbuild 只转译、不做类型检查），
 # 类型错误只有 IDE 和手工 tsc 能发现，所以这一步必须显式跑。
 #
-# 不跑 Playwright e2e：它要真实 Electron + 显示环境，单轮约 7 分钟，
-# 放在这里会让每次推送都变慢且容易因环境抖动误报。e2e 由维护者本地按需执行。
+# E2E 分层：PR 只跑 @smoke 子集（真实 Electron + xvfb），main 推送跑全量；
+# nightly 另跑全量与真实打包产物冒烟，见 e2e-nightly.yml。
 name: CI
 
 on:
@@ -54,6 +54,79 @@ jobs:
         # 用例 ID 与场景文档的双向绑定只能靠这个脚本强制：它此前只有人手动跑，
         # 于是「只改了 spec 没改文档」会一路绿灯进主干。这里只读文件，不需要构建或显示环境。
         run: node qa/tools/check-test-cases.mjs
+      - name: QA locator rules
+        # 禁止 CSS 类名/tag 定位；语义定位（role/testid）才能跟着产品重构走
+        run: pnpm run qa:check-locators
       - name: Unit tests
         # vitest 通过 ELECTRON_RUN_AS_NODE=1 以纯 Node 运行，不需要显示环境
         run: pnpm run test:run
+
+  e2e-smoke:
+    # PR 门禁：只跑少量跨进程冒烟，避免每次推送都等待全量 7 分钟
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@v5
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Install display and media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg xvfb
+      - name: E2E smoke
+        env:
+          QA_ELECTRON_NO_SANDBOX: '1'
+        run: xvfb-run -a pnpm run test:e2e:smoke
+      - name: Upload e2e evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-${{ github.run_id }}
+          path: |
+            qa/test-results/
+            qa/playwright-report/
+          if-no-files-found: ignore
+
+  e2e-full:
+    # main 推送跑全量：PR 已通过 smoke，合入后用完整矩阵兜住跨页面/滚动链路
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@v5
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Install display and media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg xvfb
+      - name: E2E full
+        env:
+          QA_ELECTRON_NO_SANDBOX: '1'
+        run: xvfb-run -a pnpm run test:e2e
+      - name: Upload e2e evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-full-${{ github.run_id }}
+          path: |
+            qa/test-results/
+            qa/playwright-report/
+          if-no-files-found: ignore

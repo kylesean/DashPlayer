@@ -20,7 +20,8 @@
         "openFolderFailed": "打开文件夹失败",
         "openInBrowser": "在浏览器中打开",
         "openUrlFailed": "打开链接失败",
-        "copyFailed": "复制失败"
+        "copyFailed": "复制失败",
+        "delete": "删除"
     },
     "sections": {
         "shortcut": "快捷键",

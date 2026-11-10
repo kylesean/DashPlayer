@@ -33,6 +33,7 @@ import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/set
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 import { OPENAI_SUBTITLE_DEFAULT_STYLES } from '@/common/constants/openaiSubtitlePrompts';
 import { subscribeLocalAiDownloadProgress } from '@/fronted/features/settings/settingsEvents';
+import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
 import type { LocalAiModelStatus } from '@/common/contracts/local-ai';
 import type { TranscriptionEngine } from '@/common/contracts/transcription-engine';
 import type { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
@@ -607,7 +608,7 @@ const ServiceResourceSetting: React.FC = () => {
                         >
                             <SettingField
                                 title={t('resources.preference.subtitleLabel')}
-                                testId="setting-row-subtitle-translation"
+                                testId={SETTING_ROW_TESTIDS.subtitleTranslation}
                                 description={usesLocalSubtitle
                                     ? t('resources.preference.localMtZhOnlyHint')
                                     : t('resources.preference.subtitleDesc')}
@@ -632,7 +633,7 @@ const ServiceResourceSetting: React.FC = () => {
                             <VStack gap={3} width="100%">
                                 <SettingField
                                     title={t('resources.preference.styleLabel')}
-                                    testId="setting-row-subtitle-style"
+                                    testId={SETTING_ROW_TESTIDS.subtitleStyle}
                                     description={t('resources.preference.styleDesc')}
                                 >
                                     <Selector
@@ -650,6 +651,7 @@ const ServiceResourceSetting: React.FC = () => {
 
                                 {subtitleMode === 'custom' && (
                                     <TextArea
+                                        data-testid="custom-subtitle-style"
                                         label={t('resources.preference.styleLabel')}
                                         isLabelHidden
                                         value={watched.openai?.subtitleCustomStyle ?? ''}
@@ -666,7 +668,7 @@ const ServiceResourceSetting: React.FC = () => {
 
                             <SettingField
                                 title={t('resources.preference.dictionaryLabel')}
-                                testId="setting-row-dictionary"
+                                testId={SETTING_ROW_TESTIDS.dictionary}
                                 description={localDictionaryMissing
                                     ? t('resources.preference.notReadyHint')
                                     : t('resources.preference.dictionaryDesc')}
@@ -690,7 +692,7 @@ const ServiceResourceSetting: React.FC = () => {
 
                             <SettingField
                                 title={t('resources.preference.sentenceLabel')}
-                                testId="setting-row-sentence-learning"
+                                testId={SETTING_ROW_TESTIDS.sentenceLearning}
                                 description={t('resources.preference.sentenceDesc')}
                             >
                                 <Selector

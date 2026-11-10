@@ -28,6 +28,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';
 import { Icon } from '@astryxdesign/core/Icon';
+import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
 
 const logger = getRendererLogger('AppearanceSetting');
 type AppearanceFormValues = AppearanceSettingVO;
@@ -296,7 +297,7 @@ const AppearanceSetting: React.FC = () => {
                     <SettingField
                         title={t('appearance.languageTitle')}
                         description={t('appearance.languageDescription')}
-                        testId="setting-row-language"
+                        testId={SETTING_ROW_TESTIDS.language}
                     >
                         <Selector
                             label={t('appearance.languageTitle')}

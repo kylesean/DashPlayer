@@ -9,8 +9,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { ONBOARDING_COMPLETED_VERSION_KEY } from '../../src/common/constants/systemConfigKeys';
 import { CURRENT_ONBOARDING_VERSION } from '../../src/common/constants/onboarding';
+import {
+    installProcessObserver,
+    isFatalProcessGone,
+    observePage,
+    takeProcessGone,
+    type PageObservation,
+    type ProcessGoneRecord,
+} from './observation';
 
-/** 仓库根目录（本文件在 `qa/support/` 下）；`electron .` 会读取 package.json 的 main（.vite/build/main.js）。 */
+/** 仓库根目录（本文件在 `qa/support/` 下）；`electron .` 会读取 package.json 的 main（.vite/build/main.cjs）。 */
 const projectRoot = path.resolve(__dirname, '..', '..');
 
 /** 开发态配置文件：`electron .` 时 app.isPackaged 为 false，electron-store 文件名带 .dev 后缀。 */
@@ -24,6 +32,18 @@ export interface AppSession {
     page: Page;
     /** 关闭应用进程；重复调用无副作用，便于用例内提前关闭。 */
     close: () => Promise<void>;
+    /** 页面级错误观测。 */
+    pageObservation: PageObservation;
+    /** 取走主进程记录的进程退出事件。 */
+    takeProcessGone: () => Promise<ProcessGoneRecord[]>;
+    /** 主进程 stderr 尾部（最多 20KB）。 */
+    stderrTail: () => string;
+}
+
+/** 启动选项。 */
+export interface LaunchAppOptions {
+    /** 是否由 fixture 越过引导；默认 true。测引导本身时传 false。 */
+    skipOnboarding?: boolean;
 }
 
 /**
@@ -114,8 +134,8 @@ async function passOnboardingGate(page: Page): Promise<void> {
         await handler.call('system/config/set', params);
     }, { key: ONBOARDING_COMPLETED_VERSION_KEY, value: CURRENT_ONBOARDING_VERSION });
     await page.reload();
-    // 主界面（首页）导航里的「设置中心」入口，是引导页不会出现的内容
-    await page.getByRole('link', { name: '设置中心' }).waitFor();
+    // 主界面（首页）导航里的设置入口，是引导页不会出现的内容
+    await page.getByTestId('nav-settings').waitFor();
 }
 
 /**
@@ -144,29 +164,122 @@ async function assertUserDataIsolated(userDataDir: string): Promise<void> {
  */
 const LAUNCH_TIMEOUT_MS = 120_000;
 
+/** 首窗口必须加载本地生产 bundle 的超时（毫秒）。 */
+const ENTRY_TIMEOUT_MS = 15_000;
+
+/**
+ * 解析启动参数。
+ *
+ * 默认追加 `--disable-gpu`，从启动入口规避 Linux/Wayland 下 NVIDIA egl-gbm
+ * 的上游崩溃（NVIDIA/egl-gbm#9）与启动等待；某些用例要显式验证 GPU 硬件路径时，
+ * 设置 `QA_DISABLE_GPU=0` 关闭该优化。no-sandbox 仍保持显式 opt-in。
+ *
+ * @param userDataDir 用例独占的 userData 目录。
+ * @returns Electron 参数列表。
+ */
+function buildLaunchArgs(userDataDir: string): string[] {
+    const args = ['.', `--user-data-dir=${userDataDir}`];
+    if (process.env.QA_DISABLE_GPU !== '0') {
+        args.push('--disable-gpu');
+    }
+    if (process.env.QA_ELECTRON_NO_SANDBOX === '1') {
+        args.push('--no-sandbox');
+    }
+    return args;
+}
+
+/**
+ * 构造 Electron 子进程环境。
+ *
+ * `ELECTRON_RUN_AS_NODE` 会让 Electron 以纯 Node 启动，`--no-sandbox` 等 Chromium
+ * 参数会被当成 Node 参数直接报错；`NODE_OPTIONS` 则可能被宿主的调试配置带进来。
+ *
+ * @returns 清理后的环境变量。
+ */
+function buildLaunchEnv(): Record<string, string> {
+    const env: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+        if (value === undefined || key === 'ELECTRON_RUN_AS_NODE' || key === 'NODE_OPTIONS') {
+            continue;
+        }
+        env[key] = value;
+    }
+    return env;
+}
+
+/**
+ * 把 Playwright 的启动失败翻译成可归因的错误。
+ *
+ * @param error 原始错误。
+ * @returns 带排查提示的错误。
+ */
+function describeLaunchFailure(error: unknown): Error {
+    const message = error instanceof Error ? error.message : String(error);
+    let hint: string;
+    if (/bad option|unknown option|not allowed in NODE_OPTIONS|invalid value/i.test(message)) {
+        hint = 'Electron 把 Chromium 参数当成了 Node 参数：检查 ELECTRON_RUN_AS_NODE/NODE_OPTIONS，'
+            + 'fixture 已主动清理；若手工启动，先 unset 这两个变量。';
+    } else if (/Process failed to launch|spawn .* ENOENT|ENOENT/i.test(message)) {
+        hint = 'Electron 二进制不可执行或路径不存在：确认 node_modules/electron 已安装完成。';
+    } else if (/timeout|timed out/i.test(message)) {
+        hint = '启动超时。若日志卡在 "Debugger listening" 之后，先按 qa/README.md 第 7 节排查'
+            + '显示器切换器/GPU 进程停顿，不要先怀疑用例。';
+    } else {
+        hint = '检查 Electron 版本、显示环境与 qa/README.md 第 7 节的已知环境问题。';
+    }
+    return new Error(`Electron 启动失败或超时（上限 ${LAUNCH_TIMEOUT_MS / 1000} 秒）。${hint}\n${message}`, {
+        cause: error,
+    });
+}
+
+/**
+ * 断言首窗口加载的是本地生产 bundle，而不是 dev server。
+ *
+ * `.vite` 里如果是开发态构建，`main.cjs` 会加载 `http://localhost:5173`；本机恰好
+ * 开着 Vite dev server 时用例会对着另一套代码跑出假绿。globalSetup 校验构建清单，
+ * 这里再从进程实际加载的 URL 兜一层。
+ *
+ * @param page 主窗口页面。
+ */
+async function assertProductionEntry(page: Page): Promise<void> {
+    try {
+        await page.waitForURL((url) => url.protocol === 'file:', { timeout: ENTRY_TIMEOUT_MS });
+    } catch {
+        throw new Error(
+            `应用没有加载本地生产 bundle，当前 URL：${page.url()}。`
+            + '这说明 `.vite` 是开发态构建或 dev server 冒充了应用入口；'
+            + '请删除 `.vite` 后重跑，globalSetup 会重新生成带清单的生产构建。',
+        );
+    }
+}
+
 /**
  * 启动一次应用会话，并等待进入主界面。
  *
  * @param userDataDir 用例独占的 userData 目录。
  * @returns 应用会话；重启场景需先 close 再对同一目录调用本函数。
  */
-export async function launchAppSession(userDataDir: string): Promise<AppSession> {
+export async function launchAppSession(
+    userDataDir: string,
+    options: LaunchAppOptions = {},
+): Promise<AppSession> {
     let app: ElectronApplication;
     try {
         app = await electron.launch({
-            args: ['.', `--user-data-dir=${userDataDir}`],
+            args: buildLaunchArgs(userDataDir),
             cwd: projectRoot,
+            env: buildLaunchEnv(),
             timeout: LAUNCH_TIMEOUT_MS,
         });
     } catch (error) {
-        throw new Error(
-            `Electron 启动失败或超时（上限 ${LAUNCH_TIMEOUT_MS / 1000} 秒）。`
-            + '若日志卡在 "Debugger listening" 之后迟迟不出现 "DevTools listening"，'
-            + '先按 qa/README.md 第 7 节排查环境（显示器切换器会让启动停顿几十秒到几分钟），'
-            + '不要先怀疑用例本身。',
-            { cause: error },
-        );
+        throw describeLaunchFailure(error);
     }
+    // 必须在 firstWindow 之前挂监听：启动阶段的渲染进程崩溃同样要留证
+    await installProcessObserver(app);
+    let stderr = '';
+    app.process().stderr?.on('data', (chunk: Buffer) => {
+        stderr = `${stderr}${chunk.toString()}`.slice(-20_000);
+    });
     let closed = false;
     const close = async (): Promise<void> => {
         if (closed) {
@@ -177,38 +290,26 @@ export async function launchAppSession(userDataDir: string): Promise<AppSession>
     };
     try {
         const page = await app.firstWindow();
+        const pageObservation = observePage(page);
+        await assertProductionEntry(page);
         // 首窗口出现时启动迁移已完成，数据库落在隔离目录还是真实目录此时可判定
         await assertUserDataIsolated(userDataDir);
-        await passOnboardingGate(page);
-        return { app, page, close };
+        if (options.skipOnboarding !== false) {
+            await passOnboardingGate(page);
+        }
+        return {
+            app,
+            page,
+            close,
+            pageObservation,
+            takeProcessGone: () => takeProcessGone(app),
+            stderrTail: () => stderr,
+        };
     } catch (error) {
         // 启动半途失败时先收掉进程，避免用例失败后残留 Electron 进程
         await close();
         throw error;
     }
-}
-
-/**
- * 收集渲染层的未捕获异常与 `console.error`。
- *
- * 为什么要收：这套 e2e 的价值主张是「真进程」，但断言只覆盖显式检查的那几条链路——
- * 渲染层抛异常、React 报错只要没影响断言就是静默的，用例照样绿。
- * trace 因 4 倍劣化被关掉（见 `qa/playwright.config.ts`），这里用零成本的方式补上观测。
- *
- * @param page 应用主窗口页面。
- * @returns 取出并清空已收集内容的函数。
- */
-function collectRendererErrors(page: Page): () => string[] {
-    const messages: string[] = [];
-    page.on('pageerror', (error) => {
-        messages.push(`[pageerror] ${error.message}`);
-    });
-    page.on('console', (message) => {
-        if (message.type() === 'error') {
-            messages.push(`[console.error] ${message.text()}`);
-        }
-    });
-    return () => messages;
 }
 
 type Fixtures = {
@@ -226,27 +327,67 @@ export const test = base.extend<Fixtures>({
     },
     session: async ({ userDataDir }, use, testInfo) => {
         const session = await launchAppSession(userDataDir);
-        const takeRendererErrors = collectRendererErrors(session.page);
+        let useError: unknown = null;
         try {
             await use(session);
-        } finally {
-            const errors = takeRendererErrors();
-            if (errors.length > 0) {
-                const body = errors.join('\n');
-                if (testInfo.status === testInfo.expectedStatus) {
-                    // 通过但有渲染层错误：只提示、不制造红。
-                    // 直接判红会让历史遗留噪音把门禁变成「狼来了」，那比不报更糟。
-                    console.warn(`[qa] 渲染层出现 ${errors.length} 条错误（未影响断言）：\n${body}`);
-                } else {
-                    // 失败时把现场挂到报告上，省掉「只有截图、看不出哪一步炸了」的排查成本
-                    await testInfo.attach('renderer-errors.txt', {
-                        body,
-                        contentType: 'text/plain',
-                    });
-                }
+        } catch (error) {
+            useError = error;
+        }
+        let observationError: Error | null = null;
+        try {
+            const passed = testInfo.status === testInfo.expectedStatus;
+            const pageErrors = session.pageObservation.takePageErrors();
+            const consoleErrors = session.pageObservation.takeConsoleErrors();
+            const processGone = await session.takeProcessGone();
+            const fatalProcessGone = processGone.filter(isFatalProcessGone);
+            const evidence = {
+                pageErrors,
+                consoleErrors,
+                processGone,
+                stderr: session.stderrTail(),
+            };
+            const evidenceBody = JSON.stringify(evidence, null, 2);
+            if (!passed) {
+                await testInfo.attach('runtime-evidence.json', {
+                    body: evidenceBody,
+                    contentType: 'application/json',
+                });
             }
-            // 放在 finally 里：用例失败也必须收掉进程，否则残留的 Electron 会污染后续用例
+
+            const failures = [
+                ...pageErrors.map((message) => `渲染层未捕获异常：${message}`),
+                ...fatalProcessGone.map((record) => `渲染进程异常退出：${JSON.stringify(record)}`),
+            ];
+            if (passed && failures.length > 0) {
+                await testInfo.attach('runtime-evidence.json', {
+                    body: evidenceBody,
+                    contentType: 'application/json',
+                });
+                observationError = new Error(`用例通过但运行期观测到故障：\n${failures.join('\n')}`);
+            }
+            if (passed && (consoleErrors.length > 0 || processGone.length > 0)) {
+                const processSummary = processGone
+                    .map((record) => `${record.processType ?? record.event}:${record.reason}:${record.exitCode ?? '-'}`)
+                    .join(', ');
+                console.warn(
+                    `[qa] 运行期出现非致命错误/进程退出（未影响断言）：`
+                    + `${consoleErrors.length} 条 console.error，${processGone.length} 条进程退出`
+                    + `${processSummary ? `（${processSummary}）` : ''}；`
+                    + '非致命事件不单独 attach，失败时统一写入 runtime-evidence.json。',
+                );
+            }
+        } catch (error) {
+            observationError = error instanceof Error ? error : new Error(String(error));
+        } finally {
+            // 用例失败也必须收掉进程，否则残留的 Electron 会污染后续用例
             await session.close();
+        }
+        // 不把 throw 放在 finally 里：那会覆盖测试体本身的错误，导致第一现场丢失
+        if (useError) {
+            throw useError;
+        }
+        if (observationError) {
+            throw observationError;
         }
     },
 });

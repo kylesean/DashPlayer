@@ -1,16 +1,19 @@
 /**
  * Playwright globalSetup：用例开跑前把「料」备齐。
  *
- * 备两样东西，全部按需（已有的不动），所以第一次跑和改了 src 之后跑都不需要手工命令：
- * 1. 应用构建产物 `.vite/`：缺失，或 `src/` 里有文件比构建产物新，就重新构建
- *    （Playwright 以 `electron .` 加载它；拿旧产物跑等于测旧代码，比不跑更糟）；
- * 2. 媒体夹具 `fixtures/media/`：SRT 或视频缺失就生成（工具在 `fixtures/make-fixtures.mjs`）。
+ * 备三样东西，全部按需（已有的不动），所以第一次跑和改了 src 之后跑都不需要手工命令：
+ * 1. 应用构建产物 `.vite/`：缺失、输入摘要变化、产物摘要不一致或不是生产模式，
+ *    就重新构建（Playwright 以 `electron .` 加载它；拿旧产物或 dev server 跑
+ *    等于测另一套代码，比不跑更糟）；
+ * 2. 手机页产物 `resources/mobile/`：缺失或源码变化就构建；
+ * 3. 媒体夹具 `fixtures/media/`：SRT 或视频缺失就生成（工具在 `fixtures/make-fixtures.mjs`）。
  *
- * 两者都只写本地目录，不入库（媒体夹具已在 `qa/.gitignore` 里排除）。
+ * 三者都只写本地目录，不入库（媒体夹具已在 `qa/.gitignore` 里排除）。
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateProductionBuild } from './build-manifest';
 
 /**
  * 仓库根目录（本文件在 `qa/support/` 下）。
@@ -19,70 +22,15 @@ import path from 'node:path';
  */
 const projectDir = path.resolve(__dirname, '..', '..');
 
-/**
- * 读取 package.json 的 `main`，即应用真正的启动入口。
- *
- * 为什么派生而不是手写：曾硬编码 `.vite/build/main.js`，而 forge 的实际产物是
- * `main.cjs`（package.json 的 `main` 就指向它）。于是 `existsSync` 永远为 false、
- * 构建 mtime 恒为 0，过期判断永远成立——每跑一次 QA 都白付一次约 25 秒的全量重建。
- *
- * @returns 相对仓库根入口路径。
- */
-const readPackageMain = (): string => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(projectDir, 'package.json'), 'utf8')) as {
-        main?: string;
-    };
-    if (!pkg.main) {
-        throw new Error('package.json 缺少 main 字段，无法定位构建产物入口');
-    }
-    return pkg.main;
-};
-
-/** 构建产物入口：存在且不比源码旧就认为构建可用。 */
-const BUILD_ENTRY = path.join(projectDir, readPackageMain());
-
-/**
- * 需要参与「过期」判断的源码目录。
- *
- * 只放真正进产物的目录。此前这里还包含 `qa/support`，于是改一句 QA 夹具的注释
- * 都会触发一次约 25 秒的全量重建——`qa/support/*.ts` 不参与应用构建，那个耦合是错的。
- * 构建脚本本身单独列进 `SOURCE_FILES`，精确到文件。
- */
-const SOURCE_DIRS = ['src'];
-
-/**
- * 只影响单测、不影响产物路径的命名特征。
- *
- * `src` 下同时住着 vitest 用例，它们不进 `.vite` 产物；把它们算进过期判断，
- * 等于「改一条单测就重建一次应用」。
- */
-const NON_PRODUCT_PATH_RE = /(__tests__[\\/]|\.(test|spec)\.)/;
-
-/**
- * 同样决定产物内容的单文件输入。
- *
- * 只比 src/ 的 mtime 是不够的：改 vite 别名、改 forge 配置、升级依赖、动 index.html
- * 都会改变产物，但 src/ 里没有任何文件变新，于是会拿旧产物跑新代码——比不跑更糟。
- */
-const SOURCE_FILES = [
-    'vite.main.config.ts',
-    'vite.preload.config.ts',
-    'vite.renderer.config.ts',
-    'vite.mobile.config.ts',
-    'forge.config.ts',
-    'index.html',
-    'package.json',
-    'pnpm-lock.yaml',
-    // 构建脚本自身：改了它，产物可能变，但 src/ 里没有任何文件变新
-    'qa/support/build.mjs',
-];
-
 /** 媒体夹具目录与必需产物。 */
 const MEDIA_DIR = path.join(projectDir, 'qa', 'fixtures', 'media');
 const MEDIA_FILES = ['qa-bilingual.srt', 'qa-bilingual.mp4'];
 
 /** 手机页产物入口；缺失时手机访问用例会以 20 秒超时失败且看不出原因。 */
 const MOBILE_ENTRY = path.join(projectDir, 'resources', 'mobile', 'index.html');
+
+/** 只影响单测、不影响产物的命名特征。 */
+const NON_PRODUCT_PATH_RE = /(__tests__[\\/]|\.(test|spec)\.)/;
 
 /**
  * 递归取目录下最新的 mtime（毫秒），跳过不进产物的单测文件。
@@ -119,20 +67,22 @@ const newestMtime = (dir: string): number => {
  * @returns 构建发生时为 true。
  */
 const ensureBuild = (): boolean => {
-    const buildMtime = fs.existsSync(BUILD_ENTRY) ? fs.statSync(BUILD_ENTRY).mtimeMs : 0;
-    const sourceMtime = Math.max(
-        ...SOURCE_DIRS.map((dir) => newestMtime(path.join(projectDir, dir))),
-        ...SOURCE_FILES.map((file) => fileMtime(file)),
-    );
-    if (buildMtime > 0 && buildMtime >= sourceMtime) {
+    const validation = validateProductionBuild(projectDir);
+    if (validation.ok) {
+        console.log(`[qa] .vite 校验通过：${validation.reason}`);
         return false;
     }
+    console.log(`[qa] .vite 需要重建：${validation.reason}`);
     const result = spawnSync(process.execPath, [path.join(projectDir, 'qa', 'support', 'build.mjs')], {
         cwd: projectDir,
         stdio: 'inherit',
     });
     if (result.status !== 0) {
         throw new Error(`应用构建失败（exit ${result.status}）`);
+    }
+    const rebuilt = validateProductionBuild(projectDir);
+    if (!rebuilt.ok) {
+        throw new Error(`应用构建完成后校验仍失败：${rebuilt.reason}`);
     }
     return true;
 };
@@ -159,7 +109,11 @@ const fileMtime = (file: string): number => {
  */
 const ensureMobileWeb = (): boolean => {
     const builtMtime = fs.existsSync(MOBILE_ENTRY) ? fs.statSync(MOBILE_ENTRY).mtimeMs : 0;
-    const sourceMtime = Math.max(newestMtime(path.join(projectDir, 'src', 'mobile')), fileMtime('vite.mobile.config.ts'));
+    const sourceMtime = Math.max(
+        newestMtime(path.join(projectDir, 'src', 'mobile')),
+        newestMtime(path.join(projectDir, 'assets')),
+        fileMtime('vite.mobile.config.ts'),
+    );
     if (builtMtime > 0 && builtMtime >= sourceMtime) {
         return false;
     }
