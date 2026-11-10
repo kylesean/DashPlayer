@@ -1,7 +1,6 @@
 import { injectable } from 'inversify';
 
 import type { SrtSentence } from '@/common/types/SentenceC';
-import type { VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 
 /**
  * 缓存命名空间与对应值类型。
@@ -9,7 +8,6 @@ import type { VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningC
 export type CacheType = {
     'cache:srt': SrtSentence;
     'cache:srt-vocabulary-texts': string[];
-    'cache:clip-status': VideoLearningClipStatusVO;
 };
 
 /**
@@ -52,11 +50,11 @@ export default interface CacheService {
 
 
 /**
- * 提供进程内的短期 JSON 缓存。
+ * 提供进程内的内存缓存（直接保存对象引用，避免高频全量 JSON 序列化开销）。
  */
 @injectable()
 export class CacheServiceImpl implements CacheService {
-    private cache = new Map<string, { value: string; expires?: number }>();
+    private cache = new Map<string, { value: unknown; expires?: number }>();
 
     /**
      * 读取缓存值，并在值已过期时立即删除。
@@ -77,7 +75,7 @@ export class CacheServiceImpl implements CacheService {
             return null;
         }
 
-        return JSON.parse(item.value) as CacheType[T];
+        return item.value as CacheType[T];
     }
 
     /**
@@ -91,7 +89,7 @@ export class CacheServiceImpl implements CacheService {
     public set<T extends keyof CacheType>(type: T, key: string, value: CacheType[T], ttl?: number): void {
         const expires = ttl ? Date.now() + ttl : undefined;
         this.cache.set(this.getMapKey(type, key), {
-            value: JSON.stringify(value),
+            value,
             expires,
         });
     }

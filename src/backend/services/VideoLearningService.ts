@@ -284,8 +284,12 @@ export class VideoLearningServiceImpl implements VideoLearningService {
             return 0;
         }
 
-        for (const srtKey of cancelled.srtKeys) {
+        for (const { srtKey, videoPath } of cancelled.affectedSrts.values()) {
             this.clipStatusCache.delete(srtKey);
+            const candidates = this.clipAnalysis.getCachedCandidates(srtKey);
+            if (candidates) {
+                await this.computeStatusFromCandidates(videoPath, srtKey, candidates);
+            }
         }
 
         return cancelled.count;
@@ -394,12 +398,17 @@ export class VideoLearningServiceImpl implements VideoLearningService {
             await this.ffmpegService.trimVideo(task.videoPath, trimStart, trimEnd, tempName, job);
 
             await this.videoLearningOssService.putClip(key, tempName, metaData);
-            const meta = await this.videoLearningOssService.get(key);
-            if (!meta) {
-                throw new Error('上传学习片段后未找到片段元数据');
+            try {
+                const meta = await this.videoLearningOssService.get(key);
+                if (!meta) {
+                    throw new Error('上传学习片段后未找到片段元数据');
+                }
+                await this.addToDb(meta);
+                this.logger.info('clip ready', { job, clipFile: meta.clip_file });
+            } catch (dbError) {
+                await this.videoLearningOssService.delete(key).catch(() => {});
+                throw dbError;
             }
-            await this.addToDb(meta);
-            this.logger.info('clip ready', { job, clipFile: meta.clip_file });
         } finally {
             await this.fileSystemGateway.removeFileIfExists(tempName);
         }
@@ -441,13 +450,18 @@ export class VideoLearningServiceImpl implements VideoLearningService {
     }
 
     /**
-     * 删除片段的本地索引（含单词关联）和远端文件。
+     * 删除片段的远端文件和本地索引（含单词关联）。
+     *
+     * 先删远端文件再删数据库记录，并与同步/裁切任务共用互斥锁，
+     * 避免 syncFromOss 将半删状态的残留文件重新回灌入库。
      *
      * @param key 片段键。
      */
     public async deleteLearningClip(key: string): Promise<void> {
-        await this.videoLearningClipRepository.deleteClipWithWords(key);
-        await this.videoLearningOssService.delete(key);
+        await concurrency.withMutex('video-learning-sync', async () => {
+            await this.videoLearningOssService.delete(key);
+            await this.videoLearningClipRepository.deleteClipWithWords(key);
+        });
     }
 
     /**

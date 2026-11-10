@@ -329,6 +329,7 @@ export class ChatSessionServiceImpl implements ChatSessionService {
             tools: this.buildSubtitleTools(sessionId),
             stopWhen: isStepCount(20),
             abortSignal,
+            timeout: { firstChunkMs: 30_000, chunkMs: 60_000 },
         });
         let chunkCount = 0;
         let content = '';
@@ -572,6 +573,7 @@ export class ChatSessionServiceImpl implements ChatSessionService {
             output: Output.object({ schema: AiUnifiedAnalysisSchema }),
             prompt,
             abortSignal,
+            timeout: { firstChunkMs: 30_000, chunkMs: 60_000 },
         });
         let chunkCount = 0;
         for await (const partial of result.partialOutputStream) {

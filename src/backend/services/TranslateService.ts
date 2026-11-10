@@ -461,6 +461,7 @@ export class TranslateServiceImpl implements TranslateService {
                 model,
                 output: Output.object({ schema: openAIDictionaryResultSchema }),
                 prompt,
+                timeout: { firstChunkMs: 30_000, chunkMs: 60_000 },
             });
 
             const aggregated: OpenAIDictionaryResult = {

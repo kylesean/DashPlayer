@@ -56,13 +56,16 @@ export default class WordsRepositoryImpl implements WordsRepository {
      * @param values 导入后的完整单词列表。
      */
     public async replaceAll(values: InsertWord[]): Promise<void> {
+        const chunkSize = 5000;
         this.db.transaction((tx) => {
             tx.delete(words).run();
             if (values.length === 0) {
                 return;
             }
 
-            tx.insert(words).values(values).run();
+            for (let index = 0; index < values.length; index += chunkSize) {
+                tx.insert(words).values(values.slice(index, index + chunkSize)).run();
+            }
         });
     }
 

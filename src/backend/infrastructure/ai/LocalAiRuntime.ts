@@ -106,6 +106,7 @@ export class LocalAiRuntime implements LocalAiService {
     private childExit: Promise<void> | null = null;
     private endpoint: string | null = null;
     private loadedPath: string | null = null;
+    private startInFlight: { modelPath: string; promise: Promise<string> } | null = null;
     private readonly apiKey = randomBytes(32).toString('hex');
     private activeDownload: { modelId: string; task: Promise<void>; abort: AbortController } | null = null;
     private readonly lifetime = new AbortController();
@@ -692,10 +693,56 @@ export class LocalAiRuntime implements LocalAiService {
             || code === 'UND_ERR_CONNECT_TIMEOUT';
     }
 
-    /** 按需加载模型，使用随机鉴权密钥并等待就绪；加载失败会结束子进程。 */
+    /** 按需加载模型，使用随机鉴权密钥并等待就绪；并发冷启动共享同一启动流程，加载失败会结束子进程。 */
     private async start(model: LocalAiModelDefinition, signal: AbortSignal): Promise<string> {
+        signal.throwIfAborted();
         const modelPath = await this.modelPath(model);
         if (this.endpoint && this.loadedPath === modelPath && this.child) return this.endpoint;
+
+        while (this.startInFlight) {
+            if (this.startInFlight.modelPath === modelPath) {
+                return await this.awaitWithCallerSignal(this.startInFlight.promise, signal);
+            }
+            await this.awaitWithCallerSignal(
+                this.startInFlight.promise.catch(() => ''),
+                signal,
+            );
+            if (this.endpoint && this.loadedPath === modelPath && this.child) return this.endpoint;
+        }
+
+        const promise = this.doStart(model, modelPath, this.lifetime.signal)
+            .finally(() => {
+                if (this.startInFlight?.promise === promise) {
+                    this.startInFlight = null;
+                }
+            });
+        this.startInFlight = { modelPath, promise };
+        return await this.awaitWithCallerSignal(promise, signal);
+    }
+
+    /** 允许单个等待者在自身 signal 取消时提前退出，而不中断其他并发请求共享的冷启动。 */
+    private async awaitWithCallerSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+        signal.throwIfAborted();
+        return await new Promise<T>((resolve, reject) => {
+            const onAbort = () => {
+                reject(signal.reason ?? new DOMException('The operation was aborted', 'AbortError'));
+            };
+            signal.addEventListener('abort', onAbort, { once: true });
+            promise.then(
+                (value) => {
+                    signal.removeEventListener('abort', onAbort);
+                    resolve(value);
+                },
+                (error) => {
+                    signal.removeEventListener('abort', onAbort);
+                    reject(error);
+                },
+            );
+        });
+    }
+
+    /** 实际执行模型完整性校验与 llama-server 进程拉起。 */
+    private async doStart(model: LocalAiModelDefinition, modelPath: string, signal: AbortSignal): Promise<string> {
         await this.stop();
         if (await this.fileSize(modelPath) !== model.bytes) {
             throw new Error(`本地模型「${model.name}」未安装，请前往设置-服务凭据下载`);
@@ -834,8 +881,17 @@ export class LocalAiRuntime implements LocalAiService {
                         : null,
                 };
             } catch (error) {
+                const callerAborted = Boolean(signal?.aborted) && !this.lifetime.signal.aborted;
+                const isSemanticError = error instanceof Error && (
+                    error.message.includes('token 上限被截断')
+                    || error.message.includes('finish_reason=')
+                );
                 this.logger.error('local generation failed', { error, model: model.id, durationMs: Date.now() - startedAt });
-                await this.stop();
+                // 单个调用方取消（如滚动窗口切换）或单槽位输出触顶时，不能杀掉共享的 llama-server 进程，
+                // 否则会导致其余 3 个并行推理槽位连坐 ECONNRESET。
+                if (!callerAborted && !isSemanticError) {
+                    await this.stop();
+                }
                 throw error;
             }
         }, combined);

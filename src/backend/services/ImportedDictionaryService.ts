@@ -181,15 +181,18 @@ const decodeStardictRecord = (data: Buffer, sametypesequence: string): string =>
     return parts.join('\n');
 };
 
+const MAX_DECOMPRESSED_DICT_BYTES = 512 * 1024 * 1024;
+
 /**
- * 解压 gzip 文件。
+ * 解压 gzip 文件（限制最大解压体积防止压缩炸弹耗尽内存，并异步读取压缩包）。
  *
  * @param filePath gzip 文件路径。
  * @returns 解压后的字节。
  */
-const gunzipFile = async (filePath: string): Promise<Buffer> =>
-    await new Promise<Buffer>((resolve, reject) => {
-        zlib.gunzip(fs.readFileSync(filePath), (error, result) => {
+const gunzipFile = async (filePath: string): Promise<Buffer> => {
+    const compressed = await fs.promises.readFile(filePath);
+    return await new Promise<Buffer>((resolve, reject) => {
+        zlib.gunzip(compressed, { maxOutputLength: MAX_DECOMPRESSED_DICT_BYTES }, (error, result) => {
             if (error) {
                 reject(error);
                 return;
@@ -197,6 +200,7 @@ const gunzipFile = async (filePath: string): Promise<Buffer> =>
             resolve(result);
         });
     });
+};
 
 /**
  * 解析 StarDict 词典（.ifo + .idx/.idx.gz + .dict/.dict.dz）。

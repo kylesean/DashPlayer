@@ -50,7 +50,28 @@ export default class SentenceTranslatesRepositoryImpl implements SentenceTransla
     }
 
     public async upsertMany(params: SentenceTranslatesUpsertParams[]): Promise<void> {
-        await Promise.all(params.map((item) => this.upsert(item)));
+        if (params.length === 0) {
+            return;
+        }
+        this.db.transaction((tx) => {
+            for (const item of params) {
+                tx.insert(sentenceTranslates)
+                    .values({
+                        sentence: item.sentence,
+                        translate: item.translate,
+                        mode: item.mode,
+                    })
+                    .onConflictDoUpdate({
+                        target: [sentenceTranslates.sentence, sentenceTranslates.mode],
+                        set: {
+                            translate: item.translate,
+                            mode: item.mode,
+                            updated_at: item.updated_at ?? TimeUtil.timeUtc(),
+                        },
+                    })
+                    .run();
+            }
+        });
     }
 
     public async deleteByMode(mode: string): Promise<number> {

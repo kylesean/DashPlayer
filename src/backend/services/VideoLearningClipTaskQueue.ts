@@ -48,6 +48,8 @@ export type CancelledLearningClipTasks = {
     count: number;
     /** 受影响的字幕缓存键。 */
     srtKeys: Set<string>;
+    /** 受影响字幕的缓存键与视频路径映射。 */
+    affectedSrts: Map<string, { srtKey: string; videoPath: string }>;
 };
 
 /**
@@ -145,13 +147,17 @@ export default class VideoLearningClipTaskQueue {
      */
     public cancelPendingTasks(): CancelledLearningClipTasks {
         const srtKeys = new Set<string>();
+        const affectedSrts = new Map<string, { srtKey: string; videoPath: string }>();
         for (const task of this.pendingTasks.values()) {
             srtKeys.add(task.srtKey);
+            if (!affectedSrts.has(task.srtKey)) {
+                affectedSrts.set(task.srtKey, { srtKey: task.srtKey, videoPath: task.videoPath });
+            }
         }
 
         const count = this.pendingTasks.size;
         this.pendingTasks.clear();
-        return { count, srtKeys };
+        return { count, srtKeys, affectedSrts };
     }
 
     /**

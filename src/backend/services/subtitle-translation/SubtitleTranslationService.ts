@@ -351,12 +351,24 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
         const onlineTargets = pending.filter(
             (target) => shouldTranslateSubtitleText(target.text)
         );
+        let fellBackToLocal = false;
         if (onlineTargets.length > 0) {
             const batchId = `direct-${Date.now()}`;
             const startedAt = Date.now();
-            const onlineResults = provider === 'tencent'
-                ? await this.translateDirectWithTencent(onlineTargets, batchId)
-                : await this.translateDirectWithGateway(onlineTargets, mode, style, localModelId, provider);
+            let onlineResults: Map<string, string>;
+            if (provider === 'tencent') {
+                onlineResults = await this.translateDirectWithTencent(onlineTargets, batchId);
+            } else {
+                const gatewayOutcome = await this.translateDirectWithGateway(
+                    onlineTargets,
+                    mode,
+                    style,
+                    localModelId,
+                    provider,
+                );
+                onlineResults = gatewayOutcome.translations;
+                fellBackToLocal = gatewayOutcome.fellBackToLocal;
+            }
             onlineResults.forEach((translation, key) => {
                 result.set(key, translation);
                 freshResults.set(key, translation);
@@ -365,13 +377,16 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                 batchId,
                 provider,
                 mode,
+                fellBackToLocal,
                 cacheHitCount: cached.size,
                 targetCount: onlineTargets.length,
                 elapsedMs: Date.now() - startedAt,
             });
         }
 
-        await this.saveTranslations(freshResults, storageMode);
+        if (!fellBackToLocal) {
+            await this.saveTranslations(freshResults, storageMode);
+        }
         return result;
     }
 
@@ -602,14 +617,22 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                 };
             }
 
-            const onlineResults = request.context.provider === 'tencent'
-                ? await this.translateWithTencent(request, onlineTargets)
-                : await this.translateWithGateway(request, onlineTargets);
+            let onlineResults: Map<string, string>;
+            let fellBackToLocal = false;
+            if (request.context.provider === 'tencent') {
+                onlineResults = await this.translateWithTencent(request, onlineTargets);
+            } else {
+                const gatewayOutcome = await this.translateWithGateway(request, onlineTargets);
+                onlineResults = gatewayOutcome.translations;
+                fellBackToLocal = gatewayOutcome.fellBackToLocal;
+            }
             this.throwIfAborted(request.signal);
-            await this.saveTranslations(
-                this.toStorageKeyedTranslations(onlineResults, onlineTargets),
-                request.context.storageMode
-            );
+            if (!fellBackToLocal) {
+                await this.saveTranslations(
+                    this.toStorageKeyedTranslations(onlineResults, onlineTargets),
+                    request.context.storageMode
+                );
+            }
             this.pushTranslations(onlineResults, request.context);
 
             const translatedKeys = new Set(onlineResults.keys());
@@ -902,7 +925,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
     private async translateWithGateway(
         request: SubtitleTranslationBatchRequest<SubtitleTranslationExecutionContext>,
         targets: SubtitleBatchTarget[]
-    ): Promise<Map<string, string>> {
+    ): Promise<{ translations: Map<string, string>; fellBackToLocal: boolean }> {
         // 腾讯引擎有自己的批量链路，不经过网关；此处只为类型收窄兜底。
         if (request.context.provider === 'tencent') {
             throw new Error('腾讯翻译引擎不经过字幕翻译网关');
@@ -955,14 +978,14 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
      * @param provider 当前配置的引擎。
      * @param localModelId 本地增强模型标识；云端为 null。
      * @param targets 本次要校验的目标条目。
-     * @returns 校验后的翻译结果。
+     * @returns 校验后的翻译结果及是否发生了云端到本地的回退。
      */
     private async translateWithFallback(
         input: SubtitleBatchTranslationInput,
         provider: 'openai' | 'local',
         localModelId: string | null,
         targets: SubtitleTranslationTarget[]
-    ): Promise<Map<string, string>> {
+    ): Promise<{ translations: Map<string, string>; fellBackToLocal: boolean }> {
         const translateWithLocal = async () => {
             const fallbackModelId = await this.localAiService.getActiveModelId();
             return this.validateGatewayItems(
@@ -976,20 +999,29 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
             }
             const items = await this.localSubtitleTranslator.translate({ ...input, modelId: localModelId });
             this.resourceFallback.clear('subtitleTranslation');
-            return this.validateGatewayItems(targets, items);
+            return {
+                translations: this.validateGatewayItems(targets, items),
+                fellBackToLocal: false,
+            };
         }
         try {
             const items = await this.openAiSubtitleTranslator.translate(input);
             this.resourceFallback.clear('subtitleTranslation');
-            return this.validateGatewayItems(targets, items);
+            return {
+                translations: this.validateGatewayItems(targets, items),
+                fellBackToLocal: false,
+            };
         } catch (error) {
             const reason = error instanceof Error ? error.message : String(error);
             this.logger.warn('字幕翻译引擎失败，回退到本地模型', { provider, from: provider, reason });
             try {
-                const result = await translateWithLocal();
+                const translations = await translateWithLocal();
                 // 仅登记展示状态（设置页可见），不依据它短路后续批次。
                 this.resourceFallback.markFallback('subtitleTranslation', provider, 'local', reason);
-                return result;
+                return {
+                    translations,
+                    fellBackToLocal: true,
+                };
             } catch (fallbackError) {
                 this.logger.error('回退到本地模型同样失败', {
                     reason: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
@@ -1006,7 +1038,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
      * @param mode 当前字幕翻译模式。
      * @param style 已解析的风格约束。
      * @param localModelId 本地引擎使用中的模型 ID；云端引擎为 null。
-     * @returns 归一化原文到翻译结果的映射。
+     * @returns 归一化原文到翻译结果的映射及是否发生了本地回退。
      */
     private async translateDirectWithGateway(
         targets: DirectTranslationTarget[],
@@ -1014,7 +1046,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
         style: string | undefined,
         localModelId: string | null,
         provider: 'openai' | 'local'
-    ): Promise<Map<string, string>> {
+    ): Promise<{ translations: Map<string, string>; fellBackToLocal: boolean }> {
         if (!style) {
             throw new Error('OpenAI 字幕翻译风格配置缺失');
         }

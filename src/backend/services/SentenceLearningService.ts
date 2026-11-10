@@ -87,6 +87,7 @@ export class SentenceLearningServiceImpl implements SentenceLearningService {
                 model,
                 schema: CompleteSentenceSchema,
                 prompt: buildCompleteSentencePrompt(params),
+                abortSignal: AbortSignal.timeout(60_000),
             });
             this.logger.info('complete sentence done', {
                 durationMs: Date.now() - startedAt,
