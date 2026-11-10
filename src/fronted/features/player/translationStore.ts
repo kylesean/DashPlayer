@@ -96,6 +96,15 @@ let demandDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 /** 防抖期间暂存的目标需求；定时器触发时仅发送最后一份，中间态不产生 demandId。 */
 let pendingDemand: { fileHash: string; currentIndex: number } | null = null;
 
+/** 清理挂起的防抖定时器与待发送需求。 */
+const cancelPendingDemand = (): void => {
+    if (demandDebounceTimer) {
+        clearTimeout(demandDebounceTimer);
+        demandDebounceTimer = null;
+    }
+    pendingDemand = null;
+};
+
 /**
  * 通知后端释放指定字幕文件的翻译会话。
  *
@@ -218,6 +227,7 @@ const useTranslation = create(
         },
 
         clearTranslations: () => {
+            cancelPendingDemand();
             const activeFileHash = get().activeFileHash;
             releaseSession(activeFileHash);
             set({
@@ -231,6 +241,7 @@ const useTranslation = create(
             if (state.engine === engine) {
                 return;
             }
+            cancelPendingDemand();
             releaseSession(state.activeFileHash);
             set({
                 ...state,
@@ -245,6 +256,7 @@ const useTranslation = create(
                 return;
             }
             if ((state.engine === 'openai' || state.engine === 'local')) {
+                cancelPendingDemand();
                 releaseSession(state.activeFileHash);
             }
             set({
@@ -261,6 +273,7 @@ const useTranslation = create(
             if (state.activeFileHash === fileHash) {
                 return;
             }
+            cancelPendingDemand();
             releaseSession(state.activeFileHash);
             set({
                 ...state,

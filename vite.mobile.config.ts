@@ -47,7 +47,14 @@ const mobileIconPlugin = (): Plugin => ({
 export default defineConfig({
     root: path.resolve(__dirname, 'src/mobile'),
     base: '/',
-    plugins: [react(), mobileIconPlugin()],
+    plugins: [
+        react({
+            babel: {
+                plugins: [['babel-plugin-react-compiler']],
+            },
+        }),
+        mobileIconPlugin(),
+    ],
     resolve: {
         alias: {
             '@': path.resolve(__dirname, 'src'),

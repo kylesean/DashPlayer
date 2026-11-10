@@ -15,9 +15,13 @@ import { useVocabularyStore } from '@/fronted/features/player/vocabularyStore';
 
 const logger = getRendererLogger('usePlayerBridge');
 
-async function waitForPlayerDuration(timeoutMs = 1500): Promise<number> {
+async function waitForPlayerDuration(
+    isSessionActive: () => boolean,
+    timeoutMs = 1500,
+): Promise<number> {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
+        if (!isSessionActive()) return 0;
         const d = usePlayer.getState().duration;
         if (d > 0) return d;
         await new Promise((r) => setTimeout(r, 50));
@@ -38,9 +42,11 @@ export function usePlayerBridge(navigate: (path: string) => void) {
     const subtitleReloadToken = usePlaybackSession((s) => s.subtitleReloadToken);
 
     const lastLoadedFileRef = useRef<string | undefined>(undefined);
+    const inFlightFileRef = useRef<string | undefined>(undefined);
 
     useEffect(() => {
         lastLoadedFileRef.current = undefined;
+        inFlightFileRef.current = undefined;
     }, [videoPath]);
 
     useEffect(() => {
@@ -248,25 +254,45 @@ export function usePlayerBridge(navigate: (path: string) => void) {
             });
             return;
         }
-        if (lastLoadedFileRef.current === file) {
+        if (lastLoadedFileRef.current === file || inFlightFileRef.current === file) {
             return;
         }
+        inFlightFileRef.current = file;
+        const isSessionActive = () =>
+            usePlaybackSession.getState().videoPath === file
+            && usePlaybackSession.getState().videoId === currentVideoId;
         try {
             const result = await playerApi.getPlayerDetail(currentVideoId);
+            if (!isSessionActive()) {
+                return;
+            }
             const progress = result?.current_position ?? 0;
-            const duration = await waitForPlayerDuration();
+            const duration = await waitForPlayerDuration(isSessionActive);
+            if (!isSessionActive()) {
+                return;
+            }
             const resumeTime = computeResumeTime({ progress, duration });
             logger.debug('jumping to history progress', { progress, duration, resumeTime });
 
             if (resumeTime === 0 && progress > 0) {
                 await playerApi.updateProgress({ file, currentPosition: 0 });
+                if (!isSessionActive()) {
+                    return;
+                }
             }
 
+            // seekTo 内部已带起播（play: true），无需再重复调用 playerActions.play()
             playerActions.seekTo({ time: resumeTime });
-            playerActions.play();
             lastLoadedFileRef.current = file;
         } catch (error) {
             logger.error('failed to jump to history progress', { error: error instanceof Error ? error.message : String(error) });
+        } finally {
+            if (inFlightFileRef.current === file) {
+                inFlightFileRef.current = undefined;
+            }
+        }
+        if (!isSessionActive()) {
+            return;
         }
         usePlaybackSession.getState().loadedVideo(file);
         logger.info('player ready callback completed', {

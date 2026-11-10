@@ -208,16 +208,16 @@ export const App = () => {
                     <HashRouter>
                         <LinkProvider component={RouterLinkAdapter}>
                             <Routes>
-                            <Route path="/" element={<HomePage />} />
-                            <Route path="home" element={<HomePage />} />
+                            <Route path="/" element={<Eb key="home-root"><HomePage /></Eb>} />
+                            <Route path="home" element={<Eb key="home"><HomePage /></Eb>} />
                             <Route element={<TitleBarLayout />}>
                                 <Route
                                     path="player/:videoId"
-                                    element={<PlayerPage />}
+                                    element={<Eb key="player-video"><PlayerPage /></Eb>}
                                 />
                                 <Route
                                     path="player"
-                                    element={<PlayerPage />}
+                                    element={<Eb key="player"><PlayerPage /></Eb>}
                                 />
                                 <Route path="*" element={<AppShellLayout />}>
                                     <Route
@@ -231,19 +231,19 @@ export const App = () => {
                                     >
                                         <Route
                                             path="*"
-                                            element={<Eb><ShortcutSetting /></Eb>}
+                                            element={<Eb key="shortcut-default"><ShortcutSetting /></Eb>}
                                         />
                                         <Route
                                             path="shortcut"
-                                            element={<Eb><ShortcutSetting /></Eb>}
+                                            element={<Eb key="shortcut"><ShortcutSetting /></Eb>}
                                         />
                                         <Route
                                             path="resources"
-                                            element={<Eb><ServiceResourceSetting /></Eb>}
+                                            element={<Eb key="resources"><ServiceResourceSetting /></Eb>}
                                         />
                                         <Route
                                             path="storage"
-                                            element={<Eb><StorageSetting /></Eb>}
+                                            element={<Eb key="storage"><StorageSetting /></Eb>}
                                         />
                                         <Route
                                             path="update"
@@ -251,19 +251,19 @@ export const App = () => {
                                         />
                                         <Route
                                             path="about"
-                                            element={<Eb><AboutSetting /></Eb>}
+                                            element={<Eb key="about"><AboutSetting /></Eb>}
                                         />
                                         <Route
                                             path="appearance"
-                                            element={<Eb><AppearanceSetting /></Eb>}
+                                            element={<Eb key="appearance"><AppearanceSetting /></Eb>}
                                         />
                                         <Route
                                             path="proxy"
-                                            element={<Eb><ProxySetting /></Eb>}
+                                            element={<Eb key="proxy"><ProxySetting /></Eb>}
                                         />
                                         <Route
                                             path="mobile"
-                                            element={<Eb><MobileAccessSetting /></Eb>}
+                                            element={<Eb key="mobile"><MobileAccessSetting /></Eb>}
                                         />
                                         <Route
                                             path="import"
@@ -302,5 +302,5 @@ export function mountApp(): void {
         throw new Error('Root element not found');
     }
     const root = createRoot(rootElement);
-    root.render(<App />);
+    root.render(<Eb key="app-root"><App /></Eb>);
 }

@@ -835,21 +835,31 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         }
     }, [requestTranslationWindow]);
 
-    /** 开关循环当前句。 */
+    /** 开关循环当前句（与每句自动暂停互斥）。 */
     const toggleRepeat = React.useCallback((): void => {
         const next = !repeatOnRef.current;
         repeatOnRef.current = next;
         setRepeatOn(next);
+        if (next && autoPauseOnRef.current) {
+            autoPauseOnRef.current = false;
+            setAutoPauseOn(false);
+        }
         const line = currentIndexRef.current >= 0 ? detail.subtitles[currentIndexRef.current] : null;
         repeatStartRef.current = next && line ? line.start : null;
         repeatEndRef.current = next && line ? line.end : null;
     }, [detail.subtitles]);
 
-    /** 开关每句自动暂停。 */
+    /** 开关每句自动暂停（与循环当前句互斥）。 */
     const toggleAutoPause = React.useCallback((): void => {
         const next = !autoPauseOnRef.current;
         autoPauseOnRef.current = next;
         setAutoPauseOn(next);
+        if (next && repeatOnRef.current) {
+            repeatOnRef.current = false;
+            setRepeatOn(false);
+            repeatStartRef.current = null;
+            repeatEndRef.current = null;
+        }
         autoPauseArmedRef.current = true;
     }, []);
 

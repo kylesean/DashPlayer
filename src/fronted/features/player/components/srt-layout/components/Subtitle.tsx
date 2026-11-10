@@ -331,118 +331,114 @@ export default function Subtitle() {
         virtualGroupMeta,
     ]);
 
-    const render = () => {
-        return (
-            <div className="w-full h-full flex flex-col relative select-none" ref={setBoundaryRef}>
-                {/* 伴读剧本流状态栏 */}
-                <div className="shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-xs">
-                    <div className="flex items-center gap-2 min-w-0 shrink-0">
-                        <BookOpen className="w-3.5 h-3.5 text-accent shrink-0" />
-                        <span className="font-medium text-foreground tracking-tight">{t('subtitleScript')}</span>
-                        {subtitle.length > 0 && (
+    return (
+        <div className="w-full h-full flex flex-col relative select-none" ref={setBoundaryRef}>
+            {/* 伴读剧本流状态栏 */}
+            <div className="shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-xs">
+                <div className="flex items-center gap-2 min-w-0 shrink-0">
+                    <BookOpen className="w-3.5 h-3.5 text-accent shrink-0" />
+                    <span className="font-medium text-foreground tracking-tight">{t('subtitleScript')}</span>
+                    {subtitle.length > 0 && (
+                        <Badge
+                            variant="neutral"
+                            label={`${subtitle.length} 句`}
+                        />
+                    )}
+                    {virtualGroup.active && virtualGroup.sentences.length > 1 && (
+                        <div className="flex items-center gap-1">
                             <Badge
-                                variant="neutral"
-                                label={`${subtitle.length} 句`}
+                                variant="teal"
+                                icon={<Repeat className="w-2.5 h-2.5" />}
+                                label={`${virtualGroup.sentences.length} 句循环`}
                             />
-                        )}
-                        {virtualGroup.active && virtualGroup.sentences.length > 1 && (
-                            <div className="flex items-center gap-1">
-                                <Badge
-                                    variant="teal"
-                                    icon={<Repeat className="w-2.5 h-2.5" />}
-                                    label={`${virtualGroup.sentences.length} 句循环`}
-                                />
-                                <Tooltip content={t('cancelLoop')} placement="below">
-                                    <button
-                                        type="button"
-                                        onClick={() => playerActions.clearVirtualGroup()}
-                                        className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
-                                        aria-label={t('cancelLoop')}
-                                    >
-                                        <X className="w-3 h-3" />
-                                    </button>
-                                </Tooltip>
-                            </div>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                        {/* 侧栏译文开关：放进标题栏，不再浮在第一条字幕上遮挡阅读 */}
-                        <Tooltip content={t('controlBox.sideTranslationHint')} placement="below">
-                            <button
-                                type="button"
-                                data-testid={SIDE_TRANSLATION_TOGGLE_TESTID}
-                                aria-pressed={showSideTranslation}
-                                aria-label={t('controlBox.showSideTranslation')}
-                                onClick={() => changeShowSideTranslation()}
-                                className={cn(
-                                    'p-1 rounded-md transition-colors cursor-pointer',
-                                    showSideTranslation
-                                        ? 'text-accent hover:bg-accent-muted/20'
-                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
-                                    sidebarHiddenByEnglish && 'opacity-40'
-                                )}
-                            >
-                                <Languages className="w-3.5 h-3.5" />
-                            </button>
-                        </Tooltip>
-                        {/* 停靠方向与侧栏译文都收进学习台设置里，这里只留在浏览时才有意义的“回到当前句” */}
-                        {scrollState === 'USER_BROWSING' && currentListPosition >= 0 && (
-                            <Tooltip content={t('controlButton.backToPlayhead')} placement="below">
+                            <Tooltip content={t('cancelLoop')} placement="below">
                                 <button
                                     type="button"
-                                    onClick={() => syncIntoView(currentListPosition)}
-                                    className="p-1 rounded-md text-accent hover:bg-accent-muted/20 transition-colors cursor-pointer"
-                                    aria-label={t('controlButton.backToPlayhead')}
+                                    onClick={() => playerActions.clearVirtualGroup()}
+                                    className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                                    aria-label={t('cancelLoop')}
                                 >
-                                    <LocateFixed className="w-3.5 h-3.5 animate-pulse" />
+                                    <X className="w-3 h-3" />
                                 </button>
                             </Tooltip>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex-1 min-h-0 relative">
-                    <Virtuoso
-                        onScroll={onScrolling}
-                        scrollerRef={handleScrollerRef}
-                        increaseViewportBy={200}
-                        minOverscanItemCount={{ top: 3, bottom: 6 }}
-                        defaultItemHeight={60}
-                        ref={setVirtuoso}
-                        className={twJoin(
-                            'h-full w-full overflow-y-auto text-primary py-2',
-                            'scrollbar-thin scrollbar-thumb-rounded-full',
-                            'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
-                            showSideBar && 'scrollbar-none'
-                        )}
-                        data={subtitle}
-                        rangeChanged={handleRangeChanged}
-                        itemContent={renderItem}
-                        components={{
-                            Footer: () => <div className="h-28" />,
-                            Header: () => <div className={cn('h-1')} />,
-                        }}
-                    />
-
-                    {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
-                    {sidebarHiddenByEnglish && (
-                        <div className="absolute inset-x-0 top-4 z-10 flex justify-center pointer-events-none">
-                            <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/85 px-3 py-1 text-metadata leading-tight text-muted-foreground backdrop-blur shadow-xs">
-                                <span>{t('controlBox.sidebarHiddenByEnglish')}</span>
-                                <span aria-hidden="true">·</span>
-                                <span className="font-medium">
-                                    {t('controlBox.sidebarHiddenByEnglishAction', {
-                                        shortcut: toggleEnglishShortcut.toUpperCase(),
-                                    })}
-                                </span>
-                            </div>
                         </div>
                     )}
-
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                    {/* 侧栏译文开关：放进标题栏，不再浮在第一条字幕上遮挡阅读 */}
+                    <Tooltip content={t('controlBox.sideTranslationHint')} placement="below">
+                        <button
+                            type="button"
+                            data-testid={SIDE_TRANSLATION_TOGGLE_TESTID}
+                            aria-pressed={showSideTranslation}
+                            aria-label={t('controlBox.showSideTranslation')}
+                            onClick={() => changeShowSideTranslation()}
+                            className={cn(
+                                'p-1 rounded-md transition-colors cursor-pointer',
+                                showSideTranslation
+                                    ? 'text-accent hover:bg-accent-muted/20'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                                sidebarHiddenByEnglish && 'opacity-40'
+                            )}
+                        >
+                            <Languages className="w-3.5 h-3.5" />
+                        </button>
+                    </Tooltip>
+                    {/* 停靠方向与侧栏译文都收进学习台设置里，这里只留在浏览时才有意义的“回到当前句” */}
+                    {scrollState === 'USER_BROWSING' && currentListPosition >= 0 && (
+                        <Tooltip content={t('controlButton.backToPlayhead')} placement="below">
+                            <button
+                                type="button"
+                                onClick={() => syncIntoView(currentListPosition)}
+                                className="p-1 rounded-md text-accent hover:bg-accent-muted/20 transition-colors cursor-pointer"
+                                aria-label={t('controlButton.backToPlayhead')}
+                            >
+                                <LocateFixed className="w-3.5 h-3.5 animate-pulse" />
+                            </button>
+                        </Tooltip>
+                    )}
                 </div>
             </div>
-        );
-    };
 
-    return render();
+            <div className="flex-1 min-h-0 relative">
+                <Virtuoso
+                    onScroll={onScrolling}
+                    scrollerRef={handleScrollerRef}
+                    increaseViewportBy={200}
+                    minOverscanItemCount={{ top: 3, bottom: 6 }}
+                    defaultItemHeight={60}
+                    ref={setVirtuoso}
+                    className={twJoin(
+                        'h-full w-full overflow-y-auto text-primary py-2',
+                        'scrollbar-thin scrollbar-thumb-rounded-full',
+                        'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
+                        showSideBar && 'scrollbar-none'
+                    )}
+                    data={subtitle}
+                    rangeChanged={handleRangeChanged}
+                    itemContent={renderItem}
+                    components={{
+                        Footer: () => <div className="h-28" />,
+                        Header: () => <div className={cn('h-1')} />,
+                    }}
+                />
+
+                {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
+                {sidebarHiddenByEnglish && (
+                    <div className="absolute inset-x-0 top-4 z-10 flex justify-center pointer-events-none">
+                        <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/85 px-3 py-1 text-metadata leading-tight text-muted-foreground backdrop-blur shadow-xs">
+                            <span>{t('controlBox.sidebarHiddenByEnglish')}</span>
+                            <span aria-hidden="true">·</span>
+                            <span className="font-medium">
+                                {t('controlBox.sidebarHiddenByEnglishAction', {
+                                    shortcut: toggleEnglishShortcut.toUpperCase(),
+                                })}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+            </div>
+        </div>
+    );
 }

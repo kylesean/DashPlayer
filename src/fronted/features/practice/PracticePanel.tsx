@@ -115,12 +115,20 @@ const PracticePanel = () => {
     const [recordingSeconds, setRecordingSeconds] = useState(0);
     // 单路回放会话:同一时刻只放一段录音(原句播放走视频轨,不在此管)
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const recordingTargetRef = useRef<{
+        key: string;
+        fileHash: string;
+        index: number;
+        text: string;
+        resegmented: boolean;
+    } | null>(null);
 
     // 本地 ASR 是否就绪(资源状态聚合里 transcription.ready)
     const { data: resourceStatus } = useSWR('settings/resource-status/detail', () => settingsApi.getResourceStatus());
     const asrReady = resourceStatus?.transcription?.ready ?? false;
 
     const sentenceKey = currentSentence?.key ?? null;
+    const latestSentenceKeyRef = useRef<string | null>(sentenceKey);
     // 当前字幕是否意群重切分行:练习记录按 (fileHash, index, resegmented) 隔离,开关切换后序号重排不串档
     const srtResegmented = usePlaybackSession((s) => s.srtResegmented);
     // 换句即清空上一句的评分与输入:渲染期条件重置(React 官方推荐模式),面板总是从干净状态开始
@@ -131,6 +139,12 @@ const PracticePanel = () => {
         setTyped('');
         setDictationRevealed(false);
     }
+    // 换句时更新最新句子键并停止正在播放的上一句录音回放
+    useEffect(() => {
+        latestSentenceKeyRef.current = sentenceKey;
+        audioRef.current?.pause();
+        audioRef.current = null;
+    }, [sentenceKey]);
     const historyKey = currentSentence && visible
         ? ['practice/list-by-sentence', currentSentence.fileHash, currentSentence.index, srtResegmented]
         : null;
@@ -161,14 +175,27 @@ const PracticePanel = () => {
     };
 
     const submitShadowing = async (audio: Uint8Array): Promise<void> => {
-        if (!currentSentence) return;
+        const target = recordingTargetRef.current ?? (currentSentence
+            ? {
+                key: currentSentence.key,
+                fileHash: currentSentence.fileHash,
+                index: currentSentence.index,
+                text: currentSentence.text,
+                resegmented: srtResegmented,
+            }
+            : null);
+        recordingTargetRef.current = null;
+        if (!target) return;
         const vo = await practiceApi.scoreShadowing({
-            fileHash: currentSentence.fileHash,
-            sentenceIndex: currentSentence.index,
-            resegmented: srtResegmented,
+            fileHash: target.fileHash,
+            sentenceIndex: target.index,
+            resegmented: target.resegmented,
             audio,
-            expectedText: currentSentence.text,
+            expectedText: target.text,
         });
+        if (latestSentenceKeyRef.current !== target.key) {
+            return;
+        }
         setResult(vo);
         void mutateHistory();
     };
@@ -179,6 +206,7 @@ const PracticePanel = () => {
             toast.error(t('dictation.emptyInput'));
             return;
         }
+        const targetKey = currentSentence.key;
         try {
             const vo = await practiceApi.scoreDictation({
                 fileHash: currentSentence.fileHash,
@@ -187,6 +215,9 @@ const PracticePanel = () => {
                 typedText: typed.trim(),
                 expectedText: currentSentence.text,
             });
+            if (latestSentenceKeyRef.current !== targetKey) {
+                return;
+            }
             setResult(vo);
             setDictationRevealed(true);
             void mutateHistory();
@@ -205,15 +236,24 @@ const PracticePanel = () => {
             active: visible && mode === 'shadowing' && currentSentence !== null,
         });
 
-    // 录音中的秒数计时:秒数清零在点击处理器里做,effect 只负责计时器生命周期
+    // 录音中的秒数计时与目标句快照:秒数清零在点击处理器里做,effect 只负责计时器生命周期与冻结录音时的目标句
     useEffect(() => {
         if (visible && recorderPhase === 'recording') {
+            if (currentSentence) {
+                recordingTargetRef.current = {
+                    key: currentSentence.key,
+                    fileHash: currentSentence.fileHash,
+                    index: currentSentence.index,
+                    text: currentSentence.text,
+                    resegmented: srtResegmented,
+                };
+            }
             const timer = window.setInterval(() => setRecordingSeconds((s) => s + 1), 1000);
             return () => window.clearInterval(timer);
         }
         return undefined;
          
-    }, [visible, recorderPhase]);
+    }, [visible, recorderPhase, currentSentence, srtResegmented]);
 
     // 面板隐藏或组件卸载时停掉录音回放：audio 元素挂在 ref 上，不受 React 卸载影响，
     // 不停就会在用户已经回到播放画面后继续出声。

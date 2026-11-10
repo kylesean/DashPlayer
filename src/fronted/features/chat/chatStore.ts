@@ -243,6 +243,8 @@ let learningEntryInFlight = false;
 // 进入流程（整句补全+建会话）尚未结束时用户关闭了学习页：
 // 记下意图，流程收尾时保持关闭，不把页面弹回来。
 let learningCloseRequested = false;
+// 会话创建代次：clear() 或切视频时递增，让在途异步补全/建会话感知失效并放弃落状态。
+let learningRequestEpoch = 0;
 
 /**
  * 新建一次整句学习会话。
@@ -267,11 +269,15 @@ const startSessionForTopic = async (
     anchor: Sentence,
     topicKey: string,
     translation: string,
-    cloudAvailable: boolean
+    cloudAvailable: boolean,
+    expectedEpoch = learningRequestEpoch,
 ): Promise<void> => {
     const videoId = usePlaybackSession.getState().videoId;
     if (!videoId) {
         throw new Error('当前视频 ID 不存在，无法创建整句学习会话');
+    }
+    if (expectedEpoch !== learningRequestEpoch) {
+        return;
     }
     if (sessionCreationInFlight) {
         chatLogger.warn('忽略重复的整句学习会话创建请求');
@@ -299,14 +305,16 @@ const startSessionForTopic = async (
     // 这里会清掉上一句的解析与对话：换句子就是换一份学习内容，上一句的解析不再适用；
     // 同一句重进不走这条路径（见 reopenLearning），解析与后台生成都不会被打断。
     // 竞争视图在落状态之前收掉：学习页可见与「播客/练习仍然盖在上面」不能同时成立。
-    beginOverlayView('learning');
+    if (!learningCloseRequested) {
+        beginOverlayView('learning');
+    }
     useChatPanel.setState({
         ...empty(),
         topicText: text,
         topicTranslation: translation,
         topicKey,
         hasLearningContext: true,
-        learningVisible: true,
+        learningVisible: !learningCloseRequested,
         cloudAvailable,
         anchorIndex: anchor.index,
     });
@@ -324,6 +332,13 @@ const startSessionForTopic = async (
         sessionCreationInFlight = false;
         throw error;
     }
+    sessionCreationInFlight = false;
+    if (expectedEpoch !== learningRequestEpoch || usePlaybackSession.getState().videoId !== videoId) {
+        chatApi.closeSession(sessionId).catch((error) => {
+            chatLogger.error('failed to close stale chat session', { error });
+        });
+        return;
+    }
     chatLogger.info('sentence learning session created', {
         sessionId,
         topicLength: text.length,
@@ -332,9 +347,10 @@ const startSessionForTopic = async (
     });
 
     useChatPanel.setState({ chatSessionId: sessionId });
-    // 进入学习页即暂停：学习界面不播放，也不承载播放控制
-    usePlayer.getState().pause();
-    sessionCreationInFlight = false;
+    // 进入学习页即暂停：若用户在等待期间已主动关闭学习页，不再强行暂停视频
+    if (!learningCloseRequested) {
+        usePlayer.getState().pause();
+    }
 };
 
 const useChatPanel = create(
@@ -380,6 +396,7 @@ const useChatPanel = create(
                 return;
             }
             learningEntryInFlight = true;
+            const requestEpoch = ++learningRequestEpoch;
             // 当前行先上主舞台：整句补全与会话创建都要等后端返回，等它们回来再显示页面会长时间空白
             enterLearningOptimistically(currentSentence);
             try {
@@ -387,6 +404,9 @@ const useChatPanel = create(
                 let topicText = currentSentence.text;
                 let translation = '';
                 const cloudAvailable = await isCloudLearningAvailable();
+                if (requestEpoch !== learningRequestEpoch) {
+                    return;
+                }
                 // 立刻落状态：整句补全可能跑几秒，等它结束再落会让入口在这期间显示成「云端不可用」
                 useChatPanel.setState({ cloudAvailable });
                 if (cloudAvailable) {
@@ -406,6 +426,9 @@ const useChatPanel = create(
                             precedingLines,
                             followingLines,
                         });
+                        if (requestEpoch !== learningRequestEpoch) {
+                            return;
+                        }
                         // 译文与补全同批返回，先落状态：句子没被改写时也要有中文
                         translation = result.translation.trim();
                         if (translation) {
@@ -417,10 +440,16 @@ const useChatPanel = create(
                             useChatPanel.setState({ topicText });
                         }
                     } catch (error) {
+                        if (requestEpoch !== learningRequestEpoch) {
+                            return;
+                        }
                         const message = error instanceof Error ? error.message : String(error);
                         chatLogger.error('整句补全失败，使用当前字幕行创建会话', { error: message });
                         useChatPanel.setState({ sentenceResolveError: message });
                     }
+                }
+                if (requestEpoch !== learningRequestEpoch) {
+                    return;
                 }
                 // 判重依据是这行原文而非补全后的主题：下次再进同一句要能认出会话
                 await startSessionForTopic(
@@ -428,17 +457,20 @@ const useChatPanel = create(
                     currentSentence,
                     currentSentence.text,
                     translation,
-                    cloudAvailable
+                    cloudAvailable,
+                    requestEpoch,
                 );
             } finally {
-                learningEntryInFlight = false;
-                if (!useChatPanel.getState().chatSessionId) {
-                    // 会话没建起来：页面上的对话与解析都无从发起，退回播放画面，错误由调用方提示
-                    set(empty());
-                } else if (learningCloseRequested) {
-                    // 用户在进入流程进行中关闭了学习页：收尾保持关闭，不把页面弹回来
-                    learningCloseRequested = false;
-                    set({ learningVisible: false });
+                if (requestEpoch === learningRequestEpoch) {
+                    learningEntryInFlight = false;
+                    if (!useChatPanel.getState().chatSessionId) {
+                        // 会话没建起来：页面上的对话与解析都无从发起，退回播放画面，错误由调用方提示
+                        set(empty());
+                    } else if (learningCloseRequested) {
+                        // 用户在进入流程进行中关闭了学习页：收尾保持关闭，不把页面弹回来
+                        learningCloseRequested = false;
+                        set({ learningVisible: false });
+                    }
                 }
             }
         },
@@ -458,6 +490,10 @@ const useChatPanel = create(
             set({ learningVisible: false });
         },
         clear: () => {
+            learningRequestEpoch += 1;
+            learningEntryInFlight = false;
+            learningCloseRequested = false;
+            sessionCreationInFlight = false;
             const sessionId = get().chatSessionId;
             if (sessionId) {
                 chatApi.closeSession(sessionId).catch((error) => {

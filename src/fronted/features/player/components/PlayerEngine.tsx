@@ -252,6 +252,7 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
     recoveryCountRef.current = 0;
     stallAttemptRef.current = 0;
     lastStallHealAtRef.current = 0;
+    lastSeekTsRef.current = 0;
   }, [src]);
 
   // 看门狗：独立采样媒体状态，检测播放卡死并自愈
