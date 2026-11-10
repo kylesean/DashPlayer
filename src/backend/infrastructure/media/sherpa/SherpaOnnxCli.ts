@@ -42,7 +42,8 @@ export interface SherpaOnnxRunRequest {
 export class SherpaOnnxCli {
     private readonly logger = getMainLogger('SherpaOnnx');
 
-    private activeProcess: ChildProcess | null = null;
+    /** job 键 → 正在运行的 sherpa-onnx 子进程。 */
+    private readonly activeProcesses = new Map<string, ChildProcess>();
 
     /**
      * 解析当前平台随应用分发的 sherpa-onnx 可执行文件。
@@ -69,6 +70,7 @@ export class SherpaOnnxCli {
             throw new CancelByUserError('Transcription cancelled by user');
         }
         const executablePath = this.resolveExecutablePath();
+        const processKey = request.job ?? '';
 
         try {
             return await new Promise<SherpaOnnxOutput>((resolve, reject) => {
@@ -76,7 +78,7 @@ export class SherpaOnnxCli {
                     cwd: path.dirname(executablePath),
                     stdio: ['ignore', 'pipe', 'pipe'],
                 });
-                this.activeProcess = child;
+                this.activeProcesses.set(processKey, child);
                 this.logger.info('spawned sherpa-onnx', {
                     job: request.job,
                     pid: child.pid,
@@ -92,6 +94,7 @@ export class SherpaOnnxCli {
                 }, 4000);
 
                 child.on('error', (error) => {
+                    clearInterval(heartbeat);
                     this.logger.error('sherpa-onnx spawn failed', { job: request.job, pid: child.pid, error });
                     reject(error);
                 });
@@ -130,13 +133,22 @@ export class SherpaOnnxCli {
                 });
             });
         } finally {
-            this.activeProcess = null;
+            this.activeProcesses.delete(processKey);
         }
     }
 
-    /** 终止当前识别进程。 */
-    public killActive(): void {
-        this.activeProcess?.kill('SIGKILL');
+    /**
+     * 终止指定 job 的识别进程；未指定 job 时终止全部活动进程。
+     * @param job 目标任务的 job 标识。
+     */
+    public killActive(job?: string): void {
+        if (job !== undefined) {
+            this.activeProcesses.get(job)?.kill('SIGKILL');
+            return;
+        }
+        for (const child of this.activeProcesses.values()) {
+            child.kill('SIGKILL');
+        }
     }
 
     /**

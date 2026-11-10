@@ -117,7 +117,12 @@ export default class EnglishDictionaryService {
         this.lastError = null;
         this.activeTaskId = taskId;
         this.dpTaskService.registerTask(taskId, {
-            cancel: () => this.abortActiveRequest(new Error('cancelled')),
+            cancel: () => {
+                if (this.activeTaskId === taskId) {
+                    this.cancelledTasks.add(taskId);
+                    this.abortActiveRequest(new Error('cancelled'));
+                }
+            },
         });
         void this.run(taskId);
         return taskId;

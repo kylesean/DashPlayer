@@ -275,8 +275,13 @@ export function createConcurrencyKernel(
         if (options?.skipOrderCheck) {
             return;
         }
+        const targetLockId = `${kind}:${key}`;
         const targetRank = resolveLockRank(key, kind, configuredOrder);
-        const hasViolation = context.heldLocks.some((held) => compareLockRank(held.rank, targetRank) > 0);
+        const isDuplicateNonReentrant = context.heldLocks.some(
+            (held) => held.lockId === targetLockId && (kind === 'mutex' || getSemaphoreProfile(key).capacity <= 1),
+        );
+        const hasViolation = isDuplicateNonReentrant
+            || context.heldLocks.some((held) => compareLockRank(held.rank, targetRank) > 0);
         if (hasViolation) {
             const heldKeys = context.heldLocks.map((lock) => lock.key).join(', ');
             throw new LockOrderViolationError(

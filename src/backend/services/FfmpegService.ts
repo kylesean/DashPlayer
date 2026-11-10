@@ -77,6 +77,8 @@ export default interface FfmpegService {
         ranges: Array<{ start: number; end: number }>;
         outputFolder: string;
         job?: string;
+        isCancelled?: () => boolean;
+        registerCancel?: (cancel: () => void) => void;
     }): Promise<string[]>;
 
 }
@@ -283,23 +285,35 @@ export class FfmpegServiceImpl implements FfmpegService {
         ranges: Array<{ start: number; end: number }>;
         outputFolder: string;
         job?: string;
+        isCancelled?: () => boolean;
+        registerCancel?: (cancel: () => void) => void;
     }): Promise<string[]> {
         await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(args.inputFile);
         await this.fileSystemGateway.ensureDirectory(args.outputFolder);
         const outputs: string[] = [];
         for (let index = 0; index < args.ranges.length; index++) {
+            if (args.isCancelled?.()) {
+                throw new CancelByUserError();
+            }
             const range = args.ranges[index];
             const outputPath = path.join(args.outputFolder, `parakeet_${String(index + 1).padStart(3, '0')}.wav`);
-            await this.ffmpegGateway.convertToWav({
-                inputFile: args.inputFile,
-                outputFile: outputPath,
-                sampleRate: 16000,
-                channels: 1,
-                startSecond: range.start,
-                endSecond: range.end,
-            }, {
-                job: args.job,
-            });
+            await this.runCancelableTask(
+                args.job ?? `wav-chunk:${index}`,
+                args.registerCancel,
+                async (onCancelable) => {
+                    await this.ffmpegGateway.convertToWav({
+                        inputFile: args.inputFile,
+                        outputFile: outputPath,
+                        sampleRate: 16000,
+                        channels: 1,
+                        startSecond: range.start,
+                        endSecond: range.end,
+                    }, {
+                        job: args.job,
+                        onCancelable,
+                    });
+                },
+            );
             outputs.push(outputPath);
         }
         return outputs;

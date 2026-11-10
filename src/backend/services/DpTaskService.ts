@@ -115,6 +115,9 @@ export class DpTaskServiceImpl implements DpTaskService {
                 if (task) {
                     this.rendererEvents.dpTaskUpdate(task);
                 }
+            })
+            .catch(error => {
+                this.logger.error('failed to notify task update', { taskId, error });
             });
     }
 
@@ -156,6 +159,11 @@ export class DpTaskServiceImpl implements DpTaskService {
         if (task.id === undefined || task.id === null) {
             return;
         }
+        const isFinal = this.isFinalState(task.status);
+        if (isFinal) {
+            this.taskMapping.delete(task.id);
+            this.cancelQueue.delete(task.id);
+        }
         const updatedTask = {
             ...task,
             updated_at: TimeUtil.timeUtc(),
@@ -167,7 +175,7 @@ export class DpTaskServiceImpl implements DpTaskService {
             });
         }
         this.mergePendingUpdate(task.id, updatedTask);
-        this.scheduleUpdateFlush(this.isFinalState(task.status));
+        this.scheduleUpdateFlush(isFinal);
         this.notify(task.id);
     }
 
@@ -242,6 +250,10 @@ export class DpTaskServiceImpl implements DpTaskService {
      * @param id 任务编号。
      */
     public cancel(id: number): void {
+        const cached = this.cache.get(id);
+        if (cached && this.isFinalState(cached.status)) {
+            return;
+        }
         this.logger.info('task cancel requested', { taskId: id });
         this.cancelQueue.add(id);
         const cancelable = this.taskMapping.get(id);
@@ -342,9 +354,11 @@ export class DpTaskServiceImpl implements DpTaskService {
                 try {
                     await this.dpTaskRepository.updateById(taskId, update);
                 } catch (error) {
-                    this.mergePendingUpdate(taskId, update);
+                    const newer = this.pendingUpdates.get(taskId);
+                    this.pendingUpdates.set(taskId, { ...update, ...newer });
                     for (const [remainingTaskId, remainingUpdate] of updates.slice(index + 1)) {
-                        this.mergePendingUpdate(remainingTaskId, remainingUpdate);
+                        const newerRemaining = this.pendingUpdates.get(remainingTaskId);
+                        this.pendingUpdates.set(remainingTaskId, { ...remainingUpdate, ...newerRemaining });
                     }
                     this.logger.error('任务状态写入失败，将在稍后重试', { taskId, error });
                     return;

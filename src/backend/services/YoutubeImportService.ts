@@ -117,6 +117,8 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
     private readonly binaryInstaller: ModelArchiveInstaller;
     /** 进行中的导入任务：videoId → taskId，用于同视频去重。 */
     private readonly activeImports = new Map<string, number>();
+    /** 正在等待 yt-dlp 二进制下载的任务集合。 */
+    private readonly binaryDownloadWaiters = new Set<number>();
 
     constructor(
         @inject(TYPES.DpTaskService) private readonly dpTaskService: DpTaskService,
@@ -197,8 +199,12 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
 
     /** @inheritdoc */
     public async saveSetting(vo: YoutubeImportSettingSaveVO): Promise<YoutubeImportSettingDetailVO> {
+        const trimmedCookiesPath = vo.cookiesFilePath.trim();
+        if (trimmedCookiesPath && path.extname(trimmedCookiesPath).toLowerCase() !== '.txt') {
+            throw new Error('Cookies 文件只接受 .txt 格式');
+        }
         this.settingsStore.set('youtubeImport.enabled', vo.enabled ? 'true' : 'false');
-        this.settingsStore.set('youtubeImport.cookiesFilePath', vo.cookiesFilePath.trim());
+        this.settingsStore.set('youtubeImport.cookiesFilePath', trimmedCookiesPath);
         return { enabled: this.isEnabled(), cookiesFilePath: this.getCookiesFilePath() };
     }
 
@@ -353,11 +359,17 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
         this.dpTaskService.process(taskId, { progress: '首次使用，正在下载 yt-dlp 组件…' });
         // 先检查取消：在登记取消回调之前就已请求取消的任务，不要再发起无谓的下载。
         this.dpTaskService.checkCancel(taskId);
-        // 二进制下载阶段接上取消：否则请求取消只是进了 cancelQueue，下载进程照跑、
-        // 轮询还把任务刷回进行中，用户视角是「取消按钮坏了」。
+        this.binaryDownloadWaiters.add(taskId);
+        // 二进制下载阶段接上取消：仅当所有等待该二进制的任务都已取消时才终止底层下载，
+        // 且二进制下载完成后立即失效，避免后续视频下载阶段取消误伤其他任务的组件安装。
         this.dpTaskService.registerTask(taskId, {
             cancel: () => {
-                void this.binaryInstaller.cancelDownload();
+                if (!this.binaryDownloadWaiters.delete(taskId)) {
+                    return;
+                }
+                if (this.binaryDownloadWaiters.size === 0) {
+                    void this.binaryInstaller.cancelDownload();
+                }
             },
         });
         // 安装器只向渲染层事件广播进度，这里轮询状态同步到 dp-task 进度文本。
@@ -382,6 +394,7 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             }
             throw error;
         } finally {
+            this.binaryDownloadWaiters.delete(taskId);
             clearInterval(pollTimer);
         }
         return binaryPath;

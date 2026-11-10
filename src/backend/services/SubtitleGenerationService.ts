@@ -55,6 +55,8 @@ export class SubtitleGenerationServiceImpl implements SubtitleGenerationService 
     private readonly gatewayByTask = new Map<number, SpeechRecognitionGateway>();
     /** 已请求取消的任务集合；供识别网关的 isCancelled 轮询。 */
     private readonly cancelledTasks = new Set<number>();
+    /** 正在生成字幕的视频路径集合，防止同一视频并发生成互相覆盖。 */
+    private readonly activeVideos = new Set<string>();
 
     constructor(
         @inject(TYPES.DpTaskService) private readonly dpTaskService: DpTaskService,
@@ -74,11 +76,21 @@ export class SubtitleGenerationServiceImpl implements SubtitleGenerationService 
      */
     public async start(videoId: string): Promise<number> {
         const videoPath = await this.watchHistoryService.videoPath(videoId);
+        if (this.activeVideos.has(videoPath)) {
+            throw new Error('该视频正在生成字幕中，请等待完成后再试');
+        }
         const srtPath = this.srtPathOf(videoPath);
         if (await this.fileSystemGateway.fileExists(srtPath)) {
             throw new Error(`字幕文件已存在：${srtPath}`);
         }
-        const taskId = await this.dpTaskService.create();
+        this.activeVideos.add(videoPath);
+        let taskId: number;
+        try {
+            taskId = await this.dpTaskService.create();
+        } catch (error) {
+            this.activeVideos.delete(videoPath);
+            throw error;
+        }
         void this.run(taskId, videoPath, srtPath);
         return taskId;
     }
@@ -122,7 +134,10 @@ export class SubtitleGenerationServiceImpl implements SubtitleGenerationService 
             const gateway = this.engineSelector.select();
             this.gatewayByTask.set(taskId, gateway);
             this.dpTaskService.registerTask(taskId, {
-                cancel: () => gateway.cancelActive(job),
+                cancel: () => {
+                    this.cancelledTasks.add(taskId);
+                    gateway.cancelActive(job);
+                },
             });
 
             this.dpTaskService.process(taskId, { progress: '读取媒体时长…' });
@@ -139,6 +154,7 @@ export class SubtitleGenerationServiceImpl implements SubtitleGenerationService 
                 });
             }
 
+            this.dpTaskService.checkCancel(taskId);
             const tempRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.TEMP);
             tempFolder = path.join(tempRoot, 'subtitle-generation', String(taskId));
             const wavPaths = await this.ffmpegService.createRecognitionWavChunks({
@@ -146,6 +162,8 @@ export class SubtitleGenerationServiceImpl implements SubtitleGenerationService 
                 ranges,
                 outputFolder: tempFolder,
                 job,
+                isCancelled: () => this.cancelledTasks.has(taskId),
+                registerCancel: (cancel) => this.dpTaskService.registerTask(taskId, { cancel }),
             });
 
             const timelines: SpeechRecognitionToken[][] = [];
@@ -193,6 +211,7 @@ export class SubtitleGenerationServiceImpl implements SubtitleGenerationService 
             this.logger.error('subtitle generation failed', { job, error: message });
             this.dpTaskService.fail(taskId, { progress: '字幕生成失败', result: message });
         } finally {
+            this.activeVideos.delete(videoPath);
             this.gatewayByTask.delete(taskId);
             this.cancelledTasks.delete(taskId);
             if (tempFolder) {
