@@ -22,4 +22,4 @@
 5. 成功创建后，会看到这个子账户的"SecretId"和"SecretKey"。
 6. 在 DashPlayer 设置中心，进入「服务凭据」，在腾讯翻译区域填入「SecretId」和「SecretKey」，点击「测试连接」验证是否配置成功。
 
-如有疑惑的地方，请在 [issue](https://github.com/solidSpoon/DashPlayer/issues) 反馈。
+如有疑惑的地方，请在 [issue](https://github.com/kylesean/DashPlayer/issues) 反馈。

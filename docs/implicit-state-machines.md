@@ -522,3 +522,45 @@ Error: 手机页产物缺失：/home/runner/work/DashPlayer/DashPlayer/resources
 **顺带修掉的环境漂移**：`git` 的 `remote.pushDefault` 与 `main` 的跟踪分支原本都指向
 `upstream`（solidSpoon 上游），`gh` 的默认仓库同样解析到上游。已全部改指 `origin`
 （`kylesean/DashPlayer`）——本 fork 已独立发展，不再与上游同步。
+
+### 第十轮：独立化收尾（remote 残留、发布门禁、身份与文档指向）
+
+第九轮只改了 git 配置，但没有回头验证「改完之后还剩什么」。本轮做的是**结果核对**，
+而不是再读一遍配置，于是查出四件此前没被记录的事。
+
+| 发现 | 判定 | 处置 |
+|---|---|---|
+| `git remote remove upstream` 后仍残留 102 个 `refs/remotes/upstream/*` | **真问题**（命令未清理引用） | `git update-ref --stdin` 批量删除，现只剩 `origin` |
+| `Release Please` 在 `main` 上连续 3 次失败 | **真问题**（发布链路完全阻断） | 仓库设置 `can_approve_pull_request_reviews` 原为 `false`，改为 `true` |
+| 文档站从未成功部署（`deploy` 步骤失败） | **真问题** | Pages 未启用；已启用为 workflow 构建，并恢复 `push` 触发 |
+| `package.json` 的 `author` 仍是上游维护者 | **真问题**（deb/rpm 的 maintainer 字段直接取它） | 改为本仓库维护者 |
+
+**为什么 `remote remove` 没清掉引用**：`git remote remove` 只删配置与
+`refs/remotes/<name>/HEAD`，逐个分支的引用需要 `git remote prune` 或显式删引用。
+这类「命令成功了但结果没达成」正是只读代码看不出来的，必须回查 `for-each-ref`。
+
+**Release Please 的真实报错**：
+
+```
+release-please failed: GitHub Actions is not permitted to create or approve pull requests.
+```
+
+`release-please.yml` 里写的是 `permissions: contents: write, pull-requests: write`，
+但那只是**工作流声明的上限**；仓库级开关不允许时，声明再高也拿不到建 PR 的能力。
+两者必须同时满足，缺一不可。
+
+**文档站的两个叠加问题**：`deploy-doc.yml` 的 `push` 触发被注释掉（只能手动跑），
+而 Pages 站点本身又没启用，于是 `configure-pages` 直接 `Not Found`。启用 Pages 后
+真实部署一次，得到实际路径结构，才敢改 README 里的链接——**先验证再改写**，
+否则只是把 404 从上游换成本地。
+
+**链接改写只改导航，不改素材**：README 里 9 处 `github.com/solidSpoon/.../assets/...`
+是 GitHub 用户附件 CDN 上的图片与视频，本仓库没有对应副本，改指本仓库会 404；
+导航类链接（release 下载、文档、issue）则必须指向本仓库，否则用户会被送去装上游的包。
+
+**顺带发现的失效页面名**：Writerside 产出的页面名是全小写，
+`Config-Shortcut.html` 实际是 `config-shortcut.html`。改写后逐个 `curl` 才暴露，
+这也是「改完必须验一遍真实可达性」的又一个例子。
+
+**Issues 被关闭**：文档与 issue 模板都在引导用户提 Issue，但仓库 `has_issues` 为
+`false`，链接打开是「Issues are disabled」。已启用。

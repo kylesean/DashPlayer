@@ -40,4 +40,4 @@ labels: ['bug']
 
 截图、视频或其他有助于定位问题的材料。
 
-> 安装遇到问题？请先阅读[安装指南（含常见安装失败排查）](https://solidspoon.xyz/DashPlayer/installation.html)。
+> 安装遇到问题？请先阅读[安装指南（含常见安装失败排查）](https://kylesean.github.io/DashPlayer/installation.html)。

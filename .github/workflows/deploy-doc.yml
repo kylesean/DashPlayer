@@ -1,8 +1,12 @@
 name: Build documentation
 
 on:
-#    push:
-#        branches: ["main"]
+    push:
+        branches: ["main"]
+        # 只跑文档相关改动：Writerside 构建镜像拉取要几分钟，且文档站与代码无关
+        paths:
+            - 'Writerside/**'
+            - '.github/workflows/deploy-doc.yml'
     workflow_dispatch:
 
 permissions:

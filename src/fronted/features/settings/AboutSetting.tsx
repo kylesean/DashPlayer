@@ -220,7 +220,7 @@ const AboutSetting: React.FC = () => {
                         variant="secondary"
                         size="sm"
                         endContent={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
-                        onClick={() => openUrl('https://solidspoon.xyz/DashPlayer/home.html')}
+                        onClick={() => openUrl('https://kylesean.github.io/DashPlayer/home.html')}
                     />
                 </SettingField>
 

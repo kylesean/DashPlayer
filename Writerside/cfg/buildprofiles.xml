@@ -4,18 +4,18 @@
 
     <variables>
         <header-logo>logo.png</header-logo>
-        <product-web-url>https://solidspoon.xyz/DashPlayer/home.html</product-web-url>
+        <product-web-url>https://kylesean.github.io/DashPlayer/home.html</product-web-url>
         <color-preset>Vivid</color-preset>
         <primary-color>halloween</primary-color>
         <download-title>Get DashPlayer</download-title>
-        <download-page>https://github.com/solidSpoon/DashPlayer</download-page>
+        <download-page>https://github.com/kylesean/DashPlayer</download-page>
         <showDownloadButton>true</showDownloadButton>
         <noindex-content>false</noindex-content>
     </variables>
 
     <build-profile instance="dp"/>
     <footer>
-        <link href="https://github.com/solidSpoon/DashPlayer">GitHub</link>
+        <link href="https://github.com/kylesean/DashPlayer">GitHub</link>
     </footer>
 
 </buildprofiles>

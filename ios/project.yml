@@ -1,6 +1,6 @@
 name: DashPlayerMobile
 options:
-  bundleIdPrefix: com.solidspoon
+  bundleIdPrefix: com.kylesean
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
@@ -30,7 +30,7 @@ targets:
     settings:
       base:
         INFOPLIST_FILE: DashPlayerMobile/Info.plist
-        PRODUCT_BUNDLE_IDENTIFIER: com.solidspoon.DashPlayerMobile
+        PRODUCT_BUNDLE_IDENTIFIER: com.kylesean.DashPlayerMobile
         PRODUCT_NAME: DashPlayer
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"

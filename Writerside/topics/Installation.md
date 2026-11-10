@@ -15,7 +15,7 @@ Windows 提供两种安装包格式，请根据需求选择其一：
 
 ### 安装步骤
 
-1. 在 [Latest Release](https://github.com/solidSpoon/DashPlayer/releases/latest) 页面下载所需格式的安装包
+1. 在 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载所需格式的安装包
 2. 下载完成后双击安装包进行安装
 3. 如果提示不安全，可以点击 `更多信息` -> `仍要运行` 进行安装
 4. 开始使用吧！
@@ -24,7 +24,7 @@ Windows 提供两种安装包格式，请根据需求选择其一：
 
 ### 手动安装
 
-1. 去 [Latest Release](https://github.com/solidSpoon/DashPlayer/releases/latest) 页面下载对应芯片以 `.dmg` 的安装包：Apple Silicon（M 系列芯片）选择 `arm64` 版本，Intel 芯片选择 `x64` 版本
+1. 去 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载对应芯片以 `.dmg` 的安装包：Apple Silicon（M 系列芯片）选择 `arm64` 版本，Intel 芯片选择 `x64` 版本
 2. 下载完成后双击安装包进行安装，然后将 `DashPlayer` 拖动到 `Applications` 文件夹。
 3. 开始使用吧！
 

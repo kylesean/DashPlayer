@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="LICENSE" target="_blank">
-    <img alt="AGPL-3.0 license" src="https://img.shields.io/github/license/solidSpoon/DashPlayer.svg" />
+    <img alt="AGPL-3.0 license" src="https://img.shields.io/github/license/kylesean/DashPlayer.svg" />
   </a>
 
   <img alt="React" src="https://img.shields.io/badge/React-rgb(8%2C126%2C164)?logo=react&logoColor=white" />
@@ -15,20 +15,20 @@
   <!-- TypeScript Badge -->
   <img alt="TypeScript" src="https://img.shields.io/badge/-TypeScript-blue?logo=typescript&logoColor=white" />
 
-  <a href="https://github.com/solidSpoon/DashPlayer/releases" target="_blank">
+  <a href="https://github.com/kylesean/DashPlayer/releases" target="_blank">
     <img alt="macOS" src="https://img.shields.io/badge/-macOS-black?logo=apple&logoColor=white" />
   </a>
 
-  <a href="https://github.com/solidSpoon/DashPlayer/releases" target="_blank">
+  <a href="https://github.com/kylesean/DashPlayer/releases" target="_blank">
     <img alt="Windows" src="https://img.shields.io/badge/-Windows-blue?logo=windows&logoColor=white" />
   </a>
 
-  <a href="https://github.com/solidSpoon/DashPlayer/releases" target="_blank">
+  <a href="https://github.com/kylesean/DashPlayer/releases" target="_blank">
     <img alt="Linux" src="https://img.shields.io/badge/-Linux-yellow?logo=linux&logoColor=white" />
   </a>
 </p>
 
-> 安装与使用指南详见 [Wiki](https://solidspoon.xyz/DashPlayer/home.html)，[官网](https://dash-player.solidspoon.xyz)
+> 安装与使用指南详见 [文档](https://kylesean.github.io/DashPlayer/home.html)
 
 # DashPlayer
 
@@ -119,7 +119,7 @@ Windows 提供两种安装包格式，请根据需求选择其一：
 | `.exe`（推荐） | 双击即装，无需管理员权限 |
 | `.msi` | 有安装向导，**可以自定义安装路径**，需要管理员权限 |
 
-1. 在 [Latest Release](https://github.com/solidSpoon/DashPlayer/releases/latest) 页面下载所需格式的安装包
+1. 在 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载所需格式的安装包
 2. 下载完成后双击安装包进行安装
 3. 如果提示不安全，可以点击 `更多信息` -> `仍要运行` 进行安装
 4. 开始使用吧！
@@ -128,7 +128,7 @@ Windows 提供两种安装包格式，请根据需求选择其一：
 
 ### 手动安装
 
-1.  去 [Latest Release](https://github.com/solidSpoon/DashPlayer/releases/latest) 页面下载对应芯片以 `.dmg` 的安装包：Apple Silicon（M 系列芯片）选择 `arm64` 版本，Intel 芯片选择 `x64` 版本
+1.  去 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载对应芯片以 `.dmg` 的安装包：Apple Silicon（M 系列芯片）选择 `arm64` 版本，Intel 芯片选择 `x64` 版本
 2.  下载完成后双击安装包进行安装，然后将 `DashPlayer` 拖动到 `Applications` 文件夹。
 3.  开始使用吧！
 
@@ -175,7 +175,7 @@ Linux 提供 `.deb` 和 `.rpm` 两种安装包格式，请根据发行版选择�
 
 ### AppImage（免安装，推荐）
 
-1. 在 [Latest Release](https://github.com/solidSpoon/DashPlayer/releases/latest) 页面下载以 `.AppImage` 结尾的安装包
+1. 在 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载以 `.AppImage` 结尾的安装包
 2. 添加可执行权限后直接运行：
 
 ```bash
@@ -189,7 +189,7 @@ chmod +x DashPlayer-*.AppImage
 
 ### deb / rpm
 
-1. 在 [Latest Release](https://github.com/solidSpoon/DashPlayer/releases/latest) 页面下载 `.deb`（Debian/Ubuntu 系）或 `.rpm`（Fedora/RHEL/openSUSE 系）安装包
+1. 在 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载 `.deb`（Debian/Ubuntu 系）或 `.rpm`（Fedora/RHEL/openSUSE 系）安装包
 2. 使用系统包管理器安装：
 
 ```bash
@@ -215,7 +215,7 @@ sudo rpm -i dashplayer-*.rpm
 ---
 # 使用指南
 
-> 字幕生成为内置本地模型，开箱即用；AI 功能（字幕翻译、查单词、整句学习）需配置 OpenAI 接口，具体方法及详细指南请看[Wiki](https://solidspoon.xyz/DashPlayer/home.html)
+> 字幕生成为内置本地模型，开箱即用；AI 功能（字幕翻译、查单词、整句学习）需配置 OpenAI 接口，具体方法及详细指南请看[Wiki](https://kylesean.github.io/DashPlayer/home.html)
 
 ## 如何播放视频
 
@@ -265,7 +265,7 @@ DashPlayer 默认快捷键如下
 - 打开控制面板：“Shift + P”
 - 打开 AI 对话（整句学习）：“?” 或 “/”
 
-具体快捷键可在设置中心自定义，详见[文档](https://solidspoon.xyz/DashPlayer/Config-Shortcut.html)
+具体快捷键可在设置中心自定义，详见[文档](https://kylesean.github.io/DashPlayer/config-shortcut.html)
 
 <img width="912" alt="image" src="https://github.com/solidSpoon/DashPlayer/assets/39454841/2b869c73-000d-45cb-9914-2bf2e7147e8f">
 
@@ -301,7 +301,7 @@ DashPlayer 默认快捷键如下
 
 DashPlayer 的 AI 功能——字幕翻译、查单词、整句学习——只需配置 OpenAI 接口即可全部使用，首次使用前按文档配置好 API 密钥即可。
 
-实际使用下来价格比较便宜；字幕生成本地即可完成，无需配置。具体配置详见[文档](https://solidspoon.xyz/DashPlayer/home.html)。
+实际使用下来价格比较便宜；字幕生成本地即可完成，无需配置。具体配置详见[文档](https://kylesean.github.io/DashPlayer/home.html)。
 
 ## 致谢
 
