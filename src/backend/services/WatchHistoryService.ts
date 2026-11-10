@@ -26,6 +26,9 @@ import type { SubtitleResolution } from '@/common/contracts/subtitle-resolution'
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type SubtitleService from '@/backend/services/SubtitleService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
+import MediaUtil from '@/common/utils/MediaUtil';
+import { isPathInsideRoot } from '@/backend/infrastructure/media/MediaProtocol';
+import { assertSubtitlePath } from '@/backend/utils/file-path-guard';
 
 interface WatchHistoryService {
     list(basePath: string): Promise<WatchHistoryVO[]>;
@@ -351,11 +354,19 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
             const lp = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.VIDEOS);
             filePaths = filePaths.map((f) => path.join(lp, f));
         }
-        // 用户刚挑中的文件立刻登记，播放页不必等列表接口先跑一遍。
-        for (const filePath of filePaths) {
-            this.mediaPathRegistry.allowFile(filePath);
+        const ids = await this.watchHistoryLibrary.create(filePaths);
+        // 仅对校验通过并实际入库的媒体文件（含目录扫描出的视频及首选 HTML5 变体）登记白名单，
+        // 避免把未校验的任意路径直接塞进 media:// 登记表。
+        for (const id of ids) {
+            const record = await this.watchHistoryRepository.findById(id);
+            if (record) {
+                const fullPath = path.join(record.base_path, record.file_name);
+                this.mediaPathRegistry.allowFile(fullPath);
+                const preferred = await this.watchHistoryLibrary.preferHtml5VideoPath(fullPath);
+                this.mediaPathRegistry.allowFile(preferred);
+            }
         }
-        return this.watchHistoryLibrary.create(filePaths);
+        return ids;
     }
 
     /**
@@ -369,8 +380,6 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (srtPath === 'same') {
             srtPath = path.join(path.dirname(videoPath), path.basename(videoPath, path.extname(videoPath)) + '.srt');
         }
-        this.mediaPathRegistry.allowFile(videoPath);
-        this.mediaPathRegistry.allowFile(srtPath);
         return this.attachSrtInner(videoPath, srtPath);
     }
 
@@ -584,7 +593,10 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
      * @param srtPath 字幕文件路径。
      */
     private async attachSrtInner(videoPath: string, srtPath: string): Promise<void> {
-        videoPath = await this.watchHistoryLibrary.preferHtml5VideoPath(videoPath);
+        videoPath = path.resolve(await this.watchHistoryLibrary.preferHtml5VideoPath(videoPath));
+        if (!MediaUtil.isMedia(videoPath)) {
+            return;
+        }
         await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(videoPath);
         if (!await this.fileSystemGateway.fileExists(videoPath)) {
             return;
@@ -597,11 +609,16 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (path.dirname(srtPath) === '.') {
             srtPath = path.join(folder, srtPath);
         }
+        srtPath = path.resolve(srtPath);
+        assertSubtitlePath(srtPath);
 
         await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(srtPath);
         if (!await this.fileSystemGateway.fileExists(srtPath)) {
             return;
         }
+
+        this.mediaPathRegistry.allowFile(videoPath);
+        this.mediaPathRegistry.allowFile(srtPath);
 
         const records: WatchHistoryRecord[] = await this.watchHistoryRepository.findByBasePathFileName(folder, video);
 
@@ -639,10 +656,9 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (!record) {
             return;
         }
-        // 如果是 libraryPath 或子文件夹下的文件
-        // 删除文件
-        const filePath = path.join(record.base_path, record.file_name);
-        if (filePath.startsWith(libraryPath)) {
+        // 如果是 libraryPath 或子文件夹下的文件（使用 path.relative 边界判定，避免 /videos-backup 被 /videos 误匹配）
+        const filePath = path.resolve(record.base_path, record.file_name);
+        if (isPathInsideRoot(libraryPath, filePath)) {
             await this.fileSystemGateway.removeFileIfExists(filePath);
             this.rendererGateway.fireAndForget('ui/show-toast', {
                 message: '该文件位于视频库中，已为您删除原文件',
@@ -652,10 +668,13 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         await this.watchHistoryRepository.deleteById(id);
         await this.watchHistoryExtRepository.deleteByWatchHistoryId(id);
         // 删除字幕文件
-        if (record.srt_file && record.srt_file.startsWith(libraryPath)) {
-            const srtExists = await this.watchHistoryRepository.findBySrtFile(record.srt_file);
-            if (CollUtil.isEmpty(srtExists)) {
-                await this.fileSystemGateway.removeFileIfExists(record.srt_file);
+        if (record.srt_file) {
+            const resolvedSrtFile = path.resolve(record.srt_file);
+            if (isPathInsideRoot(libraryPath, resolvedSrtFile)) {
+                const srtExists = await this.watchHistoryRepository.findBySrtFile(record.srt_file);
+                if (CollUtil.isEmpty(srtExists)) {
+                    await this.fileSystemGateway.removeFileIfExists(resolvedSrtFile);
+                }
             }
         }
     }

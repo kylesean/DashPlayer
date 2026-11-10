@@ -21,6 +21,7 @@ const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set([
     'apiKeys.tencent.secretId',
     'apiKeys.tencent.secretKey',
     'apiKeys.openAi.key',
+    'mobileAccess.token',
 ]);
 
 /** 加密值的落盘前缀；用来区分「密文」与「历史遗留的明文」。 */

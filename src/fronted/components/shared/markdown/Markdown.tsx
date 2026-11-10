@@ -1,5 +1,5 @@
 import React, { type FC, memo } from 'react';
-import ReactMarkdown, { type Options } from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform, type Options } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import i18n from '@/fronted/i18n';
@@ -126,7 +126,12 @@ const Markdown: FC<{ children: string }> = ({ children }) => {
     return (
         <div className="prose dark:prose-invert">
         <MemoizedReactMarkdown
-            urlTransform={(uri) => uri}
+            urlTransform={(uri) => {
+                if (uri.startsWith(TTS_LINK_PREFIX) || uri.startsWith(SWITCH_LINK_PREFIX)) {
+                    return uri;
+                }
+                return defaultUrlTransform(uri);
+            }}
             remarkPlugins={[remarkGfm, remarkMath]}
             components={{
                 a: ({ href, children: linkChildren }) => {
@@ -142,7 +147,7 @@ const Markdown: FC<{ children: string }> = ({ children }) => {
                             />
                         );
                     }
-                    return <a href={href}>{linkChildren}</a>;
+                    return <span className="underline decoration-dotted">{linkChildren}</span>;
                 },
             }}
         >

@@ -20,7 +20,12 @@ describe('桌面渲染进程的 CSP', () => {
         expect(scriptSrc).not.toContain("'unsafe-eval'");
     });
 
-    it('本地媒体走 media: 协议', () => {
+    it('本地媒体与缩略图走 media: 协议', () => {
+        const imgSrc = DESKTOP_CONTENT_SECURITY_POLICY
+            .split(';')
+            .map((directive) => directive.trim())
+            .find((directive) => directive.startsWith('img-src'));
+        expect(imgSrc).toContain('media:');
         expect(DESKTOP_CONTENT_SECURITY_POLICY).toContain('media-src');
         expect(DESKTOP_CONTENT_SECURITY_POLICY).toContain('media:');
     });

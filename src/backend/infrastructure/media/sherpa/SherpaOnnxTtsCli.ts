@@ -39,12 +39,15 @@ export class SherpaOnnxTtsCli {
         text: string;
     }): Promise<string> {
         const executablePath = this.resolveExecutablePath();
+        // Kaldi ParseOptions 在遇到 '--' 前会把任何以 '--' 开头的参数当作命令行 flag 解析；
+        // 对以 '-' 开头的字幕对话（如 "--Wait a minute!"）前置一个空格，既避免被解析为 flag，也不影响 TTS 发音。
+        const safeText = params.text.startsWith('-') ? ` ${params.text}` : params.text;
         const args = [
             `--vits-model=${params.modelPath}`,
             `--vits-tokens=${params.tokensPath}`,
             `--vits-data-dir=${params.dataDir}`,
             `--output-filename=${params.outputPath}`,
-            params.text,
+            safeText,
         ];
         await new Promise<void>((resolve, reject) => {
             const child = spawn(executablePath, args, {

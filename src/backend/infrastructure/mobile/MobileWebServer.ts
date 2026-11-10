@@ -114,7 +114,11 @@ const readCookie = (cookieHeader: string | undefined, name: string): string | nu
             continue;
         }
         if (part.slice(0, separator).trim() === name) {
-            return decodeURIComponent(part.slice(separator + 1).trim());
+            try {
+                return decodeURIComponent(part.slice(separator + 1).trim());
+            } catch {
+                return null;
+            }
         }
     }
     return null;
@@ -492,7 +496,13 @@ export default class MobileWebServer {
 
         try {
             const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-            const pathname = decodeURIComponent(url.pathname);
+            let pathname: string;
+            try {
+                pathname = decodeURIComponent(url.pathname);
+            } catch {
+                this.sendJson(response, 400, { error: '请求路径编码无效' });
+                return;
+            }
 
             // 鉴权放在最前面：连静态资源也要令牌，否则未授权设备至少能拿到页面骨架。
             if (!this.authorize(request, url, response)) {

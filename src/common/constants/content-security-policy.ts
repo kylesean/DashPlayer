@@ -11,7 +11,7 @@
  *   `file://` 页面下 `'self'` 按同目录匹配，已经在 Electron 45 上实测通过。
  * - `style-src 'self' 'unsafe-inline'`：framer-motion 与 Astryx 大量使用行内
  *   style 属性（约 20 处），行内 style 属性需要 `'unsafe-inline'`。
- * - `img-src 'self' data: blob:`：图表与占位图用 data: URL（约 55 处）。
+ * - `img-src 'self' media: data: blob:`：视频缩略图走 `media://`，图表与占位图用 data: URL。
  * - `font-src 'self' data:`：字体全部随包分发在本地 woff2。
  * - `media-src 'self' media: blob:`：本地媒体走自定义的 `media://` 协议。
  * - `connect-src 'self'`：渲染进程不直接发起任何网络请求，一律走 IPC。
@@ -34,7 +34,7 @@ export const DESKTOP_CONTENT_SECURITY_POLICY = [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' media: data: blob:",
     "font-src 'self' data:",
     "media-src 'self' media: blob:",
     "connect-src 'self'",

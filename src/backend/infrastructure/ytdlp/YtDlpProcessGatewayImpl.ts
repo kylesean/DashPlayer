@@ -88,6 +88,7 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
             '-P', request.outputDir,
             // 标题截断到 80 字节，避免超长文件名触碰到文件系统上限。
             '-o', '%(title).80B [%(id)s].%(ext)s',
+            '--',
             request.url,
         ];
 
@@ -120,10 +121,12 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
             });
 
             child.on('error', (error) => {
+                processRef = null;
                 reject(error);
             });
 
             child.on('close', (code) => {
+                processRef = null;
                 if (sigkillTimer) {
                     clearTimeout(sigkillTimer);
                 }

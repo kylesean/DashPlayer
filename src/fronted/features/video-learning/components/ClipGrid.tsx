@@ -25,7 +25,6 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
     const raw = thumbnails?.[clip.key];
     if (!raw) return '';
     if (
-        raw.startsWith('file://') ||
         raw.startsWith('data:') ||
         raw.startsWith('http://') ||
         raw.startsWith('https://') ||
