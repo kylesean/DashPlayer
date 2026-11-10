@@ -23,7 +23,35 @@ on:
 permissions:
   contents: write
 jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Github checkout
+        uses: actions/checkout@v5
+      - name: Enable Corepack
+        run: corepack enable
+      - name: Use Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        env:
+          SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm run lint
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Test case docs
+        run: node qa/tools/check-test-cases.mjs
+      - name: QA locator rules
+        run: pnpm run qa:check-locators
+      - name: Unit tests
+        run: pnpm run test:run
+
   build:
+    needs: verify
     # whisper.cpp 运行时不再随发版构建：它由 whisper-runtime.yml 发布成 tag = 配方的
     # prerelease Release，这里的 yarn download 只做下载（缺产物会带着 tag 信息显式失败，
     # 不会静默发出一个默认识别引擎不可用的包）。所以本任务不再依赖运行时任务、也没有

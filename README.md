@@ -165,14 +165,6 @@ xattr -c /Applications/DashPlayer.app
 
 ## Linux
 
-Linux 提供 `.deb` 和 `.rpm` 两种安装包格式，请根据发行版选择：
-
-- `.deb`：适用于 Debian、Ubuntu 及其衍生发行版，下载后使用 `sudo dpkg -i <安装包>` 或图形界面安装
-- `.rpm`：适用于 Fedora、openSUSE、RHEL 及其衍生发行版，下载后使用 `sudo rpm -i <安装包>` 或图形界面安装
-
----
-## Linux
-
 ### AppImage（免安装，推荐）
 
 1. 在 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载以 `.AppImage` 结尾的安装包

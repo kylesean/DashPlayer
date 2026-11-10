@@ -179,7 +179,7 @@ const config: ForgeConfig = {
             // install.gif 即按此约定生成：8 帧 × 250ms，325×339，四角透明。
             loadingGif: './assets/icons/install.gif',
             setupIcon: './assets/icons/icon.ico',
-            iconUrl: 'https://raw.githubusercontent.com/kylesean/DashPlayer/master/assets/icons/icon.ico',
+            iconUrl: 'https://raw.githubusercontent.com/kylesean/DashPlayer/main/assets/icons/icon.ico',
         }),
         // DMG 窗口尺寸由 1x 背景图的像素尺寸决定（appdmg 读 background.png 的宽高当窗口大小，
         // background@2x.png 仅用于 retina 渲染），因此下面两个图标坐标用的就是背景图那套 640x500 坐标，

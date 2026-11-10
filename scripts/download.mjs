@@ -155,23 +155,27 @@ const findFirstFile = (dir, predicate, maxDepth = 6, depth = 0) => {
  */
 const downloadAndExtractBinaryFromZip = async ({url, outputPath, binaryNameCandidates, sha, algo = 'sha256'}) => {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dashplayer-download-'));
-    const archivePath = path.join(tmpRoot, 'asset.zip');
-    await download({url, dir: tmpRoot, file: 'asset.zip', sha, algo});
+    try {
+        const archivePath = path.join(tmpRoot, 'asset.zip');
+        await download({url, dir: tmpRoot, file: 'asset.zip', sha, algo});
 
-    const extractDir = path.join(tmpRoot, 'extract');
-    await extractZip(archivePath, extractDir);
+        const extractDir = path.join(tmpRoot, 'extract');
+        await extractZip(archivePath, extractDir);
 
-    const found = findFirstFile(
-        extractDir,
-        (p) => binaryNameCandidates.includes(path.basename(p)),
-        10
-    );
-    if (!found) {
-        throw new Error(`Cannot find binary in archive from ${url}`);
+        const found = findFirstFile(
+            extractDir,
+            (p) => binaryNameCandidates.includes(path.basename(p)),
+            10
+        );
+        if (!found) {
+            throw new Error(`Cannot find binary in archive from ${url}`);
+        }
+
+        fs.copyFileSync(found, outputPath);
+        fs.chmodSync(outputPath, 0o755);
+    } finally {
+        fs.rmSync(tmpRoot, { recursive: true, force: true });
     }
-
-    fs.copyFileSync(found, outputPath);
-    fs.chmodSync(outputPath, 0o755);
 };
 
 const fetchJson = async (url, options = {}) => {
@@ -217,30 +221,35 @@ const getLatestReleaseAssetUrlIncludingPrerelease = async ({owner, repo, nameReg
 /**
  * 把归档里的运行时二进制安装到目标路径（下载得到的归档与本地已有归档共用）。
  *
- * @param {{ archivePath: string, outputPath: string, binaryNameCandidates: string[], extraCopyPatterns?: RegExp[] }} param
+ * @param {{ archivePath: string, outputPath?: string, binaryNameCandidates?: string[], targets?: Array<{ outputPath: string, binaryNameCandidates: string[] }>, extraCopyPatterns?: RegExp[] }} param
  *   archivePath 归档文件路径（.tar.gz / .zip / .tar.bz2）；outputPath 二进制目标路径；
- *   binaryNameCandidates 归档里可接受的二进制文件名；extraCopyPatterns 需要一并拷到目标目录的附加文件。
+ *   binaryNameCandidates 归档里可接受的二进制文件名；targets 支持一次解压同时提取多个二进制；
+ *   extraCopyPatterns 需要一并拷到目标目录的附加文件。
  * @returns {Promise<void>}
  */
-const installBinaryFromArchive = async ({archivePath, outputPath, binaryNameCandidates, extraCopyPatterns = []}) => {
+const installBinaryFromArchive = async ({archivePath, outputPath, binaryNameCandidates, targets, extraCopyPatterns = []}) => {
     const tmpRoot = path.dirname(archivePath);
     const extractDir = path.join(tmpRoot, `extract-${path.basename(archivePath)}`);
     await extractArchive(archivePath, extractDir);
 
-    const found = findFirstFile(
-        extractDir,
-        (p) => binaryNameCandidates.includes(path.basename(p)),
-        12
-    );
-    if (!found) {
-        throw new Error(`Cannot find binary in archive ${archivePath}`);
+    const effectiveTargets = targets ?? [{ outputPath, binaryNameCandidates }];
+    for (const target of effectiveTargets) {
+        const found = findFirstFile(
+            extractDir,
+            (p) => target.binaryNameCandidates.includes(path.basename(p)),
+            12
+        );
+        if (!found) {
+            throw new Error(`Cannot find binary (${target.binaryNameCandidates.join(', ')}) in archive ${archivePath}`);
+        }
+
+        mkdirp(path.dirname(target.outputPath));
+        fs.copyFileSync(found, target.outputPath);
+        fs.chmodSync(target.outputPath, 0o755);
+        console.info(chalk.green(`✅ runtime binary: ${found} -> ${target.outputPath}`));
     }
 
-    mkdirp(path.dirname(outputPath));
-    fs.copyFileSync(found, outputPath);
-    fs.chmodSync(outputPath, 0o755);
-    console.info(chalk.green(`✅ runtime binary: ${found} -> ${outputPath}`));
-
+    const primaryOutputDir = path.dirname(effectiveTargets[0].outputPath);
     if (extraCopyPatterns.length > 0) {
         for (const pattern of extraCopyPatterns) {
             const matches = [];
@@ -250,7 +259,7 @@ const installBinaryFromArchive = async ({archivePath, outputPath, binaryNameCand
                 for (const ent of entries) {
                     const p = path.join(dir, ent.name);
                     if ((ent.isFile() || ent.isSymbolicLink()) && pattern.test(ent.name)) {
-                        matches.push(p);
+                        matches.push({ path: p, isSymlink: ent.isSymbolicLink() });
                     }
                 }
                 for (const ent of entries) {
@@ -259,10 +268,16 @@ const installBinaryFromArchive = async ({archivePath, outputPath, binaryNameCand
                 }
             };
             collect(extractDir);
-            for (const src of matches) {
-                const dest = path.join(path.dirname(outputPath), path.basename(src));
-                fs.copyFileSync(src, dest);
-                fs.chmodSync(dest, 0o755);
+            for (const { path: src, isSymlink } of matches) {
+                const dest = path.join(primaryOutputDir, path.basename(src));
+                fs.rmSync(dest, { force: true });
+                if (isSymlink) {
+                    const linkTarget = fs.readlinkSync(src);
+                    fs.symlinkSync(linkTarget, dest);
+                } else {
+                    fs.copyFileSync(src, dest);
+                    fs.chmodSync(dest, 0o755);
+                }
                 console.info(chalk.green(`✅ runtime extra: ${src} -> ${dest}`));
             }
         }
@@ -272,7 +287,7 @@ const installBinaryFromArchive = async ({archivePath, outputPath, binaryNameCand
 /**
  * 从 URL 下载归档并安装运行时二进制。
  *
- * @param {{ url: string, outputPath: string, binaryNameCandidates: string[], extraCopyPatterns?: RegExp[] }} param
+ * @param {{ url: string, outputPath?: string, binaryNameCandidates?: string[], targets?: Array<{ outputPath: string, binaryNameCandidates: string[] }>, extraCopyPatterns?: RegExp[], sha?: string, algo?: 'sha1' | 'sha256' }} param
  *   url 归档地址；其余参数同 installBinaryFromArchive。
  * @returns {Promise<void>}
  */
@@ -280,14 +295,21 @@ const downloadAndExtractBinaryFromArchive = async ({
     url,
     outputPath,
     binaryNameCandidates,
+    targets,
     extraCopyPatterns = [],
+    sha,
+    algo = 'sha256',
 }) => {
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dashplayer-download-'));
-    const nameFromUrl = String(url).split('/').pop() || 'asset';
-    const archivePath = path.join(tmpRoot, nameFromUrl);
-    console.info(chalk.blue(`=> runtime archive: ${url}`));
-    await download({url, dir: tmpRoot, file: nameFromUrl});
-    await installBinaryFromArchive({archivePath, outputPath, binaryNameCandidates, extraCopyPatterns});
+    try {
+        const nameFromUrl = String(url).split('/').pop() || 'asset';
+        const archivePath = path.join(tmpRoot, nameFromUrl);
+        console.info(chalk.blue(`=> runtime archive: ${url}`));
+        await download({url, dir: tmpRoot, file: nameFromUrl, sha, algo});
+        await installBinaryFromArchive({archivePath, outputPath, binaryNameCandidates, targets, extraCopyPatterns});
+    } finally {
+        fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
 };
 
 /**
@@ -401,6 +423,10 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
     const exePath = path.join(basePath, exeName);
     const res = await verifyExistence({ dir: basePath, file: exeName });
 
+    const ttsExeName = platform === 'win32' ? 'sherpa-onnx-offline-tts.exe' : 'sherpa-onnx-offline-tts';
+    const ttsExePath = path.join(basePath, ttsExeName);
+    const ttsRes = await verifyExistence({ dir: basePath, file: ttsExeName });
+
     const version = '1.13.4';
     const releaseBase = `https://github.com/k2-fsa/sherpa-onnx/releases/download/v${version}`;
     const assetNames = {
@@ -423,23 +449,18 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
         throw new Error(`Unsupported sherpa-onnx platform/arch: ${platform}/${arch}`);
     }
 
+    const targets = [];
     if (res === 'need_download') {
-        console.info(chalk.blue(`=> sherpa-onnx target: ${exePath}`));
-        await downloadAndExtractBinaryFromArchive({
-            url: assetUrl,
-            outputPath: exePath,
-            binaryNameCandidates: [exeName],
-        });
+        targets.push({ outputPath: exePath, binaryNameCandidates: [exeName] });
     }
-
-    const ttsExeName = platform === 'win32' ? 'sherpa-onnx-offline-tts.exe' : 'sherpa-onnx-offline-tts';
-    const ttsExePath = path.join(basePath, ttsExeName);
-    const ttsRes = await verifyExistence({ dir: basePath, file: ttsExeName });
     if (ttsRes === 'need_download') {
+        targets.push({ outputPath: ttsExePath, binaryNameCandidates: [ttsExeName] });
+    }
+    if (targets.length > 0) {
+        console.info(chalk.blue(`=> sherpa-onnx targets: ${targets.map((t) => t.outputPath).join(', ')}`));
         await downloadAndExtractBinaryFromArchive({
             url: assetUrl,
-            outputPath: ttsExePath,
-            binaryNameCandidates: [ttsExeName],
+            targets,
         });
     }
 }
@@ -706,33 +727,37 @@ const readSha256FromChecksums = (checksumsPath, assetName) => {
 async function installWhisperRuntimeFromRelease({basePath, exePath, markerPath, expectedMarker}) {
     const assetName = whisperRuntimeAssetName(platform, arch);
     const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dashplayer-whisper-'));
-    const missingHint = `运行时 Release ${WHISPER_RUNTIME_RELEASE_TAG} 不存在或缺资产：先跑 .github/workflows/whisper-runtime.yml 发布该配方（tag 由 scripts/whisper-runtime-meta.mjs 决定）`;
-    console.info(chalk.blue(`=> whisper.cpp 运行时来源：${WHISPER_RUNTIME_RELEASE_TAG}（由 whisper-runtime.yml 发布）`));
+    try {
+        const missingHint = `运行时 Release ${WHISPER_RUNTIME_RELEASE_TAG} 不存在或缺资产：先跑 .github/workflows/whisper-runtime.yml 发布该配方（tag 由 scripts/whisper-runtime-meta.mjs 决定）`;
+        console.info(chalk.blue(`=> whisper.cpp 运行时来源：${WHISPER_RUNTIME_RELEASE_TAG}（由 whisper-runtime.yml 发布）`));
 
-    await download({
-        url: whisperRuntimeReleaseAssetUrl(WHISPER_RUNTIME_CHECKSUMS_FILE),
-        dir: tmpRoot,
-        file: WHISPER_RUNTIME_CHECKSUMS_FILE,
-        hint: missingHint,
-    });
-    const expectedSha256 = readSha256FromChecksums(path.join(tmpRoot, WHISPER_RUNTIME_CHECKSUMS_FILE), assetName);
+        await download({
+            url: whisperRuntimeReleaseAssetUrl(WHISPER_RUNTIME_CHECKSUMS_FILE),
+            dir: tmpRoot,
+            file: WHISPER_RUNTIME_CHECKSUMS_FILE,
+            hint: missingHint,
+        });
+        const expectedSha256 = readSha256FromChecksums(path.join(tmpRoot, WHISPER_RUNTIME_CHECKSUMS_FILE), assetName);
 
-    await download({
-        url: whisperRuntimeReleaseAssetUrl(assetName),
-        dir: tmpRoot,
-        file: assetName,
-        sha: expectedSha256,
-        algo: 'sha256',
-        hint: missingHint,
-    });
+        await download({
+            url: whisperRuntimeReleaseAssetUrl(assetName),
+            dir: tmpRoot,
+            file: assetName,
+            sha: expectedSha256,
+            algo: 'sha256',
+            hint: missingHint,
+        });
 
-    // 归档内是 exe 同级的一揽子文件（Windows 另有 loader、OpenMP 运行时与许可证），
-    // 整包解到运行时目录，不按文件名挑拣：缺件由下面的完整性断言兜住
-    await extractArchive(path.join(tmpRoot, assetName), basePath);
-    assertWhisperWindowsRuntimeComplete(basePath);
-    fs.chmodSync(exePath, 0o755);
-    fs.writeFileSync(markerPath, `${expectedMarker}\n`);
-    console.info(chalk.green(`✅ whisper.cpp parakeet-cli installed from ${WHISPER_RUNTIME_RELEASE_TAG} to ${basePath}`));
+        // 归档内是 exe 同级的一揽子文件（Windows 另有 loader、OpenMP 运行时与许可证），
+        // 整包解到运行时目录，不按文件名挑拣：缺件由下面的完整性断言兜住
+        await extractArchive(path.join(tmpRoot, assetName), basePath);
+        assertWhisperWindowsRuntimeComplete(basePath);
+        fs.chmodSync(exePath, 0o755);
+        fs.writeFileSync(markerPath, `${expectedMarker}\n`);
+        console.info(chalk.green(`✅ whisper.cpp parakeet-cli installed from ${WHISPER_RUNTIME_RELEASE_TAG} to ${basePath}`));
+    } finally {
+        fs.rmSync(tmpRoot, { recursive: true, force: true });
+    }
 }
 
 {
