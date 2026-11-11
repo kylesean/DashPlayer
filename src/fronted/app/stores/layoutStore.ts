@@ -14,7 +14,6 @@ export type UseLayoutState = {
     /** 播放页右侧字幕面板与导航栏是否展开。 */
     showSideBar: boolean;
     /** 顶部标题栏预留高度（像素）。 */
-    titleBarHeight: number;
     /** 当前视口宽度分级。 */
     width: ScreenSize;
     /** 当前视口高度分级。 */
@@ -112,7 +111,6 @@ const useLayout = create<UseLayoutState & UseLayoutActions>()(
         showTranscript: readInitialTranscriptVisible(),
         transcriptViewMode: readInitialTranscriptViewMode(),
         chatting: false,
-        titleBarHeight: 0,
         width: '2xl',
         height: '2xl',
         fullScreen: false,
@@ -198,10 +196,6 @@ const useLayout = create<UseLayoutState & UseLayoutActions>()(
         },
     })),
 );
-
-api.call('system/info').then((sysInfo) => {
-    useLayout.setState({ titleBarHeight: sysInfo.isWindows ? 28 : 0 });
-});
 
 /**
  * 根据当前视口尺寸刷新响应式断点分级。

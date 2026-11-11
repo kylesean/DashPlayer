@@ -23,16 +23,6 @@ import { cn } from '@/fronted/lib/utils';
 export const CONTROL_POPOVER_PANEL =
     'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)] animate-in fade-in-0 zoom-in-95 duration-150 data-[state=closed]:invisible';
 
-/**
- * 无入场动画的同款面板，供嵌套浮层使用。
- *
- * 实测 Chromium 里“浮层里再开一个 Radix 浮层”时，二级浮层的 `animate-in`
- * 会卡在第一帧（opacity: 0），整个面板看起来像半透明黑框。二级浮层因此
- * 直接显示，不再挂入场动画。
- */
-export const CONTROL_POPOVER_PANEL_STATIC =
-    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)]';
-
 /** 弹窗内的分组标题。 */
 export const CONTROL_POPOVER_LABEL = 'px-2 py-1.5 text-sm font-semibold text-secondary';
 

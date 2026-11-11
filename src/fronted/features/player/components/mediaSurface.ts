@@ -17,9 +17,6 @@ export const MEDIA_MATTE_CLASS = 'bg-media-matte';
 /** 视频面板的 1px 内描边：深色主题下把银幕与应用底色分开，避免糊成一整块。 */
 export const MEDIA_FRAME_CLASS = 'ring-1 ring-inset ring-media-fg/5';
 
-/** 视频面板内的暗角：压暗四周，让画面与遮幅过渡自然。 */
-export const MEDIA_VIGNETTE_CLASS = 'bg-gradient-to-b from-media-bg/15 via-media-bg/10 to-media-bg/25';
-
 /**
  * Astryx Slider 默认跟随主题的 accent / track 色。
  *

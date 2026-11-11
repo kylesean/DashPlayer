@@ -216,8 +216,8 @@ export const usePlayerUi = create(
       name: 'dash-player-subtitle-tracks',
       /** 内容没变就不落盘：运行时状态高频变化时避开每帧一次同步写。 */
       storage: createJSONStorage(createContentDedupedStorage),
-      /** 老版本把运行时状态也写进了同一个 key，升一版把它们清掉。 */
-      version: 1,
+      /** v1 清运行时状态残留；v2 清本轮删除的 syncSide / ambientLight 等偏好键。 */
+      version: 2,
       partialize: (state) => pickPersisted(state),
       /**
        * 只留偏好字段：`partialize` 只影响写入，存储里已有的旧键仍会被 merge 合并回来，
