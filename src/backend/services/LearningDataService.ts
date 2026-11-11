@@ -22,7 +22,7 @@ import type { ReviewRetentionStats } from '@/common/types/review';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 会进入“本次学习”摘要的行动；seen/hover 只算曝光，不构成学习证据。 */
-const SESSION_ACTIONS = [
+export const LEARNING_SESSION_ACTIONS = [
     'open',
     'save',
     'known',
@@ -84,7 +84,7 @@ export class LearningDataServiceImpl implements LearningDataService {
             since: since.toISOString(),
             videoId: params.videoId,
             fileHash: params.fileHash,
-            actions: SESSION_ACTIONS,
+            actions: LEARNING_SESSION_ACTIONS,
         });
         const lemmas = Array.from(new Set(events.map((event) => event.lemma.toLowerCase())));
         const [wordRows, cardRows] = await Promise.all([

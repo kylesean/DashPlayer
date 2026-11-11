@@ -64,6 +64,7 @@ const TYPES = {
     WordEncounterRepository: Symbol('WordEncounterRepository'),
     WordEncounterService: Symbol('WordEncounterService'),
     LearningDataService: Symbol('LearningDataService'),
+    LearningRecapService: Symbol('LearningRecapService'),
     DpTaskRepository: Symbol('DpTaskRepository'),
     VideoLearningClipRepository: Symbol('VideoLearningClipRepository'),
     VideoLearningClipWordRepository: Symbol('VideoLearningClipWordRepository'),

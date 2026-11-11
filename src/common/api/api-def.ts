@@ -41,6 +41,12 @@ import type {
     ReviewRating,
 } from '@/common/types/review';
 import type { LearningSessionSummaryParams, LearningSessionSummaryVO } from '@/common/types/learningSession';
+import type {
+    LearningRecapParams,
+    LearningRecapVO,
+    RetellEvaluationParams,
+    RetellEvaluationVO,
+} from '@/common/types/learningRecap';
 import type { LearningDataExportResultVO, LearningDataResetResultVO } from '@/common/types/learningData';
 import type {
     ChatSessionCloseParams,
@@ -463,6 +469,16 @@ interface LearningDataDef {
     'learning-data/reset': {
         params: void,
         return: LearningDataResetResultVO
+    };
+    /** 生成本次播放会话的学习复盘；AI 不可用时返回本地确定性摘要。 */
+    'learning-data/recap': {
+        params: LearningRecapParams,
+        return: LearningRecapVO
+    };
+    /** 检查用户对原句的复述；关键词覆盖始终由本地计算。 */
+    'learning-data/retell-feedback': {
+        params: RetellEvaluationParams,
+        return: RetellEvaluationVO
     };
 }
 

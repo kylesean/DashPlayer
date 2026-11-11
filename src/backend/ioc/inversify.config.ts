@@ -118,6 +118,8 @@ import type ContextPackService from '@/backend/services/ContextPackService';
 import { ContextPackServiceImpl } from '@/backend/services/ContextPackService';
 import type WordContextInsightService from '@/backend/services/WordContextInsightService';
 import { WordContextInsightServiceImpl } from '@/backend/services/WordContextInsightService';
+import type LearningRecapService from '@/backend/services/LearningRecapService';
+import { LearningRecapServiceImpl } from '@/backend/services/LearningRecapService';
 import type SubtitleComprehensionService from '@/backend/services/SubtitleComprehensionService';
 import { SubtitleComprehensionServiceImpl } from '@/backend/services/SubtitleComprehensionService';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
@@ -307,5 +309,6 @@ container.bind<VocabularyService>(TYPES.VocabularyService).to(VocabularyServiceI
 container.bind<SentenceVocabularyService>(TYPES.SentenceVocabularyService).to(SentenceVocabularyServiceImpl).inSingletonScope();
 container.bind<ContextPackService>(TYPES.ContextPackService).to(ContextPackServiceImpl).inSingletonScope();
 container.bind<WordContextInsightService>(TYPES.WordContextInsightService).to(WordContextInsightServiceImpl).inSingletonScope();
+container.bind<LearningRecapService>(TYPES.LearningRecapService).to(LearningRecapServiceImpl).inSingletonScope();
 container.bind<SubtitleComprehensionService>(TYPES.SubtitleComprehensionService).to(SubtitleComprehensionServiceImpl).inSingletonScope();
 export default container;

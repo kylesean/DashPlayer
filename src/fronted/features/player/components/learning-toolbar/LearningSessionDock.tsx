@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Activity, Loader2, RotateCcw, Sparkles } from 'lucide-react';
+import { Activity, ChevronRight, Loader2, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
@@ -17,6 +17,7 @@ import {
     type ToolbarTone,
 } from './toolbarStyles';
 import { formatLearningClock, formatLearningDue } from './learningTime';
+import LearningRecapDialog from './LearningRecapDialog';
 
 /**
  * 单个统计数字。
@@ -87,7 +88,9 @@ export default function LearningSessionDock({
     popoverOffset: number;
 }) {
     const { t, i18n } = useTranslation('player');
+    const { t: tRecap } = useTranslation('recap');
     const [open, setOpen] = useState(false);
+    const [recapOpen, setRecapOpen] = useState(false);
     const videoId = usePlaybackSession((state) => state.videoId);
     const fileHash = usePlaybackSession((state) => state.srtHash);
     const { since } = useLearningSessionSince(videoId, fileHash);
@@ -120,7 +123,8 @@ export default function LearningSessionDock({
     const hasWords = (data?.words.length ?? 0) > 0;
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <>
+            <Popover open={open} onOpenChange={setOpen}>
             <Tooltip content={t('learningSummary.trigger')} placement="above">
                 <PopoverTrigger asChild>
                     <button
@@ -224,6 +228,20 @@ export default function LearningSessionDock({
                             </div>
                         )}
 
+                        {hasWords && since && (
+                            <button
+                                type="button"
+                                data-testid="learning-recap-trigger"
+                                title={tRecap('ctaHint')}
+                                onClick={() => setRecapOpen(true)}
+                                className="group flex w-full items-center gap-1.5 rounded-lg px-1 py-1.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                                <Sparkles className="h-3.5 w-3.5 shrink-0 text-warning-text/80" />
+                                <span>{tRecap('cta')}</span>
+                                <ChevronRight className="ml-auto h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
+                            </button>
+                        )}
+
                         {data.counts.due === 0 && data.nextDueAt && (
                             <div className="px-1 pb-1 text-metadata text-muted-foreground">
                                 {t('learningSummary.nextDue', {
@@ -233,7 +251,18 @@ export default function LearningSessionDock({
                         )}
                     </div>
                 ) : null}
-            </PopoverContent>
-        </Popover>
+                </PopoverContent>
+            </Popover>
+            {since && (
+                <LearningRecapDialog
+                    open={recapOpen}
+                    onOpenChange={setRecapOpen}
+                    videoId={videoId ?? undefined}
+                    fileHash={fileHash ?? undefined}
+                    since={since}
+                    locale={i18n.language.startsWith('en') ? 'en-US' : 'zh-CN'}
+                />
+            )}
+        </>
     );
 }

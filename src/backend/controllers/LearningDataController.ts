@@ -8,8 +8,13 @@ import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import { positiveIntSchema } from '@/backend/controllers/ipc/routeSchemas';
 import TYPES from '@/backend/ioc/types';
 import type LearningDataService from '@/backend/services/LearningDataService';
+import type LearningRecapService from '@/backend/services/LearningRecapService';
 import type { LearningSessionSummaryParams } from '@/common/types/learningSession';
 import type { LearningDataExportResultVO } from '@/common/types/learningData';
+import type {
+    LearningRecapParams,
+    RetellEvaluationParams,
+} from '@/common/types/learningRecap';
 
 /**
  * 学习数据 IPC 控制器：会话摘要、导出与清除。
@@ -18,6 +23,7 @@ import type { LearningDataExportResultVO } from '@/common/types/learningData';
 export default class LearningDataController implements Controller {
     constructor(
         @inject(TYPES.LearningDataService) private readonly learningDataService: LearningDataService,
+        @inject(TYPES.LearningRecapService) private readonly learningRecapService: LearningRecapService,
     ) {}
 
     /**
@@ -25,6 +31,20 @@ export default class LearningDataController implements Controller {
      */
     public async getSessionSummary(params: LearningSessionSummaryParams) {
         return this.learningDataService.getSessionSummary(params);
+    }
+
+    /**
+     * 生成当前播放会话的学习复盘。
+     */
+    public async getRecap(params: LearningRecapParams) {
+        return this.learningRecapService.buildRecap(params);
+    }
+
+    /**
+     * 检查用户对原句的复述。
+     */
+    public async evaluateRetell(params: RetellEvaluationParams) {
+        return this.learningRecapService.evaluateRetell(params);
     }
 
     /**
@@ -71,5 +91,24 @@ export default class LearningDataController implements Controller {
         });
         registerRoute('learning-data/export', () => this.exportData());
         registerRoute('learning-data/reset', () => this.resetLearningData());
+        registerRoute('learning-data/recap', (p) => this.getRecap(p), {
+            schema: z.object({
+                videoId: z.string().min(1).optional(),
+                fileHash: z.string().min(1).optional(),
+                since: z.string().min(1),
+                locale: z.enum(['zh-CN', 'en-US']).optional(),
+                forceRefresh: z.boolean().optional(),
+            }).refine((value) => Boolean(value.videoId || value.fileHash), {
+                message: 'videoId 或 fileHash 至少提供一个',
+            }),
+        });
+        registerRoute('learning-data/retell-feedback', (p) => this.evaluateRetell(p), {
+            schema: z.object({
+                original: z.string().min(1).max(1_000),
+                response: z.string().min(1).max(2_000),
+                locale: z.enum(['zh-CN', 'en-US']).optional(),
+                forceRefresh: z.boolean().optional(),
+            }),
+        });
     }
 }

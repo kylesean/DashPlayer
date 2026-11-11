@@ -23,6 +23,11 @@ vi.mock('react-i18next', async (importOriginal) => {
     };
 });
 
+vi.mock('../LearningRecapDialog', () => ({
+    default: ({ open }: { open: boolean }) =>
+        open ? <div data-testid="mock-learning-recap-dialog" /> : null,
+}));
+
 const summary: LearningSessionSummaryVO = {
     since: '2026-01-01T10:00:00.000Z',
     counts: {
@@ -102,5 +107,19 @@ describe('LearningSessionDock', () => {
 
         expect(screen.getByText('learningSummary.emptyTitle')).toBeDefined();
         expect(screen.getByText('learningSummary.emptyHint')).toBeDefined();
+    });
+
+    it('有学习记录时可以从摘要入口打开学习复盘', () => {
+        mockSWR(summary);
+        useLearningSessionStore.setState({
+            key: 'video-1::hash-1',
+            since: '2026-01-01T10:00:00.000Z',
+        });
+        render(<LearningSessionDock tone="panel" popoverOffset={8} />);
+
+        fireEvent.click(screen.getByTestId('learning-session-trigger'));
+        fireEvent.click(screen.getByTestId('learning-recap-trigger'));
+
+        expect(screen.getByTestId('mock-learning-recap-dialog')).toBeDefined();
     });
 });

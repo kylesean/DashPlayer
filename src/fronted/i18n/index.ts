@@ -23,6 +23,8 @@ import zhYoutubeImport from '@/fronted/i18n/locales/zh-CN/youtube-import.json';
 import enYoutubeImport from '@/fronted/i18n/locales/en-US/youtube-import.json';
 import zhPractice from '@/fronted/i18n/locales/zh-CN/practice.json';
 import enPractice from '@/fronted/i18n/locales/en-US/practice.json';
+import zhRecap from '@/fronted/i18n/locales/zh-CN/recap.json';
+import enRecap from '@/fronted/i18n/locales/en-US/recap.json';
 
 export type AppLocale = 'zh-CN' | 'en-US';
 export type AppLanguageSetting = 'system' | AppLocale;
@@ -42,6 +44,7 @@ export const resources = {
         migration: zhMigration,
         youtubeImport: zhYoutubeImport,
         practice: zhPractice,
+        recap: zhRecap,
     },
     'en-US': {
         nav: enNav,
@@ -55,6 +58,7 @@ export const resources = {
         migration: enMigration,
         youtubeImport: enYoutubeImport,
         practice: enPractice,
+        recap: enRecap,
     },
 };
 
@@ -94,7 +98,7 @@ void i18nextUse(initReactI18next)
         interpolation: {
             escapeValue: false,
         },
-        ns: ['nav', 'settings', 'toast', 'errors', 'player', 'pages', 'common', 'onboarding', 'migration', 'youtubeImport', 'practice'],
+        ns: ['nav', 'settings', 'toast', 'errors', 'player', 'pages', 'common', 'onboarding', 'migration', 'youtubeImport', 'practice', 'recap'],
         defaultNS: 'settings',
         returnNull: false,
         debug: import.meta.env.DEV,

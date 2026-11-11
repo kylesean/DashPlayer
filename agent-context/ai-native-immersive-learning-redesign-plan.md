@@ -604,6 +604,37 @@ context_embeddings
 - 句子/视频 embedding 与内容指南针。
 - 推荐接受率、忽略率与 7 天回忆率的聚合看板。
 
+#### R2 第四阶段实施记录（2026-11-12）
+
+已落地：
+
+- 「本次学习」摘要弹层新增克制的复盘入口，用户主动打开后才请求模型，不在视频结束或悬浮路径自动生成。
+- AI 复盘输出 2–3 个词、1 个真实字幕句、1 个实用表达与 1 个 20–60 秒口语任务；词只能来自本次会话，句子必须与字幕原文逐字一致，表达必须真实出现在字幕里，越界内容自动丢弃或用本地词补齐。
+- 复盘始终有本地确定性版本：按到期、学习中、收藏优先选词，并优先选择与最值得记的词同句的字幕；AI 关闭、断网或输出不合法时只降级复盘内容，不阻塞入口。
+- 新增书面「一句话复述」：本地先计算原句内容词覆盖率、缺失关键词与等级；AI 在同等关键词事实基础上补充具体点评与更自然的英文改写，云端失败自动回退本地就绪模型。
+- 复盘缓存按会话定位、会话词句、语言、模型与提示词版本隔离；复述缓存按原句、用户答案、语言与模型隔离。两者都做并发去重，复盘 TTL 1 小时、复述 TTL 7 天。
+
+核心实现：
+
+- `src/common/types/learningRecap.ts`
+- `src/backend/services/LearningRecapService.ts`
+- `src/backend/controllers/LearningDataController.ts` 的 `learning-data/recap` 与 `learning-data/retell-feedback`
+- `src/fronted/features/player/components/learning-toolbar/LearningRecapDialog.tsx`
+- `src/fronted/features/player/components/learning-toolbar/LearningSessionDock.tsx`
+
+验证：
+
+- 复盘服务 8 项测试通过（会话事实约束、缓存、AI 缺失、云端失败、并发去重、复述覆盖、AI 复述、提示词）。
+- 复盘弹层 4 项组件测试与「本次学习」入口测试通过。
+- 全量单元/组件测试：851 项通过，9 项跳过。
+- TypeScript 全量检查通过，定向 ESLint 通过。
+
+尚未包含：
+
+- 视频结束自动提示复盘；当前由用户从「本次学习」主动打开，避免打断连续播放。
+- 语音复述与发音/流利度评分；当前只做书面复述。
+- 复述结果写入掌握度与长期学习指标；当前只作为即时练习反馈。
+
 ### R3：沉浸式学习 OS（6–8 周）
 
 目标：把「看、学、练、复习、选内容」连成一个自然循环。
