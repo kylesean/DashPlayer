@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
     useFloating,
     autoUpdate,
@@ -30,6 +30,13 @@ import { usePlayer } from '@/fronted/features/player/playerStore';
 import useDictionaryStream, { createDictionaryRequestId } from '@/fronted/features/player/dictionaryStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
+import {
+    VOCABULARY_GUIDANCE_LEVELS,
+    type VocabularyGuidance,
+    type WordStatus,
+} from '@/common/types/vocabulary';
+import { resolveVocabularyAnnotation } from '@/fronted/features/player/vocabularyAnnotations';
 
 const logger = getRendererLogger('Word');
 
@@ -80,6 +87,10 @@ export interface WordParam {
     lemma?: string;
     /** 单词所在的整句字幕，供词典引擎做语境消歧；缺失时回退普通词典查询。 */
     sentenceText?: string;
+    /** 句子在字幕中的序号，供遭遇事件定位。 */
+    sentenceIndex?: number;
+    /** 句子内容哈希，供遭遇事件定位。 */
+    sentenceHash?: string;
     pop: boolean;
     requestPop: () => void;
     show: boolean;
@@ -88,6 +99,7 @@ export interface WordParam {
         word?: string;    // 单词文本容器（非弹层）
         hover?: string;   // 覆盖 hover 背景
         vocab?: string;   // 覆盖词汇高亮
+        vocabFamiliar?: string; // 覆盖「有印象」弱提示
     };
     children?: React.ReactNode;
 }
@@ -101,6 +113,8 @@ export default function Word({
     original,
     lemma,
     sentenceText,
+    sentenceIndex,
+    sentenceHash,
     pop,
     requestPop,
     show,
@@ -112,14 +126,16 @@ export default function Word({
     const {
         isVocabularyWord: checkIsVocab,
         getBaseWord,
+        getWordStatus,
+        setWordStatus: updateLocalWordStatus,
         removeVocabularyWords,
-        addVocabularyWords,
     } = useVocabularyState(
         useShallow((s) => ({
             isVocabularyWord: s.isVocabularyWord,
             getBaseWord: s.getBaseWord,
+            getWordStatus: s.getWordStatus,
+            setWordStatus: s.setWordStatus,
             removeVocabularyWords: s.removeVocabularyWords,
-            addVocabularyWords: s.addVocabularyWords,
             version: s.version,
         })),
     );
@@ -127,6 +143,8 @@ export default function Word({
     const [isOpen, setIsOpen] = useState(false);
     const [playLoading, setPlayLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [statusSaving, setStatusSaving] = useState(false);
+    const lastOpenEncounterAt = useRef(0);
     // 收藏状态：idle 未收藏；saving 提交中；saved 已加入收藏
     const [favoriteState, setFavoriteState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
@@ -134,11 +152,53 @@ export default function Word({
 
     // 检查是否是词汇单词
     const cleanWord = (lemma ?? word).toLowerCase().trim();
+    const baseWord = getBaseWord(cleanWord);
+    const wordStatus = getWordStatus(cleanWord) ?? (baseWord ? getWordStatus(baseWord) : undefined);
     const isVocabularyWord = cleanWord && checkIsVocab(cleanWord);
 
     const hoverBg = classNames?.hover ?? (alwaysDark ? 'hover:bg-muted/70' : theme.word.hoverBgClass);
-    const vocabCls = isVocabularyWord ? (classNames?.vocab ?? theme.word.vocabHighlightClass) : undefined;
+    const guidanceRaw = useSetting((state) => state.values.get('player.vocabularyGuidance'));
+    const vocabularyGuidance: VocabularyGuidance = VOCABULARY_GUIDANCE_LEVELS.includes(
+        guidanceRaw as VocabularyGuidance,
+    )
+        ? guidanceRaw as VocabularyGuidance
+        : 'calm';
+    const annotationKind = resolveVocabularyAnnotation(wordStatus, vocabularyGuidance);
+    const vocabCls = annotationKind === 'learning'
+        ? (classNames?.vocab ?? theme.word.vocabHighlightClass)
+        : annotationKind === 'familiar'
+            ? (classNames?.vocabFamiliar ?? theme.word.vocabFamiliarClass)
+            : undefined;
     const pauseOnWordHover = useSetting((state) => state.values.get('player.pauseOnWordHover')) === 'true';
+
+    /**
+     * 记录一次单词遭遇；失败只写日志，不影响查词/播放主流程。
+     */
+    const recordEncounter = (action: 'open' | 'save' | 'known' | 'ignore') => {
+        if (action === 'open') {
+            const now = Date.now();
+            if (now - lastOpenEncounterAt.current < 5_000) {
+                return;
+            }
+            lastOpenEncounterAt.current = now;
+        }
+        const session = usePlaybackSession.getState();
+        void videoLearningApi.recordWordEncounter({
+            word: cleanWord,
+            action,
+            videoId: session.videoId ?? undefined,
+            fileHash: session.srtHash ?? undefined,
+            sentenceIndex,
+            sentenceHash,
+            context: sentenceText,
+        }).catch((error) => {
+            logger.error('failed to record word encounter', {
+                error: error instanceof Error ? error.message : String(error),
+                action,
+                word: cleanWord,
+            });
+        });
+    };
 
     // 订阅流式查词状态；当本词不是活动流时直接忽略
     const dictionaryEntry = useDictionaryStream((state) => state.getActiveEntry(original));
@@ -186,6 +246,7 @@ export default function Word({
             setIsOpen(open);
             if (open) {
                 requestPop();
+                recordEncounter('open');
             }
         },
         placement: 'bottom-start',
@@ -275,8 +336,9 @@ export default function Word({
 
             const result = await videoLearningApi.favoriteWord(original, buildFavoriteTranslate(dictionaryResponse));
             if (result.success && result.data) {
-                addVocabularyWords([result.data.word]);
+                updateLocalWordStatus(result.data.word, 'learning');
                 setFavoriteState('saved');
+                recordEncounter('save');
                 toast.success(result.data.alreadyExists ? t('wordAlreadyFavorited') : t('wordFavorited'));
             } else {
                 setFavoriteState('idle');
@@ -286,6 +348,41 @@ export default function Word({
             logger.error('failed to toggle favorite word', { error: error instanceof Error ? error.message : error });
             setFavoriteState(previousState);
             toast.error(favorited ? t('unfavoriteWordFailed') : t('favoriteWordFailed'));
+        }
+    };
+
+    /**
+     * 切换「认识 / 忽略 / 回到学习」状态。
+     *
+     * 同一个动作再点一次会回到 learning，保证误触可逆。
+     */
+    const handleStatusChange = async (next: WordStatus) => {
+        if (statusSaving || !cleanWord) {
+            return;
+        }
+        const target: WordStatus = wordStatus === next ? 'learning' : next;
+        setStatusSaving(true);
+        try {
+            const result = await videoLearningApi.updateWordState(cleanWord, target);
+            if (result.success && result.data) {
+                updateLocalWordStatus(result.data.word, result.data.status);
+                setFavoriteState(target === 'learning' ? 'saved' : 'idle');
+                recordEncounter(target === 'known' ? 'known' : target === 'ignored' ? 'ignore' : 'save');
+                if (target === 'known') {
+                    toast.success(t('wordMarkedKnown'));
+                } else if (target === 'ignored') {
+                    toast.success(t('wordIgnored'));
+                } else {
+                    toast.success(t('wordBackToLearning'));
+                }
+            } else {
+                toast.error(result.error || t('wordStateUpdateFailed'));
+            }
+        } catch (error) {
+            logger.error('failed to update word state', { error: error instanceof Error ? error.message : error });
+            toast.error(t('wordStateUpdateFailed'));
+        } finally {
+            setStatusSaving(false);
         }
     };
 
@@ -388,6 +485,10 @@ export default function Word({
                         onFavorite={handleFavorite}
                         isFavorited={isVocabularyWord || favoriteState === 'saved'}
                         isFavoriting={favoriteState === 'saving'}
+                        wordStatus={wordStatus ?? null}
+                        isUpdatingStatus={statusSaving}
+                        onMarkKnown={() => { void handleStatusChange('known'); }}
+                        onMarkIgnored={() => { void handleStatusChange('ignored'); }}
                     />
                 </Eb>
             ) : null}

@@ -7,6 +7,7 @@ import {
     type VocabularyEntry,
     type VocabularyMatcher,
 } from '@/backend/utils/language/VocabularyMatcher';
+import { isActiveWordStatus } from '@/common/types/vocabulary';
 
 export interface WordMatchService {
     matchWordsInText(text: string): Promise<MatchedWord[]>;
@@ -115,7 +116,8 @@ export class WordMatchServiceImpl implements WordMatchService {
             return this.vocabularyWordsCache;
         }
 
-        this.vocabularyWordsCache = await this.wordsRepository.getAll();
+        const words = await this.wordsRepository.getAll();
+        this.vocabularyWordsCache = words.filter((word) => isActiveWordStatus(word.status));
         return this.vocabularyWordsCache;
     }
 

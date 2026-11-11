@@ -124,6 +124,10 @@ import type FfmpegGateway from '@/backend/services/gateways/media/FfmpegGateway'
 import FfmpegGatewayImpl from '@/backend/infrastructure/media/ffmpeg/FfmpegGatewayImpl';
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
+import type WordEncounterRepository from '@/backend/services/repositories/WordEncounterRepository';
+import WordEncounterRepositoryImpl from '@/backend/infrastructure/db/repositories/WordEncounterRepositoryImpl';
+import type WordEncounterService from '@/backend/services/WordEncounterService';
+import { WordEncounterServiceImpl } from '@/backend/services/WordEncounterService';
 import type DpTaskRepository from '@/backend/services/repositories/DpTaskRepository';
 import DpTaskRepositoryImpl from '@/backend/infrastructure/db/repositories/DpTaskRepositoryImpl';
 import type VideoLearningClipRepository from '@/backend/services/repositories/VideoLearningClipRepository';
@@ -230,6 +234,8 @@ container.bind<SherpaOnnxTtsCli>(TYPES.SherpaOnnxTtsCli).to(SherpaOnnxTtsCli).in
 container.bind<SherpaTtsModelService>(TYPES.SherpaTtsModelService).to(SherpaTtsModelServiceImpl).inSingletonScope();
 container.bind<LocalTtsService>(TYPES.LocalTtsService).to(LocalTtsServiceImpl).inSingletonScope();
 container.bind<WordsRepository>(TYPES.WordsRepository).to(WordsRepositoryImpl).inSingletonScope();
+container.bind<WordEncounterRepository>(TYPES.WordEncounterRepository).to(WordEncounterRepositoryImpl).inSingletonScope();
+container.bind<WordEncounterService>(TYPES.WordEncounterService).to(WordEncounterServiceImpl).inSingletonScope();
 container.bind<DpTaskRepository>(TYPES.DpTaskRepository).to(DpTaskRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipRepository>(TYPES.VideoLearningClipRepository).to(VideoLearningClipRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipWordRepository>(TYPES.VideoLearningClipWordRepository).to(VideoLearningClipWordRepositoryImpl).inSingletonScope();

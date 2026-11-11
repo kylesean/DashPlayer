@@ -80,6 +80,32 @@ export const videoLearningApi = {
         backendClient.call('vocabulary/update', { oldWord, word, translate }),
 
     /**
+     * 更新单词学习状态。
+     *
+     * @param word 单词原文。
+     * @param status 目标状态。
+     * @returns 操作结果。
+     */
+    updateWordState: (word: string, status: 'learning' | 'familiar' | 'known' | 'ignored') =>
+        backendClient.call('vocabulary/update-state', { word, status }),
+
+    /**
+     * 记录一次单词遭遇；用于后续掌握度、复习与推荐解释。
+     *
+     * @param params 单词与上下文信息。
+     * @returns 写入完成。
+     */
+    recordWordEncounter: (params: {
+        word: string;
+        action: 'seen' | 'hover' | 'open' | 'lookup' | 'replay' | 'save' | 'known' | 'ignore' | 'shadow' | 'dictation' | 'review';
+        videoId?: string;
+        fileHash?: string;
+        sentenceIndex?: number;
+        sentenceHash?: string;
+        context?: string;
+    }) => backendClient.call('vocabulary/record-encounter', params),
+
+    /**
      * 删除单词。
      *
      * @param word 待删除的单词。

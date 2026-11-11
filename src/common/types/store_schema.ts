@@ -55,6 +55,7 @@ export const SettingKeyObj = {
     'i18n.language': 'system',
     'player.autoPlayNext': 'false',
     'player.pauseOnWordHover': 'false',
+    'player.vocabularyGuidance': 'calm',
     'storage.path': '',
     'storage.collection': 'default',
     'proxy.mode': 'system',

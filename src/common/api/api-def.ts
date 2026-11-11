@@ -22,6 +22,10 @@ import type {VideoLearningClipPage} from '@/common/types/vo/VideoLearningClipVO'
 import type { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 import type { SentenceVocabularyVO } from '@/common/types/vo/SentenceVocabularyVO';
 import type {
+    WordEncounterAction,
+    WordStatus,
+} from '@/common/types/vocabulary';
+import type {
     ChatSessionCloseParams,
     ChatSessionCreateParams,
     ChatSessionCreateResult,
@@ -232,6 +236,7 @@ interface SubtitleControllerDef {
             playbackSessionId: string;
             fileHash: string;
             vocabularyWords: string[];
+            wordStates: Record<string, WordStatus>;
             cancelled: boolean;
         };
     };
@@ -371,6 +376,26 @@ interface VocabularyDef {
     'vocabulary/update': {
         params: { oldWord: string; word: string; translate: string },
         return: { success: boolean; error?: string }
+    };
+    'vocabulary/update-state': {
+        params: { word: string; status: WordStatus },
+        return: {
+            success: boolean;
+            data?: { word: string; status: WordStatus };
+            error?: string
+        }
+    };
+    'vocabulary/record-encounter': {
+        params: {
+            word: string;
+            action: WordEncounterAction;
+            videoId?: string;
+            fileHash?: string;
+            sentenceIndex?: number;
+            sentenceHash?: string;
+            context?: string;
+        },
+        return: void
     };
     'vocabulary/delete': {
         params: { word: string },

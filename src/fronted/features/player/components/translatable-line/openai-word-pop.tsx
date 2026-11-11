@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Star, Loader2 } from 'lucide-react';
+import { Check, EyeOff, Loader2, RefreshCw, Star } from 'lucide-react';
 import { Token } from '@astryxdesign/core/Token';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import Playable from '@/fronted/components/shared/common/Playable';
@@ -7,6 +7,7 @@ import { cn } from '@/fronted/lib/utils';
 import { formatPhonetic } from '@/fronted/lib/phonetic';
 import { DICT_TAG_I18N_KEYS } from '@/fronted/lib/dict-tags';
 import { useTranslation } from 'react-i18next';
+import type { WordStatus } from '@/common/types/vocabulary';
 
 /**
  * 统一音标显示格式，自动补齐首尾斜杠。
@@ -29,6 +30,14 @@ interface OpenAIWordPopProps {
     isFavorited?: boolean;
     /** 收藏请求是否进行中。 */
     isFavoriting?: boolean;
+    /** 当前单词学习状态。 */
+    wordStatus?: WordStatus | null;
+    /** 标记为已掌握。 */
+    onMarkKnown?: () => void;
+    /** 标记为忽略。 */
+    onMarkIgnored?: () => void;
+    /** 状态更新请求是否进行中。 */
+    isUpdatingStatus?: boolean;
     className?: string;
 }
 
@@ -40,6 +49,10 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
     onFavorite,
     isFavorited = false,
     isFavoriting = false,
+    wordStatus = null,
+    onMarkKnown,
+    onMarkIgnored,
+    isUpdatingStatus = false,
     className
 }) => {
     const { t } = useTranslation('common');
@@ -80,6 +93,15 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
         const phonetic = formatPhonetic(data.phonetic);
         const dictTags = (data.tags ?? []).filter((tag) => DICT_TAG_I18N_KEYS[tag]);
         const hasMeta = Boolean(data.collins || data.oxford || data.bnc || data.frq || dictTags.length > 0);
+        const statusLabel = wordStatus === 'learning'
+            ? t('wordStatusLearning')
+            : wordStatus === 'familiar'
+                ? t('wordStatusFamiliar')
+                : wordStatus === 'known'
+                    ? t('wordStatusKnown')
+                    : wordStatus === 'ignored'
+                        ? t('wordStatusIgnored')
+                        : null;
 
         return (
             <div className="h-full flex flex-col overflow-hidden">
@@ -94,6 +116,11 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                         {phonetic && (
                             <span className="text-sm font-mono text-muted-foreground/75 mt-0.5 inline-block select-text">
                                 {phonetic}
+                            </span>
+                        )}
+                        {statusLabel && (
+                            <span className="text-metadata text-muted-foreground/80 mt-0.5 ml-2 inline-block select-text">
+                                {statusLabel}
                             </span>
                         )}
                         {hasMeta && (
@@ -148,6 +175,40 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 {isFavoriting
                                     ? <Loader2 size={15} className="animate-spin" />
                                     : <Star size={15} className={cn('transition-transform duration-150', isFavorited ? 'fill-warning scale-110' : '')} />}
+                            </button>
+                        )}
+                        {onMarkKnown && (
+                            <button
+                                type="button"
+                                onClick={onMarkKnown}
+                                disabled={isUpdatingStatus}
+                                className={cn(
+                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer',
+                                    wordStatus === 'known' && 'text-success-text hover:text-success-text',
+                                    isUpdatingStatus && 'cursor-default opacity-60',
+                                )}
+                                title={t('markWordKnown')}
+                                aria-label={t('markWordKnown')}
+                            >
+                                {isUpdatingStatus && wordStatus !== 'known'
+                                    ? <Loader2 size={15} className="animate-spin" />
+                                    : <Check size={15} />}
+                            </button>
+                        )}
+                        {onMarkIgnored && (
+                            <button
+                                type="button"
+                                onClick={onMarkIgnored}
+                                disabled={isUpdatingStatus}
+                                className={cn(
+                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer',
+                                    wordStatus === 'ignored' && 'text-foreground',
+                                    isUpdatingStatus && 'cursor-default opacity-60',
+                                )}
+                                title={t('markWordIgnored')}
+                                aria-label={t('markWordIgnored')}
+                            >
+                                <EyeOff size={15} />
                             </button>
                         )}
                         {onRefresh && (

@@ -55,6 +55,8 @@ export function renderSentenceTokens({
                         original={part.content}
                         lemma={part.lemma}
                         sentenceText={text}
+                        sentenceIndex={sentence.index}
+                        sentenceHash={textHash}
                         pop={popEle === partId}
                         requestPop={() => onRequestPop(partId)}
                         show={true}
@@ -63,6 +65,7 @@ export function renderSentenceTokens({
                             word: 'px-0.5 rounded text-inherit transition-colors cursor-pointer select-text',
                             hover: 'hover:bg-accent/15 hover:text-accent',
                             vocab: 'underline decoration-accent/70 underline-offset-4 decoration-1 font-medium',
+                            vocabFamiliar: 'underline decoration-dotted decoration-accent/45 underline-offset-4 decoration-1',
                         }}
                     >
                         {highlightSlice(text, part.content, start, searchQuery, isActiveMatch)}
@@ -104,6 +107,8 @@ export function renderSentenceTokens({
                     original={w}
                     lemma={cleaned}
                     sentenceText={text}
+                    sentenceIndex={sentence.index}
+                    sentenceHash={textHash}
                     pop={popEle === partId}
                     requestPop={() => onRequestPop(partId)}
                     show={true}
@@ -112,6 +117,7 @@ export function renderSentenceTokens({
                         word: 'px-0.5 rounded text-inherit transition-colors cursor-pointer select-text',
                         hover: 'hover:bg-accent/15 hover:text-accent',
                         vocab: 'underline decoration-accent/70 underline-offset-4 decoration-1 font-medium',
+                        vocabFamiliar: 'underline decoration-dotted decoration-accent/45 underline-offset-4 decoration-1',
                     }}
                 >
                     {highlightSlice(text, w, actualStart, searchQuery, isActiveMatch)}

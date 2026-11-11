@@ -3,11 +3,21 @@ import type Controller from '@/backend/controllers/Controller';
 import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import type VocabularyService from '@/backend/services/VocabularyService';
-import { type GetAllWordsParams, type UpdateWordParams } from '@/backend/services/VocabularyService';
+import {
+    type GetAllWordsParams,
+    type UpdateWordParams,
+    type UpdateWordStateParams,
+} from '@/backend/services/VocabularyService';
 import type SentenceVocabularyService from '@/backend/services/SentenceVocabularyService';
+import type WordEncounterService from '@/backend/services/WordEncounterService';
 import type { SentenceVocabularyVO } from '@/common/types/vo/SentenceVocabularyVO';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import { nonEmptyStringSchema, positiveIntSchema } from '@/backend/controllers/ipc/routeSchemas';
+import {
+    WORD_ENCOUNTER_ACTIONS,
+    WORD_STATUSES,
+    type WordEncounterInput,
+} from '@/common/types/vocabulary';
 
 /**
  * 生词本管理与句子生词筛选 IPC 控制器。
@@ -19,10 +29,12 @@ export default class VocabularyController implements Controller {
      *
      * @param vocabularyService 生词本业务服务。
      * @param sentenceVocabularyService 句子生词筛选服务。
+     * @param wordEncounterService 单词遭遇事件服务。
      */
     constructor(
         @inject(TYPES.VocabularyService) private readonly vocabularyService: VocabularyService,
         @inject(TYPES.SentenceVocabularyService) private readonly sentenceVocabularyService: SentenceVocabularyService,
+        @inject(TYPES.WordEncounterService) private readonly wordEncounterService: WordEncounterService,
     ) {}
 
     public async getAllWords(params: GetAllWordsParams = {}) {
@@ -43,6 +55,14 @@ export default class VocabularyController implements Controller {
 
     public async updateWord(params: UpdateWordParams) {
         return this.vocabularyService.updateWord(params);
+    }
+
+    public async updateWordState(params: UpdateWordStateParams) {
+        return this.vocabularyService.updateWordState(params);
+    }
+
+    public async recordWordEncounter(params: WordEncounterInput): Promise<void> {
+        await this.wordEncounterService.record(params);
     }
 
     public async deleteWord(params: { word: string }) {
@@ -88,6 +108,23 @@ export default class VocabularyController implements Controller {
                 oldWord: nonEmptyStringSchema,
                 word: nonEmptyStringSchema,
                 translate: z.string(),
+            }),
+        });
+        registerRoute('vocabulary/update-state', (p) => this.updateWordState(p), {
+            schema: z.object({
+                word: nonEmptyStringSchema,
+                status: z.enum(WORD_STATUSES),
+            }),
+        });
+        registerRoute('vocabulary/record-encounter', (p) => this.recordWordEncounter(p), {
+            schema: z.object({
+                word: nonEmptyStringSchema,
+                action: z.enum(WORD_ENCOUNTER_ACTIONS),
+                videoId: z.string().optional(),
+                fileHash: z.string().optional(),
+                sentenceIndex: z.number().int().nonnegative().optional(),
+                sentenceHash: z.string().optional(),
+                context: z.string().optional(),
             }),
         });
         registerRoute('vocabulary/delete', (p) => this.deleteWord(p), {

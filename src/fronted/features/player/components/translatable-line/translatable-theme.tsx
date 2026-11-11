@@ -14,6 +14,7 @@ export interface TransLineTheme {
   word: {
     hoverBgClass: string;         // 单词 hover 背景（非弹层）
     vocabHighlightClass: string;  // 词汇高亮样式
+    vocabFamiliarClass: string;   // 有印象但未稳定的弱提示样式
     popReferenceBgClass: string;  // 弹层 reference 的底色（非 hover）
   };
   pop: {
@@ -35,6 +36,7 @@ const defaultTheme: TransLineTheme = {
   word: {
     hoverBgClass: 'transition-colors duration-150 hover:bg-muted/70 hover:shadow-xs hover:text-primary rounded px-1',
     vocabHighlightClass: 'text-accent font-medium underline decoration-accent/60 decoration-2 underline-offset-4 rounded px-0.5 transition-colors duration-150 hover:bg-accent-muted/20',
+    vocabFamiliarClass: 'text-accent/80 underline decoration-dotted decoration-accent/45 decoration-1 underline-offset-4 rounded px-0.5 transition-colors duration-150 hover:bg-accent-muted/15',
     popReferenceBgClass: 'bg-accent-muted/20 shadow-xs text-accent font-medium rounded'
   },
   pop: {

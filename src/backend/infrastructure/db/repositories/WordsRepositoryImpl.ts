@@ -1,11 +1,15 @@
-import { eq, like, or, sql } from 'drizzle-orm';
+import { and, eq, like, ne, or, sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 
 import type { Db } from '@/backend/infrastructure/db/createDb';
 import { type InsertWord, type Word, words } from '@/backend/infrastructure/db/tables/words';
 import TYPES from '@/backend/ioc/types';
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
-import { type GetAllWordsQuery, type WordContent } from '@/backend/services/repositories/WordsRepository';
+import {
+    type GetAllWordsQuery,
+    type WordContent,
+    type WordStateUpdate,
+} from '@/backend/services/repositories/WordsRepository';
 
 /**
  * 单词仓储实现。
@@ -36,14 +40,15 @@ export default class WordsRepositoryImpl implements WordsRepository {
         return this.db
             .select()
             .from(words)
-            .where(
+            .where(and(
+                query.includeDefault ? undefined : ne(words.source, 'default'),
                 query.search
                     ? or(
                         like(words.word, `%${query.search}%`),
                         like(words.translate, `%${query.search}%`),
                     )
                     : undefined,
-            );
+            ));
     }
 
     /**
@@ -95,9 +100,38 @@ export default class WordsRepositoryImpl implements WordsRepository {
             .values({
                 word: value.word,
                 translate: value.translate,
+                status: value.status ?? 'learning',
+                source: value.source ?? 'manual',
                 created_at: now,
                 updated_at: now,
             })
+            .run();
+    }
+
+    /**
+     * 更新单词学习状态。
+     *
+     * @param word 单词。
+     * @param state 新状态与可选来源。
+     */
+    public async updateState(word: string, state: WordStateUpdate): Promise<void> {
+        const now = new Date().toISOString();
+        const patch: Partial<InsertWord> = {
+            status: state.status,
+            source: state.source,
+            updated_at: now,
+            mastered_at: state.status === 'known' ? now : null,
+        };
+        if (state.status === 'known') {
+            patch.mastery = 1;
+            patch.confidence = 1;
+        } else if (state.status === 'learning' || state.status === 'familiar') {
+            patch.mastery = 0;
+            patch.confidence = 0;
+        }
+        this.db.update(words)
+            .set(patch)
+            .where(this.wordEquals(word))
             .run();
     }
 

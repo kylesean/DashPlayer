@@ -5,6 +5,7 @@ import { cn } from '@/fronted/lib/utils';
 import OpenAIWordPop from './openai-word-pop';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { useTransLineTheme } from './translatable-theme';
+import type { WordStatus } from '@/common/types/vocabulary';
 
 const logger = getRendererLogger('WordPop');
 
@@ -28,6 +29,14 @@ export interface WordSubParam {
     isFavorited?: boolean;
     /** 收藏请求是否进行中。 */
     isFavoriting?: boolean;
+    /** 当前单词学习状态。 */
+    wordStatus?: WordStatus | null;
+    /** 标记为已掌握。 */
+    onMarkKnown?: () => void;
+    /** 标记为忽略。 */
+    onMarkIgnored?: () => void;
+    /** 状态更新请求是否进行中。 */
+    isUpdatingStatus?: boolean;
     /** 样式覆盖。 */
     classNames?: {
         openaiContainer?: string;
@@ -55,6 +64,10 @@ const WordPop: React.FC<WordSubParam> = ({
     onFavorite,
     isFavorited = false,
     isFavoriting = false,
+    wordStatus = null,
+    onMarkKnown,
+    onMarkIgnored,
+    isUpdatingStatus = false,
     classNames,
     floatingStyles,
     getFloatingProps,
@@ -87,6 +100,10 @@ const WordPop: React.FC<WordSubParam> = ({
                         onFavorite={onFavorite}
                         isFavorited={isFavorited}
                         isFavoriting={isFavoriting}
+                        wordStatus={wordStatus}
+                        onMarkKnown={onMarkKnown}
+                        onMarkIgnored={onMarkIgnored}
+                        isUpdatingStatus={isUpdatingStatus}
                     />
                 </div>
             </div>

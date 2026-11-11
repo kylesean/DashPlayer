@@ -64,6 +64,8 @@ export const seedDefaultVocabularyIfNeeded = async (): Promise<void> => {
         .map((w) => ({
             word: w.word.trim(),
             translate: w.translate ?? null,
+            status: 'ignored' as const,
+            source: 'default' as const,
         }))
         .filter((w) => w.word.length > 0);
 

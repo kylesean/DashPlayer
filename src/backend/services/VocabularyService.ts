@@ -20,6 +20,7 @@ import { concurrency } from '@/backend/utils/concurrency';
 import { parseCsv } from '@/backend/utils/csv';
 import { normalizeCellValue } from '@/backend/utils/spreadsheet-cell';
 import { assertVocabularyPath } from '@/backend/utils/file-path-guard';
+import { isActiveWordStatus, type WordSource, type WordStatus } from '@/common/types/vocabulary';
 
 export interface GetAllWordsParams {
     search?: string;
@@ -78,6 +79,28 @@ export interface SimpleActionResult {
     error?: string;
 }
 
+/**
+ * 更新单词学习状态的参数。
+ */
+export interface UpdateWordStateParams {
+    /** 单词原文；后端会先还原为 lemma。 */
+    word: string;
+    /** 目标学习状态。 */
+    status: WordStatus;
+}
+
+/**
+ * 更新单词学习状态的结果。
+ */
+export interface UpdateWordStateResult {
+    success: boolean;
+    data?: {
+        word: string;
+        status: WordStatus;
+    };
+    error?: string;
+}
+
 /** 删除单词结果；成功时携带实际删除的入库单词（已还原为原始形态）。 */
 export interface DeleteWordResult {
     success: boolean;
@@ -108,6 +131,15 @@ export default interface VocabularyService {
      * @param translate 调用方已有的释义文本；为空时由 AI 生成。
      */
     favoriteWord(word: string, translate?: string): Promise<FavoriteWordResult>;
+    /**
+     * 更新单词学习状态。
+     *
+     * 行为说明：
+     * - 输入变体先还原为 lemma；
+     * - 已存在时只改状态，不丢释义；
+     * - 不存在时创建一条状态记录，供「认识 / 忽略」抑制后续提示。
+     */
+    updateWordState(params: UpdateWordStateParams): Promise<UpdateWordStateResult>;
     /**
      * 编辑单词与释义；单词变化时同步迁移片段关联。
      */
@@ -231,6 +263,8 @@ export const parseImportedWords = (rows: string[][]): ImportedWordRow[] => {
     return Array.from(importedWords.values()).map((item) => ({
         word: item.word,
         translate: item.translate,
+        status: 'learning' as const,
+        source: 'imported' as const,
         created_at: now,
         updated_at: now,
     }));
@@ -373,6 +407,10 @@ export class VocabularyServiceImpl implements VocabularyService {
                     id: word.id,
                     word: word.word,
                     translate: word.translate || '',
+                    status: word.status,
+                    source: word.source,
+                    mastery: word.mastery,
+                    confidence: word.confidence,
                     created_at: word.created_at,
                     updated_at: word.updated_at
                 }))
@@ -529,11 +567,26 @@ export class VocabularyServiceImpl implements VocabularyService {
             const lemma = lemmatizeWord(input);
             const existing = await this.wordsRepository.findByWord(lemma);
             if (existing) {
+                const carriedTranslate = translate?.trim() ?? '';
+                const nextTranslate = existing.translate?.trim()
+                    || carriedTranslate
+                    || await this.generateDefinitionText(lemma);
+                if (nextTranslate && nextTranslate !== existing.translate) {
+                    await this.wordsRepository.updateByWord(lemma, { word: lemma, translate: nextTranslate });
+                }
+                if (!isActiveWordStatus(existing.status) || existing.source === 'default') {
+                    const nextSource: WordSource = existing.source === 'default' ? 'manual' : existing.source;
+                    await this.wordsRepository.updateState(lemma, {
+                        status: 'learning',
+                        source: nextSource,
+                    });
+                    this.invalidateVocabularyCaches();
+                }
                 return {
                     success: true,
                     data: {
                         word: existing.word,
-                        translate: existing.translate || '',
+                        translate: nextTranslate,
                         alreadyExists: true
                     }
                 };
@@ -542,7 +595,12 @@ export class VocabularyServiceImpl implements VocabularyService {
             const carriedTranslate = translate?.trim() ?? '';
             const finalTranslate = carriedTranslate || await this.generateDefinitionText(lemma);
             try {
-                await this.wordsRepository.insertOne({ word: lemma, translate: finalTranslate });
+                await this.wordsRepository.insertOne({
+                    word: lemma,
+                    translate: finalTranslate,
+                    status: 'learning',
+                    source: 'manual',
+                });
             } catch (insertError) {
                 // 并发收藏同一词的不同变体时会撞唯一约束；重新查到记录即转为已存在返回。
                 const raced = await this.wordsRepository.findByWord(lemma);
@@ -573,6 +631,50 @@ export class VocabularyServiceImpl implements VocabularyService {
             return {
                 success: false,
                 error: error instanceof Error ? error.message : '收藏单词失败'
+            };
+        }
+    }
+
+    /**
+     * 更新单词学习状态。
+     *
+     * @param params 单词原文与目标状态。
+     * @returns 操作结果；成功时携带实际入库 lemma 与状态。
+     */
+    async updateWordState(params: UpdateWordStateParams): Promise<UpdateWordStateResult> {
+        try {
+            const input = params.word?.trim() ?? '';
+            if (!input) {
+                return { success: false, error: '单词不能为空' };
+            }
+
+            const lemma = lemmatizeWord(input);
+            const existing = await this.wordsRepository.findByWord(lemma);
+            if (existing) {
+                const source: WordSource = existing.source === 'default' ? 'manual' : existing.source;
+                await this.wordsRepository.updateState(lemma, {
+                    status: params.status,
+                    source,
+                });
+            } else {
+                await this.wordsRepository.insertOne({
+                    word: lemma,
+                    translate: null,
+                    status: params.status,
+                    source: 'manual',
+                });
+            }
+            this.invalidateVocabularyCaches();
+
+            return {
+                success: true,
+                data: { word: lemma, status: params.status },
+            };
+        } catch (error) {
+            this.logger.error('更新单词状态失败', { error });
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : '更新单词状态失败',
             };
         }
     }

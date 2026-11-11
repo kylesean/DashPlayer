@@ -281,6 +281,11 @@ export class SettingServiceImpl implements SettingService {
         this.warnInvalidEnum(values['player.autoPlayNext'], ['true', 'false'] as const, 'player.autoPlayNext');
         this.warnInvalidEnum(values['player.pauseOnWordHover'], ['true', 'false'] as const, 'player.pauseOnWordHover');
         this.warnInvalidEnum(
+            values['player.vocabularyGuidance'],
+            ['off', 'calm', 'coach'] as const,
+            'player.vocabularyGuidance',
+        );
+        this.warnInvalidEnum(
             values['providers.subtitleTranslation'],
             SUBTITLE_TRANSLATION_ENGINES,
             'providers.subtitleTranslation',
@@ -319,6 +324,9 @@ export class SettingServiceImpl implements SettingService {
             case 'player.autoPlayNext':
             case 'player.pauseOnWordHover':
                 value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
+                break;
+            case 'player.vocabularyGuidance':
+                value = this.requireEnumValue(value, ['off', 'calm', 'coach'] as const, request.key);
                 break;
             case 'userSelect.playbackRateStack':
                 if (!this.isValidPlaybackRateStack(value)) {

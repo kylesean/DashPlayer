@@ -5,6 +5,7 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSWR, { useSWRConfig } from 'swr';
 import { toast } from 'react-hot-toast';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 
 import { cn } from '@/fronted/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
@@ -84,6 +85,7 @@ export default function PlayerSettingsPopover({
     const changeSyncSide = usePlayerUi((s) => s.changeSyncSide);
 
     const pauseOnWordHover = useSetting((s) => s.values.get('player.pauseOnWordHover')) === 'true';
+    const vocabularyGuidance = useSetting((s) => s.values.get('player.vocabularyGuidance') ?? 'calm');
     const setSetting = useSetting((s) => s.setSetting);
     const englishTrackShortcut = useSetting((s) => s.setting('shortcut.toggleEnglishDisplay'));
 
@@ -113,6 +115,10 @@ export default function PlayerSettingsPopover({
         });
         // 这个开关改的是解析结果，当次播放不会变；不给提示会被当成“点了没反应”
         toast(t('controlBox.meaningGroupResegmentationChanged'));
+    };
+
+    const changeVocabularyGuidance = async (next: string) => {
+        await setSetting('player.vocabularyGuidance', next);
     };
 
     // 侧栏此刻是否真的被收起：收起时提示要从“会怎样”换成“现在就是这样”
@@ -239,6 +245,33 @@ export default function PlayerSettingsPopover({
                         await setSetting('player.pauseOnWordHover', next ? 'true' : 'false');
                     }}
                 />
+                <div
+                    className="flex items-center justify-between gap-2 px-2 py-1.5"
+                    title={t('controlBox.vocabularyGuidanceHint')}
+                >
+                    <span className="text-sm text-muted-foreground">
+                        {t('controlBox.vocabularyGuidance')}
+                    </span>
+                    <SegmentedControl
+                        value={vocabularyGuidance}
+                        onChange={(next) => { void changeVocabularyGuidance(next); }}
+                        label={t('controlBox.vocabularyGuidance')}
+                        size="sm"
+                    >
+                        <SegmentedControlItem
+                            value="off"
+                            label={t('controlBox.vocabularyGuidanceOff')}
+                        />
+                        <SegmentedControlItem
+                            value="calm"
+                            label={t('controlBox.vocabularyGuidanceCalm')}
+                        />
+                        <SegmentedControlItem
+                            value="coach"
+                            label={t('controlBox.vocabularyGuidanceCoach')}
+                        />
+                    </SegmentedControl>
+                </div>
                 <ControlPopoverRow
                     checked={autoPlayNext}
                     label={t('controlBox.autoPlayNext')}

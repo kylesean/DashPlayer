@@ -38,6 +38,7 @@ export const runtimeSettingKeys = [
     'i18n.language',
     'player.autoPlayNext',
     'player.pauseOnWordHover',
+    'player.vocabularyGuidance',
 ] as const satisfies readonly SettingKey[];
 
 /**
@@ -54,6 +55,7 @@ export type RuntimeWritableSettingKey =
     | 'appearance.transcriptPosition'
     | 'player.autoPlayNext'
     | 'player.pauseOnWordHover'
+    | 'player.vocabularyGuidance'
     | 'userSelect.playbackRateStack';
 
 /**

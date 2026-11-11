@@ -18,6 +18,7 @@ import type StorageDirectoryProvider from '@/backend/services/gateways/storage/S
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type SystemConfigService from '@/backend/services/SystemConfigService';
 import type { SubtitleVocabularyAnalysisService } from '@/backend/services/SubtitleVocabularyAnalysisService';
+import type { WordStatus } from '@/common/types/vocabulary';
 import {
     WinkSentenceElementParser,
     type SentenceElement,
@@ -46,6 +47,8 @@ export interface SubtitleVocabularyMatchResult {
     fileHash: string;
     /** 当前字幕命中词条的 canonical lemma 列表。 */
     vocabularyWords: string[];
+    /** lemma -> 当前学习状态，供前端做注释投影与动作回显。 */
+    wordStates: Record<string, WordStatus>;
     /** 匹配过程中是否因字幕切换而提前终止。 */
     cancelled: boolean;
 }
@@ -354,8 +357,11 @@ export class SubtitleServiceImpl implements SubtitleService {
         }
 
         const vocabularyWords = new Set<string>();
+        const wordStates: Record<string, WordStatus> = {};
         analysisResult.lineMatches.flat().forEach((matchedWord) => {
-            vocabularyWords.add(matchedWord.lemma.toLowerCase());
+            const lemma = matchedWord.lemma.toLowerCase();
+            vocabularyWords.add(lemma);
+            wordStates[lemma] = matchedWord.databaseWord?.status ?? 'learning';
         });
 
         const result = Array.from(vocabularyWords);
@@ -368,6 +374,7 @@ export class SubtitleServiceImpl implements SubtitleService {
             playbackSessionId,
             fileHash,
             vocabularyWords: result,
+            wordStates,
             cancelled: false,
         };
     }
@@ -440,6 +447,7 @@ export class SubtitleServiceImpl implements SubtitleService {
             playbackSessionId,
             fileHash,
             vocabularyWords: [],
+            wordStates: {},
             cancelled: true,
         };
     }

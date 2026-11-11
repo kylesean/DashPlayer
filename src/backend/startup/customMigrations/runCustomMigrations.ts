@@ -9,6 +9,7 @@ import { transcriptionEngineSherpaDefaultMigrationV1 } from './migrations/transc
 import { storeSchemaDictionaryYoudaoMigrationV2 } from './migrations/storeSchemaDictionaryYoudaoMigrationV2';
 import { storeSchemaCloudAiEndpointMigrationV3 } from './migrations/storeSchemaCloudAiEndpointMigrationV3';
 import { storeSchemaSubtitleEngineLocalMtMigrationV1 } from './migrations/storeSchemaSubtitleEngineLocalMtMigrationV1';
+import { defaultVocabularySourceMigrationV1 } from './migrations/defaultVocabularySourceMigrationV1';
 
 const logger = getMainLogger('custom-migrations');
 
@@ -24,6 +25,7 @@ const customMigrations: CustomMigration[] = [
     storeSchemaDictionaryYoudaoMigrationV2,
     storeSchemaCloudAiEndpointMigrationV3,
     storeSchemaSubtitleEngineLocalMtMigrationV1,
+    defaultVocabularySourceMigrationV1,
 ];
 
 /**

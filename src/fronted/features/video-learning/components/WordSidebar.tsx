@@ -13,6 +13,7 @@ import ConfirmDeleteButton from '@/fronted/components/shared/common/ConfirmDelet
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import TimeUtil from '@/common/utils/TimeUtil';
 import { useTranslation } from 'react-i18next';
+import type { WordSource, WordStatus } from '@/common/types/vocabulary';
 
 export interface WordItem {
   id: number;
@@ -20,6 +21,10 @@ export interface WordItem {
   translate: string;
   created_at: string;
   updated_at: string;
+  /** 学习状态；旧数据可能没有该字段。 */
+  status?: WordStatus;
+  /** 状态来源。 */
+  source?: WordSource;
   videoCount?: number;
   /** 最近一次被添加视频（生成关联片段）的时间；没有关联片段时为 null。 */
   lastClipAddedAt?: string | null;
@@ -65,6 +70,13 @@ export default function WordSidebar({
   const [sortMode, setSortMode] = useState<SortMode>('usage');
   // 正在执行删除请求的单词 id，用于按钮转圈与防重复提交
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const statusLabel = (word: WordItem): string | null => {
+    if (word.status === 'familiar') return t('wordStatusFamiliar');
+    if (word.status === 'known') return t('wordStatusKnown');
+    if (word.status === 'ignored') return t('wordStatusIgnored');
+    return null;
+  };
 
   const displayedWords = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -262,6 +274,20 @@ export default function WordSidebar({
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <div className="font-semibold text-sm tracking-tight truncate">{word.word}</div>
+                    {statusLabel(word) && (
+                      <span
+                        className={cn(
+                          'shrink-0 rounded-md px-1.5 py-0.5 text-metadata',
+                          active
+                            ? 'bg-on-accent/15 text-on-accent/80'
+                            : word.status === 'known'
+                              ? 'bg-success-muted text-success-text'
+                              : 'bg-muted text-muted-foreground'
+                        )}
+                      >
+                        {statusLabel(word)}
+                      </span>
+                    )}
                     <div className="flex items-center gap-0.5 shrink-0 ml-auto">
                       <button
                         type="button"

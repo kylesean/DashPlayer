@@ -1,10 +1,17 @@
 import type { InsertWord, Word } from '@/backend/infrastructure/db/tables/words';
+import type { WordSource, WordStatus } from '@/common/types/vocabulary';
 
 /**
  * 单词列表查询参数。
  */
 export interface GetAllWordsQuery {
     search?: string;
+    /**
+     * 是否包含产品内置 starter pack。
+     *
+     * 默认排除：`source=default` 不是用户个人词表，不应出现在词汇工坊或正文标注中。
+     */
+    includeDefault?: boolean;
 }
 
 /**
@@ -15,6 +22,18 @@ export interface WordContent {
     word: string;
     /** 中文释义，可为空。 */
     translate: string | null;
+    /** 初始学习状态；未提供时使用 learning。 */
+    status?: WordStatus;
+    /** 状态来源；未提供时使用 manual。 */
+    source?: WordSource;
+}
+
+/**
+ * 单词状态更新参数。
+ */
+export interface WordStateUpdate {
+    status: WordStatus;
+    source?: WordSource;
 }
 
 /**
@@ -30,6 +49,13 @@ export default interface WordsRepository {
      * @returns 命中的记录；不存在时返回 null。
      */
     findByWord(word: string): Promise<Word | null>;
+    /**
+     * 更新单词学习状态；不存在时由调用方决定是否插入。
+     *
+     * @param word 单词。
+     * @param state 新状态与可选来源。
+     */
+    updateState(word: string, state: WordStateUpdate): Promise<void>;
     /**
      * 插入单个单词。
      *
