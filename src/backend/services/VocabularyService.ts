@@ -10,6 +10,7 @@ import type { WordMatchService } from '@/backend/services/WordMatchService';
 import type AiProviderService from '@/backend/services/AiProviderService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
+import type ReviewCardRepository from '@/backend/services/repositories/ReviewCardRepository';
 import type VideoLearningClipWordRepository from '@/backend/services/repositories/VideoLearningClipWordRepository';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
@@ -283,6 +284,7 @@ export class VocabularyServiceImpl implements VocabularyService {
      *
      * @param videoLearningService 视频学习片段服务。
      * @param wordsRepository 单词表仓储。
+     * @param reviewCardRepository 复习卡仓储。
      * @param wordMatchService 词表匹配服务。
      * @param aiProviderService 云端模型提供服务。
      * @param clipWordRepository 学习片段关联词仓储。
@@ -293,6 +295,7 @@ export class VocabularyServiceImpl implements VocabularyService {
     constructor(
         @inject(TYPES.VideoLearningService) private readonly videoLearningService: VideoLearningService,
         @inject(TYPES.WordsRepository) private readonly wordsRepository: WordsRepository,
+        @inject(TYPES.ReviewCardRepository) private readonly reviewCardRepository: ReviewCardRepository,
         @inject(TYPES.WordMatchService) private readonly wordMatchService: WordMatchService,
         @inject(TYPES.AiProviderService) private readonly aiProviderService: AiProviderService,
         @inject(TYPES.VideoLearningClipWordRepository) private readonly clipWordRepository: VideoLearningClipWordRepository,
@@ -664,6 +667,9 @@ export class VocabularyServiceImpl implements VocabularyService {
                     source: 'manual',
                 });
             }
+            if (params.status === 'known' || params.status === 'ignored') {
+                await this.reviewCardRepository.deleteByWord(lemma);
+            }
             this.invalidateVocabularyCaches();
 
             return {
@@ -758,6 +764,7 @@ export class VocabularyServiceImpl implements VocabularyService {
 
             const lemma = lemmatizeWord(input);
             await this.wordsRepository.deleteByWord(lemma);
+            await this.reviewCardRepository.deleteByWord(lemma);
             await this.clipWordRepository.deleteByWord(lemma);
             this.invalidateVocabularyCaches();
 

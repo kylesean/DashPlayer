@@ -18,6 +18,7 @@ import {
     WORD_STATUSES,
     type WordEncounterInput,
 } from '@/common/types/vocabulary';
+import { REVIEW_RATINGS, type ReviewRateParams } from '@/common/types/review';
 
 /**
  * 生词本管理与句子生词筛选 IPC 控制器。
@@ -63,6 +64,14 @@ export default class VocabularyController implements Controller {
 
     public async recordWordEncounter(params: WordEncounterInput): Promise<void> {
         await this.wordEncounterService.record(params);
+    }
+
+    public async getReviewQueue(params: { limit?: number } = {}) {
+        return this.wordEncounterService.getReviewQueue(params.limit);
+    }
+
+    public async rateReview(params: ReviewRateParams) {
+        return this.wordEncounterService.rateReview(params);
     }
 
     public async deleteWord(params: { word: string }) {
@@ -125,6 +134,19 @@ export default class VocabularyController implements Controller {
                 sentenceIndex: z.number().int().nonnegative().optional(),
                 sentenceHash: z.string().optional(),
                 context: z.string().optional(),
+                score: z.number().min(0).max(100).optional(),
+                rating: z.enum(REVIEW_RATINGS).optional(),
+            }),
+        });
+        registerRoute('vocabulary/review-queue', (p) => this.getReviewQueue(p), {
+            schema: z.object({
+                limit: z.number().int().positive().max(50).optional(),
+            }),
+        });
+        registerRoute('vocabulary/rate-review', (p) => this.rateReview(p), {
+            schema: z.object({
+                word: nonEmptyStringSchema,
+                rating: z.enum(REVIEW_RATINGS),
             }),
         });
         registerRoute('vocabulary/delete', (p) => this.deleteWord(p), {

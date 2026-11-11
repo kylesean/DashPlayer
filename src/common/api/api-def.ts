@@ -25,6 +25,7 @@ import type {
     WordEncounterAction,
     WordStatus,
 } from '@/common/types/vocabulary';
+import type { ReviewQueueVO, ReviewRateResultVO, ReviewRating } from '@/common/types/review';
 import type {
     ChatSessionCloseParams,
     ChatSessionCreateParams,
@@ -394,8 +395,18 @@ interface VocabularyDef {
             sentenceIndex?: number;
             sentenceHash?: string;
             context?: string;
+            score?: number;
+            rating?: ReviewRating;
         },
         return: void
+    };
+    'vocabulary/review-queue': {
+        params: { limit?: number },
+        return: ReviewQueueVO
+    };
+    'vocabulary/rate-review': {
+        params: { word: string; rating: ReviewRating },
+        return: ReviewRateResultVO
     };
     'vocabulary/delete': {
         params: { word: string },

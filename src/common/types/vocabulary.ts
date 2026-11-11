@@ -1,3 +1,5 @@
+import type { ReviewRating } from '@/common/types/review';
+
 /**
  * 单词学习状态。
  *
@@ -85,4 +87,8 @@ export interface WordEncounterInput {
     sentenceHash?: string;
     /** 句子上下文。 */
     context?: string;
+    /** 跟读/听写得分 0-100。 */
+    score?: number;
+    /** 复习反馈。 */
+    rating?: ReviewRating;
 }

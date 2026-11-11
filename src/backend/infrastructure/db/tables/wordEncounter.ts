@@ -1,5 +1,6 @@
-import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
+import type { ReviewRating } from '@/common/types/review';
 import type { WordEncounterAction } from '@/common/types/vocabulary';
 
 /**
@@ -26,6 +27,10 @@ export const wordEncounter = sqliteTable('dp_word_encounter', {
     sentence_hash: text('sentence_hash'),
     /** 句子上下文，供后续解释/复习回忆。 */
     context: text('context'),
+    /** 跟读/听写得分 0-100；不适用时为 null。 */
+    score: real('score'),
+    /** 复习反馈；不适用时为 null。 */
+    rating: text('rating').$type<ReviewRating>(),
     created_at: text('created_at')
         .notNull()
         .default(sql`CURRENT_TIMESTAMP`),

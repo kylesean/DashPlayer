@@ -16,6 +16,7 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import usePracticePanel from './practiceStore';
 import { practiceApi } from './practiceApi';
+import { recordPracticeWordEvidence } from './practiceWordEvidence';
 import { usePracticeRecorder } from './usePracticeRecorder';
 import { exitOverlayView } from '@/fronted/features/player/lib/player-view-controller';
 import type { SentencePracticeMode, SentencePracticeResultVO, SentencePracticeWordResult } from '@/common/contracts/sentence-practice';
@@ -198,6 +199,12 @@ const PracticePanel = () => {
         }
         setResult(vo);
         void mutateHistory();
+        recordPracticeWordEvidence(vo, 'shadowing', {
+            fileHash: target.fileHash,
+            sentenceIndex: target.index,
+            sentenceHash: target.key,
+            text: target.text,
+        });
     };
 
     const submitDictation = async (): Promise<void> => {
@@ -221,6 +228,12 @@ const PracticePanel = () => {
             setResult(vo);
             setDictationRevealed(true);
             void mutateHistory();
+            recordPracticeWordEvidence(vo, 'dictation', {
+                fileHash: currentSentence.fileHash,
+                sentenceIndex: currentSentence.index,
+                sentenceHash: currentSentence.key,
+                text: currentSentence.text,
+            });
         } catch (error) {
             logger.error('听写评分失败', { error });
             toast.error(error instanceof Error ? error.message : String(error));

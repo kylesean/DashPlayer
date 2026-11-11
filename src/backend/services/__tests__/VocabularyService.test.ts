@@ -21,6 +21,7 @@ import type SubtitleService from '@/backend/services/SubtitleService';
 import type { VideoLearningService } from '@/backend/services/VideoLearningService';
 import type { WordMatchService } from '@/backend/services/WordMatchService';
 import type VideoLearningClipWordRepository from '@/backend/services/repositories/VideoLearningClipWordRepository';
+import type ReviewCardRepository from '@/backend/services/repositories/ReviewCardRepository';
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
 
 /**
@@ -59,6 +60,7 @@ const buildService = (options: { fileContent: Buffer; existingWords?: StoredWord
             invalidateClipAnalysisCache: vi.fn(),
         } as unknown as VideoLearningService,
         wordsRepository,
+        { deleteByWord: vi.fn() } as unknown as ReviewCardRepository,
         { invalidateVocabularyCache: vi.fn() } as unknown as WordMatchService,
         {} as unknown as AiProviderService,
         {} as unknown as VideoLearningClipWordRepository,

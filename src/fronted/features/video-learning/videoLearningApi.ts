@@ -1,5 +1,6 @@
 import type { SimpleClipQuery } from '@/common/api/dto';
 import type { ClipMeta } from '@/common/types/clipMeta';
+import type { ReviewRating } from '@/common/types/review';
 import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import { requestVideoThumbnail } from '@/fronted/lib/video-thumbnail';
 
@@ -103,7 +104,28 @@ export const videoLearningApi = {
         sentenceIndex?: number;
         sentenceHash?: string;
         context?: string;
+        score?: number;
+        rating?: ReviewRating;
     }) => backendClient.call('vocabulary/record-encounter', params),
+
+    /**
+     * 获取当前到期的复习队列与回忆统计。
+     *
+     * @param limit 最多返回多少张卡。
+     * @returns 复习队列快照。
+     */
+    getReviewQueue: (limit?: number) =>
+        backendClient.call('vocabulary/review-queue', limit ? { limit } : {}),
+
+    /**
+     * 提交一次复习反馈。
+     *
+     * @param word 单词原文或 lemma。
+     * @param rating 四档反馈。
+     * @returns 更新后的卡与词条状态。
+     */
+    rateReview: (word: string, rating: ReviewRating) =>
+        backendClient.call('vocabulary/rate-review', { word, rating }),
 
     /**
      * 删除单词。

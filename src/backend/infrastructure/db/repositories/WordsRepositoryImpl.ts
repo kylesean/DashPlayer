@@ -8,6 +8,7 @@ import type WordsRepository from '@/backend/services/repositories/WordsRepositor
 import {
     type GetAllWordsQuery,
     type WordContent,
+    type WordLearningUpdate,
     type WordStateUpdate,
 } from '@/backend/services/repositories/WordsRepository';
 
@@ -128,6 +129,32 @@ export default class WordsRepositoryImpl implements WordsRepository {
         } else if (state.status === 'learning' || state.status === 'familiar') {
             patch.mastery = 0;
             patch.confidence = 0;
+        }
+        this.db.update(words)
+            .set(patch)
+            .where(this.wordEquals(word))
+            .run();
+    }
+
+    /**
+     * 更新由学习证据驱动的记忆字段；未提供状态时保留用户当前裁决。
+     *
+     * @param word 单词。
+     * @param update 掌握度、置信度、可选状态与最近遇见时间。
+     */
+    public async updateLearning(word: string, update: WordLearningUpdate): Promise<void> {
+        const now = new Date().toISOString();
+        const patch: Partial<InsertWord> = {
+            mastery: update.mastery,
+            confidence: update.confidence,
+            updated_at: now,
+        };
+        if (update.lastSeenAt) {
+            patch.last_seen_at = update.lastSeenAt;
+        }
+        if (update.status) {
+            patch.status = update.status;
+            patch.mastered_at = update.status === 'known' ? now : null;
         }
         this.db.update(words)
             .set(patch)

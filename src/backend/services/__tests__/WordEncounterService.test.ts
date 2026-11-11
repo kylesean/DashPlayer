@@ -1,14 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { WordEncounterServiceImpl } from '@/backend/services/WordEncounterService';
+import type ReviewCardRepository from '@/backend/services/repositories/ReviewCardRepository';
 import type WordEncounterRepository from '@/backend/services/repositories/WordEncounterRepository';
+import type WordsRepository from '@/backend/services/repositories/WordsRepository';
 
 describe('WordEncounterService', () => {
     it('把句中词形归一化为 lemma 后记录上下文', async () => {
         const record = vi.fn(async () => undefined);
-        const service = new WordEncounterServiceImpl({
-            record,
-        } as unknown as WordEncounterRepository);
+        const service = new WordEncounterServiceImpl(
+            { record } as unknown as WordEncounterRepository,
+            { findByWord: async () => null } as unknown as WordsRepository,
+            {} as unknown as ReviewCardRepository,
+        );
 
         await service.record({
             word: 'Running',
@@ -33,9 +37,11 @@ describe('WordEncounterService', () => {
 
     it('空词不写事件', async () => {
         const record = vi.fn(async () => undefined);
-        const service = new WordEncounterServiceImpl({
-            record,
-        } as unknown as WordEncounterRepository);
+        const service = new WordEncounterServiceImpl(
+            { record } as unknown as WordEncounterRepository,
+            { findByWord: async () => null } as unknown as WordsRepository,
+            {} as unknown as ReviewCardRepository,
+        );
 
         await service.record({ word: '   ', action: 'open' });
 

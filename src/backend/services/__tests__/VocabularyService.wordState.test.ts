@@ -12,6 +12,7 @@ vi.mock('electron', () => ({
 
 import { createMemoryDb, type MemoryDb } from '@/test/database';
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
+import ReviewCardRepositoryImpl from '@/backend/infrastructure/db/repositories/ReviewCardRepositoryImpl';
 import { VocabularyServiceImpl } from '@/backend/services/VocabularyService';
 import type AiProviderService from '@/backend/services/AiProviderService';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
@@ -23,12 +24,14 @@ import type VideoLearningClipWordRepository from '@/backend/services/repositorie
 
 const buildService = (memoryDb: MemoryDb) => {
     const repository = new WordsRepositoryImpl(memoryDb.db);
+    const reviewCardRepository = new ReviewCardRepositoryImpl(memoryDb.db);
     const service = new VocabularyServiceImpl(
         {
             syncFromOss: vi.fn(async () => undefined),
             invalidateClipAnalysisCache: vi.fn(),
         } as unknown as VideoLearningService,
         repository,
+        reviewCardRepository,
         { invalidateVocabularyCache: vi.fn() } as unknown as WordMatchService,
         {} as unknown as AiProviderService,
         {
@@ -39,7 +42,7 @@ const buildService = (memoryDb: MemoryDb) => {
         {} as unknown as StorageDirectoryProvider,
         {} as unknown as FileSystemGateway,
     );
-    return { service, repository };
+    return { service, repository, reviewCardRepository };
 };
 
 describe('VocabularyService 单词状态', () => {
@@ -52,8 +55,19 @@ describe('VocabularyService 单词状态', () => {
 
     it('命中变体时按 lemma 更新状态', async () => {
         memoryDb = createMemoryDb();
-        const { service, repository } = buildService(memoryDb);
+        const { service, repository, reviewCardRepository } = buildService(memoryDb);
         await repository.insertOne({ word: 'cancel', translate: '取消', status: 'learning', source: 'manual' });
+        await reviewCardRepository.upsert({
+            word: 'cancel',
+            due_at: new Date(Date.now() - 1000).toISOString(),
+            state: 'new',
+            reps: 0,
+            lapses: 0,
+            stability: 0,
+            difficulty: 0,
+            last_review_at: null,
+            last_rating: null,
+        });
 
         const result = await service.updateWordState({ word: 'cancelled', status: 'known' });
 
@@ -62,6 +76,7 @@ describe('VocabularyService 单词状态', () => {
         const row = await repository.findByWord('cancel');
         expect(row?.status).toBe('known');
         expect(row?.mastery).toBe(1);
+        expect(await reviewCardRepository.findByWord('cancel')).toBeNull();
     });
 
     it('收藏已掌握的词会重新激活为 learning', async () => {

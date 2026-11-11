@@ -674,9 +674,35 @@ context_embeddings
 - Playwright `@smoke` 5 passed，覆盖真实启动、引导、播放核心链路与设置页。
 - 新增状态投影、词表过滤、遭遇事件、默认词迁移和收藏重新激活测试。
 
-尚未进入 R1：
+### R1：学习记忆（已完成核心闭环）
+
+已落地：
+
+- 新增 `dp_review_card` 与迁移 `0016_fancy_baron_zemo.sql`，按 lemma 保存到期时间、阶段、稳定度、难度、复习次数与遗忘次数。
+- 新增透明掌握度纯函数 `applyMasteryEvidence`：打开/收藏只积累证据，跟读/听写与复习评分才改变掌握判断，用户手动「已掌握 / 忽略」拥有最高优先级。
+- 新增 FSRS-lite 调度器 `scheduleReview`，不引入新依赖；支持 Again / Hard / Good / Easy 四档与练习分数映射。
+- `WordEncounterService` 将 `save / shadow / dictation / review / known / ignore` 接入掌握度与复习卡；到期的复习卡只来自 `learning / familiar` 且排除默认词表。
+- 跟读/听写按逐词对齐结果写入 `score` 证据，普通字幕词不会因此被加入个人词表。
+- 播放器主字幕学习台新增复习坞：先回忆、再揭示，四档反馈后立即换下一张；工具条显示到期数量，练习完成后自动刷新。
+- 7 天 / 30 天回忆指标按 `Good + Easy` 占比统计；手动标记已掌握/忽略与删除词条会清理对应复习卡。
+
+验证：
+
+- `pnpm run typecheck` 通过。
+- `pnpm run lint` 零告警。
+- 单测 769 passed / 9 skipped。
+- Playwright `@smoke` 5 passed。
+
+本轮暂未覆盖：
+
+- 学习会话摘要（本次遇到 / 已掌握 / 待复习词）。
+- 学习数据的完整导出与重置入口。
+
+R0 结束时曾待完成、现已由 R1 首版承接：
 
 - `p_know` 的完整证据更新与不确定性模型。
 - FSRS 复习卡、到期队列、复习坞。
-- 会话摘要与跟读/听写结果接入掌握度。
+- 跟读/听写结果接入掌握度。
 - 7 天 / 30 天回忆指标。
+
+仍待后续切片：会话摘要与学习数据导出/重置。

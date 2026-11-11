@@ -56,6 +56,7 @@ const TYPES = {
     SherpaOnnxTtsCli: Symbol('SherpaOnnxTtsCli'),
     LocalTtsService: Symbol('LocalTtsService'),
     WordsRepository: Symbol('WordsRepository'),
+    ReviewCardRepository: Symbol('ReviewCardRepository'),
     WordEncounterRepository: Symbol('WordEncounterRepository'),
     WordEncounterService: Symbol('WordEncounterService'),
     DpTaskRepository: Symbol('DpTaskRepository'),

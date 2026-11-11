@@ -37,6 +37,18 @@ export interface WordStateUpdate {
 }
 
 /**
+ * 由学习证据驱动的词条记忆更新。
+ */
+export interface WordLearningUpdate {
+    mastery: number;
+    confidence: number;
+    /** 证据足够明确时的状态建议；不传表示保留用户当前状态。 */
+    status?: WordStatus;
+    /** 最近一次遇见时间。 */
+    lastSeenAt?: string;
+}
+
+/**
  * 单词仓储接口。
  */
 export default interface WordsRepository {
@@ -56,6 +68,10 @@ export default interface WordsRepository {
      * @param state 新状态与可选来源。
      */
     updateState(word: string, state: WordStateUpdate): Promise<void>;
+    /**
+     * 更新掌握概率、置信度、最近遇见时间及可选状态。
+     */
+    updateLearning(word: string, update: WordLearningUpdate): Promise<void>;
     /**
      * 插入单个单词。
      *
