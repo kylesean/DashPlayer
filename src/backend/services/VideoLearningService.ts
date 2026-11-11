@@ -5,7 +5,6 @@ import type VideoLearningClipRepository from '@/backend/services/repositories/Vi
 import type VideoLearningClipWordRepository from '@/backend/services/repositories/VideoLearningClipWordRepository';
 import { type WordClipStats } from '@/backend/services/repositories/VideoLearningClipWordRepository';
 import ErrorConstants from '@/common/constants/error-constants';
-import TimeUtil from '@/common/utils/TimeUtil';
 import StrUtil from '@/common/utils/str-util';
 import { buildClipContext } from '@/common/utils/subtitle';
 import { inject, injectable } from 'inversify';
@@ -33,6 +32,8 @@ import VideoLearningClipTaskQueue, {
     type LearningClipTask,
     type LearningClipTaskResult,
 } from '@/backend/services/VideoLearningClipTaskQueue';
+import VideoLearningClipStatusNotifier from '@/backend/services/VideoLearningClipStatusNotifier';
+import VideoLearningClipWriter from '@/backend/services/VideoLearningClipWriter';
 
 /**
  * VideoLearningService
@@ -134,10 +135,15 @@ export class VideoLearningServiceImpl implements VideoLearningService {
      */
     private readonly clipTaskQueue: VideoLearningClipTaskQueue;
 
-    /** 各字幕最近一次片段状态。 */
-    private clipStatusCache: Map<string, VideoLearningClipStatusVO> = new Map();
-    /** 各字幕状态通知的递增序号。 */
-    private clipStatusSeq: Map<string, number> = new Map();
+    /**
+     * 各字幕片段状态的缓存与渲染进程通知。
+     */
+    private readonly clipStatusNotifier: VideoLearningClipStatusNotifier;
+
+    /**
+     * 片段与关联词的落库写入器；调用方持有 video-learning-sync 互斥锁。
+     */
+    private readonly clipWriter: VideoLearningClipWriter;
 
     /**
      * 构造视频学习片段服务。
@@ -171,6 +177,14 @@ export class VideoLearningServiceImpl implements VideoLearningService {
         this.clipAnalysis = new VideoLearningClipAnalysis(
             () => this.subtitleVocabularyAnalysisService,
         );
+        this.clipStatusNotifier = new VideoLearningClipStatusNotifier({
+            rendererGateway: this.rendererGateway,
+            logger: this.logger,
+        });
+        this.clipWriter = new VideoLearningClipWriter({
+            clipRepository: this.videoLearningClipRepository,
+            wordMatchService: this.wordMatchService,
+        });
         this.clipTaskQueue = new VideoLearningClipTaskQueue({
             execute: (task) => this.addLearningClip(task),
             onTaskFinished: (result) => this.handleClipTaskFinished(result),
@@ -205,10 +219,10 @@ export class VideoLearningServiceImpl implements VideoLearningService {
 
         const resolvedSrtPath = srt.filePath || srtPath || undefined;
 
-        const candidates = await this.clipAnalysis.collectCandidates(srtKey, srt);
+        const candidates = await this.clipAnalysis.collectCandidates(videoPath, srtKey, srt);
 
         if (candidates.length === 0) {
-            await this.notifyClipStatus(videoPath, srtKey, 'completed', 0, 0, 0, 100);
+            await this.clipStatusNotifier.notify(videoPath, srtKey, 'completed', 0, 0, 0, 100);
             return;
         }
 
@@ -246,7 +260,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
 
         const status: 'in_progress' | 'completed' = inProgressCount > 0 ? 'in_progress' : 'completed';
 
-        await this.notifyClipStatus(
+        await this.clipStatusNotifier.notify(
             videoPath,
             srtKey,
             status,
@@ -285,8 +299,8 @@ export class VideoLearningServiceImpl implements VideoLearningService {
         }
 
         for (const { srtKey, videoPath } of cancelled.affectedSrts.values()) {
-            this.clipStatusCache.delete(srtKey);
-            const candidates = this.clipAnalysis.getCachedCandidates(srtKey);
+            this.clipStatusNotifier.invalidate(srtKey);
+            const candidates = this.clipAnalysis.getCachedCandidates(videoPath, srtKey);
             if (candidates) {
                 await this.computeStatusFromCandidates(videoPath, srtKey, candidates);
             }
@@ -344,9 +358,9 @@ export class VideoLearningServiceImpl implements VideoLearningService {
             this.notifyClipTaskFailed(error);
         }
 
-        const candidates = this.clipAnalysis.getCachedCandidates(task.srtKey);
+        const candidates = this.clipAnalysis.getCachedCandidates(task.videoPath, task.srtKey);
         if (!candidates) {
-            this.clipStatusCache.delete(task.srtKey);
+            this.clipStatusNotifier.invalidate(task.srtKey);
             return;
         }
         await this.computeStatusFromCandidates(task.videoPath, task.srtKey, candidates);
@@ -375,7 +389,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
      * @param task 待新增的片段任务。
      */
     private async addLearningClip(task: LearningClipTask): Promise<void> {
-        if (await this.clipInDb(task.clipKey)) {
+        if (await this.clipWriter.exists(task.clipKey)) {
             return;
         }
 
@@ -403,7 +417,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
                 if (!meta) {
                     throw new Error('上传学习片段后未找到片段元数据');
                 }
-                await this.addToDb(meta);
+                await this.clipWriter.saveClipFromMeta(meta);
                 this.logger.info('clip ready', { job, clipFile: meta.clip_file });
             } catch (dbError) {
                 await this.videoLearningOssService.delete(key).catch(() => {});
@@ -460,13 +474,13 @@ export class VideoLearningServiceImpl implements VideoLearningService {
     public async deleteLearningClip(key: string): Promise<void> {
         await concurrency.withMutex('video-learning-sync', async () => {
             await this.videoLearningOssService.delete(key);
-            await this.videoLearningClipRepository.deleteClipWithWords(key);
+            await this.clipWriter.deleteClipWithWords(key);
         });
-        // 片段键是 `<srtHash>__<index>`：删除后必须失效该字幕的状态缓存，
+        // 片段键是 `<srtHash>__<index>__<videoHash>`：删除后必须失效该字幕的状态缓存，
         // 否则 detectClipStatus 命中删除前的旧值，前端仍显示"已完成/还有 N 个待裁切"。
         const srtKey = key.split('__')[0];
         if (srtKey && srtKey !== key) {
-            this.clipStatusCache.delete(srtKey);
+            this.clipStatusNotifier.invalidate(srtKey);
         }
     }
 
@@ -773,63 +787,11 @@ export class VideoLearningServiceImpl implements VideoLearningService {
     }
 
     /**
-     * 将远端片段元数据及其命中单词写入本地数据库。
-     *
-     * @param metaData 远端片段元数据。
-     */
-    private async addToDb(metaData: ClipMeta & OssBaseMeta) {
-        const srtLines = metaData.clip_content ?? [];
-        const srtContext = srtLines.filter(e => !e.isClip).map(e => e.contentEn).join('\n');
-        const srtClip = srtLines.filter(e => e.isClip).map(e => e.contentEn).join('\n');
-
-        const clip: InsertVideoLearningClip = {
-            key: metaData.key,
-            video_name: metaData.video_name,
-            srt_clip: srtClip,
-            srt_context: srtContext,
-            created_at: TimeUtil.timeUtc(),
-            updated_at: TimeUtil.timeUtc()
-        };
-
-        // 使用目标字幕重新计算片段关联词。
-        const wordRelations: InsertVideoLearningClipWord[] = [];
-        if (StrUtil.isNotBlank(srtClip)) {
-            const matches = await this.wordMatchService.matchWordsInText(srtClip);
-            const uniqueWords = Array.from(
-              new Set(
-                matches
-                  .map(m => (m.databaseWord?.word || m.normalized || m.original || '').toLowerCase())
-                  .filter(Boolean)
-              )
-            );
-
-            if (uniqueWords.length > 0) {
-                wordRelations.push(...uniqueWords.map(word => ({
-                    clip_key: metaData.key,
-                    word,
-                    created_at: TimeUtil.timeUtc(),
-                    updated_at: TimeUtil.timeUtc()
-                })));
-            }
-        }
-        await this.videoLearningClipRepository.saveClipWithWords(clip, wordRelations);
-    }
-
-    /**
-     * 检查片段是否已写入本地数据库。
-     *
-     * @param key 片段键。
-     * @returns 片段存在时返回 true。
-     */
-    private async clipInDb(key: string) {
-        return await this.videoLearningClipRepository.exists(key);
-    }
-
-    /**
      * 使用 OSS 中的片段完整重建本地索引。
      *
      * 回灌前先校验学习片段目录可访问，目录异常时直接抛错，避免清空索引后无法恢复；
-     * 同步与裁切任务共用互斥锁，避免重建索引时并发写入。
+     * 同步与裁切任务共用互斥锁，避免重建索引时并发写入；片段行与关联词的构建
+     * 交给 {@link VideoLearningClipWriter}。
      */
     public async syncFromOss() {
         await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.WORD_VIDEO);
@@ -842,38 +804,10 @@ export class VideoLearningServiceImpl implements VideoLearningService {
                 if (!clip) {
                     continue;
                 }
-                const srtLines = clip.clip_content ?? [];
-                const srtContext = srtLines.filter(e => !e.isClip).map(e => e.contentEn).join('\n');
-                const srtClip = srtLines.filter(e => e.isClip).map(e => e.contentEn).join('\n');
-                clips.push({
-                    key: clip.key,
-                    video_name: clip.video_name,
-                    srt_clip: srtClip,
-                    srt_context: srtContext,
-                    created_at: TimeUtil.timeUtc(),
-                    updated_at: TimeUtil.timeUtc(),
-                });
-
-                if (StrUtil.isNotBlank(srtClip)) {
-                    const matches = await this.wordMatchService.matchWordsInText(srtClip);
-                    const uniqueWords = Array.from(
-                        new Set(
-                            matches
-                                .map(m => (m.databaseWord?.word || m.normalized || m.original || '').toLowerCase())
-                                .filter(Boolean)
-                        )
-                    );
-                    for (const word of uniqueWords) {
-                        wordRelations.push({
-                            clip_key: clip.key,
-                            word,
-                            created_at: TimeUtil.timeUtc(),
-                            updated_at: TimeUtil.timeUtc(),
-                        });
-                    }
-                }
+                clips.push(this.clipWriter.buildClipRecord(clip));
+                wordRelations.push(...await this.clipWriter.buildWordRelations(clip.key, this.clipWriter.extractClipText(clip)));
             }
-            await this.videoLearningClipRepository.replaceAll(clips, wordRelations);
+            await this.clipWriter.replaceAll(clips, wordRelations);
         });
     }
 
@@ -893,7 +827,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
      */
     public invalidateClipAnalysisCache(): void {
         this.clipAnalysis.clear();
-        this.clipStatusCache.clear();
+        this.clipStatusNotifier.clear();
     }
 
     /**
@@ -914,19 +848,19 @@ export class VideoLearningServiceImpl implements VideoLearningService {
             throw new Error(ErrorConstants.CACHE_NOT_FOUND);
         }
 
-        const cachedStatus = this.clipStatusCache.get(srtKey);
+        const cachedStatus = this.clipStatusNotifier.getCached(srtKey);
         if (cachedStatus && cachedStatus.status !== 'analyzing') {
             return this.ensureSeq(srtKey, cachedStatus);
         }
 
-        const cachedCandidates = this.clipAnalysis.getCachedCandidates(srtKey);
+        const cachedCandidates = this.clipAnalysis.getCachedCandidates(videoPath, srtKey);
         if (cachedCandidates) {
             return await this.computeStatusFromCandidates(videoPath, srtKey, cachedCandidates);
         }
 
         const cachedProgress = this.clipAnalysis.getCachedProgress(srtKey);
         if (cachedProgress === 100) {
-            const candidates = await this.clipAnalysis.collectCandidates(srtKey, srt);
+            const candidates = await this.clipAnalysis.collectCandidates(videoPath, srtKey, srt);
             return await this.computeStatusFromCandidates(videoPath, srtKey, candidates);
         }
 
@@ -936,10 +870,11 @@ export class VideoLearningServiceImpl implements VideoLearningService {
         // analyze 内部会同步登记运行任务，轮询重入不会重复启动。
         if (!this.clipAnalysis.isRunning(srtKey)) {
             void this.clipAnalysis.collectCandidates(
+                videoPath,
                 srtKey,
                 srt,
                 async (analysisProgress) => {
-                    await this.notifyClipStatus(
+                    await this.clipStatusNotifier.notify(
                         videoPath,
                         srtKey,
                         'analyzing',
@@ -962,7 +897,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
         const progress = this.clipAnalysis.getProgress(srtKey)
             ?? cachedProgress
             ?? 0;
-        await this.notifyClipStatus(videoPath, srtKey, 'analyzing', undefined, undefined, undefined, progress);
+        await this.clipStatusNotifier.notify(videoPath, srtKey, 'analyzing', undefined, undefined, undefined, progress);
         return this.ensureSeq(srtKey, { status: 'analyzing', analyzingProgress: progress });
     }
 
@@ -974,12 +909,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
      * @returns 带有序列号的状态。
      */
     private ensureSeq(srtKey: string, status: VideoLearningClipStatusVO): VideoLearningClipStatusVO {
-        if (status.seq !== undefined) {
-            return status;
-        }
-        const nextSeq = this.clipStatusSeq.get(srtKey) ?? 1;
-        this.clipStatusSeq.set(srtKey, nextSeq);
-        return { ...status, seq: nextSeq };
+        return this.clipStatusNotifier.ensureSeq(srtKey, status);
     }
 
     /**
@@ -996,7 +926,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
         candidates: ClipCandidate[]
     ): Promise<VideoLearningClipStatusVO> {
         if (candidates.length === 0) {
-            await this.notifyClipStatus(videoPath, srtKey, 'completed', 0, 0, 0, 100);
+            await this.clipStatusNotifier.notify(videoPath, srtKey, 'completed', 0, 0, 0, 100);
             return { status: 'completed' };
         }
 
@@ -1036,7 +966,7 @@ export class VideoLearningServiceImpl implements VideoLearningService {
             candidates: candidates.length,
         });
 
-        await this.notifyClipStatus(
+        await this.clipStatusNotifier.notify(
             videoPath,
             srtKey,
             status,
@@ -1051,100 +981,8 @@ export class VideoLearningServiceImpl implements VideoLearningService {
             pendingCount: pendingCount || undefined,
             inProgressCount: inProgressCount || undefined,
             completedCount: completedCount || undefined,
-            seq: this.clipStatusSeq.get(srtKey),
+            seq: this.clipStatusNotifier.peekSeq(srtKey),
         };
     }
 
-    /**
-     * 缓存并通知字幕的最新裁切状态。
-     *
-     * 状态内容没有变化时只保留缓存，不重复通知渲染进程。
-     *
-     * @param videoPath 视频路径。
-     * @param srtKey 字幕缓存键。
-     * @param status 当前状态。
-     * @param pendingCount 待裁切数量。
-     * @param inProgressCount 正在裁切数量。
-     * @param completedCount 已完成数量。
-     * @param analyzingProgress 分析进度百分比。
-     */
-    private async notifyClipStatus(
-        videoPath: string,
-        srtKey: string,
-        status: 'pending' | 'in_progress' | 'completed' | 'analyzing',
-        pendingCount?: number,
-        inProgressCount?: number,
-        completedCount?: number,
-        analyzingProgress?: number
-    ): Promise<void> {
-        try {
-            this.logger.debug('clip status notify', {
-                videoPath,
-                srtKey,
-                status,
-                pendingCount: pendingCount ?? null,
-                inProgressCount: inProgressCount ?? null,
-                completedCount: completedCount ?? null,
-                analyzingProgress: analyzingProgress ?? null,
-            });
-
-            let message = '';
-            if (status === 'pending') {
-                message = `发现 ${pendingCount ?? 0} 个需要裁切的学习片段`;
-            } else if (status === 'in_progress') {
-                message = `正在裁切 ${inProgressCount ?? 0} 个学习片段`;
-            } else if (status === 'analyzing') {
-                message = `正在分析视频内容 (${analyzingProgress ?? 0}%)`;
-            } else {
-                message = '所有学习片段已裁切完成';
-            }
-
-            const cachePayload: VideoLearningClipStatusVO = {
-                status,
-            };
-
-            if (typeof pendingCount === 'number') {
-                cachePayload.pendingCount = pendingCount;
-            }
-            if (typeof inProgressCount === 'number') {
-                cachePayload.inProgressCount = inProgressCount;
-            }
-            if (typeof completedCount === 'number') {
-                cachePayload.completedCount = completedCount;
-            }
-            if (typeof analyzingProgress === 'number') {
-                cachePayload.analyzingProgress = analyzingProgress;
-            }
-
-            const cacheKey = srtKey;
-            const prev = this.clipStatusCache.get(cacheKey);
-            const sameStatus =
-                prev?.status === cachePayload.status &&
-                prev?.pendingCount === cachePayload.pendingCount &&
-                prev?.inProgressCount === cachePayload.inProgressCount &&
-                prev?.completedCount === cachePayload.completedCount &&
-                prev?.analyzingProgress === cachePayload.analyzingProgress;
-
-            const nextSeq = sameStatus ? (prev?.seq ?? 0) : (this.clipStatusSeq.get(cacheKey) ?? prev?.seq ?? 0) + 1;
-            this.clipStatusSeq.set(cacheKey, nextSeq);
-            cachePayload.seq = nextSeq;
-            this.clipStatusCache.set(cacheKey, cachePayload);
-
-            if (!sameStatus) {
-                await this.rendererGateway.call('video-learning/clip-status-update', {
-                    videoPath,
-                    srtKey,
-                    status,
-                    pendingCount,
-                    inProgressCount,
-                    completedCount,
-                    message,
-                    analyzingProgress,
-                    seq: nextSeq
-                });
-            }
-        } catch (error) {
-            this.logger.error('failed to notify clip status', { error });
-        }
-    }
 }
