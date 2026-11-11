@@ -487,6 +487,8 @@ export default function Word({
                         isFavoriting={favoriteState === 'saving'}
                         wordStatus={wordStatus ?? null}
                         isUpdatingStatus={statusSaving}
+                        contextWord={original}
+                        contextSentence={sentenceText}
                         onMarkKnown={() => { void handleStatusChange('known'); }}
                         onMarkIgnored={() => { void handleStatusChange('ignored'); }}
                     />

@@ -8,6 +8,7 @@ import { formatPhonetic } from '@/fronted/lib/phonetic';
 import { DICT_TAG_I18N_KEYS } from '@/fronted/lib/dict-tags';
 import { useTranslation } from 'react-i18next';
 import type { WordStatus } from '@/common/types/vocabulary';
+import WordContextInsight from './word-context-insight';
 
 /**
  * 统一音标显示格式，自动补齐首尾斜杠。
@@ -38,6 +39,10 @@ interface OpenAIWordPopProps {
     onMarkIgnored?: () => void;
     /** 状态更新请求是否进行中。 */
     isUpdatingStatus?: boolean;
+    /** 用户点击的单词原文，供语境解读使用。 */
+    contextWord?: string;
+    /** 单词所在字幕句，供语境解读使用。 */
+    contextSentence?: string;
     className?: string;
 }
 
@@ -53,6 +58,8 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
     onMarkKnown,
     onMarkIgnored,
     isUpdatingStatus = false,
+    contextWord,
+    contextSentence,
     className
 }) => {
     const { t } = useTranslation('common');
@@ -84,8 +91,17 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
     const renderContent = () => {
         if (!data) {
             return (
-                <div className="h-full flex items-center justify-center p-6 text-center text-sm text-muted-foreground select-none">
-                    {t('noDefinition')}
+                <div className="h-full flex flex-col">
+                    <div className="px-4.5 pt-3">
+                        <WordContextInsight
+                            word={contextWord ?? ''}
+                            sentence={contextSentence}
+                            definitions={[]}
+                        />
+                    </div>
+                    <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground select-none">
+                        {t('noDefinition')}
+                    </div>
                 </div>
             );
         }
@@ -93,6 +109,10 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
         const phonetic = formatPhonetic(data.phonetic);
         const dictTags = (data.tags ?? []).filter((tag) => DICT_TAG_I18N_KEYS[tag]);
         const hasMeta = Boolean(data.collins || data.oxford || data.bnc || data.frq || dictTags.length > 0);
+        const insightDefinitions = data.definitions.map((definition) => {
+            const pos = formatPartOfSpeech(definition.partOfSpeech);
+            return `${pos} ${definition.meaning}`.trim();
+        });
         const statusLabel = wordStatus === 'learning'
             ? t('wordStatusLearning')
             : wordStatus === 'familiar'
@@ -235,6 +255,12 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
 
                 {/* 滚动区域：释义与例句列表 */}
                 <div className="px-4.5 pt-1.5 pb-4 flex-1 overflow-y-auto space-y-4 scrollbar-thin">
+                    <WordContextInsight
+                        word={contextWord ?? data.word}
+                        sentence={contextSentence}
+                        definitions={insightDefinitions}
+                        className="mt-0.5"
+                    />
                     {hasDefinitions ? (
                         data.definitions.map((def, defIdx) => {
                             const pos = formatPartOfSpeech(def.partOfSpeech);

@@ -176,6 +176,14 @@
         "error": "Error",
         "result": "Result"
     },
+    "aiContextInsight": "Explain in context",
+    "aiContextInsightHint": "Explain what this word means and how it is used in the current subtitle",
+    "aiContextInsightInSentence": "In this sentence",
+    "aiContextInsightLoading": "Reading it in context…",
+    "aiContextInsightLocal": "local model",
+    "aiContextInsightUnavailable": "AI model is not ready — the dictionary definition still works",
+    "aiContextInsightFailed": "Context explanation is temporarily unavailable",
+    "aiContextInsightRetry": "Retry",
     "englishSenses": "English definitions",
     "englishSynonyms": "Synonyms",
     "englishAntonyms": "Antonyms"

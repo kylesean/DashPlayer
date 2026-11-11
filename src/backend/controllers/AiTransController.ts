@@ -10,6 +10,11 @@ import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import type Controller from '@/backend/controllers/Controller';
 import type TranslateService from '@/backend/services/TranslateService';
 import type SubtitleTranslationService from '@/backend/services/subtitle-translation/SubtitleTranslationService';
+import type WordContextInsightService from '@/backend/services/WordContextInsightService';
+import type {
+    WordContextInsightParams,
+    WordContextInsightResponse,
+} from '@/common/types/wordInsight';
 
 /**
  * 单词词典查询与字幕翻译调度 IPC 控制器。
@@ -21,10 +26,12 @@ export default class AiTransController implements Controller {
      *
      * @param translateService 单词词典服务。
      * @param subtitleTranslationService 字幕翻译编排服务。
+     * @param wordContextInsightService 词卡语境解读服务。
      */
     constructor(
         @inject(TYPES.TranslateService) private readonly translateService: TranslateService,
         @inject(TYPES.SubtitleTranslationService) private readonly subtitleTranslationService: SubtitleTranslationService,
+        @inject(TYPES.WordContextInsightService) private readonly wordContextInsightService: WordContextInsightService,
     ) {}
 
     /**
@@ -32,6 +39,15 @@ export default class AiTransController implements Controller {
      */
     public async transWord(params: { word: string; forceRefresh?: boolean; requestId?: string; context?: string }): Promise<OpenAIDictionaryResult | null> {
         return this.translateService.transWord(params.word, params.forceRefresh, params.requestId, params.context);
+    }
+
+    /**
+     * 结合当前字幕句生成词卡语境解读。
+     *
+     * 只由用户主动点击触发，云端不可用时按设置回退本地模型。
+     */
+    public async explainWordContext(params: WordContextInsightParams): Promise<WordContextInsightResponse> {
+        return this.wordContextInsightService.explain(params);
     }
 
     /**
@@ -67,6 +83,15 @@ export default class AiTransController implements Controller {
                 forceRefresh: z.boolean().optional(),
                 requestId: z.string().optional(),
                 context: z.string().optional(),
+            }),
+        });
+
+        registerRoute('ai-trans/word-insight', (p) => this.explainWordContext(p), {
+            schema: z.object({
+                word: nonEmptyStringSchema.max(80),
+                sentence: nonEmptyStringSchema.max(2_000),
+                definitions: z.array(z.string().max(300)).max(8).optional(),
+                forceRefresh: z.boolean().optional(),
             }),
         });
 

@@ -176,6 +176,14 @@
         "error": "错误",
         "result": "结果"
     },
+    "aiContextInsight": "AI 语境解读",
+    "aiContextInsightHint": "结合当前字幕句，解释这个词在这里的具体含义与用法",
+    "aiContextInsightInSentence": "在这句话里",
+    "aiContextInsightLoading": "正在结合本句解读…",
+    "aiContextInsightLocal": "本地模型",
+    "aiContextInsightUnavailable": "AI 模型尚未就绪，词典释义仍可正常使用",
+    "aiContextInsightFailed": "语境解读暂时不可用",
+    "aiContextInsightRetry": "重试",
     "englishSenses": "英英释义",
     "englishSynonyms": "近义",
     "englishAntonyms": "反义"

@@ -3,6 +3,7 @@ import { requestVideoThumbnail } from '@/fronted/lib/video-thumbnail';
 import type { SubtitleTimestampAdjustmentInput } from '@/common/contracts/subtitle-timestamp-adjustment';
 import { SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY } from '@/common/constants/systemConfigKeys';
 import type { SubtitleComprehensionParams } from '@/common/types/subtitleComprehension';
+import type { WordContextInsightParams } from '@/common/types/wordInsight';
 
 /**
  * 播放器功能调用的后端接口。
@@ -252,6 +253,17 @@ export const playerApi = {
      */
     translateWord: (params: { word: string; forceRefresh?: boolean; requestId?: string; context?: string }) =>
         backendClient.call('ai-trans/word', params),
+
+    /**
+     * 结合当前字幕句生成词卡语境解读。
+     *
+     * 只在用户主动点击「AI 语境解读」时调用，不参与查词首屏链路。
+     *
+     * @param params 单词、字幕句与当前词卡释义。
+     * @returns 解读结果或 AI 不可用的原因。
+     */
+    wordContextInsight: (params: WordContextInsightParams) =>
+        backendClient.call('ai-trans/word-insight', params),
 
     /**
      * 为无字幕视频启动本地字幕生成。

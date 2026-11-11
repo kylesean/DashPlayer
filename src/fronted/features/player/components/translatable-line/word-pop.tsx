@@ -31,6 +31,10 @@ export interface WordSubParam {
     isFavoriting?: boolean;
     /** 当前单词学习状态。 */
     wordStatus?: WordStatus | null;
+    /** 用户点击的单词原文，供语境解读使用。 */
+    contextWord?: string;
+    /** 单词所在字幕句，供语境解读使用。 */
+    contextSentence?: string;
     /** 标记为已掌握。 */
     onMarkKnown?: () => void;
     /** 标记为忽略。 */
@@ -68,6 +72,8 @@ const WordPop: React.FC<WordSubParam> = ({
     onMarkKnown,
     onMarkIgnored,
     isUpdatingStatus = false,
+    contextWord,
+    contextSentence,
     classNames,
     floatingStyles,
     getFloatingProps,
@@ -104,6 +110,8 @@ const WordPop: React.FC<WordSubParam> = ({
                         onMarkKnown={onMarkKnown}
                         onMarkIgnored={onMarkIgnored}
                         isUpdatingStatus={isUpdatingStatus}
+                        contextWord={contextWord}
+                        contextSentence={contextSentence}
                     />
                 </div>
             </div>

@@ -1,6 +1,7 @@
 import { injectable } from 'inversify';
 
 import type { SrtSentence } from '@/common/types/SentenceC';
+import type { WordContextInsight } from '@/common/types/wordInsight';
 
 /**
  * 缓存命名空间与对应值类型。
@@ -8,6 +9,7 @@ import type { SrtSentence } from '@/common/types/SentenceC';
 export type CacheType = {
     'cache:srt': SrtSentence;
     'cache:srt-vocabulary-texts': string[];
+    'cache:word-insight': WordContextInsight;
 };
 
 /**
@@ -55,6 +57,7 @@ export default interface CacheService {
 const DEFAULT_MAX_ENTRIES: Record<keyof CacheType, number> = {
     'cache:srt': 32,
     'cache:srt-vocabulary-texts': 64,
+    'cache:word-insight': 128,
 };
 
 /**
@@ -65,6 +68,7 @@ export class CacheServiceImpl implements CacheService {
     private readonly stores: { [K in keyof CacheType]: Map<string, { value: unknown; expires?: number }> } = {
         'cache:srt': new Map(),
         'cache:srt-vocabulary-texts': new Map(),
+        'cache:word-insight': new Map(),
     };
 
     /**

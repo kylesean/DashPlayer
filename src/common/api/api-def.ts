@@ -9,6 +9,10 @@ import type { SubtitleResolution } from '@/common/contracts/subtitle-resolution'
 import type { ImportedDictionaryVO } from '@/common/contracts/imported-dictionary';
 import type { EnglishDictionaryStatusVO } from '@/common/contracts/english-dictionary';
 import type {OpenAIDictionaryResult} from '@/common/types/DictionaryResult';
+import type {
+    WordContextInsightParams,
+    WordContextInsightResponse,
+} from '@/common/types/wordInsight';
 import type {SrtSentence} from '@/common/types/SentenceC';
 import type {SentenceStruct} from '@/common/types/SentenceStruct';
 import type {WindowState} from '@/common/types/Types';
@@ -168,6 +172,11 @@ interface AiTransDef {
     'ai-trans/word': {
         params: { word: string; forceRefresh?: boolean; requestId?: string; context?: string },
         return: OpenAIDictionaryResult | null
+    };
+    /** 结合当前字幕句解释单词在该句中的含义与用法；仅由用户主动请求触发。 */
+    'ai-trans/word-insight': {
+        params: WordContextInsightParams,
+        return: WordContextInsightResponse
     };
     /** 更新当前字幕播放位置，后端异步处理当前批次与预取批次。 */
     'ai-trans/update-subtitle-demand': {
