@@ -31,9 +31,12 @@ export const seedDefaultVocabularyIfNeeded = async (): Promise<void> => {
         .get()?.c ?? 0;
 
     if (wordCount > 0) {
-        logger.debug('skip seed: dp_words not empty', { wordCount, seededVersion });
-        await sysConf.setValue(SEED_VERSION_KEY, DEFAULT_VOCABULARY_VERSION);
-        return;
+        // 非空库走到这里意味着标记落后于当前版本（老用户升级，或旧版本留下的
+        // 「库非空但标记为空」状态）。必须补播而不是跳过：跳过会把标记推进到
+        // 当前版本，升级词表追加的新默认词对存量用户永远不可见，且系统自认为
+        // 已完成播种、无法自愈。播种语句带 onConflictDoNothing——用户已转正或
+        // 改动过的同名词不会被覆盖，只补回缺失的默认词行。
+        logger.debug('seed into non-empty vocabulary (upgrade path)', { wordCount, seededVersion });
     }
 
     let defaults: DefaultVocabularyWord[];

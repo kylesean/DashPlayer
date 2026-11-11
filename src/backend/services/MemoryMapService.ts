@@ -33,21 +33,51 @@ export default interface MemoryMapService {
 /**
  * 本地记忆图谱实现。
  */
+/** 图谱底表快照的 TTL：遭遇事件上万后全量加载是常驻开销，短缓存摊平峰值。 */
+const SNAPSHOT_TTL_MS = 60_000;
+
+/** 图谱底表快照。 */
+interface MemoryMapSnapshot {
+    at: number;
+    words: Awaited<ReturnType<LearningDataRepository['listUserWords']>>;
+    encounters: Awaited<ReturnType<LearningDataRepository['listEncounters']>>;
+    cards: Awaited<ReturnType<LearningDataRepository['listReviewCards']>>;
+    records: Awaited<ReturnType<WatchHistoryRepository['listByProjectType']>>;
+}
+
 @injectable()
 export class MemoryMapServiceImpl implements MemoryMapService {
+    private snapshot: MemoryMapSnapshot | null = null;
+
     constructor(
         @inject(TYPES.LearningDataRepository) private readonly learningDataRepository: LearningDataRepository,
         @inject(TYPES.WatchHistoryRepository) private readonly watchHistoryRepository: WatchHistoryRepository,
     ) {}
 
-    public async getMap(params: MemoryMapParams): Promise<MemoryMapVO> {
-        const limit = Math.max(1, Math.min(MAX_TOPIC_LIMIT, Math.trunc(params.limit ?? DEFAULT_TOPIC_LIMIT)));
+    /**
+     * 加载图谱底表（词表 + 全部遭遇事件 + 复习卡 + 观看记录），60 秒内复用。
+     *
+     * 代价换取：刚写入的遭遇事件最多延迟 1 分钟出现在图谱里，对概览视图可接受；
+     * 词表导入/恢复走的是 LearningDataService 的缓存失效链，与本快照无关，
+     * 短 TTL 会自然覆盖。
+     */
+    private async loadSnapshot(): Promise<MemoryMapSnapshot> {
+        if (this.snapshot && Date.now() - this.snapshot.at < SNAPSHOT_TTL_MS) {
+            return this.snapshot;
+        }
         const [words, encounters, cards, records] = await Promise.all([
             this.learningDataRepository.listUserWords(),
             this.learningDataRepository.listEncounters(),
             this.learningDataRepository.listReviewCards(),
             this.watchHistoryRepository.listByProjectType(WatchHistoryProjectType.FILE),
         ]);
+        this.snapshot = { at: Date.now(), words, encounters, cards, records };
+        return this.snapshot;
+    }
+
+    public async getMap(params: MemoryMapParams): Promise<MemoryMapVO> {
+        const limit = Math.max(1, Math.min(MAX_TOPIC_LIMIT, Math.trunc(params.limit ?? DEFAULT_TOPIC_LIMIT)));
+        const { words, encounters, cards, records } = await this.loadSnapshot();
         const now = Date.now();
         const cardMap = new Map(cards.map((card) => [card.word.toLowerCase(), card]));
         const titleMap = new Map(records.map((record) => [record.id, record.file_name]));

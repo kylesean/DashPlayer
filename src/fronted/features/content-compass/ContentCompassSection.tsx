@@ -128,7 +128,12 @@ export default function ContentCompassSection({
     };
 
     /**
-     * 从推荐直接进入到期复习：不打断当前内容，只打开播放器的复习坞。
+     * 从推荐直接进入到期复习：跳转到推荐视频并打开播放器的复习坞。
+     *
+     * 必须导航：只挂起「打开复习坞」请求时，用户停留在首页点击后界面毫无
+     * 反应，而这次点击已经被记为一次 `reviewed`（reviewRate 的分子），统计
+     * 的是从未发生的复习。跟随推荐进入视频后，延迟打开的复习坞在播放器内
+     * 兑现，推荐到复习的闭环才算接上。
      */
     const handleReviewDue = (item: ContentCompassItemVO) => {
         void contentCompassApi.recordEvent({
@@ -144,6 +149,7 @@ export default function ContentCompassSection({
             });
         });
         useReviewDockStore.getState().open();
+        onSelected(item.videoId);
     };
 
     return (

@@ -70,7 +70,10 @@ const TOKEN_COOKIE_NAME = 'dp_mobile_token';
  * 没有有效期时是会话 Cookie，浏览器重启或主屏 Web App 被系统回收后就会丢，
  * 手机页再打开直接 401，只能回电脑重新复制地址。令牌本身长期稳定，这里给一年。
  */
-const TOKEN_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+// Cookie 用 7 天滑动窗口而不是一年长期凭据：明文 HTTP 下令牌一旦被嗅探，
+// 一年有效期会把泄露窗口放大到不可接受；每次授权请求都静默续发 Cookie，
+// 活跃用户无感知，不活跃 7 天后需要重新输入令牌（令牌本身仍然有效）。
+const TOKEN_COOKIE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 /**
  * 常量时间比较两个字符串，避免通过响应时间逐字节猜测令牌。
@@ -280,10 +283,14 @@ export class ClientRequestError extends Error {
  * 读取 JSON 请求体。
  *
  * @param request HTTP 请求。
+ * @param response HTTP 响应；请求体超限时用于声明连接关闭。
  * @returns 解析后的对象。
  * @throws {ClientRequestError} 请求体过大（413）或不是合法 JSON（400）时抛出。
  */
-const readJsonBody = (request: IncomingMessage): Promise<Record<string, unknown>> => {
+const readJsonBody = (
+    request: IncomingMessage,
+    response: ServerResponse,
+): Promise<Record<string, unknown>> => {
     return new Promise((resolve, reject) => {
         const chunks: Buffer[] = [];
         let total = 0;
@@ -304,6 +311,12 @@ const readJsonBody = (request: IncomingMessage): Promise<Record<string, unknown>
             total += chunk.length;
             if (total > MAX_JSON_BODY_BYTES) {
                 // 不立刻 destroy 连接：让调用方能正常回一个 JSON 错误，浏览器也拿得到原因。
+                // 但要把剩余请求体快速排干并声明 Connection: close，否则攻击者以
+                // 每秒一字节滴注就能把每条连接挂满 Node 默认 300 秒 requestTimeout。
+                settled = true;
+                request.removeAllListeners('data');
+                request.resume();
+                response.setHeader('Connection', 'close');
                 fail(new ClientRequestError('请求体过大', 413));
                 return;
             }
@@ -349,6 +362,8 @@ export default class MobileWebServer {
     private server: http.Server | null = null;
     /** 付费接口的固定窗口计数，键为请求来源地址。 */
     private readonly paidRequestWindows = new Map<string, { windowStart: number; count: number }>();
+    /** 未授权请求的日志节流表：来源 -> 上次记 warn 的时间戳。 */
+    private readonly unauthorizedLogAt = new Map<string, number>();
 
     /**
      * 创建服务实例；此时还没有开始监听。
@@ -485,19 +500,14 @@ export default class MobileWebServer {
         const candidates = [cookieValue, headerValue, queryValue];
         const accepted = candidates.find((value) => value !== null && safeTokenEquals(value, expected)) ?? null;
         if (accepted === null) {
-            this.logger.warn('mobile web request rejected: invalid access token', {
-                method: request.method,
-                pathname: url.pathname,
-            });
+            this.warnUnauthorizedThrottled(request.socket.remoteAddress ?? 'unknown', url.pathname);
             this.sendUnauthorized(request, response);
             return null;
         }
 
-        // Cookie 不是这次通过鉴权的来源（首次带令牌进入、或旧 Cookie 已被轮换）时补发，
-        // 让后续请求不必再各自携带令牌。
-        if (accepted !== cookieValue) {
-            this.setTokenCookie(response, expected);
-        }
+        // 每次授权请求都（重新）下发 Cookie：首次带令牌进入时完成落盘，
+        // 其余请求滑动续期——活跃用户不会在 7 天窗口边界被登出。
+        this.setTokenCookie(response, expected);
         return accepted;
     }
 
@@ -576,6 +586,34 @@ export default class MobileWebServer {
                 this.paidRequestWindows.delete(source);
             }
         }
+    }
+
+    /**
+     * 记录未授权请求的 warn 日志；同一来源一分钟内只记一条。
+     *
+     * 限流在鉴权之后，匿名设备高频探测不会触发 429——无节流的 warn 会让
+     * 同网段任何设备都能把日志文件刷满。
+     *
+     * @param source 请求来源地址。
+     * @param pathname 请求路径。
+     */
+    private warnUnauthorizedThrottled(source: string, pathname: string): void {
+        const now = Date.now();
+        const last = this.unauthorizedLogAt.get(source);
+        if (last !== undefined && now - last < RATE_LIMIT_WINDOW_MS) {
+            return;
+        }
+        this.unauthorizedLogAt.set(source, now);
+        if (this.unauthorizedLogAt.size > RATE_LIMIT_MAX_TRACKED_SOURCES) {
+            for (const [key, at] of this.unauthorizedLogAt) {
+                if (now - at >= RATE_LIMIT_WINDOW_MS) {
+                    this.unauthorizedLogAt.delete(key);
+                }
+            }
+        }
+        this.logger.warn('mobile web request rejected: invalid access token', {
+            pathname,
+        });
     }
 
     /**
@@ -680,7 +718,7 @@ export default class MobileWebServer {
                 if (!this.ensurePaidRequestAllowed(request, response, accessToken)) {
                     return;
                 }
-                const body = await readJsonBody(request);
+                const body = await readJsonBody(request, response);
                 if (!Array.isArray(body.texts) || body.texts.length === 0 || body.texts.length > 50) {
                     this.sendJson(response, 400, { error: '一次最多翻译 50 行' });
                     return;
@@ -733,7 +771,7 @@ export default class MobileWebServer {
                     if (!this.ensurePaidRequestAllowed(request, response, accessToken)) {
                         return;
                     }
-                    const body = await readJsonBody(request);
+                    const body = await readJsonBody(request, response);
                     const position = body.position;
                     // 只接受 JSON 数字：Number('120') / Number([120]) 都会过旧校验，
                     // 相当于让字符串和数组绕过类型约定写进观看历史。

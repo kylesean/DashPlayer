@@ -97,12 +97,18 @@ export class WordEncounterServiceImpl implements WordEncounterService {
             ? applyMasteryEvidence(this.masteryOf(existing), evidence)
             : this.masteryOf(existing);
         const nextStatus = this.resolveNextStatus(existing.status, mastery.suggestedStatus);
-        await this.wordsRepository.updateLearning(lemma, {
-            mastery: mastery.mastery,
-            confidence: mastery.confidence,
-            status: nextStatus,
-            lastSeenAt: now.toISOString(),
-        });
+        // seen/hover/replay 只是曝光，不算学习证据（evidence 为 null）：掌握度不动，
+        // 也不得刷新 last_seen_at——遗忘衰减完全由 last_seen_at 驱动，悬停/重播把
+        // 时钟拨到当前会让 14 天半衰期对常查的词永不生效，掌握度虚高。
+        // 纯曝光且无状态建议时整次 UPDATE 都可跳过，避免高频悬停造成写放大。
+        if (evidence || nextStatus) {
+            await this.wordsRepository.updateLearning(lemma, {
+                mastery: mastery.mastery,
+                confidence: mastery.confidence,
+                status: nextStatus,
+                ...(evidence ? { lastSeenAt: now.toISOString() } : {}),
+            });
+        }
 
         await this.updateReviewCard(lemma, nextStatus ?? existing.status, params, now);
     }

@@ -72,7 +72,7 @@ function registerAllControllers(): void {
     new DictionaryImportController(stub()).registerRoutes();
     new DpTaskController(stub()).registerRoutes();
     new EnglishDictionaryController(stub()).registerRoutes();
-    new LearningDataController(stub(), stub(), stub()).registerRoutes();
+    new LearningDataController(stub(), stub(), stub(), stub()).registerRoutes();
     new LocalAiController(stub(), stub()).registerRoutes();
     new MediaController(stub()).registerRoutes();
     new MigrationFailureController().registerRoutes();
