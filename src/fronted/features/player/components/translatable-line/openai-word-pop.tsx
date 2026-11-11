@@ -114,12 +114,17 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             </span>
                         </div>
                         {phonetic && (
-                            <span className="text-sm font-mono text-muted-foreground/75 mt-0.5 inline-block select-text">
-                                {phonetic}
+                            <span className="text-sm font-mono text-muted-foreground/75 mt-0.5 inline-flex items-center gap-2 select-text">
+                                <span>{phonetic}</span>
+                                {statusLabel && (
+                                    <span className="font-sans text-metadata text-muted-foreground/80">
+                                        {statusLabel}
+                                    </span>
+                                )}
                             </span>
                         )}
-                        {statusLabel && (
-                            <span className="text-metadata text-muted-foreground/80 mt-0.5 ml-2 inline-block select-text">
+                        {!phonetic && statusLabel && (
+                            <span className="text-metadata text-muted-foreground/80 mt-0.5 inline-block">
                                 {statusLabel}
                             </span>
                         )}
@@ -153,7 +158,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             </div>
                         )}
                         {isStreaming && (
-                            <span className="text-xs text-muted-foreground/70 animate-pulse mt-0.5 inline-block select-none font-normal">
+                            <span className="text-sm text-muted-foreground/70 animate-pulse mt-0.5 inline-block select-none font-normal">
                                 ···
                             </span>
                         )}
@@ -243,16 +248,16 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                     {/* 词性与释义单行排版 */}
                                     <div className="flex items-baseline gap-2 leading-snug">
                                         {pos && (
-                                            <span className="text-xs font-semibold italic text-muted-foreground shrink-0 select-none">
+                                            <span className="text-metadata font-semibold italic text-muted-foreground shrink-0 select-none">
                                                 {pos}
                                             </span>
                                         )}
-                                        <span className="text-sm text-foreground font-medium">
+                                        <span className="text-base text-foreground font-medium">
                                             {def.meaning}
                                         </span>
                                     </div>
 
-                                    {/* 例句原生缩进排版 (例句 14px，译文 13px) */}
+                                    {/* 例句与译文分级排版：英文例句始终大于辅助译文 */}
                                     {hasExamples && (
                                         <div className="pl-3 border-l-2 border-border/60 space-y-2.5 my-1.5">
                                             {def.examples.map((ex, exIdx) => (
@@ -261,7 +266,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                                         <Playable>{ex.sentence}</Playable>
                                                     </div>
                                                     {ex.translation && (
-                                                        <div className="text-caption text-muted-foreground leading-relaxed">
+                                                        <div className="text-metadata text-muted-foreground leading-relaxed">
                                                             {ex.translation}
                                                         </div>
                                                     )}
@@ -295,19 +300,19 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                     <div key={`en-${senseIdx}-${sense.definition}`} className="space-y-1 select-text">
                                         <div className="flex items-baseline gap-2 leading-snug">
                                             {pos && (
-                                                <span className="text-xs font-semibold italic text-muted-foreground shrink-0 select-none">
+                                                <span className="text-metadata font-semibold italic text-muted-foreground shrink-0 select-none">
                                                     {pos}
                                                 </span>
                                             )}
                                             <span className="text-sm text-foreground/90">{sense.definition}</span>
                                         </div>
                                         {sense.synonyms.length > 0 && (
-                                            <div className="text-xs text-muted-foreground pl-0.5">
+                                            <div className="text-metadata text-muted-foreground pl-0.5">
                                                 {t('englishSynonyms', { defaultValue: '近义' })}: {sense.synonyms.join(', ')}
                                             </div>
                                         )}
                                         {sense.antonyms.length > 0 && (
-                                            <div className="text-xs text-muted-foreground pl-0.5">
+                                            <div className="text-metadata text-muted-foreground pl-0.5">
                                                 {t('englishAntonyms', { defaultValue: '反义' })}: {sense.antonyms.join(', ')}
                                             </div>
                                         )}

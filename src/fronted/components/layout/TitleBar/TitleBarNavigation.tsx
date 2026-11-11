@@ -24,7 +24,7 @@ const InnerNavigation: React.FC = () => {
     }
 
     return (
-        <div className="no-drag flex items-center h-full gap-1 shrink-0">
+        <div className="no-drag flex items-center h-full gap-[4px] shrink-0">
             <Tooltip content={tNav('backToLibrary', { defaultValue: '返回媒体库' })} placement="below">
                 <button
                     type="button"
@@ -33,12 +33,12 @@ const InnerNavigation: React.FC = () => {
                         navigate('/');
                     }}
                     className={cn(
-                        'inline-flex items-center justify-center w-6 h-6 rounded-md cursor-pointer select-none',
+                        'inline-flex items-center justify-center w-[24px] h-[24px] rounded-md cursor-pointer select-none',
                         'text-muted-foreground/80 hover:text-foreground hover:bg-muted/70 active:bg-muted transition-colors',
                     )}
                     aria-label={tNav('backToLibrary', { defaultValue: '返回媒体库' })}
                 >
-                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <ArrowLeft className="w-[14px] h-[14px]" />
                 </button>
             </Tooltip>
             <Tooltip
@@ -57,7 +57,7 @@ const InnerNavigation: React.FC = () => {
                         changeSideBar(!showSideBar);
                     }}
                     className={cn(
-                        'inline-flex items-center justify-center w-6 h-6 rounded-md cursor-pointer select-none',
+                        'inline-flex items-center justify-center w-[24px] h-[24px] rounded-md cursor-pointer select-none',
                         showSideBar
                             ? 'text-accent bg-accent/15 hover:bg-accent/25'
                             : 'text-muted-foreground/80 hover:text-foreground hover:bg-muted/70 active:bg-muted',
@@ -65,7 +65,7 @@ const InnerNavigation: React.FC = () => {
                     )}
                     aria-label={showSideBar ? tPlayer('controlButton.closePanel') : tPlayer('controlButton.openPanel')}
                 >
-                    <PanelLeft className="w-3.5 h-3.5" />
+                    <PanelLeft className="w-[14px] h-[14px]" />
                 </button>
             </Tooltip>
         </div>

@@ -235,14 +235,14 @@ export default function WordSidebar({
       {/* 列表区域：使用虚拟列表，占满剩余高度 */}
       <div className="flex-1 min-h-0 pt-2">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-accent-bg border-t-transparent"></div>
               <span>{t('loadingWords')}</span>
             </div>
           </div>
         ) : displayedWords.length === 0 ? (
-          <div className="text-center py-10 text-xs text-muted-foreground px-4">
+          <div className="text-center py-10 text-sm text-muted-foreground px-4">
             {searchTerm ? t('noMatchingWords') : t('wordListEmpty')}
           </div>
         ) : (
@@ -259,7 +259,7 @@ export default function WordSidebar({
                   role="button"
                   tabIndex={0}
                   className={[
-                    'group px-3 py-2 rounded-xl cursor-pointer transition-all text-xs mb-1.5 flex flex-col gap-0.5',
+                    'group px-3 py-2 rounded-xl cursor-pointer transition-all text-sm mb-1.5 flex flex-col gap-0.5',
                     active
                       ? 'bg-accent-bg text-on-accent font-medium shadow-2xs'
                       : 'hover:bg-muted/60 text-foreground'
@@ -330,12 +330,12 @@ export default function WordSidebar({
                       )}
                     </div>
                   </div>
-                  <div className={['flex items-center gap-1.5 text-xs', active ? 'text-on-accent/80' : 'text-muted-foreground'].join(' ')}>
+                  <div className={['flex items-center gap-1.5 text-metadata', active ? 'text-on-accent/80' : 'text-muted-foreground'].join(' ')}>
                     <span className="truncate">{word.translate || t('noDefinition')}</span>
                     {word.lastClipAddedAt && (
                       <span
                         className={[
-                          'shrink-0 text-xs tabular-nums',
+                          'shrink-0 text-metadata tabular-nums',
                           active ? 'text-on-accent/60' : 'text-muted-foreground/80'
                         ].join(' ')}
                         title={t('sortByRecentVideo')}

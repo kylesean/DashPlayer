@@ -10,6 +10,7 @@ import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
+import { TITLE_BAR_HEIGHT } from '@/fronted/components/layout/TitleBar/titleBarMetrics';
 import {
     CheckCircle2,
     Copy,
@@ -530,8 +531,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
             data-testid="onboarding-view"
             className="relative flex h-screen w-full flex-col overflow-hidden bg-background text-foreground select-none"
         >
-            <header className="relative z-20 flex h-9 shrink-0 items-center">
-                <TitleBar maximizable={false} className="top-0 left-0 w-full h-9 z-50" />
+            <header
+                className="relative z-20 flex shrink-0 items-center"
+                style={{ height: TITLE_BAR_HEIGHT }}
+            >
+                <TitleBar maximizable={false} className="w-full" />
             </header>
 
             {screen !== 'done' && <DotRippleBackground active={downloadingBundle} />}
@@ -573,11 +577,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
 
                         <div className="w-full space-y-3.5 rounded-2xl border border-border/70 bg-card/70 p-5 text-left shadow-sm">
                             <div className="space-y-2">
-                                <div className="text-xs font-medium text-muted-foreground">{t('steps.storage.pathLabel')}</div>
+                                <div className="text-sm font-medium text-muted-foreground">{t('steps.storage.pathLabel')}</div>
                                 <div className="flex items-center gap-2.5 rounded-xl border border-border/60 bg-background/60 py-2 pr-2 pl-3.5">
                                     <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
                                     <span
-                                        className="line-clamp-2 min-w-0 flex-1 break-all font-mono text-xs leading-relaxed text-foreground"
+                                        className="line-clamp-2 min-w-0 flex-1 break-all font-mono text-sm leading-relaxed text-foreground"
                                         title={storagePath}
                                     >
                                         {storagePath || t('steps.storage.pathLoading')}
@@ -593,10 +597,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                 </div>
                             </div>
 
-                            <p className="text-xs text-muted-foreground leading-relaxed">{t('steps.storage.note')}</p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{t('steps.storage.note')}</p>
 
                             {!storageAvailable && (
-                                <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                                <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                                     <XCircle className="h-3.5 w-3.5 shrink-0" />
                                     <span>{t('steps.storage.unavailable')}</span>
                                 </div>
@@ -665,7 +669,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                         value={overallPercent}
                                         variant="accent"
                                     />
-                                    <p className="text-xs text-muted-foreground">
+                                    <p className="text-sm text-muted-foreground">
                                         {progressLabel}
                                         {live.speed > 0 ? ` · ${formatSpeed(live.speed)}` : ''}
                                         {remainingLabel ? ` · ${remainingLabel}` : ''}
@@ -705,11 +709,11 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                     >
                                         <HStack gap={1.5} align="center">
                                             <span>{bundleError ? t('steps.download.retry') : t('steps.download.action')}</span>
-                                            <span className="text-xs font-normal opacity-75">{t('steps.download.packSize')}</span>
+                                            <span className="text-sm font-normal opacity-75">{t('steps.download.packSize')}</span>
                                         </HStack>
                                     </Button>
                                     {bundleError && (
-                                        <span className="flex items-center gap-1.5 text-xs text-destructive">
+                                        <span className="flex items-center gap-1.5 text-sm text-destructive">
                                             <XCircle className="h-3.5 w-3.5 shrink-0" />
                                             <span className="break-all">{bundleError}</span>
                                         </span>
@@ -763,7 +767,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                                     <VStack gap={2} width="100%">
                                                         <HStack gap={2} align="start">
                                                             {index > 0 && (
-                                                                <span className="mt-0.5 shrink-0 rounded bg-warning/10 px-1.5 py-0.5 text-xs font-medium text-warning-text">
+                                                                <span className="mt-0.5 shrink-0 rounded bg-warning/10 px-1.5 py-0.5 text-metadata font-medium text-warning-text">
                                                                     {t('steps.models.backupSource')}
                                                                 </span>
                                                             )}
@@ -821,7 +825,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                             ))}
                         </div>
 
-                        <p className="pb-2 text-center text-xs text-muted-foreground leading-relaxed">
+                        <p className="pb-2 text-center text-sm text-muted-foreground leading-relaxed">
                             {t('steps.manual.footer')}
                         </p>
                     </div>
@@ -839,7 +843,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                 </span>
                             </div>
                             <h3 className="text-lg font-semibold">{t('steps.done.title')}</h3>
-                            <p className="text-xs text-muted-foreground leading-relaxed">{t('steps.done.desc')}</p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">{t('steps.done.desc')}</p>
                         </div>
 
                         <div className="space-y-3">
@@ -848,28 +852,28 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                     <FileVideo className="w-4 h-4 text-accent" />
                                     {t('steps.tutorial.title')}
                                 </h3>
-                                <p className="text-xs text-muted-foreground">{t('steps.tutorial.desc')}</p>
+                                <p className="text-sm text-muted-foreground">{t('steps.tutorial.desc')}</p>
                             </div>
 
                             <div className="space-y-3 pt-1">
                                 <div className="space-y-2 rounded-xl border bg-card p-4 shadow-xs">
-                                    <div className="flex items-center gap-2 text-xs font-semibold text-foreground sm:text-sm">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                                         <Folder className="w-4 h-4 shrink-0 text-accent" />
                                         <span>{t('steps.tutorial.method1Title')}</span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">{t('steps.tutorial.method1Desc')}</p>
-                                    <div className="rounded-lg border border-border/40 bg-muted/60 p-2.5 text-xs text-foreground/90">
+                                    <p className="text-sm text-muted-foreground leading-relaxed">{t('steps.tutorial.method1Desc')}</p>
+                                    <div className="rounded-lg border border-border/40 bg-muted/60 p-2.5 text-sm text-foreground/90">
                                         {t('steps.tutorial.method1Tip')}
                                     </div>
                                 </div>
 
                                 <div className="space-y-2 rounded-xl border bg-card p-4 shadow-xs">
-                                    <div className="flex items-center gap-2 text-xs font-semibold text-foreground sm:text-sm">
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                                         <FileVideo className="w-4 h-4 shrink-0 text-accent" />
                                         <span>{t('steps.tutorial.method2Title')}</span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground leading-relaxed">{t('steps.tutorial.method2Desc')}</p>
-                                    <div className="rounded-lg border border-border/40 bg-muted/60 p-2.5 text-xs text-foreground/90">
+                                    <p className="text-sm text-muted-foreground leading-relaxed">{t('steps.tutorial.method2Desc')}</p>
+                                    <div className="rounded-lg border border-border/40 bg-muted/60 p-2.5 text-sm text-foreground/90">
                                         {t('steps.tutorial.method2Tip')}
                                     </div>
                                 </div>

@@ -12,6 +12,7 @@ import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
+import { TITLE_BAR_HEIGHT } from '@/fronted/components/layout/TitleBar/titleBarMetrics';
 import { AlertTriangle, Copy, RefreshCw, Trash2 } from 'lucide-react';
 import type { MigrationFailureDetail } from '@/common/contracts/migration-failure';
 import {
@@ -99,8 +100,8 @@ export const MigrationFailureGate: React.FC<MigrationFailureGateProps> = ({ fail
     return (
         <VStack height="100%" width="100%" gap={0}>
             {/* 顶栏控制区域 */}
-            <VStack width="100%" height={36} justify="center">
-                <TitleBar maximizable={false} className="top-0 left-0 w-full h-9 z-50" />
+            <VStack width="100%" height={TITLE_BAR_HEIGHT} justify="center">
+                <TitleBar maximizable={false} className="top-0 left-0 w-full z-50" />
             </VStack>
 
             {/* 主恢复操作卡片区域 */}

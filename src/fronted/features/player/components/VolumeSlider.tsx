@@ -65,7 +65,7 @@ const VolumeSlider = ({
                 aria-label={muted ? t('volumeSlider.unmute') : t('volumeSlider.mute')}
             >
                 {getVolumeIcon()}
-                <span className="text-xs font-mono w-6 text-left tabular-nums">
+                <span className="text-sm font-mono w-7 text-left tabular-nums">
                     {volumePercent}
                 </span>
             </button>

@@ -27,7 +27,13 @@
   --color-media-orange: #ea580c;
   --color-media-slate: #475569;
   --color-media-slate-deep: #1e293b;
-  /* 应用层字号：10px 直接用 Astryx 的 text-xs；11px 没有对应刻度，集中为一个 token */
+  /*
+   * 应用层字号规范（基于 @astryxdesign/core/tailwind-theme.css 重映射后的真实刻度）：
+   * - text-base (14~16px): 大页面正文、Settings 独立大表单标签。
+   * - text-sm (11~13px): 所有紧凑浮层/菜单/工具条/按钮(sm)/卡片的正文基准。
+   * - text-metadata (11px): 时间码、词性、参数提示与元信息角标。
+   * - text-xs (9~10px): 仅限微型计数徽章或极短辅助后缀，严禁用于主文案与列表标题。
+   */
   --text-metadata: 0.6875rem;
   --text-caption: 0.8125rem;
   /* 伴读剧本流的三档字号：英文原文 / 中文译文，各自小中大 */

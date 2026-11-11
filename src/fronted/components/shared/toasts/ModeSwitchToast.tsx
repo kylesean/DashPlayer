@@ -14,7 +14,7 @@ const icons = {
 export function ModeSwitchToast({ mode, onCancel }: ModeSwitchToastProps) {
     const { t } = useTranslation('toast');
     return (
-        <div className="flex items-center gap-3 text-xs font-medium">
+        <div className="flex items-center gap-3 text-sm font-medium">
             <span className="flex items-center gap-1.5 text-foreground">
                 <span>{icons[mode]}</span>
                 <span>{mode === 'podcast' ? t('modeSwitchedPodcast') : t('modeSwitchedVideo')}</span>

@@ -8,7 +8,7 @@ const FullscreenToggleButton = ({ fullScreen, changeFullScreen }: {
 }) => {
     const { t } = useTranslation('player');
     const content = (
-        <div className="max-w-xs text-xs space-y-1">
+        <div className="max-w-xs space-y-1">
             <div className="font-semibold text-sm">{t('fullscreenHint.toggle')}</div>
             <div className="text-metadata leading-relaxed">{t('fullscreenHint.hint')}</div>
         </div>

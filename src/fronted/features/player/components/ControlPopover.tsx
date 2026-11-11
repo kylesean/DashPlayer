@@ -14,14 +14,27 @@ import { cn } from '@/fronted/lib/utils';
 /**
  * 弹窗面板：深色玻璃底，与视频控制条同族；宽度由调用方按内容拼。
  *
+ * 在紧凑弹层作用域内覆盖 --text-label-size 为 supporting-size，使内部所有 Astryx
+ * Switch / FieldLabel 与 Button size="sm"、SegmentedControl size="sm"、自定义列表项保持完全一致的字号。
+ *
  * 开启保留 150ms 淡入，关闭则立即隐藏：Radix 在关闭动画播完前不会卸载浮层，
  * 而相邻的两个菜单各自持有浮层，留着淡出会让「旧菜单渐隐 + 新菜单渐显」同时在屏。
  */
 export const CONTROL_POPOVER_PANEL =
-    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl animate-in fade-in-0 zoom-in-95 duration-150 data-[state=closed]:invisible';
+    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)] animate-in fade-in-0 zoom-in-95 duration-150 data-[state=closed]:invisible';
+
+/**
+ * 无入场动画的同款面板，供嵌套浮层使用。
+ *
+ * 实测 Chromium 里“浮层里再开一个 Radix 浮层”时，二级浮层的 `animate-in`
+ * 会卡在第一帧（opacity: 0），整个面板看起来像半透明黑框。二级浮层因此
+ * 直接显示，不再挂入场动画。
+ */
+export const CONTROL_POPOVER_PANEL_STATIC =
+    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)]';
 
 /** 弹窗内的分组标题。 */
-export const CONTROL_POPOVER_LABEL = 'px-2 py-1.5 text-xs font-semibold text-secondary';
+export const CONTROL_POPOVER_LABEL = 'px-2 py-1.5 text-sm font-semibold text-secondary';
 
 /** 弹窗内的分隔线：拉通到面板边缘。 */
 export const CONTROL_POPOVER_SEPARATOR = '-mx-2 my-1 h-px bg-border/60';
@@ -38,14 +51,14 @@ export const CONTROL_POPOVER_OFFSET_STACKED_BAR = 44;
 export const CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR = 20;
 
 /** 行右侧的次要信息（快捷键、参数摘要）：短、等宽、压暗，过长时截断（全文挂 title）。 */
-export const CONTROL_POPOVER_HINT = 'min-w-0 truncate text-xs font-mono text-secondary';
+export const CONTROL_POPOVER_HINT = 'min-w-0 truncate text-metadata font-mono text-secondary';
 
 /** 行内图标：不设颜色，跟随本行文字颜色。 */
 export const CONTROL_POPOVER_ICON = 'w-3.5 h-3.5 shrink-0';
 
 /** 弹层内一行的基础形状；需要自定义内容的行（如打开二级弹层）复用它，保持行高与内边距一致。 */
 export const CONTROL_POPOVER_ROW_BASE =
-    'flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-xs cursor-pointer select-none transition-colors outline-none';
+    'flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-sm cursor-pointer select-none transition-colors outline-none';
 const ROW_EMPHASIZED = 'bg-primary/20 text-primary font-medium';
 /** 普通行的未激活配色（深色弹层上）。 */
 export const CONTROL_POPOVER_ROW_IDLE =

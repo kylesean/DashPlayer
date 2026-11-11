@@ -266,7 +266,7 @@ const PlaybackLayout = () => {
                                 type="button"
                                 onClick={() => setTranscriptVisible(true)}
                                 className={cn(
-                                    'flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium cursor-pointer select-none',
+                                    'flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-sm font-medium cursor-pointer select-none',
                                     'bg-surface/85 hover:bg-surface text-muted-foreground hover:text-foreground border border-border/70 shadow-xs backdrop-blur-md transition-all duration-150',
                                     'hover:scale-105 active:scale-95'
                                 )}

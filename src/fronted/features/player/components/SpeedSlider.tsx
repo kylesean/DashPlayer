@@ -86,7 +86,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                     label={`${speed.toFixed(2)}x`}
                     className={cn(
                         // 默认 hover 跟随应用主题（亮色宿主）；深色控制条由 triggerClassName 覆盖
-                        'h-8 px-2.5 rounded-lg text-xs font-mono text-inherit hover:bg-foreground/10 transition-colors',
+                        'h-8 px-2.5 rounded-lg text-sm font-mono text-inherit hover:bg-foreground/10 transition-colors',
                         triggerClassName
                     )}
                 />
@@ -145,7 +145,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                 <div className={CONTROL_POPOVER_SEPARATOR} />
                 <div className="px-0.5 pt-2">
                     <div className="flex items-center gap-1.5 bg-media-fg/5 hover:bg-media-fg/10 focus-within:bg-media-fg/10 border border-media-fg/10 focus-within:border-primary/60 rounded-lg px-2 py-1 transition-colors">
-                        <span className="text-metadata text-secondary font-sans shrink-0">{t('speedSlider.custom')}</span>
+                        <span className="text-sm text-secondary font-sans shrink-0">{t('speedSlider.custom')}</span>
                         <input
                             ref={inputRef}
                             defaultValue={speed}
@@ -153,7 +153,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                             min={0.25}
                             max={16}
                             step={0.25}
-                            className="w-full h-5 p-0 bg-transparent border-0 text-right text-xs font-mono text-primary focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-full h-5 p-0 bg-transparent border-0 text-right text-sm font-mono text-primary focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                     handleCustomSpeedSubmit(e.currentTarget.value);
@@ -168,7 +168,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                                 }
                             }}
                         />
-                        <span className="text-xs text-secondary font-mono">x</span>
+                        <span className="text-sm text-secondary font-mono">x</span>
                     </div>
                 </div>
             </PopoverContent>

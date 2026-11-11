@@ -53,7 +53,7 @@ const BackNavItem = ({ root, currentPath, onClick }: BackNavItemProps) => {
                 })}
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-xs font-semibold text-foreground/85 transition-colors group-hover:text-accent">{title}</span>
+                <span className="truncate text-sm font-semibold text-foreground/85 transition-colors group-hover:text-accent">{title}</span>
                 {subtitle && (
                     <span className="truncate text-metadata text-muted-foreground/80">{subtitle}</span>
                 )}

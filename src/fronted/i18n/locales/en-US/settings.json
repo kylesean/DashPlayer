@@ -71,6 +71,9 @@
         "transcriptPositionDescription": "Choose where the script panel docks in the player",
         "transcriptPositionRight": "Right (Default)",
         "transcriptPositionLeft": "Left (Deep Read)",
+        "meaningGroupResegmentationTitle": "Merge fragmented subtitles",
+        "meaningGroupResegmentationDescription": "Merges fragmented half-sentence subtitle lines into complete sentences during parsing; applies after reopening video",
+        "meaningGroupResegmentationChanged": "Switched. Reopen the video to apply",
         "sections": {
             "theme": "Theme",
             "themeDesc": "Palette and light or dark mode",

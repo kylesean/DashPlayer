@@ -167,4 +167,30 @@ test.describe('外观设置', () => {
         await switchSettingsSection(page, 'appearance', colorModeRadio(page, '深色'));
         await expect(colorModeRadio(page, '深色')).toBeChecked();
     });
+
+    test('[SET-APP-10] 切换高间距主题后标题栏保持 32px，窗口控件不被裁切', async ({ session }) => {
+        const page = session.page;
+        await openAppearanceSetting(page);
+
+        const header = page.locator('.astryx-layout-header').first();
+        const minimize = page.locator('#minimize');
+        await expect(minimize).toBeVisible();
+
+        // Matcha / Y2K 的 Astryx spacing 基数是 6px 而非 4px。标题栏若继续用
+        // h-8/w-11 这类 spacing 工具类，会膨胀到 48px 并被固定 32px 的 header 裁掉。
+        for (const [label, slug] of [['Y2K', 'dp-y2k'], ['Matcha', 'dp-matcha']] as const) {
+            await page.getByText(label, { exact: true }).click();
+            await expect(page.getByTestId('app-root')).toHaveAttribute('data-astryx-theme', slug);
+
+            const headerBox = await header.boundingBox();
+            const controlBox = await minimize.boundingBox();
+            const iconBox = await minimize.locator('svg').boundingBox();
+            expect(headerBox?.height).toBe(32);
+            expect(controlBox?.width).toBe(44);
+            expect(controlBox?.height).toBe(32);
+            expect(controlBox?.y).toBe(0);
+            expect(iconBox?.height).toBe(14);
+            expect((iconBox?.y ?? 0) + (iconBox?.height ?? 0)).toBeLessThanOrEqual(32);
+        }
+    });
 });

@@ -86,8 +86,8 @@ function BubbleToastContent(props: {
         <div className={`relative rounded-xl border px-3.5 py-2.5 shadow-lg backdrop-blur-md transition-all ${toneClass}`}>
             <div className="flex items-start gap-2.5">
                 <div className="min-w-0">
-                    {title ? <div className="text-xs font-semibold leading-5">{title}</div> : null}
-                    <div className="text-xs leading-relaxed opacity-90 break-words">{message}</div>
+                    {title ? <div className="text-sm font-semibold leading-5">{title}</div> : null}
+                    <div className="text-sm leading-relaxed opacity-90 break-words">{message}</div>
                 </div>
                 {count > 1 ? (
                     <div className="shrink-0 rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-mono font-semibold leading-4 text-foreground/80">

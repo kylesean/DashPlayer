@@ -3,6 +3,7 @@ import TitleBarMac from './TitleBarMac';
 import useSystem from '@/fronted/app/stores/systemStore';
 import { useEffect } from 'react';
 import { cn } from '@/fronted/lib/utils';
+import { TITLE_BAR_HEIGHT } from './titleBarMetrics';
 
 /** 桌面端自定义标题栏属性。 */
 export interface TitleBarProps {
@@ -40,7 +41,10 @@ const TitleBar = ({ className = '', maximizable = true }: TitleBarProps) => {
     }, []);
 
     return (
-        <div className={cn('w-full h-full flex items-center select-none', className)}>
+        <div
+            className={cn('w-full shrink-0 flex items-center select-none', className)}
+            style={{ height: TITLE_BAR_HEIGHT }}
+        >
             {isMac ? (
                 <TitleBarMac />
             ) : (

@@ -156,7 +156,7 @@ const PlaybackEmptyState: React.FC<PlaybackEmptyStateProps> = ({className}) => {
 
                     {hasProgress && featured.duration && featured.duration > 0 && (
                         <div className="space-y-1.5 max-w-md">
-                            <div className="flex items-center justify-between text-xs font-mono font-medium text-media-fg/80">
+                            <div className="flex items-center justify-between text-sm font-mono font-medium text-media-fg/80">
                                 <span>{t('emptyState.continueWatching')}</span>
                                 <span>
                                     {TimeUtil.secondToTimeStrCompact(featured.current_position ?? 0)} / {TimeUtil.secondToTimeStrCompact(featured.duration)}

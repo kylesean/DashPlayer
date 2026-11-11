@@ -99,7 +99,7 @@ export default function SubtitleList({
                 onPickLine?.(idx);
               }
             }}
-            className={`p-2.5 rounded-xl text-xs cursor-pointer transition-all ${
+            className={`p-2.5 rounded-xl text-sm cursor-pointer transition-all ${
               idx === activeIndex
                 ? 'bg-accent-bg/10 border border-accent-bg/20 text-foreground shadow-2xs font-medium'
                 : line.isClip
@@ -109,7 +109,7 @@ export default function SubtitleList({
           >
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
-                <div className="text-xs leading-relaxed text-foreground">
+                <div className="text-sm leading-relaxed text-foreground">
                   {renderHighlightedText(line.contentEn, `${idx}-${line.index}`)}
                 </div>
                 {line.contentZh && (

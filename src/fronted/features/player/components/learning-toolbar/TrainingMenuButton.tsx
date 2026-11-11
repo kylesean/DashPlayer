@@ -1,29 +1,25 @@
 import { useEffect, useState } from 'react';
 import {
+    ChevronRight,
     CirclePause,
-    FastForward,
     Gauge,
     Headphones,
     Mic,
+    Play,
     Repeat,
     Repeat1,
-    RotateCcw,
-    Settings2,
-    Sparkles,
+    SlidersHorizontal,
 } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { Divider } from '@astryxdesign/core/Divider';
+import { Kbd } from '@astryxdesign/core/Kbd';
+import { VStack } from '@astryxdesign/core/VStack';
+import { RadioIndicator } from '@astryxdesign/core/Indicator';
 
 import { cn } from '@/fronted/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
-import {
-    CONTROL_POPOVER_HINT,
-    CONTROL_POPOVER_ICON,
-    CONTROL_POPOVER_LABEL,
-    CONTROL_POPOVER_PANEL,
-    CONTROL_POPOVER_SEPARATOR,
-    ControlPopoverRow,
-} from '@/fronted/features/player/components/ControlPopover';
+import { CONTROL_POPOVER_PANEL } from '@/fronted/features/player/components/ControlPopover';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerState } from '@/fronted/features/player/playerState';
@@ -32,6 +28,7 @@ import { TrainingSettingsDialog } from '@/fronted/features/player/components/Tra
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { formatShortcut } from '@/fronted/features/player/components/formatShortcut';
 import { deriveSentenceEndMode } from '@/fronted/features/player/lib/sentence-end-mode';
+import { PopoverSwitchRow } from './PopoverSwitchRow';
 import {
     TOOLBAR_BADGE,
     TOOLBAR_ICON_BUTTON,
@@ -40,18 +37,97 @@ import {
     type ToolbarTone,
 } from './toolbarStyles';
 
+/** 提取用于 Kbd 展示的主快捷键字符。 */
+function primaryShortcutKey(shortcut?: string): string | null {
+    if (!shortcut) return null;
+    const first = shortcut.split(',')[0]?.trim();
+    return first ? first.toLowerCase() : null;
+}
+
+/** 格式化递进倍速链表（如 [0.75, 1, 1.25] -> "0.75→1→1.25x"）。 */
+function formatRateChain(rates: number[]): string {
+    if (rates.length === 0) return '';
+    if (rates.length === 1) return `${rates[0]}x`;
+    return `${rates.join('→')}x`;
+}
+
+/** 参数胶囊标签：与带立体边框的键盘键帽 Kbd 区分，清晰表达“设定参数”。 */
+function ParamBadge({ label, active }: { label: string; active: boolean }) {
+    return (
+        <span
+            className={cn(
+                'shrink-0 rounded-md px-1.5 py-0.5 font-mono text-metadata leading-none transition-colors',
+                active
+                    ? 'bg-success/15 text-success-text'
+                    : 'bg-muted/70 text-muted-foreground'
+            )}
+        >
+            {label}
+        </span>
+    );
+}
+
 /**
- * 训练模式入口：一个按钮 + 一个菜单。
+ * 训练模式单选项：统一左圆圈 + 图标 + 纯动作名称，右侧参数胶囊/键帽对齐。
+ */
+interface ModeOptionRowProps {
+    isActive: boolean;
+    icon: React.ReactNode;
+    label: string;
+    rightContent?: React.ReactNode;
+    title?: string;
+    onSelect: () => void;
+    testId?: string;
+}
+
+function ModeOptionRow({
+    isActive,
+    icon,
+    label,
+    rightContent,
+    title,
+    onSelect,
+    testId,
+}: ModeOptionRowProps) {
+    return (
+        <button
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            title={title}
+            onClick={onSelect}
+            data-testid={testId}
+            className={cn(
+                'group flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer select-none outline-none text-left',
+                isActive
+                    ? 'bg-success/10 text-success-text font-medium'
+                    : 'text-secondary hover:bg-muted/40 hover:text-foreground'
+            )}
+        >
+            <div className="flex items-center gap-2 min-w-0">
+                <RadioIndicator state={isActive ? 'checked' : 'unchecked'} size="sm" />
+                <span className={cn('w-4 h-4 shrink-0 transition-colors', isActive ? 'text-success-text' : 'text-secondary group-hover:text-foreground')}>
+                    {icon}
+                </span>
+                <span className="truncate">{label}</span>
+            </div>
+            {rightContent}
+        </button>
+    );
+}
+
+/**
+ * 训练模式入口：一个按钮 + 一个现代化 Astryx 训练面板。
  *
- * 按钮文字表达“当前是哪种模式”（单句循环 / 句末暂停 / 影子跟读 / 递进倍速…），
- * 右侧只挂「进行到哪一步」的中性徽章；模式的具体参数在菜单最后一行进入设置弹窗。
- *
- * 普通视图挂在字幕学习台，全屏视图挂在画面控制条，两处共用同一份实现。
+ * 遵循现代组件库规范：
+ * 1. 结构分为三层：模式选择（互斥单选）、辅助播放偏好（独立 Switch 开关）、参数弹窗入口；
+ * 2. 彻底清除旧菜单左侧莫名缩进 14px 空白与无法判断开闭状态的缺陷；
+ * 3. 尺寸对齐 280px，与播放设置浮层保持完全一致的视觉秩序与呼吸感。
  *
  * @param tone 宿主底色：字幕面板或视频画面深色条。
- * @param popoverOffset 弹窗底边到按钮顶边的间距，按宿主控制条形状取。
- * @param onMenuOpenChange 菜单/参数弹窗展开状态变化时回调：宿主据此保持可见。
- * @param showLabel 是否显示模式文字；窄面板只留图标 + 进度徽章，tooltip 仍给出完整模式。
+ * @param popoverOffset 弹窗底边到按钮顶边的间距。
+ * @param onMenuOpenChange 菜单/参数弹窗展开状态变化时回调。
+ * @param showLabel 是否显示模式文字。
  */
 export default function TrainingMenuButton({
     tone,
@@ -85,6 +161,8 @@ export default function TrainingMenuButton({
 
     const repeatShortcut = useSetting((s) => s.setting('shortcut.repeatSingleSentence'));
     const autoPauseShortcut = useSetting((s) => s.setting('shortcut.autoPause'));
+    const repeatKey = primaryShortcutKey(repeatShortcut);
+    const autoPauseKey = primaryShortcutKey(autoPauseShortcut);
 
     const style = TOOLBAR_TONE[tone];
 
@@ -92,12 +170,7 @@ export default function TrainingMenuButton({
     const loopTimesActive = sentenceLoop !== null && !sentenceLoop.rates;
     const loopRatesActive = sentenceLoop !== null && !!sentenceLoop.rates;
     const trainingActive = sentenceLoop !== null || skipGap || shadowing || rewindOnResume;
-    // 模式身份由按钮文字表达（图标固定一颗，不再逐模式换图标、换色）。
-    //
-    // 「当前是哪个模式」不再由本组件自己按单句循环 → 句末暂停 → 跟读的顺序拼三元表达式：
-    // 那个顺序与引擎 `onTimeUpdate` 的分支顺序（autoPause 先于 singleRepeat）相反，
-    // 一旦出现多模式并存的脏状态，按钮会显示一个引擎并不执行的模式。
-    // 现在统一走 `deriveSentenceEndMode`，UI 与引擎共用同一份裁决顺序。
+
     const activeSentenceEndMode = deriveSentenceEndMode(
         { autoPause, singleRepeat, shadowing },
         sentenceLoop !== null,
@@ -111,7 +184,6 @@ export default function TrainingMenuButton({
             case 'shadowing':
                 return t('controlBar.modeShadowing');
             case 'sentenceLoop':
-                // 逐句循环有两种配置（×N / 递进倍速），标签不同
                 return loopRatesActive
                     ? t('controlBar.modeLoopRates')
                     : t('controlBar.modeLoopTimes', { times: trainingConfig.repeatTimes });
@@ -120,20 +192,17 @@ export default function TrainingMenuButton({
         }
     })();
 
-    // 进度徽章里的数字：按总数位数补零，避免 9→10 这类跨位时把按钮撑宽
     const loopCountText = activePlan
         ? `${String(activePlan.loopDone + 1).padStart(String(activePlan.loopTotal).length, '0')}/${activePlan.loopTotal}`
         : '';
-    // 徽章槽位的固定宽度：按当前模式最长内容算（内容全是 10px 等宽字，ch 即一个字符宽）。
-    // 槽位常驻、内容缺失时留透明占位，训练按钮的宽度才不会随「第几遍 / 当前倍速 / 留白倒计时」抖动。
+
     const loopTotalDigits = sentenceLoop
         ? String(sentenceLoop.rates ? sentenceLoop.rates.length : sentenceLoop.times).length
         : 1;
     const progressSlotWidth = loopRatesActive
-        ? `calc(${5 + loopTotalDigits * 2 + 3}ch + 0.625rem)` // 「1.00x」+ 间距 + 「(N/M)」
-        : `calc(${loopTotalDigits * 2 + 1}ch + 0.5rem)`; // 「N/M」；影子跟读倒计时位数更少，共用同一槽位
+        ? `calc(${5 + loopTotalDigits * 2 + 3}ch + 0.625rem)`
+        : `calc(${loopTotalDigits * 2 + 1}ch + 0.5rem)`;
 
-    // tooltip 与按钮文字共用同一个派生模式，避免「按钮说 A、悬浮提示说 B」
     const trainingTooltipContent = (() => {
         switch (activeSentenceEndMode) {
             case 'singleRepeat':
@@ -167,6 +236,8 @@ export default function TrainingMenuButton({
                 <Tooltip content={trainingTooltipContent} placement="above">
                     <PopoverTrigger asChild>
                         <button
+                            type="button"
+                            aria-label={t('controlBar.trainingMenuLabel')}
                             className={cn(
                                 (loopTimesActive || loopRatesActive || shadowing || showLabel)
                                     ? TOOLBAR_TEXT_BUTTON
@@ -179,8 +250,6 @@ export default function TrainingMenuButton({
                             <Headphones className="w-4 h-4 shrink-0" />
                             {showLabel ? <span className="font-sans">{trainingLabel}</span> : null}
 
-                            {/* 进度徽章槽位：宽度按模式最长内容钉死、常驻（内容缺失时透明占位），
-                                徽章数字再怎么变也不会撑宽按钮 */}
                             {loopTimesActive || loopRatesActive || shadowing ? (
                                 <span
                                     className="inline-flex items-center justify-center gap-0.5"
@@ -207,90 +276,144 @@ export default function TrainingMenuButton({
                     side="top"
                     align="end"
                     sideOffset={popoverOffset}
-                    className={cn('w-64', CONTROL_POPOVER_PANEL)}
+                    className={cn('w-[280px] p-2.5', CONTROL_POPOVER_PANEL)}
                 >
-                    <div className={cn('flex items-center gap-1.5', CONTROL_POPOVER_LABEL)}>
-                        <Sparkles className="w-3.5 h-3.5 text-success-text" />
-                        {t('controlBar.trainingMenuLabel')}
-                    </div>
-                    <div className={CONTROL_POPOVER_SEPARATOR} />
-                    {/* 句末行为（引擎层互斥：开启任一自动关闭其他） */}
-                    <ControlPopoverRow
-                        checked={singleRepeat}
-                        icon={<Repeat1 className={CONTROL_POPOVER_ICON} />}
-                        label={t('controlBar.rowSingleRepeat')}
-                        right={repeatShortcut ? <span className={CONTROL_POPOVER_HINT}>{t('controlBar.shortcutHint', { shortcut: repeatShortcut })}</span> : undefined}
-                        onActivate={() => playerActions.setSingleRepeat(!singleRepeat)}
-                    />
-                    <ControlPopoverRow
-                        checked={autoPause}
-                        icon={<CirclePause className={CONTROL_POPOVER_ICON} />}
-                        label={t('controlBar.rowAutoPause')}
-                        right={autoPauseShortcut ? <span className={CONTROL_POPOVER_HINT}>{t('controlBar.shortcutHint', { shortcut: autoPauseShortcut })}</span> : undefined}
-                        onActivate={() => playerActions.setAutoPause(!autoPause)}
-                    />
-                    <ControlPopoverRow
-                        checked={shadowing}
-                        icon={<Mic className={CONTROL_POPOVER_ICON} />}
-                        label={t('controlBar.rowShadowing')}
-                        right={
-                            <span className={CONTROL_POPOVER_HINT}>{t('controlBar.shadowingRatioHint', { ratio: trainingConfig.shadowingRatio.toFixed(1) })}</span>
-                        }
-                        title={t('controlBar.shadowingTitle', { ratio: trainingConfig.shadowingRatio.toFixed(1) })}
-                        onActivate={() => playerActions.setShadowing(!shadowing)}
-                    />
-                    <ControlPopoverRow
-                        checked={loopTimesActive}
-                        icon={<Repeat className={CONTROL_POPOVER_ICON} />}
-                        label={t('controlBar.rowLoopTimes', { times: trainingConfig.repeatTimes })}
-                        title={t('controlBar.loopTimesTitle', { times: trainingConfig.repeatTimes })}
-                        onActivate={() => {
-                            playerActions.setSentenceLoop(loopTimesActive ? null : { times: trainingConfig.repeatTimes });
-                        }}
-                    />
-                    <ControlPopoverRow
-                        checked={loopRatesActive}
-                        icon={<Gauge className={CONTROL_POPOVER_ICON} />}
-                        label={t('controlBar.rowLoopRates')}
-                        right={
-                            <span className={CONTROL_POPOVER_HINT}>
-                                {trainingConfig.progressiveRates.map((r) => `${r}x`).join('→')}
+                    {/* 标题栏 */}
+                    <div className="flex items-center justify-between px-2 pb-2">
+                        <div className="flex items-center gap-2">
+                            <Headphones className="w-4 h-4 text-success-text shrink-0" />
+                            <span className="text-sm font-semibold text-foreground tracking-wide">
+                                {t('controlBar.trainingMenuLabel')}
                             </span>
-                        }
-                        title={t('controlBar.loopRatesTitle', { rates: trainingConfig.progressiveRates.map((r) => `${r}x`).join(' → ') })}
-                        onActivate={() => {
-                            playerActions.setSentenceLoop(
-                                loopRatesActive
-                                    ? null
-                                    : { times: trainingConfig.progressiveRates.length, rates: trainingConfig.progressiveRates }
-                            );
-                        }}
-                    />
-                    <div className={CONTROL_POPOVER_SEPARATOR} />
-                    {/* 辅助播放行为 */}
-                    <ControlPopoverRow
-                        checked={skipGap}
-                        icon={<FastForward className={CONTROL_POPOVER_ICON} />}
-                        label={t('controlBar.rowSkipGap')}
-                        title={t('controlBar.skipGapTitle')}
-                        onActivate={() => playerActions.setSkipGap(!skipGap)}
-                    />
-                    <ControlPopoverRow
-                        checked={rewindOnResume}
-                        icon={<RotateCcw className={CONTROL_POPOVER_ICON} />}
-                        label={t('controlBar.rowRewindOnResume')}
-                        title={t('controlBar.rewindTitle')}
-                        onActivate={() => playerActions.setRewindOnResume(!rewindOnResume)}
-                    />
-                    <div className={CONTROL_POPOVER_SEPARATOR} />
-                    <ControlPopoverRow
-                        icon={<Settings2 className={CONTROL_POPOVER_ICON} />}
-                        label={t('controlBar.rowSettings')}
-                        onActivate={() => {
-                            setTrainingMenuOpen(false);
-                            setSettingsOpen(true);
-                        }}
-                    />
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        {/* 第一分区：互斥句末模式选择 */}
+                        <div role="radiogroup" aria-label={t('controlBar.trainingMenuLabel')}>
+                            <VStack gap={0.5}>
+                                <ModeOptionRow
+                                    isActive={activeSentenceEndMode === 'off'}
+                                    icon={<Play className="w-4 h-4" />}
+                                    label={t('controlBar.rowNormalPlayback')}
+                                    onSelect={() => {
+                                        playerActions.setSingleRepeat(false);
+                                        playerActions.setAutoPause(false);
+                                        playerActions.setShadowing(false);
+                                        playerActions.setSentenceLoop(null);
+                                    }}
+                                    testId="training-mode-off"
+                                />
+                                <ModeOptionRow
+                                    isActive={singleRepeat}
+                                    icon={<Repeat1 className="w-4 h-4" />}
+                                    label={t('controlBar.rowSingleRepeat')}
+                                    rightContent={repeatKey ? <Kbd keys={repeatKey} /> : undefined}
+                                    title={repeatShortcut ? `${t('controlBar.rowSingleRepeat')} (${t('controlBar.shortcutHint', { shortcut: repeatShortcut })})` : t('controlBar.rowSingleRepeat')}
+                                    onSelect={() => playerActions.setSingleRepeat(!singleRepeat)}
+                                    testId="training-mode-single-repeat"
+                                />
+                                <ModeOptionRow
+                                    isActive={autoPause}
+                                    icon={<CirclePause className="w-4 h-4" />}
+                                    label={t('controlBar.rowAutoPause')}
+                                    rightContent={autoPauseKey ? <Kbd keys={autoPauseKey} /> : undefined}
+                                    title={autoPauseShortcut ? `${t('controlBar.rowAutoPause')} (${t('controlBar.shortcutHint', { shortcut: autoPauseShortcut })})` : t('controlBar.rowAutoPause')}
+                                    onSelect={() => playerActions.setAutoPause(!autoPause)}
+                                    testId="training-mode-auto-pause"
+                                />
+                                <ModeOptionRow
+                                    isActive={shadowing}
+                                    icon={<Mic className="w-4 h-4" />}
+                                    label={t('controlBar.rowShadowing')}
+                                    rightContent={(
+                                        <ParamBadge
+                                            label={t('controlBar.shadowingRatioHint', { ratio: trainingConfig.shadowingRatio.toFixed(1) })}
+                                            active={shadowing}
+                                        />
+                                    )}
+                                    title={t('controlBar.shadowingTitle', { ratio: trainingConfig.shadowingRatio.toFixed(1) })}
+                                    onSelect={() => playerActions.setShadowing(!shadowing)}
+                                    testId="training-mode-shadowing"
+                                />
+                                <ModeOptionRow
+                                    isActive={loopTimesActive}
+                                    icon={<Repeat className="w-4 h-4" />}
+                                    label={t('controlBar.rowLoopTimes')}
+                                    rightContent={(
+                                        <ParamBadge
+                                            label={t('controlBar.rowLoopTimesHint', { times: trainingConfig.repeatTimes })}
+                                            active={loopTimesActive}
+                                        />
+                                    )}
+                                    title={t('controlBar.loopTimesTitle', { times: trainingConfig.repeatTimes })}
+                                    onSelect={() => {
+                                        playerActions.setSentenceLoop(loopTimesActive ? null : { times: trainingConfig.repeatTimes });
+                                    }}
+                                    testId="training-mode-loop-times"
+                                />
+                                <ModeOptionRow
+                                    isActive={loopRatesActive}
+                                    icon={<Gauge className="w-4 h-4" />}
+                                    label={t('controlBar.rowLoopRates')}
+                                    rightContent={(
+                                        <ParamBadge
+                                            label={formatRateChain(trainingConfig.progressiveRates)}
+                                            active={loopRatesActive}
+                                        />
+                                    )}
+                                    title={t('controlBar.loopRatesTitle', { rates: trainingConfig.progressiveRates.map((r) => `${r}x`).join(' → ') })}
+                                    onSelect={() => {
+                                        playerActions.setSentenceLoop(
+                                            loopRatesActive
+                                                ? null
+                                                : { times: trainingConfig.progressiveRates.length, rates: trainingConfig.progressiveRates }
+                                        );
+                                    }}
+                                    testId="training-mode-loop-rates"
+                                />
+                            </VStack>
+                        </div>
+
+                        <Divider variant="subtle" />
+
+                        {/* 第二分区：独立辅助播放偏好开关 */}
+                        <VStack gap={0.5}>
+                            <PopoverSwitchRow
+                                label={t('controlBar.rowSkipGap')}
+                                labelTooltip={t('controlBar.skipGapTitle')}
+                                checked={skipGap}
+                                onChange={() => playerActions.setSkipGap(!skipGap)}
+                                testId="training-assist-skip-gap"
+                            />
+                            <PopoverSwitchRow
+                                label={t('controlBar.rowRewindOnResume')}
+                                labelTooltip={t('controlBar.rewindTitle')}
+                                checked={rewindOnResume}
+                                onChange={() => playerActions.setRewindOnResume(!rewindOnResume)}
+                                testId="training-assist-rewind-resume"
+                            />
+                        </VStack>
+
+                        <Divider variant="subtle" />
+
+                        {/* 第三分区：自定义训练参数弹窗入口 */}
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setTrainingMenuOpen(false);
+                                setSettingsOpen(true);
+                            }}
+                            data-testid="training-settings-button"
+                            className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground cursor-pointer"
+                        >
+                            <span className="flex items-center gap-1.5">
+                                <SlidersHorizontal className="h-3.5 w-3.5 text-secondary group-hover:text-primary transition-colors" />
+                                <span>{t('controlBar.rowSettings')}</span>
+                            </span>
+                            <ChevronRight className="h-3.5 w-3.5 text-secondary group-hover:text-foreground transition-colors" />
+                        </button>
+                    </div>
                 </PopoverContent>
             </Popover>
 
@@ -301,12 +424,10 @@ export default function TrainingMenuButton({
 
 /**
  * 影子跟读留白剩余秒数徽章：按 200ms tick 派生渲染剩余时间。
- * 独立成子组件以隔离高频刷新；setState 仅在定时器回调中发生，挂载阶段无同步写状态。
  * @param untilTs 留白结束的时间戳（毫秒）
  * @param tone 徽章所在底色。
  */
 function ShadowCountdown({ untilTs, tone }: { untilTs: number; tone: ToolbarTone }) {
-    // 初始值在 useState 惰性初始化中派生（父级以 untilTs 作 key，变化即重挂载）；后续由定时器回调刷新
     const [secondsLeft, setSecondsLeft] = useState(() => Math.max(Math.ceil((untilTs - Date.now()) / 1000), 0));
     useEffect(() => {
         const intervalId = setInterval(() => {

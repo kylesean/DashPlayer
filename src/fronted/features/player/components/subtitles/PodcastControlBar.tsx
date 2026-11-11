@@ -90,7 +90,7 @@ export default function PodcastControlBar({
                         />
                         <PlaybackTimeReadout
                             previewTime={previewTime}
-                            className="flex items-center font-mono text-xs tabular-nums text-secondary"
+                            className="flex items-center font-mono text-sm tabular-nums text-secondary"
                             currentClassName="text-primary font-medium"
                             separatorClassName="mx-1.5 opacity-40"
                             durationClassName=""
@@ -118,7 +118,7 @@ export default function PodcastControlBar({
                             onClick={() => setPodcastModeForCurrentVideo(false)}
                             title={t('controlBar.exitPodcastHint')}
                             aria-label={t('controlBar.exitPodcast')}
-                            className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-secondary transition-colors hover:bg-muted hover:text-primary"
+                            className="flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-secondary transition-colors hover:bg-muted hover:text-primary"
                         >
                             <MonitorPlay className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">{t('controlBar.exitPodcast')}</span>

@@ -113,7 +113,7 @@ const ProjectListCard = ({
                     <div className="relative w-full rounded-2xl overflow-hidden bg-card border border-border/60 shadow-2xs transition-shadow duration-200 group-hover:shadow-md group-hover:border-border">
                         {/* 文件夹标记 */}
                         {video.isFolder && (
-                            <div className="absolute top-2.5 left-2.5 z-10 text-media-fg/95 bg-media-bg/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 shadow-2xs">
+                            <div className="absolute top-2.5 left-2.5 z-10 text-media-fg/95 bg-media-bg/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-metadata font-medium flex items-center gap-1 shadow-2xs">
                                 <Folder className="w-3.5 h-3.5" />
                                 <span>{i18n.t('common:folderBadge', { defaultValue: '文件夹' })}</span>
                             </div>
@@ -144,7 +144,7 @@ const ProjectListCard = ({
                         )}
 
                         {(showDuration || video.isFolder) && (
-                            <div className="absolute bottom-2.5 right-2.5 text-media-fg/95 bg-media-bg/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 shadow-2xs">
+                            <div className="absolute bottom-2.5 right-2.5 text-media-fg/95 bg-media-bg/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-metadata font-medium flex items-center gap-1 shadow-2xs">
                                 {!video.isFolder ? (
                                     TimeUtil.secondToTimeStrCompact(video?.duration)
                                 ) : (

@@ -8,6 +8,7 @@ import ProjectListItem from '@/fronted/features/file-browser/components/project-
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { Layout, LayoutContent, LayoutHeader, LayoutPanel } from '@astryxdesign/core/Layout';
+import { TITLE_BAR_HEIGHT } from '@/fronted/components/layout/TitleBar/titleBarMetrics';
 import { HStack } from '@astryxdesign/core/HStack';
 import { VStack } from '@astryxdesign/core/VStack';
 import { Grid } from '@astryxdesign/core/Grid';
@@ -97,8 +98,8 @@ const HomePage = () => {
         <Layout
             height="fill"
             header={
-                <LayoutHeader height={36} hasDivider={false}>
-                    <TitleBar maximizable={false} className="w-full h-full" />
+                <LayoutHeader height={TITLE_BAR_HEIGHT} padding={0} hasDivider={false}>
+                    <TitleBar maximizable={false} className="w-full" />
                 </LayoutHeader>
             }
             start={

@@ -56,7 +56,7 @@ const StartupLoading: React.FC = () => {
             className="flex h-full w-full items-center justify-center gap-2 text-muted-foreground"
         >
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-xs">{t('loading')}</span>
+            <span className="text-sm">{t('loading')}</span>
         </div>
     );
 };
@@ -163,7 +163,7 @@ export const App = () => {
                 toast(
                     (tState: Toast) => (
                         <div className="flex items-center gap-3 text-sm">
-                            <span className="font-semibold text-xs">{versionTitle}</span>
+                            <span className="font-semibold">{versionTitle}</span>
                             <Button
                                 size="sm"
                                 label={t('updateAvailableAction')}
@@ -280,7 +280,7 @@ export const App = () => {
                 position="top-center"
                 toastOptions={{
                     // 只用 token 类：react-hot-toast 会挂到 body 下，内联旧 shadcn HSL 变量会绕过 Astryx 主题
-                    className: 'border border-border/80 bg-background/95 text-foreground shadow-lg backdrop-blur-md text-xs font-medium rounded-xl',
+                    className: 'border border-border/80 bg-background/95 text-foreground shadow-lg backdrop-blur-md text-sm font-medium rounded-xl',
                 }}
             />
             <GlobalShortCut />

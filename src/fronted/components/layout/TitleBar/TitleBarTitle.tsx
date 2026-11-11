@@ -17,7 +17,7 @@ const InnerTitle: React.FC = () => {
     }
 
     return (
-        <span className="text-xs text-muted-foreground/75 font-medium max-w-[420px] truncate select-none pointer-events-none">
+        <span className="text-[12px] text-muted-foreground/75 font-medium max-w-[420px] truncate select-none pointer-events-none">
             {currentVideoTitle}
         </span>
     );

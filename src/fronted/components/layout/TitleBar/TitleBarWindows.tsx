@@ -68,13 +68,13 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
     return (
         <div className={cn('w-full h-full flex items-center justify-between select-none', className)}>
             {/* 左侧导航控制（仅在播放器等需要导航时渲染） */}
-            <div className="flex items-center h-full pl-2 shrink-0">
+            <div className="flex items-center h-full pl-[8px] shrink-0">
                 <TitleBarNavigation />
             </div>
 
             {/* 可拖拽标题栏主体，双击响应最大化与还原 */}
             <div
-                className="drag flex-1 h-full min-w-0 flex items-center justify-center px-4"
+                className="drag flex-1 h-full min-w-0 flex items-center justify-center px-[16px]"
                 onDoubleClick={handleToggleMaximize}
             >
                 <TitleBarTitle />
@@ -85,18 +85,18 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
                 <TitleBarRightNavigation />
                 <button
                     onClick={handleMinimize}
-                    className="inline-flex items-center justify-center w-11 h-full text-muted-foreground/80 hover:text-foreground hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer"
+                    className="inline-flex items-center justify-center w-[44px] h-full text-muted-foreground/80 hover:text-foreground hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer"
                     id="minimize"
                     type="button"
                     aria-label={t('minimize')}
                     title={t('minimize')}
                 >
-                    <Minus className="w-3.5 h-3.5" />
+                    <Minus className="w-[14px] h-[14px]" />
                 </button>
                 <button
                     onClick={handleToggleMaximize}
                     className={cn(
-                        'inline-flex items-center justify-center w-11 h-full text-muted-foreground/80 hover:text-foreground hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer',
+                        'inline-flex items-center justify-center w-[44px] h-full text-muted-foreground/80 hover:text-foreground hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer',
                         !maximizable && 'opacity-40 cursor-not-allowed',
                     )}
                     id="maximize"
@@ -106,25 +106,25 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
                     title={isMaximized ? t('restore') : t('maximize')}
                 >
                     {isMaximized ? (
-                        <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+                        <svg className="w-[12px] h-[12px]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
                             <rect x="1.5" y="3.5" width="7" height="7" rx="0.5" />
                             <path d="M3.5 3.5V1.5C3.5 1.22 3.72 1 4 1H10.5C10.78 1 11 1.22 11 1.5V8C11 8.28 10.78 8.5 10.5 8.5H8.5" />
                         </svg>
                     ) : (
-                        <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
+                        <svg className="w-[12px] h-[12px]" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2">
                             <rect x="1.5" y="1.5" width="9" height="9" rx="0.5" />
                         </svg>
                     )}
                 </button>
                 <button
                     onClick={handleClose}
-                    className="inline-flex items-center justify-center w-11 h-full text-muted-foreground/80 hover:text-on-error hover:bg-error active:bg-error/90 transition-colors cursor-pointer"
+                    className="inline-flex items-center justify-center w-[44px] h-full text-muted-foreground/80 hover:text-on-error hover:bg-error active:bg-error/90 transition-colors cursor-pointer"
                     id="close"
                     type="button"
                     aria-label={t('close')}
                     title={t('close')}
                 >
-                    <X className="w-4 h-4" />
+                    <X className="w-[16px] h-[16px]" />
                 </button>
             </div>
         </div>

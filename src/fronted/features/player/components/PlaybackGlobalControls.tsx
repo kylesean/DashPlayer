@@ -18,7 +18,7 @@ import { formatShortcut } from '@/fronted/features/player/components/formatShort
 export const DARK_BAR_BUTTON_HOVER = 'hover:bg-media-fg/15 hover:text-media-fg';
 
 /** 控制条上带文字的模式按钮：与纯图标按钮同高、同圆角。 */
-export const MEDIA_BAR_TEXT_BUTTON = 'flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-medium leading-none transition-colors shrink-0';
+export const MEDIA_BAR_TEXT_BUTTON = 'flex h-8 items-center gap-1 rounded-lg px-2 text-sm font-medium leading-none transition-colors shrink-0';
 
 /** 控制条上的开启态：统一中性白，不引入第二种语义色。 */
 export const MEDIA_BAR_ACTIVE = 'bg-media-fg/20 text-media-fg ring-1 ring-media-fg/25';

@@ -71,6 +71,9 @@
         "transcriptPositionDescription": "字幕文稿流在播放界面的停靠位置",
         "transcriptPositionRight": "靠右（默认）",
         "transcriptPositionLeft": "靠左（精读）",
+        "meaningGroupResegmentationTitle": "碎句字幕合并",
+        "meaningGroupResegmentationDescription": "解析时将半句一行的碎字幕按句意合并成完整句子；重新打开视频后生效",
+        "meaningGroupResegmentationChanged": "已切换，重新打开视频后生效",
         "sections": {
             "theme": "主题",
             "themeDesc": "配色与明暗模式",

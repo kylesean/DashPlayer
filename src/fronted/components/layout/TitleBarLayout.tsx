@@ -4,6 +4,7 @@ import { Center } from '@astryxdesign/core/Center';
 import { Spinner } from '@astryxdesign/core/Spinner';
 import { Layout, LayoutContent, LayoutHeader } from '@astryxdesign/core/Layout';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
+import { TITLE_BAR_HEIGHT } from '@/fronted/components/layout/TitleBar/titleBarMetrics';
 import { useTranslation } from 'react-i18next';
 import useLayout from '@/fronted/app/stores/layoutStore';
 
@@ -26,15 +27,14 @@ const TitleBarLayout: React.FC = () => {
     return (
         <Layout
             height="fill"
-            // padding={0}：LayoutHeader 默认给内层加 8px 内边距，
-            // 会把 32px 的标题栏挤成 16px 内容 + 48px 溢出，
-            // 导致窗口控制按钮高度不一、与标题栏错位
+            // padding={0}：LayoutHeader 默认给内层加 spacing-4 的上下内边距，
+            // 会把 32px 的标题栏挤出 header，导致窗口控制按钮高度不一、与标题栏错位
             header={
                 !fullScreen ? (
-                    <LayoutHeader height={32} padding={0}>
-                        {/* 标题栏给固定 32px：LayoutHeader 的内层是 auto 高度，
-                            用 h-full 只能拿到内容高度（16px），控制按钮会高低不齐 */}
-                        <TitleBar className="w-full h-8" />
+                    <LayoutHeader height={TITLE_BAR_HEIGHT} padding={0}>
+                        {/* 标题栏高度由 TitleBar 自身固定，外层只负责同高的 header slot；
+                            不要再用 h-8 之类的 spacing 工具类，它会跟随主题放大 */}
+                        <TitleBar className="w-full" />
                     </LayoutHeader>
                 ) : undefined
             }

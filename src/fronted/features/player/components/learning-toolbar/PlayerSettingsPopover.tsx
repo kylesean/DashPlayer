@@ -1,23 +1,18 @@
 import { useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import { Eraser, History, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { ChevronRight, Eraser, Settings2, SlidersHorizontal } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import useSWR, { useSWRConfig } from 'swr';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { Button } from '@astryxdesign/core/Button';
+import { Divider } from '@astryxdesign/core/Divider';
+import { VStack } from '@astryxdesign/core/VStack';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 
 import { cn } from '@/fronted/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import {
-    CONTROL_POPOVER_HINT,
-    CONTROL_POPOVER_ICON,
-    CONTROL_POPOVER_LABEL,
     CONTROL_POPOVER_PANEL,
-    CONTROL_POPOVER_ROW_BASE,
-    CONTROL_POPOVER_ROW_IDLE,
-    CONTROL_POPOVER_SEPARATOR,
-    ControlPopoverRow,
 } from '@/fronted/features/player/components/ControlPopover';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
@@ -26,9 +21,10 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
-import useSetting from '@/fronted/features/settings/settingsStore';
-import { isSidebarHiddenByEnglish } from '@/fronted/features/player/components/sidePanelVisibility';
 import { setPodcastModeForCurrentVideo } from '@/fronted/features/player/podcastMode';
+import { useSourceChineseAvailability } from '@/fronted/features/player/hooks/useSourceChineseAvailability';
+import useSetting from '@/fronted/features/settings/settingsStore';
+import { PopoverSwitchRow } from './PopoverSwitchRow';
 import TimeAdjustPanel from './TimeAdjustPanel';
 import {
     TOOLBAR_ICON_BUTTON,
@@ -37,19 +33,12 @@ import {
 } from './toolbarStyles';
 
 /**
- * 弹层里紧跟某个开关的一行白话说明。
+ * 播放控制快速面板（播放台遥控器）。
  *
- * 打在行下方而不是只塞 title：像「碎句合并」「随英文字幕隐藏」这类开关，
- * 光看勾选变化看不出它改的是显示还是数据，先给一句解释才不会点完一脸问号。
- */
-const ROW_HINT = '-mt-1 px-2 pb-1.5 text-xs leading-snug text-secondary';
-
-/**
- * 播放器设置：一个字幕面板/画面控制条共用的「⚙」。
- *
- * 这里收纳所有不在工具条上直接摆出来的开关，按“改什么”分组：
- * 字幕显示 → 字幕文件（解析数据） → 侧栏 → 播放偏好 → 时间微调。
- * 只有一份实现，普通视图与全屏视图不再各自维护一份设置弹层。
+ * 遵循极简遥控器交互定位：
+ * 1. 主选项卡只收纳 3~4 项高频即时干预项（整句显示、悬停查词暂停、自动播放下一集，及自带源字幕中文）；
+ * 2. 避免与字幕条左侧的 EN/中/双语分段开关重复；低频或非即时项由底部「全部播放设置」承接；
+ * 3. 顶层分段切换「常规」与「字幕时间」，高度压缩至约 190px，任何小视口下彻底杜绝滚动条。
  *
  * @param tone 宿主底色：字幕面板或视频画面深色条。
  * @param popoverOffset 弹窗底边到按钮顶边的间距。
@@ -65,29 +54,20 @@ export default function PlayerSettingsPopover({
     onMenuOpenChange?: (open: boolean) => void;
 }) {
     const { t } = useI18nTranslation('player');
+    const navigate = useNavigate();
     const [open, setOpen] = useState(false);
-    const [adjustOpen, setAdjustOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'settings' | 'timing'>('settings');
 
-    const showEn = usePlayerUi((s) => s.showEn);
-    const showCn = usePlayerUi((s) => s.showCn);
     const showSourceZh = usePlayerUi((s) => s.showSourceZh);
     const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
-    const transcriptPosition = useSetting((s) => s.values.get('appearance.transcriptPosition') ?? 'right');
-    const ambientLight = usePlayerUi((s) => s.ambientLight);
-    const toggleAmbientLight = usePlayerUi((s) => s.toggleAmbientLight);
-    const showSideTranslation = usePlayerUi((s) => s.showSideTranslation);
-    const syncSide = usePlayerUi((s) => s.syncSide);
-    const changeShowEn = usePlayerUi((s) => s.changeShowEn);
-    const changeShowCn = usePlayerUi((s) => s.changeShowCn);
     const changeShowSourceZh = usePlayerUi((s) => s.changeShowSourceZh);
     const changeSentenceBlockMode = usePlayerUi((s) => s.changeSentenceBlockMode);
-    const changeShowSideTranslation = usePlayerUi((s) => s.changeShowSideTranslation);
-    const changeSyncSide = usePlayerUi((s) => s.changeSyncSide);
+    const sourceZhAvailable = useSourceChineseAvailability();
+    const podcastMode = useLayout((s) => s.podcastMode);
 
     const pauseOnWordHover = useSetting((s) => s.values.get('player.pauseOnWordHover')) === 'true';
     const vocabularyGuidance = useSetting((s) => s.values.get('player.vocabularyGuidance') ?? 'calm');
     const setSetting = useSetting((s) => s.setSetting);
-    const englishTrackShortcut = useSetting((s) => s.setting('shortcut.toggleEnglishDisplay'));
 
     const autoPlayNext = usePlayer((s) => s.autoPlayNext);
     const currentSentence = usePlayerState((s) => s.currentSentence);
@@ -95,41 +75,30 @@ export default function PlayerSettingsPopover({
     const adjustDiff = currentSentence && srtTender && srtTender.adjusted(currentSentence)
         ? srtTender.timeDiff(currentSentence)
         : null;
-    const { podcastMode, changeFullScreen } = useLayout(useShallow((s) => ({
-        podcastMode: s.podcastMode,
-        changeFullScreen: s.changeFullScreen,
-    })));
 
-    // 意群重切分：解析层设置（sysConf），切换后重新打开视频生效；写走 system/config/set。
-    const { mutate: mutateGlobalConfig } = useSWRConfig();
-    const { data: meaningGroupRaw } = useSWR(
-        'player/getMeaningGroupResegmentation',
-        () => playerApi.getMeaningGroupResegmentation(),
-    );
-    const meaningGroupOn = meaningGroupRaw !== 'false';
-    const changeMeaningGroupResegmentation = () => {
-        const next = !meaningGroupOn;
-        void playerApi.setMeaningGroupResegmentation(next);
-        void mutateGlobalConfig('player/getMeaningGroupResegmentation', next ? 'true' : 'false', {
-            revalidate: false,
-        });
-        // 这个开关改的是解析结果，当次播放不会变；不给提示会被当成“点了没反应”
-        toast(t('controlBox.meaningGroupResegmentationChanged'));
+    const style = TOOLBAR_TONE[tone];
+
+    const changePauseOnWordHover = async (next: boolean) => {
+        await setSetting('player.pauseOnWordHover', next ? 'true' : 'false');
+    };
+
+    const changeAutoPlayNext = async (next: boolean) => {
+        playerActions.setAutoPlayNext(next);
+        await setSetting('player.autoPlayNext', next ? 'true' : 'false');
     };
 
     const changeVocabularyGuidance = async (next: string) => {
         await setSetting('player.vocabularyGuidance', next);
     };
 
-    // 侧栏此刻是否真的被收起：收起时提示要从“会怎样”换成“现在就是这样”
-    const sidebarHidden = isSidebarHiddenByEnglish(syncSide, showEn);
-    const style = TOOLBAR_TONE[tone];
-
     return (
         <Popover
             open={open}
             onOpenChange={(next) => {
                 setOpen(next);
+                if (!next) {
+                    setActiveTab('settings');
+                }
                 onMenuOpenChange?.(next);
             }}
         >
@@ -151,190 +120,148 @@ export default function PlayerSettingsPopover({
                 side="top"
                 align="end"
                 sideOffset={popoverOffset}
-                className={cn('max-h-[70vh] w-64 overflow-y-auto', CONTROL_POPOVER_PANEL)}
+                className={cn('w-[280px] p-2.5', CONTROL_POPOVER_PANEL)}
             >
-                <div className={CONTROL_POPOVER_LABEL}>{t('controlBox.subtitleTracks')}</div>
-                <div className={CONTROL_POPOVER_SEPARATOR} />
-                <ControlPopoverRow
-                    checked={showEn}
-                    label={t('controlBox.showEnglish')}
-                    onActivate={() => changeShowEn()}
-                />
-                <ControlPopoverRow
-                    checked={showCn}
-                    label={t('controlBox.showChinese')}
-                    onActivate={() => changeShowCn()}
-                />
-                <ControlPopoverRow
-                    checked={showSourceZh}
-                    label={t('controlBox.showSourceZh')}
-                    onActivate={() => changeShowSourceZh()}
-                />
-
-                {/* 显示方式：只影响渲染与循环单位，字幕文件本身不变 */}
-                <div className={CONTROL_POPOVER_SEPARATOR} />
-                <div className={CONTROL_POPOVER_LABEL}>{t('controlBox.displayModeLabel')}</div>
-                <ControlPopoverRow
-                    checked={sentenceBlockMode}
-                    label={t('controlBox.sentenceBlockMode')}
-                    onActivate={() => changeSentenceBlockMode()}
-                />
-                <p className={ROW_HINT}>{t('controlBox.sentenceBlockModeHint')}</p>
-                {/* 剧本停靠方向：布局偏好，从剧本标题栏挪进来，标题栏只保留与当前句相关的操作 */}
-                <ControlPopoverRow
-                    checked={ambientLight}
-                    icon={<Sparkles className={CONTROL_POPOVER_ICON} />}
-                    label={t('controlBox.ambientLight')}
-                    title={t('controlBox.ambientLightHint')}
-                    onActivate={() => toggleAmbientLight()}
-                />
-                <ControlPopoverRow
-                    checked={transcriptPosition === 'left'}
-                    label={t('controlBox.transcriptDockLeft')}
-                    title={t('controlBox.transcriptDockLeftHint')}
-                    onActivate={() => {
-                        void setSetting(
-                            'appearance.transcriptPosition',
-                            transcriptPosition === 'left' ? 'right' : 'left',
-                        );
-                    }}
-                />
-
-                {/* 字幕文件：解析阶段改的是句子数据，必须重开视频 */}
-                <div className={CONTROL_POPOVER_SEPARATOR} />
-                <div className={CONTROL_POPOVER_LABEL}>{t('controlBox.subtitleFileLabel')}</div>
-                <ControlPopoverRow
-                    checked={meaningGroupOn}
-                    label={t('controlBox.meaningGroupResegmentation')}
-                    onActivate={changeMeaningGroupResegmentation}
-                />
-                <p className={ROW_HINT}>{t('controlBox.meaningGroupResegmentationHint')}</p>
-
-                <div className={CONTROL_POPOVER_SEPARATOR} />
-                <div className={CONTROL_POPOVER_LABEL}>{t('controlBox.sideGroupLabel')}</div>
-                <ControlPopoverRow
-                    checked={showSideTranslation}
-                    label={t('controlBox.showSideTranslation')}
-                    title={t('controlBox.sideTranslationHint')}
-                    onActivate={() => changeShowSideTranslation()}
-                />
-                <ControlPopoverRow
-                    checked={syncSide}
-                    label={t('controlBox.sidebarFollowsEnglish')}
-                    title={sidebarHidden ? t('controlBox.sidebarHiddenNow') : t('controlBox.sidebarFollowsEnglishHint')}
-                    onActivate={() => {
-                        const next = !syncSide;
-                        changeSyncSide();
-                        // 英文轨道还开着时，侧栏不会有任何变化；不给反馈会被当成“点了没反应”
-                        if (next && showEn) {
-                            toast(t('controlBox.sidebarFollowsEnglishEnabled', {
-                                shortcut: (englishTrackShortcut || 'e').toUpperCase(),
-                            }));
-                        }
-                    }}
-                />
-
-                <div className={CONTROL_POPOVER_SEPARATOR} />
-                <div className={CONTROL_POPOVER_LABEL}>{t('controlBox.playbackGroupLabel')}</div>
-                <ControlPopoverRow
-                    checked={pauseOnWordHover}
-                    label={t('controlBox.pauseOnWordHover')}
-                    title={t('controlBox.pauseOnWordHoverHint')}
-                    onActivate={async () => {
-                        const next = !pauseOnWordHover;
-                        await setSetting('player.pauseOnWordHover', next ? 'true' : 'false');
-                    }}
-                />
-                <div
-                    className="flex items-center justify-between gap-2 px-2 py-1.5"
-                    title={t('controlBox.vocabularyGuidanceHint')}
-                >
-                    <span className="text-sm text-muted-foreground">
-                        {t('controlBox.vocabularyGuidance')}
-                    </span>
+                {/* 顶部分段切换器：精简文案为 常规 / 字幕时间 */}
+                <div className="pb-2">
                     <SegmentedControl
-                        value={vocabularyGuidance}
-                        onChange={(next) => { void changeVocabularyGuidance(next); }}
-                        label={t('controlBox.vocabularyGuidance')}
+                        value={activeTab}
+                        onChange={(val) => setActiveTab(val as 'settings' | 'timing')}
+                        label={t('controlBox.title')}
                         size="sm"
+                        layout="fill"
                     >
                         <SegmentedControlItem
-                            value="off"
-                            label={t('controlBox.vocabularyGuidanceOff')}
+                            value="settings"
+                            label={t('controlBox.tabGeneral', { defaultValue: '常规' })}
                         />
                         <SegmentedControlItem
-                            value="calm"
-                            label={t('controlBox.vocabularyGuidanceCalm')}
-                        />
-                        <SegmentedControlItem
-                            value="coach"
-                            label={t('controlBox.vocabularyGuidanceCoach')}
+                            value="timing"
+                            label={
+                                adjustDiff
+                                    ? `${t('controlBox.tabTiming', { defaultValue: '字幕时间' })} (${adjustDiff.start >= 0 ? '+' : ''}${adjustDiff.start.toFixed(1)}s)`
+                                    : t('controlBox.tabTiming', { defaultValue: '字幕时间' })
+                            }
                         />
                     </SegmentedControl>
                 </div>
-                <ControlPopoverRow
-                    checked={autoPlayNext}
-                    label={t('controlBox.autoPlayNext')}
-                    title={t('controlBox.autoPlayNextHint')}
-                    onActivate={async () => {
-                        const next = !autoPlayNext;
-                        playerActions.setAutoPlayNext(next);
-                        await setSetting('player.autoPlayNext', next ? 'true' : 'false');
-                    }}
-                />
-                <ControlPopoverRow
-                    checked={podcastMode}
-                    label={t('controlBox.podcastMode')}
-                    title={t('controlBox.podcastModeHint')}
-                    onActivate={() => {
-                        const next = !podcastMode;
-                        changeFullScreen(false);
-                        setPodcastModeForCurrentVideo(next);
-                    }}
-                />
 
-                <div className={CONTROL_POPOVER_SEPARATOR} />
-                <div className={CONTROL_POPOVER_LABEL}>{t('controlBox.timeGroupLabel')}</div>
-                {/* 二级弹层：时间微调是低频、需要边看边调的操作，留在非模态浮层里，不写进设置列表 */}
-                <Popover open={adjustOpen} onOpenChange={setAdjustOpen}>
-                    <PopoverTrigger asChild>
+                {activeTab === 'settings' ? (
+                    <div className="space-y-1.5">
+                        {/* 极简 3~4 行高频即时开关 */}
+                        <VStack gap={0.5}>
+                            <PopoverSwitchRow
+                                label={t('controlBox.sentenceBlockMode')}
+                                labelTooltip={t('controlBox.sentenceBlockModeHint')}
+                                checked={sentenceBlockMode}
+                                onChange={() => changeSentenceBlockMode()}
+                                testId="player-setting-sentence-block"
+                            />
+                            <PopoverSwitchRow
+                                label={t('controlBox.pauseOnWordHover')}
+                                labelTooltip={t('controlBox.pauseOnWordHoverHint')}
+                                checked={pauseOnWordHover}
+                                onChange={(next) => { void changePauseOnWordHover(next); }}
+                                testId="player-setting-pause-on-hover"
+                            />
+                            <PopoverSwitchRow
+                                label={t('controlBox.autoPlayNext')}
+                                labelTooltip={t('controlBox.autoPlayNextHint')}
+                                checked={autoPlayNext}
+                                onChange={(next) => { void changeAutoPlayNext(next); }}
+                                testId="player-setting-auto-play-next"
+                            />
+                            <PopoverSwitchRow
+                                label={t('controlBox.podcastMode')}
+                                labelTooltip={t('controlBox.podcastModeHint')}
+                                checked={podcastMode}
+                                onChange={(checked) => setPodcastModeForCurrentVideo(checked)}
+                                testId="player-setting-podcast-mode"
+                            />
+                            {sourceZhAvailable && (
+                                <PopoverSwitchRow
+                                    label={t('controlBox.showSourceZh')}
+                                    labelTooltip={t('controlBox.showSourceZhHint')}
+                                    checked={showSourceZh}
+                                    onChange={() => changeShowSourceZh()}
+                                    testId="player-setting-show-source-zh"
+                                />
+                            )}
+                        </VStack>
+
+                        <div className="flex items-center justify-between gap-2 px-2 py-1">
+                            <span
+                                className="text-sm text-muted-foreground"
+                                title={t('controlBox.vocabularyGuidanceHint')}
+                            >
+                                {t('controlBox.vocabularyGuidance')}
+                            </span>
+                            <SegmentedControl
+                                value={vocabularyGuidance}
+                                onChange={(next) => { void changeVocabularyGuidance(next); }}
+                                label={t('controlBox.vocabularyGuidance')}
+                                size="sm"
+                            >
+                                <SegmentedControlItem
+                                    value="off"
+                                    label={t('controlBox.vocabularyGuidanceOff')}
+                                />
+                                <SegmentedControlItem
+                                    value="calm"
+                                    label={t('controlBox.vocabularyGuidanceCalm')}
+                                />
+                                <SegmentedControlItem
+                                    value="coach"
+                                    label={t('controlBox.vocabularyGuidanceCoach')}
+                                />
+                            </SegmentedControl>
+                        </div>
+
+                        <Divider variant="subtle" />
+
+                        {/* 底部跳转完整系统设置 */}
                         <button
                             type="button"
-                            className={cn(CONTROL_POPOVER_ROW_BASE, CONTROL_POPOVER_ROW_IDLE)}
+                            onClick={() => {
+                                setOpen(false);
+                                navigate('/settings/appearance');
+                            }}
+                            className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground cursor-pointer"
                         >
-                            <span className="flex min-w-0 items-center gap-2">
-                                <span className="w-3.5 shrink-0" />
-                                <History className={CONTROL_POPOVER_ICON} />
-                                <span className="truncate">{t('subtitle.adjustTitle')}</span>
+                            <span className="flex items-center gap-1.5">
+                                <Settings2 className="h-3.5 w-3.5 text-secondary group-hover:text-primary transition-colors" />
+                                <span>{t('controlBox.allSettings', { defaultValue: '全部播放设置' })}</span>
                             </span>
-                            {adjustDiff ? (
-                                <span className={CONTROL_POPOVER_HINT}>
-                                    {`${adjustDiff.start >= 0 ? '+' : ''}${adjustDiff.start.toFixed(2)} / ${adjustDiff.end >= 0 ? '+' : ''}${adjustDiff.end.toFixed(2)}`}
-                                </span>
-                            ) : null}
+                            <ChevronRight className="h-3.5 w-3.5 text-secondary group-hover:text-foreground transition-colors" />
                         </button>
-                    </PopoverTrigger>
-                    <PopoverContent
-                        side="left"
-                        align="start"
-                        sideOffset={8}
-                        className="w-72 p-3.5 gap-3 shadow-xl border-border/80 bg-popover/95 backdrop-blur-md"
-                    >
-                        <TimeAdjustPanel />
-                    </PopoverContent>
-                </Popover>
-                <ControlPopoverRow
-                    icon={<Eraser className={CONTROL_POPOVER_ICON} />}
-                    label={t('clearAdjust.button')}
-                    title={t('clearAdjust.tooltipSubtitle')}
-                    onActivate={async () => {
-                        const fileHash = usePlaybackSession.getState().srtHash;
-                        if (!fileHash) return;
-                        await playerApi.deleteTimestampAdjustment(fileHash);
-                        usePlaybackSession.getState().reloadSubtitles();
-                        toast(t('clearAdjust.done'), { icon: '👏' });
-                    }}
-                />
+                    </div>
+                ) : (
+                    /* 时间微调选项卡：单一任务、原地微调 */
+                    <div className="space-y-3 pt-1">
+                        <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+                            <TimeAdjustPanel />
+                        </div>
+
+                        <Divider variant="subtle" />
+
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            width="100%"
+                            label={t('clearAdjust.button')}
+                            icon={<Eraser className="h-4 w-4" />}
+                            tooltip={t('clearAdjust.tooltipSubtitle')}
+                            onClick={() => {
+                                const fileHash = usePlaybackSession.getState().srtHash;
+                                if (!fileHash) return;
+                                void playerApi.deleteTimestampAdjustment(fileHash).then(() => {
+                                    usePlaybackSession.getState().reloadSubtitles();
+                                    toast(t('clearAdjust.done'), { icon: '👏' });
+                                });
+                            }}
+                        />
+                    </div>
+                )}
             </PopoverContent>
         </Popover>
     );

@@ -17,12 +17,9 @@ type PlayerUiState = {
   sentenceBlockMode: boolean;
   /** 右侧字幕列表是否显示译文（原文行恒显示）。与主字幕区的 showCn / showSourceZh 互不影响。 */
   showSideTranslation: boolean;
-  syncSide: boolean;
   showWordLevel: boolean;
   /** 视频控制条是否钉住常显（关闭时普通视图条超时淡出、全屏条鼠标移出淡出）。 */
   controlBarPinned: boolean;
-  /** 是否在画面外补一圈模糊环境光（默认关：学习场景以字幕可读性与省电优先）。 */
-  ambientLight: boolean;
   /** 是否用遮挡带盖住画面内嵌的硬字幕（画面自带、无法通过关闭字幕轨道去掉的那种）。 */
   hardsubMaskOn: boolean;
   /** 遮挡贴片在画面内的相对位置与尺寸（均为 0~1 的比例，随画面尺寸缩放）。 */
@@ -59,10 +56,8 @@ type PlayerUiActions = {
   changeSentenceBlockMode: () => void;
   changeShowSideTranslation: () => void;
   changeShowEnCn: () => void;
-  changeSyncSide: () => void;
   changeShowWordLevel: () => void;
   toggleControlBarPinned: () => void;
-  toggleAmbientLight: () => void;
   toggleHardsubMask: () => void;
   setHardsubMaskRect: (rect: HardsubMaskRect) => void;
   setHardsubMaskHovering: (hovering: boolean) => void;
@@ -93,10 +88,8 @@ type PersistedPreferenceKey =
   | 'showSourceZh'
   | 'sentenceBlockMode'
   | 'showSideTranslation'
-  | 'syncSide'
   | 'showWordLevel'
   | 'controlBarPinned'
-  | 'ambientLight'
   | 'hardsubMaskOn';
 
 /** 需要写入 localStorage 的用户偏好：取值与 store 初始值同源，rehydrate 与迁移都用它。 */
@@ -106,10 +99,8 @@ const PERSISTED_DEFAULTS: Pick<PlayerUiState, PersistedPreferenceKey> = {
   showSourceZh: true,
   sentenceBlockMode: true,
   showSideTranslation: true,
-  syncSide: false,
   showWordLevel: false,
   controlBarPinned: false,
-  ambientLight: false,
   hardsubMaskOn: false,
 };
 
@@ -187,10 +178,8 @@ function pickPersisted(
     showSourceZh: state.showSourceZh ?? PERSISTED_DEFAULTS.showSourceZh,
     sentenceBlockMode: state.sentenceBlockMode ?? PERSISTED_DEFAULTS.sentenceBlockMode,
     showSideTranslation: state.showSideTranslation ?? PERSISTED_DEFAULTS.showSideTranslation,
-    syncSide: state.syncSide ?? PERSISTED_DEFAULTS.syncSide,
     showWordLevel: state.showWordLevel ?? PERSISTED_DEFAULTS.showWordLevel,
     controlBarPinned: state.controlBarPinned ?? PERSISTED_DEFAULTS.controlBarPinned,
-    ambientLight: state.ambientLight ?? PERSISTED_DEFAULTS.ambientLight,
     hardsubMaskOn: state.hardsubMaskOn ?? PERSISTED_DEFAULTS.hardsubMaskOn,
     hardsubMaskRect: normalizeHardsubMaskRect(state.hardsubMaskRect),
   };
@@ -213,10 +202,8 @@ export const usePlayerUi = create(
       changeSentenceBlockMode: () => set((s) => ({ sentenceBlockMode: !s.sentenceBlockMode })),
       changeShowSideTranslation: () => set((s) => ({ showSideTranslation: !s.showSideTranslation })),
       changeShowEnCn: () => set((s) => ({ showEn: !s.showEn, showCn: !s.showEn })),
-      changeSyncSide: () => set((s) => ({ syncSide: !s.syncSide })),
       changeShowWordLevel: () => set((s) => ({ showWordLevel: !s.showWordLevel })),
       toggleControlBarPinned: () => set((s) => ({ controlBarPinned: !s.controlBarPinned })),
-      toggleAmbientLight: () => set((s) => ({ ambientLight: !s.ambientLight })),
       toggleHardsubMask: () => set((s) => ({ hardsubMaskOn: !s.hardsubMaskOn })),
       setHardsubMaskHovering: (hovering) => set(() => ({ hardsubMaskHovering: hovering })),
       setHardsubMaskPatchTopInset: (inset) => set(() => ({ hardsubMaskPatchTopInset: inset })),

@@ -305,7 +305,7 @@ const VocabPreview = ({
                                 </span>
                             )}
                         </div>
-                        <div className="text-xs leading-snug text-foreground/80">{word.meaning}</div>
+                        <div className="text-sm leading-snug text-foreground/80">{word.meaning}</div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1">
                             <ExamTagBadges tags={word.tags} />
                         </div>
@@ -390,12 +390,12 @@ const VocabList = ({
                             <div className="flex items-baseline gap-2">
                                 <span className="text-sm font-semibold text-foreground">{word.word}</span>
                                 {!!word.phonetic && (
-                                    <span className="font-mono text-xs text-muted-foreground">
+                                    <span className="font-mono text-metadata text-muted-foreground">
                                         {formatPhonetic(word.phonetic)}
                                     </span>
                                 )}
                             </div>
-                            <div className="mt-0.5 text-metadata leading-snug text-foreground/80">{word.meaning}</div>
+                            <div className="mt-0.5 text-sm leading-snug text-foreground/80">{word.meaning}</div>
                         </div>
                         <button
                             type="button"
@@ -595,7 +595,7 @@ const AnalysisPane = ({
 
                 {status === 'done' && !isLoading && phraseGroups.length === 0
                     && !phrases?.hasPhrase && (
-                        <div className="py-6 text-center text-xs text-muted-foreground">
+                        <div className="py-6 text-center text-sm text-muted-foreground">
                             {t('learning.noAnalysisPoints')}
                         </div>
                     )}
@@ -649,7 +649,7 @@ const SearchEvidence = ({
                             onClick={() => onJumpToLine(hit.index)}
                             className="flex items-start gap-2 rounded-md px-1.5 py-1 text-left text-metadata leading-snug text-foreground/85 transition-colors hover:bg-background"
                         >
-                            <span className="w-8 shrink-0 font-mono text-xs text-muted-foreground/70 tabular-nums">
+                            <span className="w-8 shrink-0 font-mono text-metadata text-muted-foreground/70 tabular-nums">
                                 {hit.index}
                             </span>
                             <span className="min-w-0 flex-1">{hit.text}</span>
@@ -749,7 +749,7 @@ const ConversationPane = ({
                 {!hasMessages && (
                     <div className="flex flex-1 items-center justify-center">
                         {empty ?? (
-                            <p className="text-xs text-muted-foreground">{t('learning.noVocabWords')}</p>
+                            <p className="text-sm text-muted-foreground">{t('learning.noVocabWords')}</p>
                         )}
                     </div>
                 )}
@@ -764,7 +764,7 @@ const ConversationPane = ({
                     {chatErrorText && (
                         <div
                             role="alert"
-                            className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs leading-relaxed text-destructive"
+                            className="rounded-xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm leading-relaxed text-destructive"
                         >
                             {chatErrorText}
                         </div>
@@ -846,7 +846,7 @@ const ConversationPane = ({
                     ))}
 
                     {isBusy && (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             {t('learning.thinking')}
                         </div>

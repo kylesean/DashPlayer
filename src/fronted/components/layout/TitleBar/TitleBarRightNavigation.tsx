@@ -19,7 +19,7 @@ const InnerRightNavigation: React.FC = () => {
     }
 
     return (
-        <div className="no-drag flex items-center h-full shrink-0 mr-1.5">
+        <div className="no-drag flex items-center h-full shrink-0 mr-[6px]">
             <Tooltip
                 content={
                     showTranscript
@@ -32,7 +32,7 @@ const InnerRightNavigation: React.FC = () => {
                     type="button"
                     onClick={toggleTranscript}
                     className={cn(
-                        'inline-flex items-center justify-center w-6 h-6 rounded-md cursor-pointer select-none',
+                        'inline-flex items-center justify-center w-[24px] h-[24px] rounded-md cursor-pointer select-none',
                         showTranscript
                             ? 'text-accent bg-accent/15 hover:bg-accent/25'
                             : 'text-muted-foreground/80 hover:text-foreground hover:bg-muted/70 active:bg-muted',
@@ -44,7 +44,7 @@ const InnerRightNavigation: React.FC = () => {
                             : tPlayer('controlButton.openTranscript', { defaultValue: '展开字幕文稿' })
                     }
                 >
-                    <PanelRight className="w-3.5 h-3.5" />
+                    <PanelRight className="w-[14px] h-[14px]" />
                 </button>
             </Tooltip>
         </div>

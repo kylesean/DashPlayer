@@ -3,6 +3,7 @@ import { Tooltip } from '@astryxdesign/core/Tooltip';
 
 import { cn } from '@/fronted/lib/utils';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
+import { useSourceChineseAvailability } from '@/fronted/features/player/hooks/useSourceChineseAvailability';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { formatShortcut } from '@/fronted/features/player/components/formatShortcut';
 import {
@@ -11,7 +12,7 @@ import {
     type ToolbarTone,
 } from './toolbarStyles';
 
-const SEGMENT_CLASS = 'rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer';
+const SEGMENT_CLASS = 'rounded-md px-2.5 py-1 text-sm font-medium transition-colors cursor-pointer';
 
 /**
  * 字幕轨道三段开关：EN / 中 / 双语。
@@ -36,13 +37,17 @@ export default function SubtitleTrackSegmented({
     const changeShowEn = usePlayerUi((s) => s.changeShowEn);
     const changeShowCn = usePlayerUi((s) => s.changeShowCn);
     const changeShowSourceZh = usePlayerUi((s) => s.changeShowSourceZh);
+    const sourceZhAvailable = useSourceChineseAvailability();
     const enShortcut = useSetting((s) => s.setting('shortcut.toggleEnglishDisplay'));
     const cnShortcut = useSetting((s) => s.setting('shortcut.toggleChineseDisplay'));
     const bilingualShortcut = useSetting((s) => s.setting('shortcut.toggleBilingualDisplay'));
 
-    const isEnOnly = showEn && !showCn && !showSourceZh;
-    const isCnOnly = !showEn && (showCn || showSourceZh);
-    const isBilingual = showEn && (showCn || showSourceZh);
+    // 源字幕中文只有在字幕文件真的带中文时才算法一条可见轨道；否则会出现
+    // “双语”已选中、画面上却只有英文的假状态。
+    const sourceZhVisible = showSourceZh && sourceZhAvailable;
+    const isEnOnly = showEn && !showCn && !sourceZhVisible;
+    const isCnOnly = !showEn && (showCn || sourceZhVisible);
+    const isBilingual = showEn && (showCn || sourceZhVisible);
     const style = TOOLBAR_TONE[tone];
 
     /** 只留英文：关掉两路中文。 */

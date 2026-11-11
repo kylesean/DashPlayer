@@ -32,7 +32,7 @@ export const PlaybackTimeReadout = memo(function PlaybackTimeReadout({
     currentClassName = '',
     separatorClassName = 'mx-1.5 text-media-fg/40',
     durationClassName = 'text-media-fg/60',
-    className = 'h-full flex items-center font-mono text-xs text-media-fg/80 tabular-nums',
+    className = 'h-full flex items-center font-mono text-sm text-media-fg/80 tabular-nums',
     durationWrapperClassName = 'hidden lg:inline-flex items-center',
 }: PlaybackTimeReadoutProps) {
     const playTime = usePlayerState((s) => s.internal.exactPlayTime);

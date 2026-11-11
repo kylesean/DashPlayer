@@ -25,6 +25,16 @@
 node scripts/download-fonts.mjs
 ```
 
+## 主题 spacing 与固定尺寸 chrome
+
+Astryx 官方主题并不共享同一套 spacing 基数：Matcha / Y2K 的 `--spacing-1` 是 6px，
+其余主题是 4px。Astryx 的 Tailwind bridge 会把 Tailwind 的 `--spacing` 指到当前主题的
+`--spacing-1`，因此 `h-8`、`w-11`、`gap-1` 这些工具类会随主题放大 1.5 倍。
+
+窗口标题栏、窗口控制按钮等系统 chrome 必须保持像素稳定，统一使用固定 px
+（高度常量见 `src/fronted/components/layout/TitleBar/titleBarMetrics.ts`），
+不要用 spacing 工具类表达尺寸。普通页面内容仍可继续使用主题 spacing，让排版跟随主题。
+
 ## 目录约定
 
 - `src/themes/<slug>/<name>Theme.ts`：主题源文件，导出 `<name>Theme`。

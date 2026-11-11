@@ -11,7 +11,6 @@ import ArticleBlock from './ArticleBlock';
 import { groupSentencesIntoBlocks, type SentenceBlock } from '@/fronted/features/player/lib/sentence-grouping';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
-import { isSidebarHiddenByEnglish } from '@/fronted/features/player/components/sidePanelVisibility';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { cn } from '@/fronted/lib/utils';
@@ -42,16 +41,9 @@ export default function Subtitle() {
     const toggleTranscriptViewMode = useLayout((state) => state.toggleTranscriptViewMode);
     const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
     const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
-    const showEn = usePlayerUi((state) => state.showEn);
-    const syncSide = usePlayerUi((state) => state.syncSide);
     const showSideTranslation = usePlayerUi((state) => state.showSideTranslation);
     const changeShowSideTranslation = usePlayerUi((state) => state.changeShowSideTranslation);
     const { t } = useI18nTranslation('player');
-    // 「随英文字幕隐藏」把侧栏收起时，卡片文案是 opacity-0，chip 是这块空白唯一的解释
-    const sidebarHiddenByEnglish = isSidebarHiddenByEnglish(syncSide, showEn);
-    const toggleEnglishShortcut = useSetting(
-        (state) => state.values.get('shortcut.toggleEnglishDisplay') ?? 'e',
-    );
     const { currentSentence, subtitle, singleRepeat, hoverRepeat, virtualGroup } = usePlayerState(
         useShallow((s) => ({
             currentSentence: s.currentSentence,
@@ -609,7 +601,7 @@ export default function Subtitle() {
     return (
         <div className="w-full h-full flex flex-col relative select-none" ref={setBoundaryRef}>
             {/* 字幕文稿流状态栏 */}
-            <div className="shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-xs">
+            <div className="shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-sm">
                 <div className="flex items-center gap-2 min-w-0 shrink-0">
                     <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span className="font-medium text-foreground tracking-tight">{t('subtitleScript')}</span>
@@ -696,7 +688,6 @@ export default function Subtitle() {
                                 showSideTranslation
                                     ? 'text-accent hover:bg-accent-muted/20'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
-                                sidebarHiddenByEnglish && 'opacity-40',
                             )}
                         >
                             <Languages className="w-3.5 h-3.5" />
@@ -766,7 +757,7 @@ export default function Subtitle() {
 
             {/* 即时搜索栏 */}
             {isSearchOpen && (
-                <div className="shrink-0 px-3 py-1.5 border-b border-border/40 bg-surface/80 backdrop-blur-md flex items-center gap-2 text-xs z-20">
+                <div className="shrink-0 px-3 py-1.5 border-b border-border/40 bg-surface/80 backdrop-blur-md flex items-center gap-2 text-sm z-20">
                     <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <input
                         ref={searchInputRef}
@@ -793,7 +784,7 @@ export default function Subtitle() {
                             }
                         }}
                         placeholder={t('searchPlaceholder', { defaultValue: '在文稿中搜索中英文...' })}
-                        className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/60 text-xs min-w-0"
+                        className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/60 text-sm min-w-0"
                     />
                     {searchQuery.trim() && (
                         <span className="text-metadata font-mono text-muted-foreground shrink-0 select-none">
@@ -925,22 +916,6 @@ export default function Subtitle() {
                         components={VIRTUOSO_COMPONENTS}
                     />
                 )}
-
-                {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
-                {sidebarHiddenByEnglish && (
-                    <div className="absolute inset-x-0 top-4 z-10 flex justify-center pointer-events-none">
-                        <div className="inline-flex items-center gap-1.5 rounded-full bg-muted/85 px-3 py-1 text-metadata leading-tight text-muted-foreground backdrop-blur shadow-xs">
-                            <span>{t('controlBox.sidebarHiddenByEnglish')}</span>
-                            <span aria-hidden="true">·</span>
-                            <span className="font-medium">
-                                {t('controlBox.sidebarHiddenByEnglishAction', {
-                                    shortcut: toggleEnglishShortcut.toUpperCase(),
-                                })}
-                            </span>
-                        </div>
-                    </div>
-                )}
-
             </div>
         </div>
     );

@@ -21,7 +21,7 @@ export const TOOLBAR_ICON_BUTTON =
 
 /** 带文字/徽章的按钮基础形状，与同一行的图标按钮同高同圆角。 */
 export const TOOLBAR_TEXT_BUTTON =
-    'flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium leading-none transition-all duration-150 cursor-pointer';
+    'flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium leading-none transition-all duration-150 cursor-pointer';
 
 /** 分段控件（EN / 中 / 双语）的外壳。 */
 export const TOOLBAR_SEGMENTED =
@@ -32,7 +32,7 @@ export const TOOLBAR_DIVIDER = 'mx-1 h-4 w-px shrink-0';
 
 /** 普通开关按钮上挂徽章时的样式（进度、倍速、倒计时）。 */
 export const TOOLBAR_BADGE =
-    'rounded px-1.5 py-0.5 font-mono text-[10.5px] font-semibold leading-none';
+    'rounded px-1.5 py-0.5 font-mono text-xs font-semibold leading-none';
 
 interface ToneClasses {
     /** 未激活图标按钮的 hover 外观。 */

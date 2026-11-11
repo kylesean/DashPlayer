@@ -21,15 +21,6 @@ export const MEDIA_FRAME_CLASS = 'ring-1 ring-inset ring-media-fg/5';
 export const MEDIA_VIGNETTE_CLASS = 'bg-gradient-to-b from-media-bg/15 via-media-bg/10 to-media-bg/25';
 
 /**
- * 可选环境光画布：只在用户显式开启时渲染。
- *
- * 亮度刻意压得比原设计更低（0.45 / 深色 0.35）：环境光负责氛围，
- * 不能亮到和字幕抢注意力。
- */
-export const MEDIA_AMBIENT_CANVAS_CLASS =
-    'absolute inset-0 h-full w-full pointer-events-none z-0 blur-[80px] saturate-[1.05] brightness-[0.45] dark:brightness-[0.35]';
-
-/**
  * Astryx Slider 默认跟随主题的 accent / track 色。
  *
  * 视频控制条属于媒体层，浅色主题下仍是深色银幕，进度与音量必须保持中性白，

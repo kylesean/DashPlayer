@@ -132,7 +132,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                       <Tooltip
                         placement="below"
                         content={
-                          <div className="space-y-1 text-xs">
+                          <div className="space-y-1 text-sm">
                             <div>
                               <strong>{t('status')}:</strong> {clip.sourceType === 'local' ? t('clipGridProcessing') : t('clipGridDone')}
                             </div>
@@ -158,7 +158,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
 
                   {/* 视频信息 */}
                   <div className="p-2.5 bg-card flex-1 flex items-center">
-                    <p className="text-xs text-muted-foreground line-clamp-2 leading-snug">{subtitle}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2 leading-snug">{subtitle}</p>
                   </div>
                 </div>
               );

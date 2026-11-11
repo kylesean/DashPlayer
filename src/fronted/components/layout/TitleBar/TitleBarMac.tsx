@@ -29,17 +29,17 @@ const TitleBarMac = () => {
         <div className={cn('w-full h-full flex items-center justify-between select-none')}>
             {/* macOS 原生交通灯预留区域（80px） + 导航控制 */}
             <div className="flex items-center h-full shrink-0">
-                <div className={cn('no-drag w-20 h-full shrink-0')} />
+                <div className={cn('no-drag w-[80px] h-full shrink-0')} />
                 <TitleBarNavigation />
             </div>
             <div
-                className={cn('drag flex-1 h-full min-w-0 flex items-center justify-center px-4')}
+                className={cn('drag flex-1 h-full min-w-0 flex items-center justify-center px-[16px]')}
                 onDoubleClick={handleDoubleClick}
             >
                 <TitleBarTitle />
             </div>
             {/* 右侧面板控制及与交通灯平衡的占位 */}
-            <div className="flex items-center justify-end w-20 h-full pr-2 shrink-0">
+            <div className="flex items-center justify-end w-[80px] h-full pr-[8px] shrink-0">
                 <TitleBarRightNavigation />
             </div>
         </div>

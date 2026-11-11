@@ -12,7 +12,7 @@ const FallBack = ({ resetErrorBoundary }: Partial<FallbackProps>) => {
                     <button
                         type="button"
                         onClick={resetErrorBoundary}
-                        className="px-2.5 py-1 text-xs font-medium rounded border border-error/40 hover:bg-error/10 transition-colors cursor-pointer"
+                        className="px-2.5 py-1 text-sm font-medium rounded border border-error/40 hover:bg-error/10 transition-colors cursor-pointer"
                     >
                         Retry
                     </button>
