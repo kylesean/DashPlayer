@@ -135,7 +135,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             const result = await gateway.transcribe({
                 audioPath: wavPath,
                 modelsRoot,
-                job: `practice:${fileHash}:${sentenceIndex}`,
+                job: `practice:${fileHash}:${sentenceIndex}:${randomUUID()}`,
             });
             return { transcript: result.text.trim(), audioFile };
         } catch (error) {

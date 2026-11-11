@@ -431,17 +431,29 @@ export class DpTaskServiceImpl implements DpTaskService {
     /**
      * 注册与任务生命周期绑定的可取消操作。
      *
-     * 已收到取消请求的任务会立即取消新注册的操作。
+     * 终态（成功/失败/已取消）或已进入取消队列的任务会立即取消新注册的操作，
+     * 且不会将其写入 taskMapping，防止进程与闭包内存泄漏。
      *
      * @param taskId 任务编号。
      * @param process 可取消操作。
      */
     public registerTask(taskId: number, process: Cancelable): void {
-        const existingProcesses = this.taskMapping.get(taskId) || [];
-        this.taskMapping.set(taskId, [...existingProcesses, process]);
+        const cached = this.cache.get(taskId);
+        const pendingStatus = this.pendingUpdates.get(taskId)?.status;
+        if (
+            (cached && this.isFinalState(cached.status)) ||
+            (pendingStatus && this.isFinalState(pendingStatus))
+        ) {
+            this.logger.debug('process registered to already terminated task, cancelling immediately', { taskId });
+            process.cancel();
+            return;
+        }
         if (this.cancelQueue.has(taskId)) {
             process.cancel();
+            return;
         }
+        const existingProcesses = this.taskMapping.get(taskId) || [];
+        this.taskMapping.set(taskId, [...existingProcesses, process]);
     }
 
 }

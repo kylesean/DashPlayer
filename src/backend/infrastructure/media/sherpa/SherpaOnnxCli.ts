@@ -42,8 +42,8 @@ export interface SherpaOnnxRunRequest {
 export class SherpaOnnxCli {
     private readonly logger = getMainLogger('SherpaOnnx');
 
-    /** job 键 → 正在运行的 sherpa-onnx 子进程。 */
-    private readonly activeProcesses = new Map<string, ChildProcess>();
+    /** job 键 → 正在运行的 sherpa-onnx 子进程集合。 */
+    private readonly activeProcesses = new Map<string, Set<ChildProcess>>();
 
     /**
      * 解析当前平台随应用分发的 sherpa-onnx 可执行文件。
@@ -72,13 +72,17 @@ export class SherpaOnnxCli {
         const executablePath = this.resolveExecutablePath();
         const processKey = request.job ?? '';
 
+        let runningChild: ChildProcess | null = null;
         try {
             return await new Promise<SherpaOnnxOutput>((resolve, reject) => {
                 const child = spawn(executablePath, request.args, {
                     cwd: path.dirname(executablePath),
                     stdio: ['ignore', 'pipe', 'pipe'],
                 });
-                this.activeProcesses.set(processKey, child);
+                runningChild = child;
+                const procSet = this.activeProcesses.get(processKey) ?? new Set<ChildProcess>();
+                procSet.add(child);
+                this.activeProcesses.set(processKey, procSet);
                 this.logger.info('spawned sherpa-onnx', {
                     job: request.job,
                     pid: child.pid,
@@ -133,7 +137,15 @@ export class SherpaOnnxCli {
                 });
             });
         } finally {
-            this.activeProcesses.delete(processKey);
+            if (runningChild) {
+                const procSet = this.activeProcesses.get(processKey);
+                if (procSet) {
+                    procSet.delete(runningChild);
+                    if (procSet.size === 0) {
+                        this.activeProcesses.delete(processKey);
+                    }
+                }
+            }
         }
     }
 
@@ -143,12 +155,24 @@ export class SherpaOnnxCli {
      */
     public killActive(job?: string): void {
         if (job !== undefined) {
-            this.activeProcesses.get(job)?.kill('SIGKILL');
+            const targets: ChildProcess[] = [];
+            for (const [key, procSet] of this.activeProcesses.entries()) {
+                if (key === job || key.startsWith(`${job}:`)) {
+                    targets.push(...procSet);
+                    this.activeProcesses.delete(key);
+                }
+            }
+            for (const child of targets) {
+                child.kill('SIGKILL');
+            }
             return;
         }
-        for (const child of this.activeProcesses.values()) {
-            child.kill('SIGKILL');
+        for (const procSet of this.activeProcesses.values()) {
+            for (const child of procSet) {
+                child.kill('SIGKILL');
+            }
         }
+        this.activeProcesses.clear();
     }
 
     /**

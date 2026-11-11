@@ -152,10 +152,10 @@ export default function registerRoute<K extends keyof ApiMap>(
                     logger.warn('ipc request cancelled', errorData);
                 } else {
                     logger.error('ipc request failed', errorData);
+                    container
+                        .get<RendererEvents>(TYPES.RendererEvents)
+                        .error(error instanceof Error ? error : new Error(String(error)));
                 }
-                container
-                    .get<RendererEvents>(TYPES.RendererEvents)
-                    .error(error instanceof Error ? error : new Error(String(error)));
                 throw error;
             }
         });

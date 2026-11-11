@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 export const words = sqliteTable('dp_words', {
@@ -19,7 +19,9 @@ export const words = sqliteTable('dp_words', {
     updated_at: text('updated_at')
         .notNull()
         .default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => ({
+    lowerWordIdx: index('dp_words_lower_word_idx').on(sql`lower(${table.word})`),
+}));
 
 export type Word = typeof words.$inferSelect; // return type when queried
 export type InsertWord = typeof words.$inferInsert; // insert type

@@ -184,7 +184,7 @@ export class WhisperCppCli {
      * 按 job 归属登记的活跃识别进程。后台转录与跟读练习可能并发各跑一个
      * parakeet-cli，单槽引用会让「取消转录」误杀练习进程，必须按 job 隔离。
      */
-    private readonly activeProcesses = new Map<string, ChildProcess>();
+    private readonly activeProcesses = new Map<string, Set<ChildProcess>>();
 
     /**
      * 解析当前平台随应用分发的 parakeet-cli 可执行文件。
@@ -211,6 +211,8 @@ export class WhisperCppCli {
             throw new CancelByUserError('Transcription cancelled by user');
         }
         const executablePath = this.resolveExecutablePath();
+        let runningChild: ChildProcess | null = null;
+        const processKey = request.job ?? '';
 
         try {
             return await new Promise<WhisperCppOutput>((resolve, reject) => {
@@ -225,7 +227,11 @@ export class WhisperCppCli {
                     // GPU 崩溃后的 CPU 重试路径：禁用 Vulkan 后二进制走"枚举不到设备 → 静默回退 CPU"既有路径
                     ...(request.disableGpu ? { env: { ...process.env, GGML_VK_DISABLE: '1' } } : {}),
                 });
-                this.activeProcesses.set(request.job ?? '', child);
+                runningChild = child;
+                const processKey = request.job ?? '';
+                const procSet = this.activeProcesses.get(processKey) ?? new Set<ChildProcess>();
+                procSet.add(child);
+                this.activeProcesses.set(processKey, procSet);
                 this.logger.info('spawned whisper.cpp parakeet-cli', {
                     job: request.job,
                     pid: child.pid,
@@ -303,7 +309,15 @@ export class WhisperCppCli {
                 });
             });
         } finally {
-            this.activeProcesses.delete(request.job ?? '');
+            if (runningChild) {
+                const procSet = this.activeProcesses.get(processKey);
+                if (procSet) {
+                    procSet.delete(runningChild);
+                    if (procSet.size === 0) {
+                        this.activeProcesses.delete(processKey);
+                    }
+                }
+            }
         }
     }
 
@@ -311,16 +325,27 @@ export class WhisperCppCli {
      * 终止识别进程。
      *
      * @param job 目标任务的 job 标识；传入时只终止该任务自己的进程，
-     *            避免并发场景下误杀另一个任务的识别（其失败会被当作
-     *            可重试错误放大成整段 CPU 重跑）。缺省时退化为终止
-     *            最近登记的进程，兼容无 job 上下文的调用方。
+     *            避免并发场景下误杀另一个任务的识别。缺省时终止全部进程。
      */
     public killActive(job?: string): void {
         if (job !== undefined) {
-            this.activeProcesses.get(job)?.kill('SIGKILL');
+            const targets: ChildProcess[] = [];
+            for (const [key, procSet] of this.activeProcesses.entries()) {
+                if (key === job || key.startsWith(`${job}:`)) {
+                    targets.push(...procSet);
+                    this.activeProcesses.delete(key);
+                }
+            }
+            for (const child of targets) {
+                child.kill('SIGKILL');
+            }
             return;
         }
-        const last = [...this.activeProcesses.values()].at(-1);
-        last?.kill('SIGKILL');
+        for (const procSet of this.activeProcesses.values()) {
+            for (const child of procSet) {
+                child.kill('SIGKILL');
+            }
+        }
+        this.activeProcesses.clear();
     }
 }

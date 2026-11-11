@@ -266,6 +266,12 @@ export class SettingServiceImpl implements SettingService {
         // （常见于多分支开发后枚举残留）不允许阻断整份快照下发。
         // 非法值原样透传，由渲染进程窄化检查后显式提示用户去设置页修复。
         this.warnInvalidEnum(values['appearance.theme'], ['dark', 'light', 'system'] as const, 'appearance.theme');
+        this.warnInvalidEnum(values['appearance.themeFamily'], APPEARANCE_THEME_FAMILIES, 'appearance.themeFamily');
+        this.warnInvalidEnum(
+            values['appearance.transcriptPosition'],
+            ['right', 'left'] as const,
+            'appearance.transcriptPosition',
+        );
         this.warnInvalidEnum(
             values['appearance.fontSize'],
             ['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge'] as const,

@@ -277,6 +277,12 @@ export function createConcurrencyKernel(
         }
         const targetLockId = `${kind}:${key}`;
         const targetRank = resolveLockRank(key, kind, configuredOrder);
+        // 重复获取判定依据是「当前上下文已实际持有该锁」（heldLocks 只含 acquire 成功且未释放的锁），
+        // 不是「有别的获取在排队」：同一上下文内 Promise.all 同步调度的两个分支取同键锁，
+        // 后者在前者持锁前就会完成本检查，因此走正常排队，不会误报。
+        // 已知窄窗口：同一上下文中后启动的兄弟协程去等先启动兄弟已持有的同键互斥/容量 1 信号量，
+        // 会在这里抛错而不是排队。当前代码库无此调用模式；若未来出现，应改用容量 > 1 的信号量
+        // 或把两个分支拆到独立上下文，而不是放宽本检查（它挡住的是真实的同栈自死锁）。
         const isDuplicateNonReentrant = context.heldLocks.some(
             (held) => held.lockId === targetLockId && (kind === 'mutex' || getSemaphoreProfile(key).capacity <= 1),
         );

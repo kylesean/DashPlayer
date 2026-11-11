@@ -37,9 +37,12 @@ export default class PathUtil {
         // 判断第一个路径是否为绝对路径（以分隔符开头）
         const isAbsolutePath = filteredPaths[0].startsWith(PathUtil.SEPARATOR);
 
+        const escapedSep = PathUtil.SEPARATOR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const sepRegex = new RegExp(`^${escapedSep}+|${escapedSep}+$`, 'g');
+
         // 去除所有路径段的首尾分隔符
         const processedPaths = filteredPaths.map(path =>
-            path.replace(new RegExp(`^${PathUtil.SEPARATOR}+|${PathUtil.SEPARATOR}+$`, 'g'), '')
+            path.replace(sepRegex, '')
         );
 
         // 使用分隔符连接所有处理过的路径段

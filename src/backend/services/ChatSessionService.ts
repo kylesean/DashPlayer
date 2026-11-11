@@ -373,10 +373,14 @@ export class ChatSessionServiceImpl implements ChatSessionService {
             firstReasoningMs: firstReasoningAt === null ? null : firstReasoningAt - startedAt,
             firstTextMs: firstTextAt === null ? null : firstTextAt - startedAt,
             reasoningChars,
-            reasoningText: reasoningContent,
             responseLength: content.length,
-            responseText: content,
             aborted,
+        });
+        this.logger.debug('chat stream content', {
+            sessionId,
+            messageId,
+            reasoningText: reasoningContent,
+            responseText: content,
         });
     }
 

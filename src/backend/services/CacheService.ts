@@ -50,36 +50,51 @@ export default interface CacheService {
 
 
 /**
- * 提供进程内的内存缓存（直接保存对象引用，避免高频全量 JSON 序列化开销）。
+ * 命名空间最大缓存容量限制（防止长会话内存无界增长）。
+ */
+const DEFAULT_MAX_ENTRIES: Record<keyof CacheType, number> = {
+    'cache:srt': 32,
+    'cache:srt-vocabulary-texts': 64,
+};
+
+/**
+ * 提供进程内的内存缓存（带 LRU 淘汰与过期时间支持，避免大对象无界膨胀）。
  */
 @injectable()
 export class CacheServiceImpl implements CacheService {
-    private cache = new Map<string, { value: unknown; expires?: number }>();
+    private readonly stores: { [K in keyof CacheType]: Map<string, { value: unknown; expires?: number }> } = {
+        'cache:srt': new Map(),
+        'cache:srt-vocabulary-texts': new Map(),
+    };
 
     /**
-     * 读取缓存值，并在值已过期时立即删除。
+     * 读取缓存值，并在值已过期时立即删除；命中有效缓存时刷新 LRU 访问热度。
      *
      * @param type 缓存命名空间。
      * @param key 业务键。
      * @returns 缓存值；不存在或已过期时返回 `null`。
      */
     public get<T extends keyof CacheType>(type: T, key: string): CacheType[T] | null {
-        const mapKey = this.getMapKey(type, key);
-        const item = this.cache.get(mapKey);
+        const store = this.stores[type];
+        const item = store.get(key);
         if (!item) {
             return null;
         }
 
         if (item.expires && Date.now() > item.expires) {
-            this.cache.delete(mapKey);
+            store.delete(key);
             return null;
         }
+
+        // 刷新 LRU 顺序：移动到 Map 末尾
+        store.delete(key);
+        store.set(key, item);
 
         return item.value as CacheType[T];
     }
 
     /**
-     * 写入缓存值。
+     * 写入缓存值，并在超出命名空间容量时淘汰最久未访问的条目。
      *
      * @param type 缓存命名空间。
      * @param key 业务键。
@@ -87,8 +102,21 @@ export class CacheServiceImpl implements CacheService {
      * @param ttl 可选有效期，单位为毫秒；不传时不会自动过期。
      */
     public set<T extends keyof CacheType>(type: T, key: string, value: CacheType[T], ttl?: number): void {
+        const store = this.stores[type];
+        const maxEntries = DEFAULT_MAX_ENTRIES[type] ?? 32;
+
+        if (store.has(key)) {
+            store.delete(key);
+        } else if (store.size >= maxEntries) {
+            // 淘汰最久未访问（Map 头部）的项
+            const oldestKey = store.keys().next().value;
+            if (oldestKey !== undefined) {
+                store.delete(oldestKey);
+            }
+        }
+
         const expires = ttl ? Date.now() + ttl : undefined;
-        this.cache.set(this.getMapKey(type, key), {
+        store.set(key, {
             value,
             expires,
         });
@@ -101,24 +129,15 @@ export class CacheServiceImpl implements CacheService {
      * @param key 业务键。
      */
     public delete<T extends keyof CacheType>(type: T, key: string): void {
-        this.cache.delete(this.getMapKey(type, key));
+        this.stores[type].delete(key);
     }
 
     /**
      * 清空当前进程中的全部缓存。
      */
     public clear(): void {
-        this.cache.clear();
-    }
-
-    /**
-     * 生成内部 Map 使用的唯一键。
-     *
-     * @param type 缓存命名空间。
-     * @param key 业务键。
-     * @returns 拼接后的内部键。
-     */
-    private getMapKey(type: string, key: string): string {
-        return `${type}::=::${key}`;
+        for (const store of Object.values(this.stores)) {
+            store.clear();
+        }
     }
 }

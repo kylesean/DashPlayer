@@ -99,6 +99,13 @@
       "when": 1794157282834,
       "tag": "0013_nervous_inertia",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1794350000000,
+      "tag": "0014_lower_word_idx",
+      "breakpoints": true
     }
   ]
 }

@@ -79,20 +79,19 @@ export class SubtitleGenerationServiceImpl implements SubtitleGenerationService 
         if (this.activeVideos.has(videoPath)) {
             throw new Error('该视频正在生成字幕中，请等待完成后再试');
         }
-        const srtPath = this.srtPathOf(videoPath);
-        if (await this.fileSystemGateway.fileExists(srtPath)) {
-            throw new Error(`字幕文件已存在：${srtPath}`);
-        }
         this.activeVideos.add(videoPath);
-        let taskId: number;
+        const srtPath = this.srtPathOf(videoPath);
         try {
-            taskId = await this.dpTaskService.create();
+            if (await this.fileSystemGateway.fileExists(srtPath)) {
+                throw new Error(`字幕文件已存在：${srtPath}`);
+            }
+            const taskId = await this.dpTaskService.create();
+            void this.run(taskId, videoPath, srtPath);
+            return taskId;
         } catch (error) {
             this.activeVideos.delete(videoPath);
             throw error;
         }
-        void this.run(taskId, videoPath, srtPath);
-        return taskId;
     }
 
     /**

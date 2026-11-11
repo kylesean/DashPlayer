@@ -1,6 +1,8 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { pipeline } from 'node:stream/promises';
 import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { injectable } from 'inversify';
@@ -205,6 +207,9 @@ const gunzipFile = async (filePath: string): Promise<Buffer> => {
 /**
  * 解析 StarDict 词典（.ifo + .idx/.idx.gz + .dict/.dict.dz）。
  *
+ * 采用文件句柄按需读取与流式解压，避免一次性将上百兆的 .dict 载入内存缓冲区，
+ * 并定期向事件循环让渡（setImmediate），防止长时间阻塞主进程。
+ *
  * @param ifoPath .ifo 文件路径。
  * @returns 词典名与词条列表。
  */
@@ -225,28 +230,67 @@ const parseStardict = async (ifoPath: string): Promise<{ name: string; entries: 
         ? await fs.promises.readFile(idxPath)
         : await gunzipFile(`${idxPath}.gz`);
     const dictPath = path.join(directory, `${base}.dict`);
-    const dictBuffer = fs.existsSync(dictPath)
-        ? await fs.promises.readFile(dictPath)
-        : await gunzipFile(`${dictPath}.dz`);
+    const dictDzPath = `${dictPath}.dz`;
 
-    const entries: ParsedEntry[] = [];
-    let cursor = 0;
-    while (cursor < idxBuffer.length) {
-        const wordEnd = idxBuffer.indexOf(0, cursor);
-        if (wordEnd < 0) break;
-        const word = idxBuffer.subarray(cursor, wordEnd).toString('utf8').trim();
-        cursor = wordEnd + 1;
-        if (cursor + 8 > idxBuffer.length) break;
-        const offset = idxBuffer.readUInt32BE(cursor);
-        cursor += 4;
-        const size = idxBuffer.readUInt32BE(cursor);
-        cursor += 4;
-        if (!word || size <= 0 || offset + size > dictBuffer.length) continue;
-        const translation = decodeStardictRecord(dictBuffer.subarray(offset, offset + size), sametypesequence).trim();
-        if (!translation) continue;
-        entries.push({ word, phonetic: '', translation });
+    let dictHandle: fs.promises.FileHandle | null = null;
+    let tempDecompressedPath: string | null = null;
+
+    try {
+        if (fs.existsSync(dictPath)) {
+            dictHandle = await fs.promises.open(dictPath, 'r');
+        } else if (fs.existsSync(dictDzPath)) {
+            tempDecompressedPath = path.join(os.tmpdir(), `dashplayer-stardict-${randomUUID()}.dict`);
+            await pipeline(
+                fs.createReadStream(dictDzPath),
+                zlib.createGunzip({ maxOutputLength: MAX_DECOMPRESSED_DICT_BYTES }),
+                fs.createWriteStream(tempDecompressedPath)
+            );
+            dictHandle = await fs.promises.open(tempDecompressedPath, 'r');
+        } else {
+            throw new Error(`找不到 .dict 或 .dict.dz 文件: ${dictPath}`);
+        }
+
+        const stat = await dictHandle.stat();
+        const dictLength = stat.size;
+
+        const entries: ParsedEntry[] = [];
+        let cursor = 0;
+        let processedCount = 0;
+
+        while (cursor < idxBuffer.length) {
+            const wordEnd = idxBuffer.indexOf(0, cursor);
+            if (wordEnd < 0) break;
+            const word = idxBuffer.subarray(cursor, wordEnd).toString('utf8').trim();
+            cursor = wordEnd + 1;
+            if (cursor + 8 > idxBuffer.length) break;
+            const offset = idxBuffer.readUInt32BE(cursor);
+            cursor += 4;
+            const size = idxBuffer.readUInt32BE(cursor);
+            cursor += 4;
+            if (!word || size <= 0 || offset + size > dictLength) continue;
+
+            const recordBuf = Buffer.allocUnsafe(size);
+            const { bytesRead } = await dictHandle.read(recordBuf, 0, size, offset);
+            if (bytesRead < size) continue;
+
+            const translation = decodeStardictRecord(recordBuf, sametypesequence).trim();
+            if (!translation) continue;
+            entries.push({ word, phonetic: '', translation });
+
+            processedCount++;
+            if (processedCount % 1000 === 0) {
+                await new Promise((resolve) => setImmediate(resolve));
+            }
+        }
+        return { name, entries };
+    } finally {
+        if (dictHandle) {
+            await dictHandle.close().catch(() => {});
+        }
+        if (tempDecompressedPath) {
+            fs.rmSync(tempDecompressedPath, { force: true });
+        }
     }
-    return { name, entries };
 };
 
 /**
@@ -456,8 +500,9 @@ export default class ImportedDictionaryService {
      * @returns 实际写入的词条数（重复词形只保留首条）。
      */
     private writeDictionaryDb(dbPath: string, entries: ParsedEntry[]): number {
-        fs.rmSync(dbPath, { force: true });
-        const db = new Database(dbPath);
+        const tempPath = `${dbPath}.tmp`;
+        fs.rmSync(tempPath, { force: true });
+        const db = new Database(tempPath);
         try {
             db.exec(`
                 CREATE TABLE entries (
@@ -477,9 +522,14 @@ export default class ImportedDictionaryService {
                 insert.run(key, entry.word.trim(), entry.phonetic, entry.translation);
             }
             db.exec('COMMIT');
-            return (db.prepare('SELECT COUNT(*) AS count FROM entries').get() as { count: number }).count;
-        } finally {
+            const count = (db.prepare('SELECT COUNT(*) AS count FROM entries').get() as { count: number }).count;
             db.close();
+            fs.renameSync(tempPath, dbPath);
+            return count;
+        } catch (error) {
+            try { db.close(); } catch { /* noop */ }
+            fs.rmSync(tempPath, { force: true });
+            throw error;
         }
     }
 

@@ -57,6 +57,9 @@ export default interface MediaService {
  */
 @injectable()
 export class MediaServiceImpl implements MediaService {
+    private readonly durationCache = new Map<string, number>();
+    private readonly inFlightThumbnails = new Map<string, Promise<string>>();
+
     public constructor(
         @inject(TYPES.StorageDirectoryProvider)
         private readonly storageDirectoryProvider: StorageDirectoryProvider,
@@ -77,6 +80,26 @@ export class MediaServiceImpl implements MediaService {
      * @returns 缩略图文件绝对路径。
      */
     public async thumbnail(
+        sourceFilePath: string,
+        timestamp?: number,
+        options: ThumbnailOptions = {},
+    ): Promise<string> {
+        const cacheKey = `${sourceFilePath}::${timestamp ?? ''}::${JSON.stringify(options)}`;
+        const inFlight = this.inFlightThumbnails.get(cacheKey);
+        if (inFlight) {
+            return inFlight;
+        }
+
+        const task = this.generateThumbnail(sourceFilePath, timestamp, options);
+        this.inFlightThumbnails.set(cacheKey, task);
+        try {
+            return await task;
+        } finally {
+            this.inFlightThumbnails.delete(cacheKey);
+        }
+    }
+
+    private async generateThumbnail(
         sourceFilePath: string,
         timestamp?: number,
         options: ThumbnailOptions = {},
@@ -154,10 +177,15 @@ export class MediaServiceImpl implements MediaService {
      * @returns 大于零的媒体时长，单位为秒。
      */
     private async readPositiveDuration(sourceFilePath: string): Promise<number> {
+        const cached = this.durationCache.get(sourceFilePath);
+        if (cached !== undefined) {
+            return cached;
+        }
         const duration = await this.ffmpegService.duration(sourceFilePath);
         if (!Number.isFinite(duration) || duration <= 0) {
             throw new Error(`无法读取有效的媒体时长：${sourceFilePath}`);
         }
+        this.durationCache.set(sourceFilePath, duration);
         return duration;
     }
 
