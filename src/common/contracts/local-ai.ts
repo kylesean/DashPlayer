@@ -1,3 +1,12 @@
+/**
+ * 随包分发的 llama.cpp 运行时版本。
+ *
+ * 对话模型与向量模型共用同一个二进制：EmbeddingGemma 2 的 `gemma-embedding2`
+ * 架构需要 b11500+，而 Qwen3.5 在同一版本下正常生成，因此没有理由维护两套。
+ * 升级版本时同步更新 `scripts/download.mjs` 的资源名与 SHA-256。
+ */
+export const LLAMA_RUNTIME_VERSION = 'b12292';
+
 /** 本地模型目录项；id 同时作为设置值、安装目录名与缓存隔离键的一部分。 */
 export interface LocalAiModelDefinition {
     /** 稳定模型标识，目录内唯一。 */
@@ -53,19 +62,49 @@ export const LOCAL_AI_DEFAULT_MODEL_ID = 'qwen3.5-2b-q4_k_m';
  *
  * 与对话模型分开管理：它只服务于内容推荐的语义相似度，不能切换到聊天/翻译路径，
  * 也不会出现在「使用中模型」里。未安装时推荐自动降级为词面相似度。
+ *
+ * 选择 EmbeddingGemma 2 而不是 bge-small 的原因：
+ * - 多语言（bge-small-en 只支持英文，中英混合字幕会退化）；
+ * - 768 维、24 层，语义区分度明显更好；
+ * - 官方多模态权重可复用同一 llama-server 进程做图像/音频向量。
+ *
+ * 代价是必须搭配 llama.cpp b11500+ 运行时（`gemma-embedding2` 架构），
+ * 因此下载脚本与两个运行时都固定在 b12292。
  */
 export const LOCAL_EMBEDDING_MODEL: LocalAiModelDefinition = {
-    id: 'bge-small-en-v1.5-q8_0',
-    name: 'BGE Small EN v1.5 Q8_0',
-    file: 'bge-small-en-v1.5-q8_0.gguf',
-    bytes: 36806944,
-    sizeLabel: '35 MB',
+    id: 'embeddinggemma-2-q4_k_xl',
+    name: 'EmbeddingGemma 2 Q4_K_XL',
+    file: 'embeddinggemma-2-UD-Q4_K_XL.gguf',
+    bytes: 175673856,
+    sizeLabel: '168 MB',
     urls: [
-        'https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-q8_0.gguf',
+        'https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/main/embeddinggemma-2-UD-Q4_K_XL.gguf',
     ],
-    sha256: 'ec38e8da142596baa913124ae50550de284b6916bf59577ef2f0cb9660c2f514',
+    sha256: 'ea905fd08e8061db77a0031cbb5096d459d7cfd2bdd0ad2ba66e483f16719493',
     source: 'catalog',
 };
+
+/**
+ * EmbeddingGemma 2 的多模态投影文件。
+ *
+ * 只有需要图像/音频向量时才安装：文本推荐不依赖它。单独成项而不是塞进
+ * `LOCAL_EMBEDDING_MODEL`，是为了让只做文本语义的安装保持 168 MB 而不是 700 MB。
+ */
+export const LOCAL_EMBEDDING_MMPROJ: LocalAiModelDefinition = {
+    id: 'embeddinggemma-2-mmproj-q8_0',
+    name: 'EmbeddingGemma 2 MMProj Q8_0',
+    file: 'embeddinggemma-2-mmproj-Q8_0.gguf',
+    bytes: 554821120,
+    sizeLabel: '529 MB',
+    urls: [
+        'https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/main/mmproj-Q8_0.gguf',
+    ],
+    sha256: '90e7b0238009e2954f856f2081dcf7f35af026b64c765e98f4777053e1754460',
+    source: 'catalog',
+};
+
+/** 向量维度；EmbeddingGemma 2 固定 768 维，用于拒绝异常响应。 */
+export const LOCAL_EMBEDDING_DIMENSION = 768;
 
 /** 自定义模型 id 的固定前缀；后缀为模型目录根下的 GGUF 文件名。 */
 export const CUSTOM_MODEL_ID_PREFIX = 'custom:';

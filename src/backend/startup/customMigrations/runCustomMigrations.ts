@@ -10,6 +10,7 @@ import { storeSchemaDictionaryYoudaoMigrationV2 } from './migrations/storeSchema
 import { storeSchemaCloudAiEndpointMigrationV3 } from './migrations/storeSchemaCloudAiEndpointMigrationV3';
 import { storeSchemaSubtitleEngineLocalMtMigrationV1 } from './migrations/storeSchemaSubtitleEngineLocalMtMigrationV1';
 import { defaultVocabularySourceMigrationV1 } from './migrations/defaultVocabularySourceMigrationV1';
+import { legacyEmbeddingVectorPurgeMigrationV1 } from './migrations/legacyEmbeddingVectorPurgeMigrationV1';
 
 const logger = getMainLogger('custom-migrations');
 
@@ -26,6 +27,7 @@ const customMigrations: CustomMigration[] = [
     storeSchemaCloudAiEndpointMigrationV3,
     storeSchemaSubtitleEngineLocalMtMigrationV1,
     defaultVocabularySourceMigrationV1,
+    legacyEmbeddingVectorPurgeMigrationV1,
 ];
 
 /**

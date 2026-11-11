@@ -115,6 +115,6 @@ describe('SceneCue', () => {
             { fileHash: 'hash', index: 0, start: 0, end: 2, text: 'The journey starts tomorrow morning.' },
             { fileHash: 'hash', index: 1, start: 2, end: 4, text: 'Are you ready for the journey?' },
             { fileHash: 'hash', index: 2, start: 4, end: 4.6, text: 'Yes.' },
-        ]);
+        ], undefined);
     });
 });

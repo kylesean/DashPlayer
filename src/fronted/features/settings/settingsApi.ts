@@ -182,6 +182,34 @@ export const settingsApi = {
     deleteParakeetModel: () => backendClient.call('parakeet/models/delete'),
 
     /**
+     * 查询说话人分离模型（分割 + 声纹嵌入）的安装状态。
+     *
+     * @returns 两项模型是否就绪。
+     */
+    getSpeakerDiarizationModelStatus: () => backendClient.call('speaker-diarization/models/status'),
+
+    /**
+     * 下载说话人分离模型；两个文件依次安装。
+     *
+     * @returns 下载任务结果。
+     */
+    downloadSpeakerDiarizationModel: () => backendClient.call('speaker-diarization/models/download'),
+
+    /**
+     * 取消说话人分离模型下载。
+     *
+     * @returns 取消结果。
+     */
+    cancelSpeakerDiarizationModelDownload: () => backendClient.call('speaker-diarization/models/cancel-download'),
+
+    /**
+     * 删除说话人分离模型。
+     *
+     * @returns 删除结果。
+     */
+    deleteSpeakerDiarizationModel: () => backendClient.call('speaker-diarization/models/delete'),
+
+    /**
      * 查询 whisper.cpp 模型状态。
      *
      * @returns 当前模型状态。
@@ -242,6 +270,10 @@ export const settingsApi = {
     getEmbeddingModelStatus: () => backendClient.call('local-ai/embedding-status'),
     /** 下载并校验本地语义向量模型。 */
     downloadEmbeddingModel: () => backendClient.call('local-ai/embedding-download'),
+    /** 下载多模态投影（图像/音频向量）；文本推荐不依赖它。 */
+    downloadEmbeddingMultimodal: () => backendClient.call('local-ai/embedding-multimodal-download'),
+    /** 删除已安装的语义模型与多模态投影。 */
+    removeEmbeddingModel: () => backendClient.call('local-ai/embedding-remove'),
     /**
      * 下载 Sherpa TTS 模型。
      *

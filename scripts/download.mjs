@@ -443,6 +443,14 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
     const ttsExePath = path.join(basePath, ttsExeName);
     const ttsRes = await verifyExistence({ dir: basePath, file: ttsExeName });
 
+    // 离线说话人分离 CLI：与识别 CLI 同一个发行归档，按需单独提取。
+    // 场景切分用它把「短回应紧跟在问句后」的文本启发式升级为真实声纹分段。
+    const diarizationExeName = platform === 'win32'
+        ? 'sherpa-onnx-offline-speaker-diarization.exe'
+        : 'sherpa-onnx-offline-speaker-diarization';
+    const diarizationExePath = path.join(basePath, diarizationExeName);
+    const diarizationRes = await verifyExistence({ dir: basePath, file: diarizationExeName });
+
     const version = '1.13.4';
     const releaseBase = `https://github.com/k2-fsa/sherpa-onnx/releases/download/v${version}`;
     const assetNames = {
@@ -487,6 +495,9 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
     if (ttsRes === 'need_download') {
         targets.push({ outputPath: ttsExePath, binaryNameCandidates: [ttsExeName] });
     }
+    if (diarizationRes === 'need_download') {
+        targets.push({ outputPath: diarizationExePath, binaryNameCandidates: [diarizationExeName] });
+    }
     if (targets.length > 0) {
         console.info(chalk.blue(`=> sherpa-onnx targets: ${targets.map((t) => t.outputPath).join(', ')}`));
         await downloadAndExtractBinaryFromArchive({
@@ -503,7 +514,7 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
 // - linux / win32-x64：Vulkan 包（核显/独显推理；llama.cpp 官方未提供 win-arm64 Vulkan 包）
 // - win32-arm64：CPU 包
 {
-    const llamaVersion = 'b10819';
+    const llamaVersion = 'b12292';
     const llamaDir = path.join(dir, 'llama', llamaVersion, `${platform}-${arch}`);
     mkdirp(llamaDir);
     const exeName = platform === 'win32' ? 'llama-server.exe' : 'llama-server';
@@ -512,18 +523,21 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
         linux: { arm64: `llama-${llamaVersion}-bin-ubuntu-vulkan-arm64.tar.gz`, x64: `llama-${llamaVersion}-bin-ubuntu-vulkan-x64.tar.gz` },
         win32: { arm64: `llama-${llamaVersion}-bin-win-cpu-arm64.zip`, x64: `llama-${llamaVersion}-bin-win-vulkan-x64.zip` },
     };
+    // 固定到 b12292：EmbeddingGemma 2 的 `gemma-embedding2` 架构需要 b11500+，
+    // 低于该版本加载会报 unknown model architecture。升级同时覆盖对话模型路径，
+    // 已验证 Qwen3.5 2B 在同一运行时下正常生成。
     const llamaChecksums = {
         darwin: {
-            arm64: '8933e736495eadfef0731ae32054acfaa75699bf4a6ccba77cd8475db085ec66',
-            x64: '04dd13ec03120685bd6e1931e8f1562d2c981ca076a3e63cc44e9a199b37816a',
+            arm64: '94b860a529a64aecfe20c4b9ccb9ca6fb4cf9126b019f3380ee02d7951ca11ef',
+            x64: 'cf07bb8d2232bf48fbd2a11c75c1305bf5165e342201c563a8c89df3c7832690',
         },
         linux: {
-            arm64: '33c4381ffa1f7ae9a3791bdaaddcc31460cb6e28b02add0b7d607c54e810004f',
-            x64: '2175737ab85506e7639fc7f8c84b5247fd607cc6e7030825c6dcadd4279f62e3',
+            arm64: '462b22e035311435d6f9708150216718e3480394cc6033c59d993e41a252ef27',
+            x64: '01a6e2a7caa8d6ab6cb2dd906bd7c5c435440849c259440b1c3d3724850fa8e7',
         },
         win32: {
-            arm64: '5802d55f633b68bf6dbe574d75f9f47387761fe3b6ddef4193ea9ea423642afb',
-            x64: '4c5ff97b5440024906fc90f67809d84b92d9b77847c7d1a800701a36499e565e',
+            arm64: 'd6a19ced6a43c02fd541ff6a14e4d30a52ada0fc3c621af5338fb66d615561fa',
+            x64: '0be8bc703e92734646bfadda874e5c16e28d9ea42dde8e6c08fe2431f6b4700b',
         },
     };
     const assetName = assetNames[platform]?.[arch];

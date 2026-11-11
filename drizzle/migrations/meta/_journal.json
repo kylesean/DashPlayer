@@ -148,6 +148,13 @@
       "when": 1794436882754,
       "tag": "0020_steep_raider",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1794438762141,
+      "tag": "0021_many_cloak",
+      "breakpoints": true
     }
   ]
 }

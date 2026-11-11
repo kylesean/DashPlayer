@@ -36,7 +36,7 @@ import type { TranscriptionEngine } from '@/common/contracts/transcription-engin
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 
 /** 资源包内的资源标识。 */
-type PackItemKey = 'tts' | 'transcription';
+type PackItemKey = 'tts' | 'transcription' | 'diarization';
 
 /** 进度与网速刷新到 UI 的最小间隔（毫秒）：进度事件很密，节流后数字才不会闪。 */
 const PROGRESS_RENDER_INTERVAL_MS = 500;
@@ -90,6 +90,14 @@ export interface ResourcePackCardProps {
     ttsStatus: ModelInstallationStatusVO | null;
     /** 字幕识别模型状态。 */
     transcriptionStatus: ModelInstallationStatusVO | null;
+    /** 说话人分离模型状态；未加载时为 null。 */
+    diarizationStatus: {
+        segmentationReady: boolean;
+        embeddingReady: boolean;
+        ready: boolean;
+        segmentationUrls: string[];
+        embeddingUrls: string[];
+    } | null;
     /** 下载/删除结束后刷新外层聚合状态。 */
     onRefresh: () => void;
     /** 切换字幕识别方式。 */
@@ -100,6 +108,7 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
     transcriptionEngine,
     ttsStatus,
     transcriptionStatus,
+    diarizationStatus,
     onRefresh,
     onChangeEngine,
 }) => {
@@ -234,6 +243,21 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                     await settingsApi.deleteParakeetModel();
                 }
             },
+        },
+        {
+            key: 'diarization',
+            title: t('resources.pack.itemDiarization'),
+            description: t('resources.pack.itemDiarizationDesc'),
+            ready: diarizationStatus?.ready ?? false,
+            modelLabel: t('resources.pack.itemDiarizationModelFile'),
+            urls: [
+                ...(diarizationStatus?.segmentationUrls ?? []),
+                ...(diarizationStatus?.embeddingUrls ?? []),
+            ],
+            targetPath: '',
+            download: async () => { await settingsApi.downloadSpeakerDiarizationModel(); },
+            cancel: async () => { await settingsApi.cancelSpeakerDiarizationModelDownload(); },
+            remove: async () => { await settingsApi.deleteSpeakerDiarizationModel(); },
         },
     ];
 

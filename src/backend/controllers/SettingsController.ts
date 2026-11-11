@@ -17,6 +17,7 @@ import type { ResourceStatusSnapshot } from '@/common/contracts/resource-status'
 import type SherpaTtsModelService from '@/backend/services/SherpaTtsModelService';
 import type WhisperCppModelService from '@/backend/services/WhisperCppModelService';
 import type ParakeetModelService from '@/backend/services/ParakeetModelService';
+import type SpeakerDiarizationModelService from '@/backend/services/SpeakerDiarizationModelService';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
 import type MobileAccessService from '@/backend/services/MobileAccessService';
@@ -70,6 +71,8 @@ export default class SettingsController implements Controller {
         @inject(TYPES.SherpaTtsModelService) private readonly sherpaTtsModelService: SherpaTtsModelService,
         @inject(TYPES.WhisperCppModelService) private readonly whisperCppModelService: WhisperCppModelService,
         @inject(TYPES.ParakeetModelService) private readonly parakeetModelService: ParakeetModelService,
+        @inject(TYPES.SpeakerDiarizationModelService)
+        private readonly speakerDiarizationModelService: SpeakerDiarizationModelService,
         @inject(TYPES.LocalAiService) private readonly localAiService: LocalAiService,
         @inject(TYPES.TranscriptionEngineSelector) private readonly transcriptionEngineSelector: TranscriptionEngineSelector,
         @inject(TYPES.MobileAccessService) private readonly mobileAccessService: MobileAccessService,
@@ -130,11 +133,12 @@ export default class SettingsController implements Controller {
      */
     public async getResourceStatusDetail(): Promise<ResourceStatusSnapshot> {
         const transcriptionEngine = this.transcriptionEngineSelector.currentEngine();
-        const [tts, transcription, localAi, hardware] = await Promise.all([
+        const [tts, transcription, diarization, localAi, hardware] = await Promise.all([
             this.sherpaTtsModelService.getStatus(),
             transcriptionEngine === 'whisper-cpp'
                 ? this.whisperCppModelService.getStatus()
                 : this.parakeetModelService.getStatus(),
+            this.speakerDiarizationModelService.getStatus(),
             this.localAiService.getStatus(),
             readSystemInfo(),
         ]);
@@ -142,6 +146,7 @@ export default class SettingsController implements Controller {
             transcriptionEngine,
             tts,
             transcription,
+            diarization,
             localAi,
             hardware,
             fallback: this.resourceFallback.getSnapshot(),

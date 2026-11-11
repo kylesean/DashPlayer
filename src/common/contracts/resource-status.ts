@@ -17,6 +17,19 @@ export interface ResourceStatusSnapshot {
     tts: ModelInstallationStatusVO;
     /** 字幕识别模型状态（随识别方式取 whisper.cpp 或 sherpa-onnx）。 */
     transcription: ModelInstallationStatusVO;
+    /** 说话人分离模型状态；场景切分用它把文本推测升级为真实声纹。 */
+    diarization: {
+        /** 分割模型是否就绪。 */
+        segmentationReady: boolean;
+        /** 声纹嵌入模型是否就绪。 */
+        embeddingReady: boolean;
+        /** 两项都就绪时才可分离。 */
+        ready: boolean;
+        /** 分割模型下载地址。 */
+        segmentationUrls: string[];
+        /** 声纹嵌入模型下载地址。 */
+        embeddingUrls: string[];
+    };
     /** 本地增强资源包状态。 */
     localAi: LocalAiStatus;
     /** 本机硬件概要。 */

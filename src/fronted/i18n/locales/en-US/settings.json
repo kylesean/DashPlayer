@@ -499,6 +499,9 @@
             "itemTtsDesc": "Reads words and example sentences aloud.",
             "itemTranscription": "Subtitle recognition",
             "itemTranscriptionDesc": "Recognizes speech in videos and generates subtitles.",
+            "itemDiarization": "Speaker detection",
+            "itemDiarizationDesc": "Optional. Identifies who is speaking when scenes change, making scene cues more accurate.",
+            "itemDiarizationModelFile": "Segmentation + speaker embedding models",
             "itemReady": "Ready",
             "itemMissing": "Not downloaded",
             "engineLabel": "Recognition mode",
@@ -529,8 +532,15 @@
             "ready": "Installed",
             "install": "Install",
             "installing": "Installing…",
+            "remove": "Remove",
+            "removing": "Removing…",
+            "removed": "Semantic model removed",
             "installed": "Semantic model installed; recommendations now prefer semantic similarity",
-            "description": "Optional, {{size}}. Helps judge whether topics are related; without it, recommendations still work using lexical similarity."
+            "description": "Optional, {{size}}. EmbeddingGemma 2 is multilingual and helps judge whether topics are related; without it, recommendations still work using lexical similarity.",
+            "multimodalInstall": "Add image understanding",
+            "multimodalReady": "Image understanding ready for video-frame topic analysis",
+            "multimodalHint": "Optional: adds visual topic understanding; subtitle-only recommendations do not need it.",
+            "multimodalInstalled": "Image understanding component installed"
         },
         "cloud": {
             "title": "Cloud Services",

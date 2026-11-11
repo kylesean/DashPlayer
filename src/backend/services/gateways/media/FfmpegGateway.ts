@@ -144,6 +144,25 @@ export interface ConvertToWavArgs {
 }
 
 /**
+ * 关键帧抽取参数。
+ *
+ * 按固定时间点逐帧抽取而不是按场景检测：时间点与字幕句对齐，才能把
+ * 画面信号落到具体的句子上；场景检测的切点与字幕无关，无法直接复用。
+ */
+export interface ExtractFramesArgs {
+    /** 输入媒体文件路径。 */
+    inputFile: string;
+    /** 输出帧文件路径；按顺序命名为 `<base>_0001.jpg`。 */
+    outputFilePattern: string;
+    /** 抽取时间点，单位为秒；超出时长的点由网关钳制。 */
+    timeSeconds: readonly number[];
+    /** 目标宽度；高度按比例缩放。 */
+    width?: number;
+    /** jpg 质量参数（1~31，越小越清晰）。 */
+    jpgQScale?: number;
+}
+
+/**
  * FFmpeg 基础设施网关。
  */
 export default interface FfmpegGateway {
@@ -167,5 +186,15 @@ export default interface FfmpegGateway {
 
     /** 转 WAV。 */
     convertToWav(args: ConvertToWavArgs, options?: FfmpegRunOptions): Promise<void>;
+
+    /**
+     * 按给定时间点抽取画面帧。
+     *
+     * @returns 实际落地的帧及其时间点，按时间升序；空帧会被跳过。
+     */
+    extractFrames(
+        args: ExtractFramesArgs,
+        options?: FfmpegRunOptions,
+    ): Promise<Array<{ time: number; path: string }>>;
 
     }

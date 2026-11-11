@@ -17,6 +17,7 @@
         "exploreLibrary": "选择其他视频"
     },
     "speedSlider": {
+        "title": "播放速度",
         "favoriteHint": "勾选常用速度，按快捷键 {{shortcut}} 即可在这些速度间循环切换。",
         "custom": "自定义"
     },
@@ -63,6 +64,7 @@
         "tracksEnglish": "EN",
         "tracksChinese": "中",
         "tracksNone": "无",
+        "tracksLabel": "字幕轨道",
         "tracksTooltipBilingual": "双语显示",
         "tracksTooltipEnglish": "仅显示英文",
         "tracksTooltipChinese": "仅显示中文",
@@ -146,7 +148,8 @@
     "sceneCue": {
         "newScene": "新场景",
         "topicShift": "新场景 · 话题切换",
-        "speakerShift": "可能换了说话人"
+        "speakerShift": "可能换了说话人",
+        "visualShift": "新场景 · 镜头切换"
     },
     "clearAdjust": {
         "button": "清除时间调整",

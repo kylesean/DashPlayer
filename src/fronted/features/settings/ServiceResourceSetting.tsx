@@ -387,6 +387,7 @@ const ServiceResourceSetting: React.FC = () => {
                                 transcriptionEngine={resourceStatus.transcriptionEngine}
                                 ttsStatus={resourceStatus?.tts ?? null}
                                 transcriptionStatus={resourceStatus?.transcription ?? null}
+                                diarizationStatus={resourceStatus?.diarization ?? null}
                                 onRefresh={() => { void refreshResourceStatus(); }}
                                 onChangeEngine={(engine) => { void changeTranscriptionEngine(engine); }}
                             />

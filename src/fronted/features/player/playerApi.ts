@@ -210,8 +210,8 @@ export const playerApi = {
      * @param sentences 参与切分的字幕句（只需影响边界的字段）。
      * @returns 场景边界列表。
      */
-    getSceneBoundaries: (sentences: SceneSentence[]) =>
-        backendClient.call('subtitle/scene-boundaries', { sentences }),
+    getSceneBoundaries: (sentences: SceneSentence[], videoPath?: string) =>
+        backendClient.call('subtitle/scene-boundaries', { sentences, videoPath }),
 
     /**
      * 将任意英文文本解析为单词级展示结构（分词、lemma、词性）。

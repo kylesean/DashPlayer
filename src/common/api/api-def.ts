@@ -110,9 +110,22 @@ interface ApiDefinition {
     'local-ai/speed-test': { params: { modelId: string }, return: LocalAiSpeedTestResult };
     'local-ai/embedding-status': {
         params: void;
-        return: { ready: boolean; name: string; sizeLabel: string; bytes: number };
+        return: {
+            ready: boolean;
+            name: string;
+            sizeLabel: string;
+            bytes: number;
+            /** 多模态投影是否就绪；未安装时图像/音频向量不可用。 */
+            multimodalReady: boolean;
+            /** 多模态投影体积。 */
+            multimodalBytes: number;
+        };
     };
     'local-ai/embedding-download': { params: void; return: void };
+    /** 下载多模态投影（图像/音频向量）；文本推荐不依赖它。 */
+    'local-ai/embedding-multimodal-download': { params: void; return: void };
+    /** 删除已安装的语义模型与多模态投影。 */
+    'local-ai/embedding-remove': { params: void; return: number };
 }
 
 // 定义额外的接口
@@ -300,7 +313,7 @@ interface SubtitleControllerDef {
     };
     /** 读取或计算字幕场景边界；结果按字幕哈希与算法版本持久化。 */
     'subtitle/scene-boundaries': {
-        params: { sentences: SceneSentence[] };
+        params: { sentences: SceneSentence[]; videoPath?: string };
         return: SceneBoundary[];
     };
 }
@@ -379,6 +392,22 @@ interface ParakeetModelDef {
     'parakeet/models/download': { params: void, return: { success: boolean; message: string } };
     'parakeet/models/cancel-download': { params: void, return: { cancelled: boolean } };
     'parakeet/models/delete': { params: void, return: { success: boolean; message: string } };
+}
+
+interface SpeakerDiarizationModelDef {
+    'speaker-diarization/models/status': {
+        params: void;
+        return: {
+            segmentationReady: boolean;
+            embeddingReady: boolean;
+            ready: boolean;
+            segmentationUrls: string[];
+            embeddingUrls: string[];
+        };
+    };
+    'speaker-diarization/models/download': { params: void, return: { success: boolean; message: string } };
+    'speaker-diarization/models/cancel-download': { params: void, return: { cancelled: boolean } };
+    'speaker-diarization/models/delete': { params: void, return: { success: boolean; message: string } };
 }
 
 interface YoutubeImportDef {
@@ -628,6 +657,7 @@ export type ApiDefinitions = ApiDefinition
     & StorageDef
     & SettingsDef
     & ParakeetModelDef
+    & SpeakerDiarizationModelDef
     & YoutubeImportDef
     & WhisperCppModelDef
     & VocabularyDef
@@ -694,6 +724,8 @@ export const API_ROUTE_KEYS = [
     'local-ai/delete',
     'local-ai/download',
     'local-ai/embedding-download',
+    'local-ai/embedding-multimodal-download',
+    'local-ai/embedding-remove',
     'local-ai/embedding-status',
     'local-ai/speed-test',
     'local-ai/status',
@@ -734,6 +766,10 @@ export const API_ROUTE_KEYS = [
     'settings/storage/detail',
     'settings/storage/save',
     'settings/transcription-engine/save',
+    'speaker-diarization/models/cancel-download',
+    'speaker-diarization/models/delete',
+    'speaker-diarization/models/download',
+    'speaker-diarization/models/status',
     'sherpa-tts/models/cancel-download',
     'sherpa-tts/models/delete',
     'sherpa-tts/models/download',

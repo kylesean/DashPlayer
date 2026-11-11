@@ -17,6 +17,7 @@
         "exploreLibrary": "Choose Another Video"
     },
     "speedSlider": {
+        "title": "Playback speed",
         "favoriteHint": "Check your preferred speeds, then press {{shortcut}} to cycle through them.",
         "custom": "Custom"
     },
@@ -63,6 +64,7 @@
         "tracksEnglish": "EN",
         "tracksChinese": "中文",
         "tracksNone": "Off",
+        "tracksLabel": "Subtitle track",
         "tracksTooltipBilingual": "bilingual",
         "tracksTooltipEnglish": "English only",
         "tracksTooltipChinese": "Chinese only",
@@ -146,7 +148,8 @@
     "sceneCue": {
         "newScene": "New scene",
         "topicShift": "New scene · Topic shift",
-        "speakerShift": "Speaker may have changed"
+        "speakerShift": "Speaker may have changed",
+        "visualShift": "New scene · Camera cut"
     },
     "clearAdjust": {
         "button": "Clear timing adjustments",

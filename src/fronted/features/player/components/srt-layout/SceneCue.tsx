@@ -8,6 +8,7 @@ import {
 import type { Sentence } from '@/common/types/SentenceC';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 
 /**
  * 主字幕上方的轻量场景提示。
@@ -27,6 +28,8 @@ export default function SceneCue({
 }) {
     const { t } = useTranslation('player');
     const enabled = useSetting((state) => state.values.get('player.sceneCues') ?? 'false') === 'true';
+    // 视频路径让后端可以用真实声纹判定换人；没有视频时退回纯文本启发式。
+    const videoPath = usePlaybackSession((state) => state.videoPath);
 
     // 只把影响切分的字段发给后端；译文与翻译分组不参与判定，也不必跨进程传输。
     const sceneSentences = useMemo<SceneSentence[]>(() => sentences.map((sentence) => ({
@@ -40,8 +43,9 @@ export default function SceneCue({
     const fileHash = sceneSentences[0]?.fileHash ?? null;
 
     // 请求键与结果绑定：键变化时旧结果自动失效，无需在 effect 里同步清空状态。
+    // 视频路径参与键：同一份字幕被不同视频复用（极少见）时也要重新取声纹。
     const requestKey = enabled && sceneSentences.length >= 2 && fileHash
-        ? `${fileHash}:${sceneSentences.length}`
+        ? `${fileHash}:${sceneSentences.length}:${videoPath ?? ''}`
         : null;
     const [loaded, setLoaded] = useState<{ key: string; boundaries: SceneBoundary[] } | null>(null);
     const boundaries = useMemo<SceneBoundary[]>(
@@ -54,7 +58,7 @@ export default function SceneCue({
             return;
         }
         let cancelled = false;
-        playerApi.getSceneBoundaries(sceneSentences)
+        playerApi.getSceneBoundaries(sceneSentences, videoPath ?? undefined)
             .then((result) => {
                 if (!cancelled) {
                     setLoaded({ key: requestKey, boundaries: result });
@@ -71,7 +75,7 @@ export default function SceneCue({
         };
         // 同一字幕内切换当前句不应重新请求；键已覆盖字幕与句数变化。
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [requestKey]);
+    }, [requestKey, videoPath]);
 
     const boundaryByIndex = useMemo(() => {
         if (!enabled || boundaries.length === 0) {
@@ -93,6 +97,8 @@ export default function SceneCue({
 
     const label = boundary.kinds.includes('speaker-shift')
         ? t('sceneCue.speakerShift')
+        : boundary.kinds.includes('visual-shift')
+            ? t('sceneCue.visualShift')
         : boundary.kinds.includes('topic-shift')
             ? t('sceneCue.topicShift')
             : t('sceneCue.newScene');

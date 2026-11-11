@@ -3,6 +3,7 @@ import type {
     ConvertToWavArgs,
     CreateThumbnailArgs,
     ExtractSubtitleCommandArgs,
+    ExtractFramesArgs,
     TrimVideoArgs,
 } from '@/backend/services/gateways/media/FfmpegGateway';
 
@@ -33,6 +34,11 @@ export interface FfmpegCommandBuilder {
      * 构建音频转 WAV 命令参数。
      */
     buildConvertToWav(args: ConvertToWavArgs): string[];
+
+    /**
+     * 构建按时间点抽帧命令参数。
+     */
+    buildExtractFrames(args: ExtractFramesArgs, timeSecond: number, outputFile: string): string[];
 
 }
 
@@ -156,6 +162,27 @@ export class DefaultFfmpegCommandBuilder implements FfmpegCommandBuilder {
             '-f', 'wav',
             args.outputFile,
         );
+        return result;
+    }
+
+    /**
+     * 构建单帧抽取命令参数。
+     *
+     * 单点抽帧而不是 `-vf fps=`：只有明确的时间点才能与字幕句对齐，
+     * 也才能在超长视频上只解码需要的若干帧。
+     */
+    public buildExtractFrames(args: ExtractFramesArgs, timeSecond: number, outputFile: string): string[] {
+        this.assertNonNegative(timeSecond, '抽帧时间点');
+        const result: string[] = [
+            '-y',
+            '-ss', TimeUtil.secondToTimeStrWithMs(timeSecond),
+            '-i', args.inputFile,
+            '-frames:v', '1',
+        ];
+        if (typeof args.width === 'number' && args.width > 0) {
+            result.push('-vf', `scale=${Math.floor(args.width)}:-1`);
+        }
+        result.push('-q:v', `${args.jpgQScale ?? 5}`, '-f', 'image2', outputFile);
         return result;
     }
 

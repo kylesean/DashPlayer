@@ -48,7 +48,15 @@ describe('SubtitleController 场景边界', () => {
         const result = await controller.getSceneBoundaries({ sentences });
 
         expect(result).toEqual(boundaries);
-        expect(sceneIndexService.getBoundaries).toHaveBeenCalledWith(sentences);
+        expect(sceneIndexService.getBoundaries).toHaveBeenCalledWith(sentences, undefined);
+    });
+
+    it('透传视频路径，供后端用真实声纹判定换人', async () => {
+        const { controller, sceneIndexService } = build(vi.fn(async () => []));
+
+        await controller.getSceneBoundaries({ sentences, videoPath: '/video/a.mp4' });
+
+        expect(sceneIndexService.getBoundaries).toHaveBeenCalledWith(sentences, '/video/a.mp4');
     });
 
     it('服务返回空数组时透传，不伪造提示', async () => {

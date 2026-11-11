@@ -15,7 +15,10 @@ vi.mock('electron', () => ({
 
 import { LocalEmbeddingRuntime } from '@/backend/infrastructure/ai/LocalEmbeddingRuntime';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
-import { LOCAL_EMBEDDING_MODEL } from '@/common/contracts/local-ai';
+import {
+    LOCAL_EMBEDDING_MODEL,
+    LOCAL_EMBEDDING_MMPROJ,
+} from '@/common/contracts/local-ai';
 
 describe('LocalEmbeddingRuntime', () => {
     let directory: string | null = null;
@@ -63,5 +66,90 @@ describe('LocalEmbeddingRuntime', () => {
         } as never);
 
         expect(await runtime.embed([])).toEqual([]);
+    });
+
+    it('多模态投影未安装时图像向量返回 null，而不是零向量', async () => {
+        directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-embedding-'));
+        const runtime = new LocalEmbeddingRuntime({
+            provideDirectory: async () => directory!,
+            ensurePathAccessible: async () => undefined,
+        } as never);
+
+        expect(await runtime.isMultimodalReady()).toBe(false);
+        expect(await runtime.embedImages([{
+            data: Buffer.from('fake'),
+            mimeType: 'image/png',
+        }])).toBeNull();
+    });
+
+    it('多模态投影尺寸不符时视为未安装', async () => {
+        directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-embedding-'));
+        const mmprojDir = path.join(directory, LOCAL_EMBEDDING_MMPROJ.id);
+        await fs.mkdir(mmprojDir, { recursive: true });
+        await fs.writeFile(path.join(mmprojDir, LOCAL_EMBEDDING_MMPROJ.file), 'truncated');
+        const runtime = new LocalEmbeddingRuntime({
+            provideDirectory: async () => directory!,
+            ensurePathAccessible: async () => undefined,
+        } as never);
+
+        expect(await runtime.isMultimodalReady()).toBe(false);
+    });
+
+    it('状态同时报告文本模型与多模态投影', async () => {
+        directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-embedding-'));
+        const modelDir = path.join(directory, LOCAL_EMBEDDING_MODEL.id);
+        const mmprojDir = path.join(directory, LOCAL_EMBEDDING_MMPROJ.id);
+        await fs.mkdir(modelDir, { recursive: true });
+        await fs.mkdir(mmprojDir, { recursive: true });
+        await fs.writeFile(path.join(modelDir, LOCAL_EMBEDDING_MODEL.file), Buffer.alloc(LOCAL_EMBEDDING_MODEL.bytes));
+        await fs.writeFile(path.join(mmprojDir, LOCAL_EMBEDDING_MMPROJ.file), Buffer.alloc(LOCAL_EMBEDDING_MMPROJ.bytes));
+        const runtime = new LocalEmbeddingRuntime({
+            provideDirectory: async () => directory!,
+            ensurePathAccessible: async () => undefined,
+        } as never);
+
+        const status = await runtime.getStatus();
+
+        expect(status.ready).toBe(true);
+        expect(status.multimodalReady).toBe(true);
+        expect(status.bytes).toBe(LOCAL_EMBEDDING_MODEL.bytes);
+        expect(status.multimodalBytes).toBe(LOCAL_EMBEDDING_MMPROJ.bytes);
+    });
+
+    it('读取状态时清理已废弃的 bge-small 模型目录', async () => {
+        directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-embedding-'));
+        const legacyDir = path.join(directory, 'bge-small-en-v1.5-q8_0');
+        await fs.mkdir(legacyDir, { recursive: true });
+        await fs.writeFile(path.join(legacyDir, 'bge-small-en-v1.5-q8_0.gguf'), 'old');
+        const runtime = new LocalEmbeddingRuntime({
+            provideDirectory: async () => directory!,
+            ensurePathAccessible: async () => undefined,
+        } as never);
+
+        await runtime.getStatus();
+        // getStatus 里的清理是 fire-and-forget，等一轮事件循环。
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        await expect(fs.access(legacyDir)).rejects.toThrow();
+    });
+
+    it('删除模型会同时移除文本模型与多模态投影', async () => {
+        directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-embedding-'));
+        const modelDir = path.join(directory, LOCAL_EMBEDDING_MODEL.id);
+        const mmprojDir = path.join(directory, LOCAL_EMBEDDING_MMPROJ.id);
+        await fs.mkdir(modelDir, { recursive: true });
+        await fs.mkdir(mmprojDir, { recursive: true });
+        await fs.writeFile(path.join(modelDir, LOCAL_EMBEDDING_MODEL.file), 'x');
+        await fs.writeFile(path.join(mmprojDir, LOCAL_EMBEDDING_MMPROJ.file), 'y');
+        const runtime = new LocalEmbeddingRuntime({
+            provideDirectory: async () => directory!,
+            ensurePathAccessible: async () => undefined,
+        } as never);
+
+        const removed = await runtime.remove();
+
+        expect(removed).toBe(2);
+        expect(await runtime.isReady()).toBe(false);
+        expect(await runtime.isMultimodalReady()).toBe(false);
     });
 });

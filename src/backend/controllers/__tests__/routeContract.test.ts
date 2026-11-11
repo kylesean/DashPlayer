@@ -55,6 +55,7 @@ import VocabularyController from '../VocabularyController';
 import WatchHistoryController from '../WatchHistoryController';
 import WhisperCppModelController from '../WhisperCppModelController';
 import { YoutubeImportController } from '../YoutubeImportController';
+import { SpeakerDiarizationModelController } from '../SpeakerDiarizationModelController';
 
 /** 空依赖桩：控制器构造只做字段赋值，handler 在契约测试中不会执行。 */
 const stub = () => ({}) as never;
@@ -77,8 +78,9 @@ function registerAllControllers(): void {
     new MigrationFailureController().registerRoutes();
     new ParakeetModelController(stub()).registerRoutes();
     new SentencePracticeController(stub()).registerRoutes();
-    new SettingsController(stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub()).registerRoutes();
+    new SettingsController(stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub()).registerRoutes();
     new SherpaTtsModelController(stub()).registerRoutes();
+    new SpeakerDiarizationModelController(stub()).registerRoutes();
     new SrtTimeAdjustController(stub()).registerRoutes();
     new StorageController(stub()).registerRoutes();
     new SubtitleController(stub(), stub(), stub()).registerRoutes();

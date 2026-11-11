@@ -8,6 +8,7 @@ import { Agent, fetch as undiciFetch } from 'undici';
 import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import type { LocalAiModelDefinition } from '@/common/contracts/local-ai';
+import { LLAMA_RUNTIME_VERSION } from '@/common/contracts/local-ai';
 
 /**
  * llama-server 并行 slot 数，与并发内核 localAi 信号量容量保持一致。
@@ -58,7 +59,13 @@ export class LlamaServerProcess {
     /** 只使用明确支持的平台包；缺失的运行时由设置页显式展示。Windows 可执行文件带 .exe 后缀。 */
     private runtimePath(): string {
         const exeName = process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
-        return getRuntimeResourcePath('lib', 'llama', 'b10819', `${process.platform}-${process.arch}`, exeName);
+        return getRuntimeResourcePath(
+            'lib',
+            'llama',
+            LLAMA_RUNTIME_VERSION,
+            `${process.platform}-${process.arch}`,
+            exeName,
+        );
     }
 
     /**

@@ -80,6 +80,26 @@ export default interface FfmpegService {
         registerCancel?: (cancel: () => void) => void;
     }): Promise<string[]>;
 
+    /**
+     * 按给定时间点抽取画面帧。
+     *
+     * 抽帧是画面理解的前置步骤：调用方负责挑选时间点（通常与字幕句对齐），
+     * 本方法只保证落地、按序返回真实存在的文件。
+     *
+     * @param args.inputFile 视频文件绝对路径。
+     * @param args.times 抽帧时间点，单位为秒。
+     * @param args.outputFolder 输出目录。
+     * @param args.width 目标宽度；缺省 480，足够语义理解且向量化更快。
+     * @returns 与输入时间点顺序一致的帧文件路径；无帧的时间点被跳过。
+     */
+    extractFrames(args: {
+        inputFile: string;
+        times: readonly number[];
+        outputFolder: string;
+        width?: number;
+        job?: string;
+    }): Promise<Array<{ time: number; path: string }>>;
+
 }
 
 
@@ -316,6 +336,34 @@ export class FfmpegServiceImpl implements FfmpegService {
             outputs.push(outputPath);
         }
         return outputs;
+    }
+
+    /**
+     * 按给定时间点抽取画面帧。
+     *
+     * @param args 输入视频、抽帧时间点与输出目录。
+     * @returns 与输入时间点顺序一致的帧文件路径；无帧的时间点被跳过。
+     */
+    @WithSemaphore('ffmpeg')
+    public async extractFrames(args: {
+        inputFile: string;
+        times: readonly number[];
+        outputFolder: string;
+        width?: number;
+        job?: string;
+    }): Promise<Array<{ time: number; path: string }>> {
+        if (args.times.length === 0) {
+            return [];
+        }
+        await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(args.inputFile);
+        await this.fileSystemGateway.ensureDirectory(args.outputFolder);
+        return await this.ffmpegGateway.extractFrames({
+            inputFile: args.inputFile,
+            // 输出名带索引占位，由网关替换为 4 位序号；调用方只关心返回顺序。
+            outputFilePattern: path.join(args.outputFolder, 'frame_*.jpg'),
+            timeSeconds: args.times,
+            width: args.width ?? 480,
+        }, { job: args.job });
     }
 
     /**

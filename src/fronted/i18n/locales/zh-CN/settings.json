@@ -499,6 +499,9 @@
             "itemTtsDesc": "查询单词和例句时自动朗读。",
             "itemTranscription": "字幕识别",
             "itemTranscriptionDesc": "识别视频语音并生成字幕。",
+            "itemDiarization": "说话人识别",
+            "itemDiarizationDesc": "可选。识别场景切换时是哪位说话人，让场景提示更准确。",
+            "itemDiarizationModelFile": "分割模型 + 声纹嵌入模型",
             "itemReady": "已就绪",
             "itemMissing": "未下载",
             "engineLabel": "识别方式",
@@ -529,8 +532,15 @@
             "ready": "已安装",
             "install": "安装",
             "installing": "安装中…",
+            "remove": "删除",
+            "removing": "删除中…",
+            "removed": "已删除语义模型",
             "installed": "语义模型已安装，内容推荐将优先使用语义相似度",
-            "description": "可选，{{size}}。用于判断内容主题是否相近；未安装时推荐仍可正常使用词面相似度。"
+            "description": "可选，{{size}}。EmbeddingGemma 2 支持多语言，用于判断内容主题是否相近；未安装时推荐仍可正常使用词面相似度。",
+            "multimodalInstall": "安装图像理解",
+            "multimodalReady": "图像理解已就绪，可用于视频帧主题分析",
+            "multimodalHint": "可选：安装后可用画面理解视频主题，纯字幕推荐不依赖它。",
+            "multimodalInstalled": "图像理解组件已安装"
         },
         "cloud": {
             "title": "云端服务",

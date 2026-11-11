@@ -1,6 +1,6 @@
 import { injectable } from 'inversify';
 import type FfmpegGateway from '@/backend/services/gateways/media/FfmpegGateway';
-import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type TrimVideoArgs } from '@/backend/services/gateways/media/FfmpegGateway';
+import { type ConvertToWavArgs, type CreateThumbnailArgs, type ExtractFramesArgs, type ExtractSubtitleArgs, FfmpegExecutionError, type FfmpegRunOptions, type TrimVideoArgs } from '@/backend/services/gateways/media/FfmpegGateway';
 import type { VideoInfo } from '@/common/types/video-info';
 import fs from 'fs';
 import path from 'path';
@@ -180,6 +180,42 @@ export default class FfmpegGatewayImpl implements FfmpegGateway {
      */
     public async convertToWav(args: ConvertToWavArgs, options: FfmpegRunOptions = {}): Promise<void> {
         await this.runCommand(args, (a) => this.commandBuilder.buildConvertToWav(a), options);
+    }
+
+    /**
+     * 按时间点逐帧抽取画面。
+     *
+     * 逐点调用而不是一次多输出：每个时间点都要独立 seek，超长视频上
+     * 单次解码多点的成本更高；调用方按批次控制并发。
+     *
+     * @returns 实际落地且非空的帧及其时间点，按时间升序。
+     */
+    public async extractFrames(
+        args: ExtractFramesArgs,
+        options: FfmpegRunOptions = {},
+    ): Promise<Array<{ time: number; path: string }>> {
+        this.assertInputFileExists(args.inputFile);
+        const duration = await this.duration(args.inputFile);
+        const outputs: Array<{ time: number; path: string }> = [];
+        for (const [index, timeSecond] of args.timeSeconds.entries()) {
+            // 钳制到结尾前：超出时长时 ffmpeg 会静默产出空文件。
+            const clamped = Math.max(0, Math.min(timeSecond, Math.max(0, duration - 0.1)));
+            const outputFile = args.outputFilePattern.replace('*', String(index + 1).padStart(4, '0'));
+            await this.runCommand(
+                { inputFile: args.inputFile, outputFile },
+                () => this.commandBuilder.buildExtractFrames(args, clamped, outputFile),
+                options,
+            );
+            // 静默失败（seek 落在无关键帧区间）会留下 0 字节文件，不能交给向量模型。
+            try {
+                if (fs.statSync(outputFile).size > 0) {
+                    outputs.push({ time: clamped, path: outputFile });
+                }
+            } catch {
+                // 文件不存在即视为该时间点无帧。
+            }
+        }
+        return outputs;
     }
 
     

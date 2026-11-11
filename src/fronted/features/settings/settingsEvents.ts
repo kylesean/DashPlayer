@@ -63,6 +63,10 @@ export function registerSettingsRendererApis(register: RegisterRendererApi): voi
         notifyArchive(params);
     });
 
+    register('settings/speaker-diarization-model-download-progress', async (params) => {
+        notifyArchive(params);
+    });
+
     register('settings/sherpa-tts-model-download-progress', async (params) => {
         notifyArchive(params);
     });

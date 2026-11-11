@@ -49,7 +49,7 @@ export interface ModelArchiveInstallerOptions {
      * 缺省时不广播：用户可见进度由其他渠道（如 dp-task 进度文本）承载，
      * 避免向后端无人应答的死事件刷超时日志。
      */
-    progressEventName?: 'settings/parakeet-model-download-progress' | 'settings/sherpa-tts-model-download-progress' | 'settings/whisper-cpp-model-download-progress';
+    progressEventName?: 'settings/parakeet-model-download-progress' | 'settings/sherpa-tts-model-download-progress' | 'settings/whisper-cpp-model-download-progress' | 'settings/speaker-diarization-model-download-progress';
     /** 下载被取消时抛出的错误信息。 */
     cancelledMessage: string;
     /** 模型显示名，用于结果消息和日志。 */

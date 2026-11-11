@@ -12,14 +12,19 @@ import { getMainLogger } from '@/backend/infrastructure/logger';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
-import { LOCAL_EMBEDDING_MODEL } from '@/common/contracts/local-ai';
+import {
+    LOCAL_EMBEDDING_DIMENSION,
+    LOCAL_EMBEDDING_MODEL,
+    LOCAL_EMBEDDING_MMPROJ,
+    LLAMA_RUNTIME_VERSION,
+} from '@/common/contracts/local-ai';
 import { probeReachableDownloadUrl } from '@/backend/utils/probeDownloadUrl';
 import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-/** 向量维度；bge-small 固定 384 维，用于拒绝异常响应。 */
-const EMBEDDING_DIMENSION = 384;
+/** 向量维度；EmbeddingGemma 2 固定 768 维，用于拒绝异常响应。 */
+const EMBEDDING_DIMENSION = LOCAL_EMBEDDING_DIMENSION;
 
 /** 单次请求最多提交的文本条数，避免一次把整部字幕塞进上下文。 */
 const MAX_BATCH_SIZE = 32;
@@ -56,10 +61,44 @@ export class LocalEmbeddingRuntime {
         @inject(TYPES.StorageDirectoryProvider) private readonly directories: StorageDirectoryProvider,
     ) {}
 
+    /** 旧模型清理是否已执行；每次进程生命周期只做一次。 */
+    private legacyCleanupDone = false;
+
+    /**
+     * 清理已废弃的 bge-small 模型文件（幂等，每个进程只执行一次）。
+     *
+     * 放在读取状态时触发而不是启动时集中执行：用户可能整年不开语义推荐，
+     * 没必要为 37 MB 的清理阻塞启动；一旦用到语义能力，旧文件就该消失。
+     *
+     * @returns 是否确实删除了旧目录。
+     */
+    public async cleanupLegacyModel(): Promise<boolean> {
+        if (this.legacyCleanupDone) {
+            return false;
+        }
+        this.legacyCleanupDone = true;
+        const legacy = await this.legacyModelPath();
+        try {
+            await fs.promises.rm(legacy, { recursive: true, force: true });
+            return true;
+        } catch (error) {
+            this.logger.warn('legacy embedding model cleanup skipped', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return false;
+        }
+    }
+
     /** 模型文件的安装路径。 */
     private async modelPath(): Promise<string> {
         const directory = await this.directories.provideDirectory(StorageDirectoryTarget.MODELS);
         return path.join(directory, LOCAL_EMBEDDING_MODEL.id, LOCAL_EMBEDDING_MODEL.file);
+    }
+
+    /** 多模态投影文件的安装路径。 */
+    private async mmprojPath(): Promise<string> {
+        const directory = await this.directories.provideDirectory(StorageDirectoryTarget.MODELS);
+        return path.join(directory, LOCAL_EMBEDDING_MMPROJ.id, LOCAL_EMBEDDING_MMPROJ.file);
     }
 
     /** 模型是否已完整安装；只做体积判断，哈希校验在下载时完成。 */
@@ -72,18 +111,40 @@ export class LocalEmbeddingRuntime {
         }
     }
 
+    /**
+     * 多模态投影是否已安装。
+     *
+     * 它是可选的：只有需要图像/音频向量时才安装，文本推荐不依赖它。
+     */
+    public async isMultimodalReady(): Promise<boolean> {
+        try {
+            const stat = await fs.promises.stat(await this.mmprojPath());
+            return stat.size === LOCAL_EMBEDDING_MMPROJ.bytes;
+        } catch {
+            return false;
+        }
+    }
+
     /** 语义模型状态：是否已安装、体积与模型名，供设置页展示。 */
     public async getStatus(): Promise<{
         ready: boolean;
         name: string;
         sizeLabel: string;
         bytes: number;
+        /** 多模态投影是否就绪；未安装时图像/音频向量不可用。 */
+        multimodalReady: boolean;
+        /** 多模态投影体积，供设置页展示。 */
+        multimodalBytes: number;
     }> {
+        // 顺带清理旧模型：用户打开设置页或推荐页时就完成迁移，不必等到下次安装。
+        void this.cleanupLegacyModel();
         return {
             ready: await this.isReady(),
             name: LOCAL_EMBEDDING_MODEL.name,
             sizeLabel: LOCAL_EMBEDDING_MODEL.sizeLabel,
             bytes: LOCAL_EMBEDDING_MODEL.bytes,
+            multimodalReady: await this.isMultimodalReady(),
+            multimodalBytes: LOCAL_EMBEDDING_MMPROJ.bytes,
         };
     }
 
@@ -96,15 +157,55 @@ export class LocalEmbeddingRuntime {
      * @returns 下载完成时为 true；失败抛错。
      */
     public async download(onProgress?: (downloaded: number) => void): Promise<void> {
-        const modelPath = await this.modelPath();
-        if (await this.isReady()) {
-            return;
+        await this.downloadOne(
+            LOCAL_EMBEDDING_MODEL,
+            await this.modelPath(),
+            onProgress,
+        );
+    }
+
+    /**
+     * 下载并安装多模态投影文件。
+     *
+     * 只有需要图像/音频向量时才需要它；文本推荐不依赖。
+     *
+     * @param onProgress 可选进度回调，参数为已下载字节数。
+     */
+    public async downloadMultimodal(onProgress?: (downloaded: number) => void): Promise<void> {
+        await this.downloadOne(
+            LOCAL_EMBEDDING_MMPROJ,
+            await this.mmprojPath(),
+            onProgress,
+        );
+    }
+
+    /**
+     * 下载并校验单个模型文件。
+     *
+     * 先写 `.part` 再校验体积与 SHA-256，校验通过才改名，避免半截文件被当成已安装。
+     *
+     * @param definition 模型定义（含体积、哈希与下载源）。
+     * @param modelPath 目标路径。
+     * @param onProgress 可选进度回调。
+     */
+    private async downloadOne(
+        definition: typeof LOCAL_EMBEDDING_MODEL,
+        modelPath: string,
+        onProgress?: (downloaded: number) => void,
+    ): Promise<void> {
+        try {
+            const stat = await fs.promises.stat(modelPath);
+            if (stat.size === definition.bytes) {
+                return;
+            }
+        } catch {
+            // 文件不存在，继续下载。
         }
         await fs.promises.mkdir(path.dirname(modelPath), { recursive: true });
         const partialPath = `${modelPath}.part`;
         const controller = new AbortController();
-        const url = await probeReachableDownloadUrl(LOCAL_EMBEDDING_MODEL.urls, controller.signal)
-            ?? LOCAL_EMBEDDING_MODEL.urls[0];
+        const url = await probeReachableDownloadUrl(definition.urls, controller.signal)
+            ?? definition.urls[0];
         const response = await fetch(url, { signal: controller.signal });
         if (!response.ok || !response.body) {
             throw new Error(`语义模型下载失败：HTTP ${response.status}`);
@@ -119,12 +220,43 @@ export class LocalEmbeddingRuntime {
             onProgress?.(downloaded);
         });
         await pipeline(source, sink);
-        if (downloaded !== LOCAL_EMBEDDING_MODEL.bytes
-            || hash.digest('hex') !== LOCAL_EMBEDDING_MODEL.sha256) {
+        if (downloaded !== definition.bytes || hash.digest('hex') !== definition.sha256) {
             await fs.promises.rm(partialPath, { force: true });
             throw new Error('语义模型校验失败，请重试');
         }
         await fs.promises.rename(partialPath, modelPath);
+    }
+
+    /**
+     * 删除已安装的语义模型与多模态投影。
+     *
+     * 先停进程再删文件：Windows 下运行中的文件无法删除。
+     *
+     * @returns 实际删除的文件数。
+     */
+    public async remove(): Promise<number> {
+        await this.shutdown();
+        let removed = 0;
+        for (const target of [await this.modelPath(), await this.mmprojPath()]) {
+            try {
+                await fs.promises.rm(target, { force: true });
+                removed += 1;
+            } catch {
+                // 文件本就不存在时忽略。
+            }
+        }
+        return removed;
+    }
+
+    /**
+     * 旧的 bge-small 模型目录，用于升级清理。
+     *
+     * 用户从旧版本升级后，旧模型文件会一直占着 37 MB；这里显式列出并在
+     * 启动时清理，避免「已移除但磁盘上还在」。
+     */
+    private async legacyModelPath(): Promise<string> {
+        const directory = await this.directories.provideDirectory(StorageDirectoryTarget.MODELS);
+        return path.join(directory, 'bge-small-en-v1.5-q8_0');
     }
 
     /**
@@ -153,6 +285,40 @@ export class LocalEmbeddingRuntime {
             batches.push(response);
         }
         return batches.flat();
+    }
+
+    /**
+     * 批量生成图像向量。
+     *
+     * 需要多模态投影（mmproj）已安装；未安装时返回 `null`，由调用方跳过帧理解，
+     * 而不是把「没有视觉能力」伪装成零向量。
+     *
+     * @param images 图像字节（JPEG/PNG）与 MIME 类型。
+     * @returns 与输入顺序一致的向量；不可用时为 `null`。
+     */
+    public async embedImages(
+        images: ReadonlyArray<{ data: Buffer; mimeType: string }>,
+    ): Promise<number[][] | null> {
+        if (images.length === 0) {
+            return [];
+        }
+        if (!await this.isMultimodalReady()) {
+            return null;
+        }
+        const endpoint = await this.ensureStarted();
+        if (!endpoint) {
+            return null;
+        }
+        this.touch();
+        const results: number[][] = [];
+        for (const image of images) {
+            const vector = await this.requestImageEmbedding(endpoint, image);
+            if (!vector) {
+                return null;
+            }
+            results.push(vector);
+        }
+        return results;
     }
 
     /** 停止模型进程；应用退出或显式卸载时调用。 */
@@ -202,7 +368,7 @@ export class LocalEmbeddingRuntime {
         if (!port) {
             return null;
         }
-        const child = spawn(runtimePath, [
+        const args = [
             '--model', await this.modelPath(),
             '--host', '127.0.0.1',
             '--port', String(port),
@@ -211,7 +377,16 @@ export class LocalEmbeddingRuntime {
             '--ctx-size', '512',
             '--n-gpu-layers', '0',
             '--no-webui',
-        ], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+        ];
+        // 多模态投影只在已安装时挂载：未安装时纯文本向量照常工作，
+        // 不会因为缺文件而让整个语义能力不可用。
+        if (await this.isMultimodalReady()) {
+            args.push('--mmproj', await this.mmprojPath());
+        }
+        const child = spawn(runtimePath, args, {
+            windowsHide: true,
+            stdio: ['ignore', 'ignore', 'pipe'],
+        });
         this.child = child;
         const failureRef: { current: Error | null } = { current: null };
         child.once('error', (error) => {
@@ -280,6 +455,54 @@ export class LocalEmbeddingRuntime {
         }
     }
 
+    /**
+     * 请求单张图像的向量。
+     *
+     * llama-server 的多模态 embedding 用 `content` 数组表达一条输入
+     * （`{ content: [{ type: 'image_url', ... }] }`），而不是 OpenAI 的
+     * `{ type: 'image_url' }` 顶层项；后者会被当成非法 prompt 拒绝。
+     * 解析与文本共用同一套维度校验，维度不符即视为失败并降级。
+     */
+    private async requestImageEmbedding(
+        endpoint: string,
+        image: { data: Buffer; mimeType: string },
+    ): Promise<number[] | null> {
+        try {
+            const response = await undiciFetch(`${endpoint}/v1/embeddings`, {
+                method: 'POST',
+                dispatcher: this.directLoopbackAgent,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input: [{
+                        content: [{
+                            type: 'image_url',
+                            image_url: {
+                                url: `data:${image.mimeType};base64,${image.data.toString('base64')}`,
+                            },
+                        }],
+                    }],
+                }),
+                signal: AbortSignal.timeout(30_000),
+            });
+            if (!response.ok) {
+                await response.body?.cancel();
+                this.logger.warn('image embedding request failed', { status: response.status });
+                return null;
+            }
+            const parsed = embeddingResponseSchema.safeParse(await response.json());
+            if (!parsed.success || parsed.data.data.length !== 1) {
+                this.logger.warn('image embedding response invalid');
+                return null;
+            }
+            return parsed.data.data[0].embedding;
+        } catch (error) {
+            this.logger.warn('image embedding request error', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+        }
+    }
+
     /** 每次成功请求后重置空闲计时；到期后主动卸载，下次按需重启。 */
     private touch(): void {
         if (this.idleTimer) {
@@ -294,7 +517,13 @@ export class LocalEmbeddingRuntime {
 
     private runtimePath(): string {
         const exeName = process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
-        return getRuntimeResourcePath('lib', 'llama', 'b10819', `${process.platform}-${process.arch}`, exeName);
+        return getRuntimeResourcePath(
+            'lib',
+            'llama',
+            LLAMA_RUNTIME_VERSION,
+            `${process.platform}-${process.arch}`,
+            exeName,
+        );
     }
 
     private async reservePort(): Promise<number | null> {

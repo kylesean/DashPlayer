@@ -4,7 +4,7 @@ import TopicVectorRepositoryImpl from '@/backend/infrastructure/db/repositories/
 import { decodeVector, encodeVector } from '@/common/learning/vectorCodec';
 import { createMemoryDb, type MemoryDb } from '@/test/database';
 
-const MODEL = 'bge-small-en-v1.5-q8_0';
+const MODEL = 'embeddinggemma-2-q4_k_xl';
 
 describe('TopicVectorRepositoryImpl', () => {
     let memoryDb: MemoryDb | null = null;
@@ -61,16 +61,16 @@ describe('TopicVectorRepositoryImpl', () => {
         const repository = new TopicVectorRepositoryImpl(memoryDb.db);
         await repository.upsertMany([
             { videoId: 'video-a', model: MODEL, dimension: 2, vector: encodeVector([1, 0]), textHash: 'h' },
-            { videoId: 'video-a', model: 'embeddinggemma-2', dimension: 2, vector: encodeVector([0, 1]), textHash: 'h' },
+            { videoId: 'video-a', model: 'embeddinggemma-2-mmproj', dimension: 2, vector: encodeVector([0, 1]), textHash: 'h' },
         ]);
 
-        const bge = await repository.listByModel(MODEL);
-        const gemma = await repository.listByModel('embeddinggemma-2');
+        const primary = await repository.listByModel(MODEL);
+        const other = await repository.listByModel('embeddinggemma-2-mmproj');
 
-        expect(bge).toHaveLength(1);
-        expect(gemma).toHaveLength(1);
-        expect(decodeVector(bge[0].vector, 2)).toEqual([1, 0]);
-        expect(decodeVector(gemma[0].vector, 2)).toEqual([0, 1]);
+        expect(primary).toHaveLength(1);
+        expect(other).toHaveLength(1);
+        expect(decodeVector(primary[0].vector, 2)).toEqual([1, 0]);
+        expect(decodeVector(other[0].vector, 2)).toEqual([0, 1]);
     });
 
     it('按视频批量读取只返回命中项', async () => {

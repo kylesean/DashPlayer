@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
-import { Download, Sparkles } from 'lucide-react';
+import { Download, Image, Sparkles, Trash2 } from 'lucide-react';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { HStack } from '@astryxdesign/core/HStack';
@@ -17,6 +17,10 @@ export interface EmbeddingModelStatus {
     name: string;
     sizeLabel: string;
     bytes: number;
+    /** 多模态投影是否就绪；未安装时图像/音频向量不可用。 */
+    multimodalReady: boolean;
+    /** 多模态投影体积。 */
+    multimodalBytes: number;
 }
 
 /**
@@ -34,6 +38,8 @@ export default function EmbeddingModelCard({
 }) {
     const { t } = useTranslation('settings');
     const [installing, setInstalling] = useState(false);
+    const [installingMultimodal, setInstallingMultimodal] = useState(false);
+    const [removing, setRemoving] = useState(false);
 
     const install = async () => {
         setInstalling(true);
@@ -48,18 +54,44 @@ export default function EmbeddingModelCard({
         }
     };
 
+    const installMultimodal = async () => {
+        setInstallingMultimodal(true);
+        try {
+            await settingsApi.downloadEmbeddingMultimodal();
+            toast.success(t('resources.embedding.multimodalInstalled'));
+            onInstalled();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : String(error));
+        } finally {
+            setInstallingMultimodal(false);
+        }
+    };
+
+    const remove = async () => {
+        setRemoving(true);
+        try {
+            await settingsApi.removeEmbeddingModel();
+            toast.success(t('resources.embedding.removed'));
+            onInstalled();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : String(error));
+        } finally {
+            setRemoving(false);
+        }
+    };
+
     return (
         <Card variant="default" padding={3}>
             <VStack gap={2}>
                 <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
                     <HStack gap={2} vAlign="center">
                         <Sparkles className="h-4 w-4 text-muted-foreground" />
-                        <Text weight="medium" size="sm">{status?.name ?? 'BGE Small EN v1.5'}</Text>
+                        <Text weight="medium" size="sm">{status?.name ?? 'EmbeddingGemma 2'}</Text>
                         {status?.ready && (
                             <Token label={t('resources.embedding.ready')} size="sm" color="green" />
                         )}
                     </HStack>
-                    {!status?.ready && (
+                    {!status?.ready ? (
                         <Button
                             variant="secondary"
                             size="sm"
@@ -68,11 +100,44 @@ export default function EmbeddingModelCard({
                             icon={<Download className="h-3.5 w-3.5" />}
                             onClick={() => { void install(); }}
                         />
+                    ) : (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            label={removing ? t('resources.embedding.removing') : t('resources.embedding.remove')}
+                            isDisabled={removing}
+                            icon={<Trash2 className="h-3.5 w-3.5" />}
+                            onClick={() => { void remove(); }}
+                        />
                     )}
                 </HStack>
                 <Text size="2xs" color="secondary">
-                    {t('resources.embedding.description', { size: status?.sizeLabel ?? '35 MB' })}
+                    {t('resources.embedding.description', { size: status?.sizeLabel ?? '168 MB' })}
                 </Text>
+                {status?.ready && (
+                    <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
+                        <HStack gap={2} vAlign="center">
+                            <Image className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Text size="2xs" color="secondary">
+                                {status.multimodalReady
+                                    ? t('resources.embedding.multimodalReady')
+                                    : t('resources.embedding.multimodalHint')}
+                            </Text>
+                        </HStack>
+                        {!status.multimodalReady && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                label={installingMultimodal
+                                    ? t('resources.embedding.installing')
+                                    : t('resources.embedding.multimodalInstall')}
+                                isDisabled={installingMultimodal}
+                                icon={<Download className="h-3.5 w-3.5" />}
+                                onClick={() => { void installMultimodal(); }}
+                            />
+                        )}
+                    </HStack>
+                )}
             </VStack>
         </Card>
     );

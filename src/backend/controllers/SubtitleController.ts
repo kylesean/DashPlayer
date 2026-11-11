@@ -100,8 +100,9 @@ export default class SubtitleController implements Controller {
      */
     public async getSceneBoundaries(params: {
         sentences: SceneSentence[];
+        videoPath?: string;
     }): Promise<SceneBoundary[]> {
-        return this.sceneIndexService.getBoundaries(params.sentences);
+        return this.sceneIndexService.getBoundaries(params.sentences, params.videoPath);
     }
 
     /**
@@ -141,6 +142,8 @@ export default class SubtitleController implements Controller {
                     end: z.number(),
                     text: z.string(),
                 })).min(2).max(20000),
+                // 可选：提供时后端会用真实声纹替代文本推测；缺省时退回纯文本启发式。
+                videoPath: z.string().min(1).optional(),
             }),
         });
     }

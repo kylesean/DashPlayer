@@ -14,6 +14,34 @@ import { SceneIndexServiceImpl } from '@/backend/services/SceneIndexService';
 import type SceneIndexRepository from '@/backend/services/repositories/SceneIndexRepository';
 import { SCENE_SEGMENTATION_VERSION, type SceneSentence } from '@/common/learning/sceneSegmentation';
 import { sceneInputHash } from '@/common/learning/sceneIndexKey';
+import type SpeakerDiarizationService from '@/backend/services/SpeakerDiarizationService';
+import type VisualSceneService from '@/backend/services/VisualSceneService';
+
+/**
+ * 声纹服务桩：默认「没有声纹能力」，让切分退回纯文本启发式。
+ *
+ * @param intervals 可选的声纹区间；传 null 表示不可用。
+ * @returns 满足服务契约的桩对象。
+ */
+const stubDiarization = (
+    intervals: Awaited<ReturnType<SpeakerDiarizationService['getIntervals']>> = null,
+) => ({
+    getIntervals: vi.fn(async () => intervals),
+    invalidate: vi.fn(async () => 0),
+}) as unknown as SpeakerDiarizationService;
+
+/**
+ * 画面切分服务桩：默认「没有画面能力」，让切分退回字幕与声纹信号。
+ *
+ * @param boundaries 可选的画面切换点；传 null 表示不可用。
+ * @returns 满足服务契约的桩对象。
+ */
+const stubVisualScene = (
+    boundaries: Awaited<ReturnType<VisualSceneService['getBoundaries']>> = null,
+) => ({
+    getBoundaries: vi.fn(async () => boundaries),
+    invalidate: vi.fn(async () => 0),
+}) as unknown as VisualSceneService;
 
 /**
  * 内存版场景索引仓储桩。
@@ -87,7 +115,7 @@ describe('SceneIndexService', () => {
 
     it('首次调用计算边界并写回索引', async () => {
         const { repository, rows, spies } = memoryRepository();
-        const service = new SceneIndexServiceImpl(repository);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
         const sentences = [
             sentence(0, 0, 2, 'The ocean covers most of the planet.'),
             sentence(1, 10, 12, 'She bought a red bicycle yesterday.'),
@@ -114,7 +142,7 @@ describe('SceneIndexService', () => {
         const { repository, spies } = memoryRepository({
             [`hash-1::${sceneInputHash(sentences)}`]: JSON.stringify(cached),
         });
-        const service = new SceneIndexServiceImpl(repository);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
 
         const boundaries = await service.getBoundaries(sentences);
 
@@ -135,7 +163,7 @@ describe('SceneIndexService', () => {
                 confidence: 0.9,
             }]),
         });
-        const service = new SceneIndexServiceImpl(repository);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
         const newSentences = [
             oldSentences[0],
             sentence(1, 3, 5, 'She bought a red bicycle yesterday.'),
@@ -155,7 +183,7 @@ describe('SceneIndexService', () => {
         const { repository, spies } = memoryRepository({
             [`hash-1::${sceneInputHash(sentences)}`]: '{not json',
         });
-        const service = new SceneIndexServiceImpl(repository);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
 
         const boundaries = await service.getBoundaries(sentences);
 
@@ -171,7 +199,7 @@ describe('SceneIndexService', () => {
             upsert: vi.fn(async () => undefined),
             deleteByFile: vi.fn(async () => 0),
         } as unknown as SceneIndexRepository;
-        const service = new SceneIndexServiceImpl(repository);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
 
         const boundaries = await service.getBoundaries([
             sentence(0, 0, 2, 'The ocean covers most of the planet.'),
@@ -183,7 +211,7 @@ describe('SceneIndexService', () => {
 
     it('句数不足或字幕哈希不一致时不做缓存读写', async () => {
         const { repository, spies } = memoryRepository();
-        const service = new SceneIndexServiceImpl(repository);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
 
         expect(await service.getBoundaries([sentence(0, 0, 2, 'Only one.')])).toEqual([]);
         await service.getBoundaries([
@@ -197,7 +225,7 @@ describe('SceneIndexService', () => {
 
     it('invalidate 删除该字幕的全部版本', async () => {
         const { repository, rows, spies } = memoryRepository();
-        const service = new SceneIndexServiceImpl(repository);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
         await service.getBoundaries([
             sentence(0, 0, 2, 'The ocean covers most of the planet.'),
             sentence(1, 10, 12, 'She bought a red bicycle yesterday.'),
@@ -208,5 +236,62 @@ describe('SceneIndexService', () => {
         expect(removed).toBe(1);
         expect(rows.size).toBe(0);
         expect(spies.deleteByFile).toHaveBeenCalledWith('hash-1');
+    });
+
+    it('提供视频路径时用真实声纹判定换人，且声纹进入输入指纹', async () => {
+        const { repository, spies } = memoryRepository();
+        const diarization = stubDiarization([
+            { start: 0, end: 2, speaker: 'speaker_00' },
+            { start: 2, end: 4, speaker: 'speaker_01' },
+        ]);
+        const service = new SceneIndexServiceImpl(repository, diarization, stubVisualScene());
+        const sentences = [
+            sentence(0, 0, 2, 'Are you ready for the journey?'),
+            sentence(1, 2, 4, 'Yes.'),
+        ];
+
+        const boundaries = await service.getBoundaries(sentences, '/video/a.mp4');
+
+        expect(diarization.getIntervals).toHaveBeenCalledWith('/video/a.mp4');
+        expect(boundaries).toHaveLength(1);
+        expect(boundaries[0].kinds).toContain('speaker-shift');
+        // 声纹置信度高于文本启发式的 0.45。
+        expect(boundaries[0].confidence).toBeGreaterThan(0.45);
+        expect(spies.upsert.mock.calls[0][0].inputHash).toBe(sceneInputHash(sentences, [
+            { start: 0, end: 2, speaker: 'speaker_00' },
+            { start: 2, end: 4, speaker: 'speaker_01' },
+        ]));
+    });
+
+    it('声纹不可用时退回文本启发式，不因缺少模型而失败', async () => {
+        const { repository } = memoryRepository();
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(null), stubVisualScene());
+        const sentences = [
+            sentence(0, 0, 2, 'The journey starts tomorrow morning.'),
+            sentence(1, 2, 4, 'Are you ready for the journey?'),
+            sentence(2, 4, 4.6, 'Yes.'),
+        ];
+
+        const boundaries = await service.getBoundaries(sentences, '/video/a.mp4');
+
+        expect(boundaries).toHaveLength(1);
+        expect(boundaries[0].kinds).toContain('speaker-shift');
+        expect(boundaries[0].confidence).toBeLessThanOrEqual(0.45);
+    });
+
+    it('画面切换点落在句间时标记 visual-shift，并进入输入指纹', async () => {
+        const { repository, spies } = memoryRepository();
+        const visualScene = stubVisualScene([{ atSec: 4, similarity: 0.79 }]);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(null), visualScene);
+        const sentences = [
+            sentence(0, 0, 4, 'The journey begins at the station.'),
+            sentence(1, 4, 8, 'The journey continues through the valley.'),
+        ];
+
+        const boundaries = await service.getBoundaries(sentences, '/video/a.mp4');
+
+        expect(boundaries).toHaveLength(1);
+        expect(boundaries[0].kinds).toContain('visual-shift');
+        expect(spies.upsert.mock.calls[0][0].inputHash).toBe(sceneInputHash(sentences, [], [4]));
     });
 });

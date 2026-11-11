@@ -146,7 +146,7 @@ describe('TopicEmbeddingService', () => {
         const { repository } = memoryRepository([{
             id: 1,
             video_id: 'video-a',
-            model: 'bge-small-en-v1.5-q8_0',
+            model: 'embeddinggemma-2-q4_k_xl',
             dimension: 2,
             vector: Buffer.from(new Float32Array([1, 0]).buffer),
             // 哈希与当前文本不匹配，必须重算；同时维度也不同。

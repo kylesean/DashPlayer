@@ -8,8 +8,11 @@ import {
     segmentScenes,
     type SceneBoundary,
     type SceneSentence,
+    type SpeakerInterval,
 } from '@/common/learning/sceneSegmentation';
 import { sceneInputHash } from '@/common/learning/sceneIndexKey';
+import type SpeakerDiarizationService from '@/backend/services/SpeakerDiarizationService';
+import type VisualSceneService from '@/backend/services/VisualSceneService';
 
 /**
  * 场景切分索引服务契约。
@@ -21,9 +24,13 @@ export default interface SceneIndexService {
      * 命中缓存且输入指纹一致时直接返回；否则重新切分并写回。
      *
      * @param sentences 按 index 升序的字幕句。
+     * @param videoPath 可选视频路径；提供时用真实声纹替代问句/短回应的文本推测。
      * @returns 场景边界列表；没有边界时为空数组。
      */
-    getBoundaries(sentences: readonly SceneSentence[]): Promise<SceneBoundary[]>;
+    getBoundaries(
+        sentences: readonly SceneSentence[],
+        videoPath?: string,
+    ): Promise<SceneBoundary[]>;
 
     /**
      * 删除某个字幕文件的索引。
@@ -46,18 +53,39 @@ export class SceneIndexServiceImpl implements SceneIndexService {
 
     public constructor(
         @inject(TYPES.SceneIndexRepository) private readonly repository: SceneIndexRepository,
+        @inject(TYPES.SpeakerDiarizationService)
+        private readonly speakerDiarization: SpeakerDiarizationService,
+        @inject(TYPES.VisualSceneService)
+        private readonly visualScene: VisualSceneService,
     ) {}
 
-    public async getBoundaries(sentences: readonly SceneSentence[]): Promise<SceneBoundary[]> {
+    public async getBoundaries(
+        sentences: readonly SceneSentence[],
+        videoPath?: string,
+    ): Promise<SceneBoundary[]> {
         if (sentences.length < 2) {
             return [];
         }
+        // 声纹分离是可选增强：模型未安装或视频无音轨时返回 null，
+        // 此时退回纯文本启发式，而不是让场景提示整体不可用。
+        const speakerIntervals: SpeakerInterval[] | null = videoPath
+            ? await this.speakerDiarization.getIntervals(videoPath)
+            : null;
+        // 画面切分同样可选：多模态投影未安装时返回 null，不影响其他信号。
+        const visualBoundaries = videoPath
+            ? await this.visualScene.getBoundaries(videoPath, sentences)
+            : null;
+        const visualShifts = visualBoundaries?.map((boundary) => boundary.atSec) ?? [];
+        const segmentOptions = {
+            ...(speakerIntervals ? { speakerIntervals } : {}),
+            ...(visualShifts.length > 0 ? { visualShifts } : {}),
+        };
         const fileHash = sentences[0].fileHash;
         // 同一份字幕的所有句子必须来自同一文件；不一致说明调用方混用了字幕。
         if (!fileHash || sentences.some((sentence) => sentence.fileHash !== fileHash)) {
-            return segmentScenes([...sentences]);
+            return segmentScenes([...sentences], segmentOptions);
         }
-        const inputHash = sceneInputHash(sentences);
+        const inputHash = sceneInputHash(sentences, speakerIntervals ?? [], visualShifts);
         try {
             const cached = await this.repository.find(fileHash, SCENE_SEGMENTATION_VERSION);
             if (cached && cached.input_hash === inputHash) {
@@ -74,7 +102,7 @@ export class SceneIndexServiceImpl implements SceneIndexService {
             });
         }
 
-        const boundaries = segmentScenes([...sentences]);
+        const boundaries = segmentScenes([...sentences], segmentOptions);
         try {
             await this.repository.upsert({
                 fileHash,
@@ -134,7 +162,12 @@ function parseBoundaries(json: string): SceneBoundary[] | null {
             || typeof atSec !== 'number'
             || !Array.isArray(kinds)
             || kinds.length === 0
-            || !kinds.every((kind) => kind === 'time-gap' || kind === 'topic-shift' || kind === 'speaker-shift')
+            || !kinds.every(
+                (kind) => kind === 'time-gap'
+                    || kind === 'topic-shift'
+                    || kind === 'speaker-shift'
+                    || kind === 'visual-shift',
+            )
             || typeof confidence !== 'number'
         ) {
             return null;
