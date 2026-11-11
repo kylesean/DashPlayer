@@ -88,7 +88,6 @@ export const resolveSubtitleTranslationContext = async (
         return { mode, storageMode, style: resolved.style, profileKey: `${storageMode}:${localModelId}`, localModelId };
     }
     const routed = deps.modelRoutingService.resolveOpenAiModel('subtitleTranslation');
-    if (!routed) throw new Error('OpenAI 字幕翻译模型未配置');
     const storageMode = buildSubtitleStorageMode('openai', routed.modelId, mode, resolved.signature);
     return { mode, storageMode, style: resolved.style, profileKey: `${storageMode}:${routed.fullModelId}`, localModelId: null };
 };

@@ -1,5 +1,4 @@
 const TYPES = {
-    ClipOssService: Symbol('ClipOssService'),
     VideoLearningOssService: Symbol('VideoLearningOssService'),
     VideoLearningService: Symbol('VideoLearningService'),
     Controller: Symbol('Controller'),
@@ -8,7 +7,6 @@ const TYPES = {
     DatabaseMaintenance: Symbol('DatabaseMaintenance'),
     StorageService: Symbol('StorageService'),
     SystemService: Symbol('SystemService'),
-    WatchProject: Symbol('WatchProject'),
     SubtitleService: Symbol('SubtitleService'),
     SubtitleVocabularyAnalysisService: Symbol('SubtitleVocabularyAnalysisService'),
     SrtTimeAdjustService: Symbol('SubtitleTimestampAdjustmentService'),
@@ -86,7 +84,6 @@ const TYPES = {
     LocalSubtitleBatchTranslator: Symbol('LocalSubtitleBatchTranslator'),
     ResourceFallbackService: Symbol('ResourceFallbackService'),
     ModelRoutingService: Symbol('ModelRoutingService'),
-    ConfigStoreFactory: Symbol('ConfigStoreFactory'),
     SettingsStore: Symbol('SettingsStore'),
     BuiltinDictionaryStore: Symbol('BuiltinDictionaryStore'),
     BuiltinDictionaryPath: Symbol('BuiltinDictionaryPath'),

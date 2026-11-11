@@ -57,9 +57,6 @@ export class AiProviderServiceImpl implements AiProviderService {
         if (StrUtil.hasBlank(apiKey, endpoint)) {
             return null;
         }
-        if (!routedModel || StrUtil.isBlank(routedModel.modelId)) {
-            return null;
-        }
         return this.createModelById(routedModel.modelId);
     }
 

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type { SrtSentence } from '@/common/types/SentenceC';
 import type { SubtitleVocabularyAnalysisService } from '@/backend/services/SubtitleVocabularyAnalysisService';
 
@@ -14,12 +16,23 @@ export type ClipCandidate = {
 };
 
 /**
+ * 单行字幕的命中词结果。
+ *
+ * 片段键与视频相关，不能与命中词一起缓存，否则同一字幕换视频后
+ * 会继续返回上一个视频的片段键。
+ */
+type MatchedLine = {
+    indexInSrt: number;
+    matchedWords: string[];
+};
+
+/**
  * 将共享字幕生词结果转换为裁切候选片段。
  *
  * 这里不再执行单词匹配，只负责消费共享的逐行结果。
  */
 export default class VideoLearningClipAnalysis {
-    private readonly candidates = new Map<string, ClipCandidate[]>();
+    private readonly candidates = new Map<string, MatchedLine[]>();
 
     /**
      * 创建裁切候选转换器。
@@ -33,11 +46,13 @@ export default class VideoLearningClipAnalysis {
     /**
      * 读取已完成的候选片段缓存。
      *
+     * @param videoPath 视频路径；用于生成与视频绑定的片段键。
      * @param srtKey 字幕缓存键。
      * @returns 已完成时返回候选片段，否则返回 undefined。
      */
-    public getCachedCandidates(srtKey: string): ClipCandidate[] | undefined {
-        return this.candidates.get(srtKey);
+    public getCachedCandidates(videoPath: string, srtKey: string): ClipCandidate[] | undefined {
+        const cached = this.candidates.get(srtKey);
+        return cached ? this.toCandidates(videoPath, srtKey, cached) : undefined;
     }
 
     /**
@@ -75,21 +90,24 @@ export default class VideoLearningClipAnalysis {
     /**
      * 根据共享逐行生词结果生成可裁切片段。
      *
-     * 同一字幕的重复调用复用候选缓存；尚未完成时等待共享分析任务。
+     * 同一字幕的重复调用复用命中词缓存；尚未完成时等待共享分析任务。
+     * 片段键包含视频身份：同一字幕配不同视频时不能复用彼此的片段。
      *
+     * @param videoPath 视频路径。
      * @param srtKey 字幕缓存键。
      * @param srt 已加载的字幕内容。
      * @param onProgress 分析进度通知。
      * @returns 可裁切片段列表。
      */
     public async collectCandidates(
+        videoPath: string,
         srtKey: string,
         srt: SrtSentence,
         onProgress?: (progress: number) => Promise<void> | void,
     ): Promise<ClipCandidate[]> {
-        const cachedCandidates = this.candidates.get(srtKey);
-        if (cachedCandidates) {
-            return cachedCandidates;
+        const cachedLines = this.candidates.get(srtKey);
+        if (cachedLines) {
+            return this.toCandidates(videoPath, srtKey, cachedLines);
         }
 
         const texts = srt.sentences.map((sentence) => sentence.text.toLowerCase());
@@ -99,7 +117,7 @@ export default class VideoLearningClipAnalysis {
             onProgress,
         );
 
-        const result: ClipCandidate[] = srt.sentences.flatMap((sentence, indexInSrt) => {
+        const lines: MatchedLine[] = srt.sentences.map((sentence, indexInSrt) => {
             const matchedWords = Array.from(
                 new Set(
                     (analysis.lineMatches[indexInSrt] ?? [])
@@ -112,19 +130,30 @@ export default class VideoLearningClipAnalysis {
                         .filter(Boolean),
                 ),
             );
-            if (matchedWords.length === 0) {
-                return [];
-            }
-
-            return [{
-                indexInSrt,
-                clipKey: `${srtKey}__${indexInSrt}`,
-                matchedWords,
-            }];
+            return { indexInSrt, matchedWords };
         });
 
-        this.candidates.set(srtKey, result);
-        return result;
+        this.candidates.set(srtKey, lines);
+        return this.toCandidates(videoPath, srtKey, lines);
+    }
+
+    /**
+     * 把命中词结果转换为带视频身份的候选片段。
+     *
+     * @param videoPath 视频路径。
+     * @param srtKey 字幕缓存键。
+     * @param lines 逐行命中词结果。
+     * @returns 非空命中词的候选片段。
+     */
+    private toCandidates(videoPath: string, srtKey: string, lines: MatchedLine[]): ClipCandidate[] {
+        const videoKey = createHash('sha1').update(videoPath).digest('hex');
+        return lines
+            .filter((line) => line.matchedWords.length > 0)
+            .map((line) => ({
+                indexInSrt: line.indexInSrt,
+                clipKey: `${srtKey}__${line.indexInSrt}__${videoKey}`,
+                matchedWords: line.matchedWords,
+            }));
     }
 
     /**

@@ -72,7 +72,7 @@ async function passOnboardingGate(page: Page): Promise<void> {
 /**
  * 构造打包 Electron 的环境。
  *
- * 故意注入 `NODE_ENV=development`：打包应用必须只认 app.isPackaged，
+ * 故意注入 `NODE_ENV=development`：打包应用必须使用 data/、logs/、config.json，
  * 不能因为终端里带着这个变量就退回 dev 数据目录或开启 __dpDebug。
  *
  * @returns 清理后的环境变量。

@@ -10,7 +10,7 @@ export type RoutedModel = {
 };
 
 export default interface ModelRoutingService {
-    resolveOpenAiModel(scene: AiModelScene): RoutedModel | null;
+    resolveOpenAiModel(scene: AiModelScene): RoutedModel;
 }
 
 
@@ -50,7 +50,7 @@ export class ModelRoutingServiceImpl implements ModelRoutingService {
      * @param scene 当前 AI 使用场景。
      * @returns 已校验的模型路由；配置缺失或失效时直接抛错。
      */
-    public resolveOpenAiModel(scene: AiModelScene): RoutedModel | null {
+    public resolveOpenAiModel(scene: AiModelScene): RoutedModel {
         const availableModels = this.parseModels(storeGet('models.openai.available'));
         if (availableModels.length === 0) {
             throw new Error('OpenAI 可用模型列表为空，请先在服务配置中添加模型');

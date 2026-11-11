@@ -21,7 +21,7 @@ import {
 /** 仓库根目录（本文件在 `qa/support/` 下）；`electron .` 会读取 package.json 的 main（.vite/build/main.cjs）。 */
 const projectRoot = path.resolve(__dirname, '..', '..');
 
-/** 开发态配置文件：`electron .` 时 app.isPackaged 为 false，electron-store 文件名带 .dev 后缀。 */
+/** 开发态配置文件：`electron .` 启动时 electron-store 文件名带 .dev 后缀（判定见 runtimeEnv）。 */
 const CONFIG_FILE_NAME = 'config.dev.json';
 
 /** 一次应用会话：Electron 进程 + 已越过启动引导的主窗口。 */

@@ -1,5 +1,3 @@
-import { z } from 'zod';
-
 /**
  * 配置读取行为选项。
  * @template T 配置对象类型。
@@ -27,13 +25,4 @@ export interface ConfigStoreReadOptions<T> {
 export interface ConfigStore<T> {
     get(): T;
     save(config: T): void;
-}
-
-export interface ConfigStoreFactory {
-    create<T, S extends z.ZodType<T>>(
-        configPath: string,
-        schema: S,
-        defaultValue?: T,
-        readOptions?: ConfigStoreReadOptions<T>,
-    ): ConfigStore<T>;
 }

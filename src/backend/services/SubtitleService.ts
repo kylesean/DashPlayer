@@ -24,6 +24,7 @@ import {
     type SentenceElement,
     type SentenceElementParser
 } from '@/backend/utils/language/SentenceElementParser';
+import { concurrency } from '@/backend/utils/concurrency';
 
 /**
  * parse 缓存条目：SrtSentence 附加解析时的意群重切分开关状态。
@@ -150,6 +151,8 @@ const logger = getMainLogger('SubtitleServiceImpl');
 export class SubtitleServiceImpl implements SubtitleService {
 
     private readonly sentenceElementParser: SentenceElementParser = new WinkSentenceElementParser();
+    /** 字幕解析的时间片调度器，用于把同步 Wink 分词切碎。 */
+    private readonly scheduler = concurrency.scheduler('default');
     /** 当前生词匹配任务代次；新播放会话或新匹配任务会使旧代次失效。 */
     private vocabularyMatchGeneration = 0;
     /** 当前播放视频 ID，用于阻止旧视频任务重新激活。 */
@@ -220,9 +223,17 @@ export class SubtitleServiceImpl implements SubtitleService {
         }
         const lines: SrtLine[] = MediaUtil.isAss(path) ? parseAss(content) : parseSrt(content);
         const segmented = resegment ? resegmentIntoMeaningGroups(lines) : lines;
-        const subtitles = segmented.map<Sentence>((line, index) =>
-            srtLineToSentence(line, fileHash, this.processSentence(line.contentEn), index)
-        );
+        // Wink 分词是同步 CPU 工作。整部字幕一次性跑完会长时间占住主进程，
+        // 拖慢窗口交互和其它 IPC；按固定批次让渡事件循环，把长任务切碎。
+        this.scheduler.beginFrame();
+        const subtitles: Sentence[] = [];
+        for (let index = 0; index < segmented.length; index++) {
+            const line = segmented[index];
+            subtitles.push(srtLineToSentence(line, fileHash, this.processSentence(line.contentEn), index));
+            if ((index + 1) % 50 === 0) {
+                await this.scheduler.yieldIfNeeded();
+            }
+        }
         groupSentence(subtitles, 20, (s, index) => {
             s.transGroup = index;
         });

@@ -310,6 +310,15 @@ app.on('ready', async () => {
     if (!hasSingleInstanceLock) {
         return;
     }
+    // 启动期后台步骤相互独立：任一步失败只记日志，不能阻断后续步骤与建窗。
+    // 否则用户看到的是「进程活着但没有窗口」，也没有恢复页。
+    const runStartupStep = async (name: string, step: () => Promise<void> | void) => {
+        try {
+            await step();
+        } catch (error) {
+            logger.error('startup step failed', { step: name, error });
+        }
+    };
     // 本地媒体协议处理器：渲染端通过 media:// 读取媒体库文件，
     // 必须在建窗之前注册，否则首屏加载视频会直接失败。
     registerMediaProtocol(
@@ -333,19 +342,27 @@ app.on('ready', async () => {
     // 数据库迁移完成后再解析控制器，避免服务的 postConstruct 提前访问未建表数据库。
     registerHandler(mainWindowRef);
     logStartupPhase('controllers');
-    await seedDefaultVocabularyIfNeeded();
-    await container.get<DpTaskService>(TYPES.DpTaskService).recoverInterruptedTasks();
+    await runStartupStep('seed vocabulary', () => seedDefaultVocabularyIfNeeded());
+    await runStartupStep('recover tasks', () => (
+        container.get<DpTaskService>(TYPES.DpTaskService).recoverInterruptedTasks()
+    ));
     // 清理超过保留期的终态任务：遗留的活动任务刚被标记为取消，同时清掉更早的历史行。
-    await container.get<DpTaskService>(TYPES.DpTaskService).cleanupExpiredTasks();
+    await runStartupStep('cleanup tasks', () => (
+        container.get<DpTaskService>(TYPES.DpTaskService).cleanupExpiredTasks()
+    ));
     logStartupPhase('background recovery');
-    await runResyncAfterResetDbIfNeeded();
-    await initProxyFeature();
+    await runStartupStep('resync after reset', () => runResyncAfterResetDbIfNeeded());
+    await runStartupStep('proxy', () => initProxyFeature());
     logStartupPhase('proxy');
     // 手机访问：设置里开启过就恢复监听；端口占用等失败只记日志并留给设置页提示。
-    await container.get<MobileAccessService>(TYPES.MobileAccessService).startFromSettings();
+    await runStartupStep('mobile access', () => (
+        container.get<MobileAccessService>(TYPES.MobileAccessService).startFromSettings()
+    ));
     logStartupPhase('mobile access');
     // 本地引擎启用时后台预加载模型常驻内存；失败只记日志，不阻塞也不影响启动流程。
-    container.get<LocalAiService>(TYPES.LocalAiService).syncEngineResidency();
+    await runStartupStep('local ai residency', () => (
+        container.get<LocalAiService>(TYPES.LocalAiService).syncEngineResidency()
+    ));
     // 生命周期标记：会话何时开始、以什么配置运行，便于回溯“有活动却无日志”的问题。
     logger.info('app ready', {
         version: app.getVersion(),

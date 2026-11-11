@@ -76,8 +76,6 @@ import type OpenAiSubtitleBatchTranslator from '@/backend/services/gateways/tran
 import type LocalSubtitleBatchTranslator from '@/backend/services/gateways/translate/LocalSubtitleBatchTranslator';
 import OpenAiSubtitleBatchTranslatorImpl from '@/backend/infrastructure/translate/OpenAiSubtitleBatchTranslatorImpl';
 import LocalSubtitleBatchTranslatorImpl from '@/backend/infrastructure/translate/LocalSubtitleBatchTranslatorImpl';
-import ConfigStoreFactoryImpl from '@/backend/infrastructure/config/ConfigStoreFactoryImpl';
-import type { ConfigStoreFactory } from '@/backend/services/gateways/ConfigStore';
 import type { SettingsStore } from '@/backend/services/gateways/SettingsStore';
 import SettingsStoreImpl from '@/backend/infrastructure/settings/SettingsStoreImpl';
 import type WatchHistoryService from '@/backend/services/WatchHistoryService';
@@ -197,7 +195,6 @@ container.bind<StorageService>(TYPES.StorageService).to(StorageServiceImpl).inSi
 container.bind<SystemService>(TYPES.SystemService).to(SystemServiceImpl).inSingletonScope();
 // Clients
 container.bind<ClientProviderService<TencentTranslateClient>>(TYPES.TencentClientProvider).to(TencentProvider).inSingletonScope();
-container.bind<ConfigStoreFactory>(TYPES.ConfigStoreFactory).to(ConfigStoreFactoryImpl).inSingletonScope();
 container.bind<SettingsStore>(TYPES.SettingsStore).to(SettingsStoreImpl).inSingletonScope();
 container.bind<ModelRoutingService>(TYPES.ModelRoutingService).to(ModelRoutingServiceImpl).inSingletonScope();
 container.bind<AiProviderService>(TYPES.AiProviderService).to(AiProviderServiceImpl).inSingletonScope();

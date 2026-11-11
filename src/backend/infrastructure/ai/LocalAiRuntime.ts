@@ -35,6 +35,19 @@ import type RendererGateway from '@/backend/services/gateways/renderer/RendererG
 const MAX_COMPLETION_TOKENS = 2048;
 
 /**
+ * 模型输出语义异常（截断或未正常结束）。
+ *
+ * 这类错误说明请求本身是通的，只是这次输出不可用；调用方不应据此重启共享进程。
+ * 用类型而不是错误文案来判断，避免以后改提示语时静默失效。
+ */
+class LocalAiSemanticError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'LocalAiSemanticError';
+    }
+}
+
+/**
  * 完整性标记文件后缀。
  *
  * 校验通过的模型文件旁会留下 `<模型文件>.sha256.ok`，记录这次校验的
@@ -503,11 +516,16 @@ export class LocalAiRuntime implements LocalAiService {
     }
 
     public async setActiveModelId(modelId: string): Promise<void> {
+        // 切换模型会 stop() 当前进程，在途推理会被直接杀掉；
+        // 与下载/删除一致，忙时拒绝切换，由上层调度器稍后重试。
+        if (this.busy > 0) throw new Error('本地模型正在使用，请稍后切换');
         const model = await this.resolveModelDefinition(modelId);
         const modelPath = await this.modelPath(model);
         if (await this.fileSize(modelPath) !== model.bytes) {
             throw new Error(`模型未下载完成，无法设为使用中：${model.name}`);
         }
+        // 校验期间可能已有推理开始，落库前再确认一次。
+        if (this.busy > 0) throw new Error('本地模型正在使用，请稍后切换');
         if (!this.settingsStore.set('models.local.active', model.id)) {
             throw new Error(`保存本地模型选择失败：${model.name}`);
         }
@@ -859,7 +877,7 @@ export class LocalAiRuntime implements LocalAiService {
                 if (finishReason !== 'stop') {
                     // length：输出顶到 max_tokens 上限被截断，输出必然不完整；
                     // 其余原因原样透出，避免 zod 天书直接冒给用户。
-                    throw new Error(finishReason === 'length'
+                    throw new LocalAiSemanticError(finishReason === 'length'
                         ? `本地模型输出超过单次 ${MAX_COMPLETION_TOKENS} token 上限被截断（多为模型输出循环），请重试`
                         : `本地模型输出未正常结束（finish_reason=${finishReason}）`);
                 }
@@ -882,10 +900,7 @@ export class LocalAiRuntime implements LocalAiService {
                 };
             } catch (error) {
                 const callerAborted = Boolean(signal?.aborted) && !this.lifetime.signal.aborted;
-                const isSemanticError = error instanceof Error && (
-                    error.message.includes('token 上限被截断')
-                    || error.message.includes('finish_reason=')
-                );
+                const isSemanticError = error instanceof LocalAiSemanticError;
                 this.logger.error('local generation failed', { error, model: model.id, durationMs: Date.now() - startedAt });
                 // 单个调用方取消（如滚动窗口切换）或单槽位输出触顶时，不能杀掉共享的 llama-server 进程，
                 // 否则会导致其余 3 个并行推理槽位连坐 ECONNRESET。
