@@ -187,7 +187,7 @@ const fetchJson = async (url, options = {}) => {
     return response.json();
 };
 
-const getLatestReleaseAssetUrl = async ({owner, repo, nameRegex}) => {
+const _getLatestReleaseAssetUrl = async ({owner, repo, nameRegex}) => {
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases/latest`;
     const data = await withNetworkRetry(() => fetchJson(apiUrl, {
         headers: {
@@ -201,7 +201,7 @@ const getLatestReleaseAssetUrl = async ({owner, repo, nameRegex}) => {
     return match?.browser_download_url || null;
 };
 
-const getLatestReleaseAssetUrlIncludingPrerelease = async ({owner, repo, nameRegex}) => {
+const _getLatestReleaseAssetUrlIncludingPrerelease = async ({owner, repo, nameRegex}) => {
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/releases?per_page=10`;
     const releases = await withNetworkRetry(() => fetchJson(apiUrl, {
         headers: {
@@ -268,6 +268,24 @@ const installBinaryFromArchive = async ({archivePath, outputPath, binaryNameCand
                 }
             };
             collect(extractDir);
+            // 软链按链接文本重建；若链接目标未命中拷贝模式（上游归档布局变化时会发生），
+            // 目标目录里就会出现悬空链接。这里把软链目标补进拷贝集合，保证重建后的链接总可解析。
+            const collectedBasenames = new Set(matches.map(({path: p}) => path.basename(p)));
+            const pendingTargets = [];
+            for (const {path: src, isSymlink} of matches) {
+                if (!isSymlink) continue;
+                let target;
+                try {
+                    target = path.resolve(path.dirname(src), fs.readlinkSync(src));
+                } catch {
+                    continue;
+                }
+                if (collectedBasenames.has(path.basename(target))) continue;
+                if (!fs.existsSync(target) || !fs.statSync(target).isFile()) continue;
+                pendingTargets.push({path: target, isSymlink: false});
+                collectedBasenames.add(path.basename(target));
+            }
+            matches.push(...pendingTargets);
             for (const { path: src, isSymlink } of matches) {
                 const dest = path.join(primaryOutputDir, path.basename(src));
                 fs.rmSync(dest, { force: true });
@@ -351,8 +369,6 @@ const isLlamaRuntimeReady = (runtimeDir, executableName, dependencyPrefixes) => 
 ////////////////////
 setProxy();
 const dir = path.join(process.cwd(), 'lib');
-// 当前源码版本号：whisper.cpp 运行时资产按发版 tag 发布，与该版本一一对应
-const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
 mkdirp(dir);
 
 const platform = process.env.npm_config_platform || os.platform()
@@ -443,9 +459,24 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
             x64: `sherpa-onnx-v${version}-win-x64-static-MT-Release.tar.bz2`,
         },
     };
+    const sherpaChecksums = {
+        darwin: {
+            arm64: 'b1830ce2f19169070c23c2a44b70e1d416e0265e98870a2f62f7aa94811db342',
+            x64: '15cf31d64456ae033c9d81c52df796d9bf003893ed060eb8434012a297945103',
+        },
+        linux: {
+            arm64: '418bda59e5d02b16d309c6c7850d967c5c855e71184ab6ac6a9b1c79456b2d8f',
+            x64: 'c98b4d91edbcba5087e7847e07529337001b834fe352931ff008ac7c5722fa6f',
+        },
+        win32: {
+            arm64: 'f9fd39ad3d61cdf24d7d6e1e1f68d4e2be432436cda20a4248ee997be112edb9',
+            x64: 'a21026a1aabb307f4022ed4a60b103bf01ee6617bfc3a7fac70d6d6fbaaad4f8',
+        },
+    };
     const assetName = assetNames[platform]?.[arch];
     const assetUrl = assetName ? `${releaseBase}/${assetName}` : null;
-    if (!assetUrl) {
+    const sherpaSha256 = sherpaChecksums[platform]?.[arch];
+    if (!assetUrl || !sherpaSha256) {
         throw new Error(`Unsupported sherpa-onnx platform/arch: ${platform}/${arch}`);
     }
 
@@ -461,6 +492,8 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
         await downloadAndExtractBinaryFromArchive({
             url: assetUrl,
             targets,
+            sha: sherpaSha256,
+            algo: 'sha256',
         });
     }
 }
@@ -479,8 +512,23 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
         linux: { arm64: `llama-${llamaVersion}-bin-ubuntu-vulkan-arm64.tar.gz`, x64: `llama-${llamaVersion}-bin-ubuntu-vulkan-x64.tar.gz` },
         win32: { arm64: `llama-${llamaVersion}-bin-win-cpu-arm64.zip`, x64: `llama-${llamaVersion}-bin-win-vulkan-x64.zip` },
     };
+    const llamaChecksums = {
+        darwin: {
+            arm64: '8933e736495eadfef0731ae32054acfaa75699bf4a6ccba77cd8475db085ec66',
+            x64: '04dd13ec03120685bd6e1931e8f1562d2c981ca076a3e63cc44e9a199b37816a',
+        },
+        linux: {
+            arm64: '33c4381ffa1f7ae9a3791bdaaddcc31460cb6e28b02add0b7d607c54e810004f',
+            x64: '2175737ab85506e7639fc7f8c84b5247fd607cc6e7030825c6dcadd4279f62e3',
+        },
+        win32: {
+            arm64: '5802d55f633b68bf6dbe574d75f9f47387761fe3b6ddef4193ea9ea423642afb',
+            x64: '4c5ff97b5440024906fc90f67809d84b92d9b77847c7d1a800701a36499e565e',
+        },
+    };
     const assetName = assetNames[platform]?.[arch];
-    if (!assetName) throw new Error(`本地推理不支持平台：${platform}/${arch}`);
+    const llamaSha256 = llamaChecksums[platform]?.[arch];
+    if (!assetName || !llamaSha256) throw new Error(`本地推理不支持平台：${platform}/${arch}`);
     const dependencyPrefixes = llamaDependencyPrefixesFor(platform);
     // 可执行文件之外还需落地的运行包内容：unix 的动态库（含 .so.0 版本别名，
     // 动态链接器按 SONAME 查找）；Windows 的 DLL；macOS 另有 Metal 着色器。
@@ -495,6 +543,8 @@ const llamaDependencyPrefixesFor = (platform) => platform === 'win32'
             outputPath: exePath,
             binaryNameCandidates: [exeName],
             extraCopyPatterns,
+            sha: llamaSha256,
+            algo: 'sha256',
         });
         if (!dependencyPrefixes.every((prefix) => fs.readdirSync(llamaDir).some((entry) => entry.startsWith(prefix)))) {
             throw new Error(`llama.cpp 运行时包不完整，缺少依赖库（${dependencyPrefixes.join(', ')}），请重试 pnpm run download`);

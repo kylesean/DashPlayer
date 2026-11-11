@@ -41,6 +41,13 @@ jobs:
           # 22 与 24，四处各自表述，于是「本地过、CI 红」这类问题只能在推送后才发现。
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
       - name: Install dependencies
         # CI 不需要装 git hook，跳过安装，避免在无 .git/hooks 写权限时产生噪音
         env:
@@ -58,8 +65,9 @@ jobs:
         # 禁止 CSS 类名/tag 定位；语义定位（role/testid）才能跟着产品重构走
         run: pnpm run qa:check-locators
       - name: Unit tests
-        # vitest 通过 ELECTRON_RUN_AS_NODE=1 以纯 Node 运行，不需要显示环境
-        run: pnpm run test:run
+        # vitest 通过 ELECTRON_RUN_AS_NODE=1 以纯 Node 运行，不需要显示环境。
+        # 带 --coverage 运行以执行 vitest.config 里的覆盖率阈值门禁（基线见该文件注释）。
+        run: pnpm run test:coverage
 
   e2e-smoke:
     # PR 门禁：只跑少量跨进程冒烟，避免每次推送都等待全量 7 分钟
@@ -76,6 +84,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
       - name: Install dependencies
         env:
           SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'
@@ -111,6 +126,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - name: Cache Electron binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: ${{ runner.os }}-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
       - name: Install dependencies
         env:
           SKIP_INSTALL_SIMPLE_GIT_HOOKS: '1'

@@ -25,10 +25,9 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 // node:sqlite 在 node 22.x 位于实验 flag 之后，缺 flag 时以子进程自重启，
-// 避免要求调用方记住特殊命令；它不在 eslint import 插件的内置模块清单里，故行级豁免解析检查。
+// 避免要求调用方记住特殊命令。
 let DatabaseSync;
 try {
-    // eslint-disable-next-line import/no-unresolved
     ({ DatabaseSync } = await import('node:sqlite'));
 } catch {
     console.info('当前 Node 需要 --experimental-sqlite，正在以该 flag 重启脚本...');
@@ -187,12 +186,28 @@ if (fs.existsSync(zipPath) && (await hashFile(zipPath)) === ECDICT_SOURCE.sha256
 
 console.info('== 2/4 解压源库 ==');
 const extractDir = path.join(cacheDir, 'extract');
-if (fs.existsSync(path.join(extractDir, 'stardict.db'))) {
-    console.info('复用已解压的 stardict.db');
+const sourceDbPath = path.join(extractDir, 'stardict.db');
+
+let canReuseExtracted = false;
+if (fs.existsSync(sourceDbPath)) {
+    try {
+        const verifyDb = new DatabaseSync(sourceDbPath, { readOnly: true });
+        const testRow = verifyDb.prepare('SELECT count(*) as count FROM stardict').get();
+        if (testRow && typeof testRow === 'object' && 'count' in testRow && Number(testRow.count) > 0) {
+            canReuseExtracted = true;
+        }
+        verifyDb.close();
+    } catch {
+        canReuseExtracted = false;
+    }
+}
+
+if (canReuseExtracted) {
+    console.info('复用已解压且校验完整的 stardict.db');
 } else {
+    fs.rmSync(extractDir, { recursive: true, force: true });
     extractZip(zipPath, extractDir);
 }
-const sourceDbPath = path.join(extractDir, 'stardict.db');
 if (!fs.existsSync(sourceDbPath)) {
     throw new Error(`解压后未找到 stardict.db: ${extractDir}`);
 }
@@ -214,55 +229,66 @@ const rows = sourceDb.prepare(`
 `).all();
 console.info(`源库命中 ${rows.length} 条词条`);
 
-fs.rmSync(OUTPUT_PATH, { force: true });
-const targetDb = new DatabaseSync(OUTPUT_PATH);
-targetDb.exec(SCHEMA_SQL);
+const tempOutputPath = `${OUTPUT_PATH}.tmp`;
+fs.rmSync(tempOutputPath, { force: true });
+const targetDb = new DatabaseSync(tempOutputPath);
 
-const insertStmt = targetDb.prepare(`
-    INSERT INTO entries (word_key, word, phonetic, translation, collins, oxford, bnc, frq, tags, exchange)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-const metaStmt = targetDb.prepare('INSERT INTO meta (key, value) VALUES (?, ?)');
+try {
+    targetDb.exec(SCHEMA_SQL);
 
-targetDb.exec('BEGIN');
-let insertedCount = 0;
-for (const row of rows) {
-    const word = String(row.word ?? '').trim();
-    if (!word) continue;
-    const wordKey = word.toLowerCase();
-    const translation = String(row.translation ?? '');
-    if (!translation.trim()) continue;
+    const insertStmt = targetDb.prepare(`
+        INSERT INTO entries (word_key, word, phonetic, translation, collins, oxford, bnc, frq, tags, exchange)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    const metaStmt = targetDb.prepare('INSERT INTO meta (key, value) VALUES (?, ?)');
 
-    insertStmt.run(
-        wordKey,
-        word,
-        String(row.phonetic ?? ''),
-        translation,
-        Number(row.collins ?? 0),
-        Number(row.oxford ?? 0),
-        Number(row.bnc ?? 0),
-        Number(row.frq ?? 0),
-        normalizeTags(row.tag),
-        String(row.exchange ?? ''),
-    );
-    insertedCount += 1;
+    targetDb.exec('BEGIN');
+    let insertedCount = 0;
+    for (const row of rows) {
+        const word = String(row.word ?? '').trim();
+        if (!word) continue;
+        const wordKey = word.toLowerCase();
+        const translation = String(row.translation ?? '');
+        if (!translation.trim()) continue;
+
+        insertStmt.run(
+            wordKey,
+            word,
+            String(row.phonetic ?? ''),
+            translation,
+            Number(row.collins ?? 0),
+            Number(row.oxford ?? 0),
+            Number(row.bnc ?? 0),
+            Number(row.frq ?? 0),
+            normalizeTags(row.tag),
+            String(row.exchange ?? ''),
+        );
+        insertedCount += 1;
+    }
+    const generatedAt = new Date().toISOString().replace(/\.\d{3}Z$/u, 'Z');
+    for (const [key, value] of [
+        ['schema_version', String(SCHEMA_VERSION)],
+        ['source', 'ecdict'],
+        ['source_version', '1.0.28'],
+        ['word_count', String(insertedCount)],
+        ['generated_at', generatedAt],
+    ]) {
+        metaStmt.run(key, value);
+    }
+    targetDb.exec('COMMIT');
+    targetDb.close();
+    sourceDb.close();
+
+    fs.renameSync(tempOutputPath, OUTPUT_PATH);
+
+    console.info('== 4/4 完成 ==');
+    const { size } = fs.statSync(OUTPUT_PATH);
+    console.info(`产物: ${OUTPUT_PATH}`);
+    console.info(`词条数: ${insertedCount}`);
+    console.info(`文件大小: ${(size / 1048576).toFixed(1)}MB`);
+} catch (error) {
+    try { targetDb.close(); } catch { /* noop */ }
+    try { sourceDb.close(); } catch { /* noop */ }
+    fs.rmSync(tempOutputPath, { force: true });
+    throw error;
 }
-const generatedAt = new Date().toISOString().replace(/\.\d{3}Z$/u, 'Z');
-for (const [key, value] of [
-    ['schema_version', String(SCHEMA_VERSION)],
-    ['source', 'ecdict'],
-    ['source_version', '1.0.28'],
-    ['word_count', String(insertedCount)],
-    ['generated_at', generatedAt],
-]) {
-    metaStmt.run(key, value);
-}
-targetDb.exec('COMMIT');
-targetDb.close();
-sourceDb.close();
-
-console.info('== 4/4 完成 ==');
-const { size } = fs.statSync(OUTPUT_PATH);
-console.info(`产物: ${OUTPUT_PATH}`);
-console.info(`词条数: ${insertedCount}`);
-console.info(`文件大小: ${(size / 1048576).toFixed(1)}MB`);
