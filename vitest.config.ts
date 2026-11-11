@@ -29,6 +29,15 @@ export default defineConfig({
         statements: 26,
         functions: 21,
         branches: 20,
+        // 控制器层（薄壳 + IPC 边界）单独设更高的防倒退底线。
+        // 2026-11 实测：lines 56.97% / stmts 43.26% / funcs 15.96%（routeContract
+        // 覆盖注册链路、registerRoute 测试覆盖校验与日志语义，handler 体未执行属常态）。
+        // 新增控制器若不接入 routeContract 契约测试，本文件 0% 覆盖会把这里拉到阈值下报红。
+        'src/backend/controllers/**': {
+          lines: 55,
+          statements: 40,
+          functions: 14,
+        },
       },
     },
   },
