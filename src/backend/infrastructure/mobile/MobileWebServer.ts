@@ -265,7 +265,7 @@ const parseRange = (header: string, size: number): { start: number; end: number 
  * 与「服务端内部错误」区分开，才能回 4xx 而不是把用户输入问题记成 500。
  * 手机页据此显示可操作的提示，日志也不会被误判成服务端故障。
  */
-class ClientRequestError extends Error {
+export class ClientRequestError extends Error {
     /** 对应的 HTTP 状态码。 */
     public readonly status: number;
 
@@ -474,7 +474,7 @@ export default class MobileWebServer {
      * @param response HTTP 响应。
      * @returns 通过时为 true；不通过时已经写过 401 响应。
      */
-    private authorize(request: IncomingMessage, url: URL, response: ServerResponse): boolean {
+    private authorize(request: IncomingMessage, url: URL, response: ServerResponse): string | null {
         const expected = this.token;
         const headerValue = typeof request.headers[TOKEN_HEADER_NAME] === 'string'
             ? request.headers[TOKEN_HEADER_NAME] as string
@@ -490,7 +490,7 @@ export default class MobileWebServer {
                 pathname: url.pathname,
             });
             this.sendUnauthorized(request, response);
-            return false;
+            return null;
         }
 
         // Cookie 不是这次通过鉴权的来源（首次带令牌进入、或旧 Cookie 已被轮换）时补发，
@@ -498,7 +498,7 @@ export default class MobileWebServer {
         if (accepted !== cookieValue) {
             this.setTokenCookie(response, expected);
         }
-        return true;
+        return accepted;
     }
 
     /**
@@ -520,10 +520,11 @@ export default class MobileWebServer {
      *
      * @param request HTTP 请求。
      * @param response HTTP 响应。
+     * @param accessToken 已通过鉴权的访问令牌。
      * @returns 未超限时为 true。
      */
-    private ensurePaidRequestAllowed(request: IncomingMessage, response: ServerResponse): boolean {
-        if (this.acquirePaidRequest(request)) {
+    private ensurePaidRequestAllowed(request: IncomingMessage, response: ServerResponse, accessToken: string): boolean {
+        if (this.acquirePaidRequest(accessToken)) {
             return true;
         }
         this.logger.warn('mobile web paid request rate limited', {
@@ -535,16 +536,18 @@ export default class MobileWebServer {
     }
 
     /**
-     * 按来源地址做固定窗口计数。
+     * 按访问令牌做固定窗口计数。
      *
-     * 手机页是单用户场景，来源地址足够区分设备；窗口滑动不精确也无所谓，
-     * 目标只是把「无限调用付费模型」收成「每分钟有限次」。
+     * 令牌才是配额真正的主体：按来源地址计数在启用了 IPv6 隐私扩展的局域网里
+     * 可以靠轮换源地址无限开新桶，反过来 NAT 热点下多设备共享一个地址又会
+     * 互相烧光配额。窗口滑动不精确也无所谓，目标只是把「无限调用付费模型」
+     * 收成「每分钟有限次」。
      *
-     * @param request HTTP 请求。
+     * @param accessToken 已通过鉴权的访问令牌。
      * @returns 本窗口内仍有配额时为 true。
      */
-    private acquirePaidRequest(request: IncomingMessage): boolean {
-        const source = request.socket.remoteAddress ?? 'unknown';
+    private acquirePaidRequest(accessToken: string): boolean {
+        const source = accessToken;
         const now = Date.now();
         const current = this.paidRequestWindows.get(source);
         if (current === undefined || now - current.windowStart >= RATE_LIMIT_WINDOW_MS) {
@@ -628,7 +631,8 @@ export default class MobileWebServer {
             }
 
             // 鉴权放在最前面：连静态资源也要令牌，否则未授权设备至少能拿到页面骨架。
-            if (!this.authorize(request, url, response)) {
+            const accessToken = this.authorize(request, url, response);
+            if (accessToken === null) {
                 return;
             }
 
@@ -655,7 +659,7 @@ export default class MobileWebServer {
                     this.sendJson(response, 405, { error: '只支持 GET' });
                     return;
                 }
-                if (!this.ensurePaidRequestAllowed(request, response)) {
+                if (!this.ensurePaidRequestAllowed(request, response, accessToken)) {
                     return;
                 }
                 const word = (url.searchParams.get('word') ?? '').trim();
@@ -673,7 +677,7 @@ export default class MobileWebServer {
                     this.sendJson(response, 405, { error: '只支持 POST' });
                     return;
                 }
-                if (!this.ensurePaidRequestAllowed(request, response)) {
+                if (!this.ensurePaidRequestAllowed(request, response, accessToken)) {
                     return;
                 }
                 const body = await readJsonBody(request);
@@ -721,6 +725,12 @@ export default class MobileWebServer {
                 if (action === '/progress') {
                     if (request.method !== 'POST') {
                         this.sendJson(response, 405, { error: '只支持 POST' });
+                        return;
+                    }
+                    // 进度是唯一无上限的写路径：每次请求都带 DB 读、多次 fs stat 与
+                    // SQLite 写，与付费接口共用同一把令牌窗口，正常播放节奏（约 12 次/分）
+                    // 远够用，无限刷会放大磁盘 I/O 并搅乱「最近播放」排序。
+                    if (!this.ensurePaidRequestAllowed(request, response, accessToken)) {
                         return;
                     }
                     const body = await readJsonBody(request);

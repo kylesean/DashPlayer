@@ -6,7 +6,7 @@ import { inject, injectable } from 'inversify';
 
 import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
-import MobileWebServer from '@/backend/infrastructure/mobile/MobileWebServer';
+import MobileWebServer, { ClientRequestError } from '@/backend/infrastructure/mobile/MobileWebServer';
 import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
 import MediaUtil from '@/common/utils/MediaUtil';
 import type {
@@ -24,6 +24,9 @@ import { buildSentenceStorageKey } from '@/backend/services/subtitle-translation
 
 /** 最近播放列表最多返回的条数；手机页不需要加载完整历史。 */
 const RECENT_LIMIT = 50;
+
+/** 缩略图串行队列的排队上限；超限直接 503，防止并发请求无限堆积连接与 Promise。 */
+const MAX_THUMBNAIL_QUEUE = 64;
 
 /**
  * 手机访问设置与 HTTP 服务的生命周期。
@@ -146,6 +149,8 @@ export class MobileAccessServiceImpl implements MobileAccessService {
     private lastError: string | null = null;
     /** 缩略图生成队列尾；手机页首屏会并发请求多张，排成串行避免同时拉起多个 ffmpeg。 */
     private thumbnailQueue: Promise<void> = Promise.resolve();
+    /** 当前排队中的缩略图请求数（含正在生成的那个）。 */
+    private thumbnailQueueLength = 0;
 
     /**
      * 创建手机访问服务。
@@ -413,13 +418,20 @@ export class MobileAccessServiceImpl implements MobileAccessService {
      * @returns 缩略图文件的绝对路径。
      */
     private async getThumbnail(id: string): Promise<string> {
+        // 排队深度有上限：串行化本身不设限的话，并发请求会各自挂起一条连接与
+        // 一个 Promise 无限堆积（内存/fd 放大），未命中缓存的项排在队尾还会让
+        // 正常用户的首屏缩略图被无限期饿死。超限直接 503，客户端重试即可。
+        if (this.thumbnailQueueLength >= MAX_THUMBNAIL_QUEUE) {
+            throw new ClientRequestError('缩略图请求排队已满，请稍后重试', 503);
+        }
+        this.thumbnailQueueLength += 1;
         const previous = this.thumbnailQueue;
         let release: () => void = () => undefined;
         this.thumbnailQueue = new Promise<void>((resolve) => {
             release = resolve;
         });
-        await previous;
         try {
+            await previous;
             const filePath = await this.watchHistoryService.videoPath(id);
             return await this.mediaService.thumbnail(filePath, undefined, {
                 quality: 'medium',
@@ -428,6 +440,7 @@ export class MobileAccessServiceImpl implements MobileAccessService {
             });
         } finally {
             release();
+            this.thumbnailQueueLength -= 1;
         }
     }
 
