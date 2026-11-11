@@ -72,6 +72,17 @@
         "installAsrAction": "Get model →",
         "autoFlow": "Auto-mic after play"
     },
+    "rhythm": {
+        "title": "Rhythm & stress",
+        "pace": "Pace: {{pace}}",
+        "paceFast": "fast",
+        "paceSlow": "slow",
+        "paceSteady": "close to original",
+        "noteFast": "Your overall pace is fast, so stressed words blur together.",
+        "noteSlow": "Your overall pace is slow; try linking the words more smoothly.",
+        "noteFlat": "Stress is quite flat. Pick one or two key words and say them more strongly.",
+        "missingWord": "This word was missing"
+    },
     "dictation": {
         "hiddenHint": "Dictation mode: listen to the sentence first, then type what you hear",
         "placeholder": "Type the sentence you hear…",

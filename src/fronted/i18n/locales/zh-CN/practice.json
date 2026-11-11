@@ -72,6 +72,17 @@
         "installAsrAction": "下载模型 →",
         "autoFlow": "播完自动开麦"
     },
+    "rhythm": {
+        "title": "节奏与重读",
+        "pace": "语速{{pace}}",
+        "paceFast": "偏快",
+        "paceSlow": "偏慢",
+        "paceSteady": "接近原速",
+        "noteFast": "整体语速偏快，重读容易糊在一起。",
+        "noteSlow": "整体语速偏慢，可以试着更连贯地连读。",
+        "noteFlat": "重音起伏不明显，找一两个关键词说得更重。",
+        "missingWord": "这句没有说完整"
+    },
     "dictation": {
         "hiddenHint": "听写模式：先听原句，把你听到的内容写下来",
         "placeholder": "输入你听到的句子…",

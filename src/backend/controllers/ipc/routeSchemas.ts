@@ -238,6 +238,7 @@ export const shadowingParamsSchema: z.ZodType<SentencePracticeShadowingParams> =
     resegmented: z.boolean(),
     audio: z.instanceof(Uint8Array),
     expectedText: z.string(),
+    referenceDurationSec: z.number().positive().max(600).optional(),
 });
 
 /** 听写文本评分请求校验架构。 */

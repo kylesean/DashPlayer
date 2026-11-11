@@ -541,6 +541,8 @@ function RecordShadowingView({
                 </div>
             )}
 
+            {result?.rhythm && <RhythmFeedback feedback={result.rhythm} />}
+
             {!asrReady && !localRecording && recorderPhase === 'idle' && (
                 <p className="text-xs text-muted-foreground flex items-center justify-between gap-2">
                     <span>{t('shadowing.asrDegradedNote', { defaultValue: '未安装语音识别模型：仍可直接录音并对比原音声纹' })}</span>
@@ -648,6 +650,80 @@ function RecordShadowingView({
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+/**
+ * 跟读节奏反馈：语速、重读位置与可解释提示。
+ *
+ * 只展示本地声学信号，不冒充发音准确度评分。
+ */
+export function RhythmFeedback({ feedback }: { feedback: NonNullable<SentencePracticeResultVO['rhythm']> }) {
+    const { t } = useTranslation('practice');
+    const paceLabel = feedback.pace === 'fast'
+        ? t('rhythm.paceFast', { defaultValue: '偏快' })
+        : feedback.pace === 'slow'
+            ? t('rhythm.paceSlow', { defaultValue: '偏慢' })
+            : feedback.pace === 'steady'
+                ? t('rhythm.paceSteady', { defaultValue: '接近原速' })
+                : null;
+    const noteText = (note: (typeof feedback.notes)[number]): string => {
+        if (note === 'pace-fast') return t('rhythm.noteFast', { defaultValue: '整体语速偏快，重读容易糊在一起。' });
+        if (note === 'pace-slow') return t('rhythm.noteSlow', { defaultValue: '整体语速偏慢，可以试着更连贯地连读。' });
+        return t('rhythm.noteFlat', { defaultValue: '重音起伏不明显，找一两个关键词说得更重。' });
+    };
+
+    return (
+        <div
+            data-testid="practice-rhythm-feedback"
+            className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-background/50 px-3 py-2"
+        >
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">
+                    {t('rhythm.title', { defaultValue: '节奏与重读' })}
+                </span>
+                {paceLabel && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 font-mono tabular-nums">
+                        {t('rhythm.pace', {
+                            defaultValue: '语速 {{pace}}',
+                            pace: paceLabel,
+                        })}
+                    </span>
+                )}
+                {feedback.paceRatio !== null && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 font-mono tabular-nums">
+                        {feedback.paceRatio.toFixed(2)}×
+                    </span>
+                )}
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-sm leading-relaxed">
+                {feedback.words.map((word, index) => (
+                    <span
+                        key={`${word.word}-${index}`}
+                        title={word.durationSec === null
+                            ? t('rhythm.missingWord', { defaultValue: '这句没有说完整' })
+                            : undefined}
+                        className={cn(
+                            'transition-colors',
+                            word.stressed
+                                ? 'font-semibold text-accent underline decoration-accent/50 decoration-2 underline-offset-4'
+                                : word.durationSec === null
+                                    ? 'text-muted-foreground/50 line-through'
+                                    : 'text-foreground/80',
+                        )}
+                    >
+                        {word.word}
+                    </span>
+                ))}
+            </div>
+            {feedback.notes.length > 0 && (
+                <ul className="flex flex-col gap-0.5 text-xs leading-relaxed text-muted-foreground">
+                    {feedback.notes.map((note) => (
+                        <li key={note}>{noteText(note)}</li>
+                    ))}
+                </ul>
+            )}
         </div>
     );
 }

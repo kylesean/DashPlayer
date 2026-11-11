@@ -4,11 +4,13 @@ import { inject, injectable } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import { alignPracticeTokens } from '@/common/utils/practice/pronunciationScoring';
+import { buildRhythmFeedback, decodePcm16Wav, type RhythmToken } from '@/common/utils/practice/rhythmFeedback';
 import type {
     SentencePracticeDictationParams,
     SentencePracticeMode,
     SentencePracticeRecordVO,
     SentencePracticeResultVO,
+    SentencePracticeRhythmFeedback,
     SentencePracticeShadowingParams,
     SentencePracticeSummaryVO,
 } from '@/common/contracts/sentence-practice';
@@ -83,12 +85,24 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     ) {}
 
     public async scoreShadowing(params: SentencePracticeShadowingParams): Promise<SentencePracticeResultVO> {
-        const { fileHash, sentenceIndex, resegmented, audio, expectedText } = params;
+        const { fileHash, sentenceIndex, resegmented, audio, expectedText, referenceDurationSec } = params;
         this.validateKeys(fileHash, sentenceIndex, resegmented);
-        const { transcript, audioFile } = await this.transcribeRecording(fileHash, sentenceIndex, audio);
+        const { transcript, audioFile, rhythm } = await this.transcribeRecording(
+            fileHash,
+            sentenceIndex,
+            audio,
+            expectedText,
+            referenceDurationSec,
+        );
         const alignment = alignPracticeTokens(expectedText, transcript);
         await this.persistRecord(fileHash, sentenceIndex, resegmented, 'shadowing', alignment.score, transcript, alignment.words, audioFile);
-        return { score: alignment.score, transcript, words: alignment.words, audioPath: await this.resolveAudioPath(audioFile) };
+        return {
+            score: alignment.score,
+            transcript,
+            words: alignment.words,
+            audioPath: await this.resolveAudioPath(audioFile),
+            rhythm,
+        };
     }
 
     public async scoreDictation(params: SentencePracticeDictationParams): Promise<SentencePracticeResultVO> {
@@ -96,7 +110,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         this.validateKeys(fileHash, sentenceIndex, resegmented);
         const alignment = alignPracticeTokens(expectedText, typedText);
         await this.persistRecord(fileHash, sentenceIndex, resegmented, 'dictation', alignment.score, typedText, alignment.words, null);
-        return { score: alignment.score, transcript: typedText, words: alignment.words, audioPath: null };
+        return { score: alignment.score, transcript: typedText, words: alignment.words, audioPath: null, rhythm: null };
     }
 
     public async listBySentence(params: { fileHash: string; sentenceIndex: number; resegmented: boolean }): Promise<SentencePracticeRecordVO[]> {
@@ -151,7 +165,9 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         fileHash: string,
         sentenceIndex: number,
         audio: Uint8Array,
-    ): Promise<{ transcript: string; audioFile: string }> {
+        expectedText: string,
+        referenceDurationSec?: number,
+    ): Promise<{ transcript: string; audioFile: string; rhythm: SentencePracticeRhythmFeedback | null }> {
         const practiceRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.PRACTICE);
         const audioFile = `${fileHash}/${randomUUID()}.webm`;
         const audioAbs = path.join(practiceRoot, audioFile);
@@ -167,13 +183,53 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
                 modelsRoot,
                 job: `practice:${fileHash}:${sentenceIndex}:${randomUUID()}`,
             });
-            return { transcript: result.text.trim(), audioFile };
+            const rhythm = await this.analyzeRhythm(
+                wavPath,
+                expectedText,
+                result.text.trim(),
+                result.tokens,
+                referenceDurationSec,
+            );
+            return { transcript: result.text.trim(), audioFile, rhythm };
         } catch (error) {
             // 没有练习记录承载的录音没有留存价值,评分失败即清理
             await this.fileSystemGateway.removeFileIfExists(audioAbs).catch(() => undefined);
             throw error;
         } finally {
             await this.fileSystemGateway.removeFileIfExists(wavPath).catch(() => undefined);
+        }
+    }
+
+    /**
+     * 读取转写用的 16kHz WAV，生成节奏与重读分布。
+     *
+     * 节奏是附加信号：解析或分析失败时返回 null，不影响跟读评分本身。
+     */
+    private async analyzeRhythm(
+        wavPath: string,
+        expectedText: string,
+        transcript: string,
+        tokens: RhythmToken[],
+        referenceDurationSec?: number,
+    ): Promise<SentencePracticeRhythmFeedback | null> {
+        try {
+            const buffer = await this.fileSystemGateway.readBinaryFile(wavPath);
+            const pcm = decodePcm16Wav(buffer);
+            if (!pcm) {
+                return null;
+            }
+            return buildRhythmFeedback({
+                expectedText,
+                transcript,
+                tokens,
+                pcm,
+                referenceDurationSec,
+            });
+        } catch (error) {
+            this.logger.warn('跟读节奏分析失败，跳过附加信号', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
         }
     }
 

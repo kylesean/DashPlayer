@@ -30,6 +30,40 @@ export interface SentencePracticeWordResult {
 }
 
 /**
+ * 单个词的节奏信号（只描述时长与相对重读，不评价发音是否正确）。
+ */
+export interface SentencePracticeWordRhythm {
+    /** 规范化后的原句词。 */
+    word: string;
+    /** 用户在录音中实际说出的时长（秒）；该词缺失时为 null。 */
+    durationSec: number | null;
+    /** 0-1 的录音能量峰值，仅用于同一段录音内的相对比较。 */
+    emphasis: number | null;
+    /** 相对同句其他内容词是否明显更重；弱读/虚词不参与重读判定。 */
+    stressed: boolean;
+}
+
+/**
+ * 跟读的节奏与重读分布。
+ *
+ * 这是基于本地 ASR 时间轴与录音能量的确定性信号，不是发音准确度评分。
+ */
+export interface SentencePracticeRhythmFeedback {
+    /** 用户说话时长（秒）。 */
+    speechDurationSec: number;
+    /** 每词平均时长（秒）；没有可用词时为空。 */
+    averageWordDurationSec: number | null;
+    /** 与原句音频时长的比值；>1 表示更慢。原句时长未知时为 null。 */
+    paceRatio: number | null;
+    /** 语速评价：偏快 / 合适 / 偏慢；无法判断时为 null。 */
+    pace: 'fast' | 'steady' | 'slow' | null;
+    /** 逐词节奏，按原句词序；无法对齐的词也保留，时长为 null。 */
+    words: SentencePracticeWordRhythm[];
+    /** 重读位置与平均语速的简短结论代码，由前端本地化。 */
+    notes: Array<'pace-fast' | 'pace-slow' | 'flat-stress'>;
+}
+
+/**
  * 一次练习的评分结果(实时返回,同时落库)。
  */
 export interface SentencePracticeResultVO {
@@ -41,6 +75,8 @@ export interface SentencePracticeResultVO {
     words: SentencePracticeWordResult[];
     /** 本次跟读录音的绝对路径,供前端回放自己的发音;听写/无录音时为 null。 */
     audioPath: string | null;
+    /** 跟读节奏与重读分布;听写、无录音或分析失败时为 null。 */
+    rhythm?: SentencePracticeRhythmFeedback | null;
 }
 
 /**
@@ -90,6 +126,8 @@ export interface SentencePracticeShadowingParams {
     audio: Uint8Array;
     /** 用于对齐评分的原句文本(前端当前意群原文)。 */
     expectedText: string;
+    /** 原句音频参考时长（秒），用于语速对比；未知时省略。 */
+    referenceDurationSec?: number;
 }
 
 /**

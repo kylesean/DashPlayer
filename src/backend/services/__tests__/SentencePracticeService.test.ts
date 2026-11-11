@@ -7,6 +7,7 @@ import { MemoryFileSystemGateway } from '@/test/memory-file-system-gateway';
 import { createMemoryDb, type MemoryDb } from '@/test/database';
 import type FfmpegService from '@/backend/services/FfmpegService';
 import type SpeechRecognitionGateway from '@/backend/services/gateways/media/SpeechRecognitionGateway';
+import type { SpeechRecognitionToken } from '@/backend/services/gateways/media/SpeechRecognitionGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
@@ -27,15 +28,50 @@ const STORAGE_ROOT = '/virtual-storage';
  */
 class FakeSpeechGateway implements SpeechRecognitionGateway {
     public transcriptText = EXPECTED_TEXT;
+    public tokens: SpeechRecognitionToken[] = [];
     public failWith: Error | null = null;
 
-    public async transcribe(): Promise<{ text: string; tokens: [] }> {
+    public async transcribe(): Promise<{ text: string; tokens: SpeechRecognitionToken[] }> {
         if (this.failWith) throw this.failWith;
-        return { text: this.transcriptText, tokens: [] };
+        return { text: this.transcriptText, tokens: this.tokens };
     }
 
     public cancelActive(): void {}
 }
+
+const SAMPLE_RATE = 16000;
+
+/**
+ * 生成 16kHz 单声道 16-bit PCM WAV，供节奏分析使用。
+ */
+const buildWav = (durationSec: number, amplitude: number): Uint8Array => {
+    const sampleCount = Math.round(durationSec * SAMPLE_RATE);
+    const dataLength = sampleCount * 2;
+    const buffer = new Uint8Array(44 + dataLength);
+    const view = new DataView(buffer.buffer);
+    const writeAscii = (offset: number, text: string) => {
+        for (let i = 0; i < text.length; i += 1) {
+            buffer[offset + i] = text.charCodeAt(i);
+        }
+    };
+    writeAscii(0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeAscii(8, 'WAVE');
+    writeAscii(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, SAMPLE_RATE, true);
+    view.setUint32(28, SAMPLE_RATE * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeAscii(36, 'data');
+    view.setUint32(40, dataLength, true);
+    for (let i = 0; i < sampleCount; i += 1) {
+        view.setInt16(44 + i * 2, i % 2 === 0 ? amplitude : -amplitude, true);
+    }
+    return buffer;
+};
 
 /**
  * 引擎选择器替身：固定返回测试注入的网关。
@@ -75,7 +111,9 @@ describe('句子练习服务', () => {
             ensurePathAccessPermissionIfExists: async () => undefined,
         } as unknown as StorageDirectoryProvider;
         const ffmpegService = {
-            convertToWav: vi.fn().mockResolvedValue(undefined),
+            convertToWav: vi.fn().mockImplementation(async (_input: string, output: string) => {
+                await fsGateway.writeBinaryFile(output, buildWav(1.2, 6000));
+            }),
         } as unknown as FfmpegService;
         service = new SentencePracticeServiceImpl(
             new SentencePracticeRecordRepositoryImpl(memoryDb.db),
@@ -127,6 +165,7 @@ describe('句子练习服务', () => {
                 resegmented: false,
                 audio: new Uint8Array([1, 2, 3]),
                 expectedText: EXPECTED_TEXT,
+                referenceDurationSec: 1.2,
             });
 
             expect(vo.score).toBe(100);
@@ -143,6 +182,73 @@ describe('句子练习服务', () => {
             expect(rows[0].audio_file).not.toBeNull();
             // 录音 webm 确实写到了 practice 目录
             expect(await fsGateway.fileExists(path.join(practiceRoot, rows[0].audio_file!))).toBe(true);
+        });
+
+        it('跟读结果附带本地节奏与重读分布', async () => {
+            speechGateway.transcriptText = 'hello world today';
+            speechGateway.tokens = [
+                { text: ' hello', start: 0, end: 0.4 },
+                { text: ' world', start: 0.4, end: 0.8 },
+                { text: ' today', start: 0.8, end: 1.2 },
+            ];
+
+            const vo = await service.scoreShadowing({
+                fileHash: FILE_HASH,
+                sentenceIndex: 2,
+                resegmented: false,
+                audio: new Uint8Array([1, 2, 3]),
+                expectedText: EXPECTED_TEXT,
+                referenceDurationSec: 1.2,
+            });
+
+            expect(vo.rhythm).not.toBeNull();
+            expect(vo.rhythm?.words.map((word) => word.word)).toEqual(['hello', 'world', 'today']);
+            expect(vo.rhythm?.speechDurationSec).toBeCloseTo(1.2, 1);
+            expect(vo.rhythm?.pace).toBe('steady');
+        });
+
+        it('节奏分析失败时保留跟读评分，节奏为空', async () => {
+            speechGateway.transcriptText = EXPECTED_TEXT;
+            speechGateway.tokens = [
+                { text: ' hello', start: 0, end: 0.4 },
+            ];
+            const failingService = new SentencePracticeServiceImpl(
+                new SentencePracticeRecordRepositoryImpl(memoryDb.db),
+                {
+                    convertToWav: vi.fn().mockImplementation(async (_input: string, output: string) => {
+                        await fsGateway.writeBinaryFile(output, new Uint8Array([1, 2, 3, 4]));
+                    }),
+                } as unknown as FfmpegService,
+                {
+                    provideDirectory: async (target: StorageDirectoryTarget) => path.join(STORAGE_ROOT, target),
+                    ensurePathAccessPermissionIfExists: async () => undefined,
+                } as unknown as StorageDirectoryProvider,
+                fsGateway,
+                new FakeTranscriptionEngineSelector(speechGateway),
+            );
+
+            const vo = await failingService.scoreShadowing({
+                fileHash: FILE_HASH,
+                sentenceIndex: 3,
+                resegmented: false,
+                audio: new Uint8Array([1, 2, 3]),
+                expectedText: EXPECTED_TEXT,
+            });
+
+            expect(vo.score).toBe(100);
+            expect(vo.rhythm).toBeNull();
+        });
+
+        it('听写结果不带节奏信息', async () => {
+            const vo = await service.scoreDictation({
+                fileHash: FILE_HASH,
+                sentenceIndex: 4,
+                resegmented: false,
+                typedText: EXPECTED_TEXT,
+                expectedText: EXPECTED_TEXT,
+            });
+
+            expect(vo.rhythm).toBeNull();
         });
 
         it('转写链路失败时抛出错误并清理落盘录音', async () => {

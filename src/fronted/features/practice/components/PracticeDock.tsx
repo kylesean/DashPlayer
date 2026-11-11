@@ -340,6 +340,7 @@ export default function PracticeDock() {
             resegmented: srtResegmented,
             audio,
             expectedText: activeUnit.text,
+            referenceDurationSec: activeUnit.range.end - activeUnit.range.start,
         });
         if (latestUnitKeyRef.current !== targetKey) {
             return null;
