@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { createHash, randomBytes } from 'node:crypto';
 import { inject, injectable } from 'inversify';
 import { Agent, fetch as undiciFetch } from 'undici';
 import { z } from 'zod';
@@ -18,8 +19,8 @@ import {
     LOCAL_EMBEDDING_MMPROJ,
     LLAMA_RUNTIME_VERSION,
 } from '@/common/contracts/local-ai';
+import { LOCAL_AI_INTEGRITY_MARKER_SUFFIX } from './LocalModelInstaller';
 import { probeReachableDownloadUrl } from '@/backend/utils/probeDownloadUrl';
-import { createHash } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -53,9 +54,16 @@ export class LocalEmbeddingRuntime {
     private readonly logger = getMainLogger('LocalEmbeddingRuntime');
     private readonly directLoopbackAgent = new Agent();
     private child: ChildProcess | null = null;
+    private childExit: Promise<void> | null = null;
     private endpoint: string | null = null;
     private starting: Promise<string | null> | null = null;
     private idleTimer: ReturnType<typeof setTimeout> | null = null;
+    /** 生命周期代数：shutdown 会递增，start 的健康轮询据此放弃被叫停的启动。 */
+    private generation = 0;
+    /** 与推理侧一致的随机鉴权密钥：本机其它进程不能无凭据调用向量接口。 */
+    private readonly apiKey = randomBytes(32).toString('hex');
+    /** 进行中的下载任务；同一时间只允许一个，防止双写 .part 互相覆写。 */
+    private downloadTask: Promise<void> | null = null;
 
     public constructor(
         @inject(TYPES.StorageDirectoryProvider) private readonly directories: StorageDirectoryProvider,
@@ -101,7 +109,7 @@ export class LocalEmbeddingRuntime {
         return path.join(directory, LOCAL_EMBEDDING_MMPROJ.id, LOCAL_EMBEDDING_MMPROJ.file);
     }
 
-    /** 模型是否已完整安装；只做体积判断，哈希校验在下载时完成。 */
+    /** 模型是否已完整安装；只做体积判断，哈希校验在下载与加载时完成。 */
     public async isReady(): Promise<boolean> {
         try {
             const stat = await fs.promises.stat(await this.modelPath());
@@ -148,20 +156,73 @@ export class LocalEmbeddingRuntime {
         };
     }
 
+    /** 计算文件的 SHA256 摘要；按流读取，避免整块载入内存。 */
+    private async sha256File(file: string, signal?: AbortSignal): Promise<string> {
+        const hash = createHash('sha256');
+        const stream = fs.createReadStream(file, signal ? { signal } : {});
+        for await (const chunk of stream) hash.update(chunk);
+        return hash.digest('hex');
+    }
+
+    /**
+     * 校验已安装模型文件的 SHA256 完整性，结论记忆在 `.sha256.ok` 标记里。
+     *
+     * 与推理侧同一威胁模型：只比对字节数分不清「完整」与「恰好同尺寸的损坏
+     * 文件」。摘要不符时删除损坏文件并抛错，避免它继续被当成已安装。
+     *
+     * @param definition 模型定义（含期望摘要）。
+     * @param filePath 模型文件路径。
+     */
+    private async verifyModelIntegrity(
+        definition: typeof LOCAL_EMBEDDING_MODEL,
+        filePath: string,
+    ): Promise<void> {
+        const markerPath = `${filePath}${LOCAL_AI_INTEGRITY_MARKER_SUFFIX}`;
+        const stat = await fs.promises.stat(filePath);
+        try {
+            const raw = await fs.promises.readFile(markerPath, 'utf-8');
+            const marker = JSON.parse(raw) as { sha256?: string; size?: number; mtimeMs?: number };
+            if (marker.sha256 === definition.sha256
+                && marker.size === stat.size && marker.mtimeMs === stat.mtimeMs) {
+                return;
+            }
+        } catch {
+            // 标记缺失或损坏都按「需要重新校验」处理。
+        }
+        const digest = await this.sha256File(filePath);
+        if (digest !== definition.sha256) {
+            await fs.promises.rm(markerPath, { force: true });
+            await fs.promises.rm(filePath, { force: true });
+            throw new Error(`语义模型「${definition.name}」SHA256 校验失败，文件已损坏并被删除，请重新下载`);
+        }
+        try {
+            await fs.promises.writeFile(markerPath, JSON.stringify({
+                modelId: definition.id,
+                sha256: definition.sha256,
+                size: stat.size,
+                mtimeMs: stat.mtimeMs,
+            }), 'utf-8');
+        } catch (error) {
+            this.logger.warn('embedding integrity marker write failed', { filePath, error });
+        }
+    }
+
     /**
      * 下载并安装可选的语义模型。
      *
      * 与对话模型下载互不影响：单独目录、单独进度，不占用对话模型的「正在下载」状态。
+     * 同一时间只允许一个语义模型下载任务（含多模态投影），防止两个写入器
+     * 互相覆写 `.part` 后产出「通过校验」的损坏模型。
      *
      * @param onProgress 可选进度回调，参数为已下载字节数。
      * @returns 下载完成时为 true；失败抛错。
      */
     public async download(onProgress?: (downloaded: number) => void): Promise<void> {
-        await this.downloadOne(
+        await this.runExclusiveDownload(async () => this.downloadOne(
             LOCAL_EMBEDDING_MODEL,
             await this.modelPath(),
             onProgress,
-        );
+        ));
     }
 
     /**
@@ -172,11 +233,27 @@ export class LocalEmbeddingRuntime {
      * @param onProgress 可选进度回调，参数为已下载字节数。
      */
     public async downloadMultimodal(onProgress?: (downloaded: number) => void): Promise<void> {
-        await this.downloadOne(
+        await this.runExclusiveDownload(async () => this.downloadOne(
             LOCAL_EMBEDDING_MMPROJ,
             await this.mmprojPath(),
             onProgress,
-        );
+        ));
+    }
+
+    /** 串行执行下载任务；进行中再发起直接拒绝。 */
+    private async runExclusiveDownload(task: () => Promise<void>): Promise<void> {
+        if (this.downloadTask) {
+            throw new Error('语义模型正在下载，请等待完成后再试');
+        }
+        const running = task();
+        this.downloadTask = running;
+        try {
+            await running;
+        } finally {
+            if (this.downloadTask === running) {
+                this.downloadTask = null;
+            }
+        }
     }
 
     /**
@@ -196,7 +273,14 @@ export class LocalEmbeddingRuntime {
         try {
             const stat = await fs.promises.stat(modelPath);
             if (stat.size === definition.bytes) {
-                return;
+                // 同尺寸文件不能只看体积：损坏文件会被当成已安装继续使用。
+                // 校验失败（文件已被删除）时继续走重新下载，而不是把错误抛给用户。
+                try {
+                    await this.verifyModelIntegrity(definition, modelPath);
+                    return;
+                } catch {
+                    // 继续下载。
+                }
             }
         } catch {
             // 文件不存在，继续下载。
@@ -211,26 +295,39 @@ export class LocalEmbeddingRuntime {
             throw new Error(`语义模型下载失败：HTTP ${response.status}`);
         }
         let downloaded = 0;
-        const hash = createHash('sha256');
         const sink = fs.createWriteStream(partialPath);
         const source = Readable.fromWeb(response.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>);
         source.on('data', (chunk: Buffer) => {
             downloaded += chunk.length;
-            hash.update(chunk);
             onProgress?.(downloaded);
         });
         await pipeline(source, sink);
-        if (downloaded !== definition.bytes || hash.digest('hex') !== definition.sha256) {
+        // 校验必须重读落盘文件而不是在下载流上顺手累积：并发写入器写过同一
+        // `.part` 时，流哈希对应的是自己流过的字节，磁盘上可能是另一个写入器的
+        // 数据。体积也以落盘为准。
+        if (await this.sha256File(partialPath) !== definition.sha256
+            || await new Promise<number>((resolve, reject) => {
+                fs.stat(partialPath, (error, stat) => error ? reject(error) : resolve(stat.size));
+            }) !== definition.bytes) {
             await fs.promises.rm(partialPath, { force: true });
             throw new Error('语义模型校验失败，请重试');
         }
         await fs.promises.rename(partialPath, modelPath);
+        try {
+            await this.verifyModelIntegrity(definition, modelPath);
+        } catch (error) {
+            // 下载链路已做落盘哈希校验，这里失败属于异常状态：清掉刚装的文件，
+            // 保持「已安装即可用」的约定。
+            await fs.promises.rm(modelPath, { force: true });
+            throw error;
+        }
     }
 
     /**
      * 删除已安装的语义模型与多模态投影。
      *
-     * 先停进程再删文件：Windows 下运行中的文件无法删除。
+     * 先停进程（等待真正退出）再删文件：Windows 下运行中的文件无法删除，
+     * 只发 SIGTERM 不等待会在 Windows 上静默删不掉。续传残留与完整性标记一并清理。
      *
      * @returns 实际删除的文件数。
      */
@@ -244,6 +341,8 @@ export class LocalEmbeddingRuntime {
             } catch {
                 // 文件本就不存在时忽略。
             }
+            await fs.promises.rm(`${target}.part`, { force: true }).catch(() => undefined);
+            await fs.promises.rm(`${target}${LOCAL_AI_INTEGRITY_MARKER_SUFFIX}`, { force: true }).catch(() => undefined);
         }
         return removed;
     }
@@ -321,19 +420,35 @@ export class LocalEmbeddingRuntime {
         return results;
     }
 
-    /** 停止模型进程；应用退出或显式卸载时调用。 */
+    /**
+     * 停止模型进程；应用退出、空闲卸载或显式删除时调用。
+     *
+     * 等待子进程真正退出（3 秒后强制 SIGKILL）：Windows 下不等待就删文件会
+     * 静默失败；应用退出链也依赖 shutdown 完成后不再留进程。
+     */
     public async shutdown(): Promise<void> {
+        this.generation += 1;
         if (this.idleTimer) {
             clearTimeout(this.idleTimer);
             this.idleTimer = null;
         }
         const child = this.child;
+        const exited = this.childExit;
         this.child = null;
         this.endpoint = null;
         this.starting = null;
-        if (child && !child.killed) {
-            child.kill();
+        this.childExit = null;
+        if (!child) {
+            return;
         }
+        child.kill();
+        const forceTimer = setTimeout(() => child.kill('SIGKILL'), 3000);
+        try {
+            await exited;
+        } finally {
+            clearTimeout(forceTimer);
+        }
+        this.logger.info('embedding runtime stopped', { pid: child.pid });
     }
 
     /**
@@ -355,8 +470,19 @@ export class LocalEmbeddingRuntime {
     }
 
     private async start(): Promise<string | null> {
+        // 生命周期代数：本代启动若被 shutdown 叫停，健康轮询必须放弃并把状态让给新启动。
+        const generation = ++this.generation;
         if (!await this.isReady()) {
             this.logger.debug('embedding model not installed, skip semantic index');
+            return null;
+        }
+        // 加载前强制完整性校验：同尺寸的损坏文件不得进入推理进程。
+        // 校验失败（损坏文件已被删除）按不可用降级，语义推荐回到词面相似度。
+        const modelPath = await this.modelPath();
+        try {
+            await this.verifyModelIntegrity(LOCAL_EMBEDDING_MODEL, modelPath);
+        } catch (error) {
+            this.logger.warn('embedding model integrity check failed', { error });
             return null;
         }
         const runtimePath = this.runtimePath();
@@ -369,7 +495,7 @@ export class LocalEmbeddingRuntime {
             return null;
         }
         const args = [
-            '--model', await this.modelPath(),
+            '--model', modelPath,
             '--host', '127.0.0.1',
             '--port', String(port),
             '--embeddings',
@@ -381,13 +507,23 @@ export class LocalEmbeddingRuntime {
         // 多模态投影只在已安装时挂载：未安装时纯文本向量照常工作，
         // 不会因为缺文件而让整个语义能力不可用。
         if (await this.isMultimodalReady()) {
-            args.push('--mmproj', await this.mmprojPath());
+            try {
+                await this.verifyModelIntegrity(LOCAL_EMBEDDING_MMPROJ, await this.mmprojPath());
+            } catch (error) {
+                this.logger.warn('embedding mmproj integrity check failed, skip multimodal', { error });
+                await fs.promises.rm(await this.mmprojPath(), { force: true }).catch(() => undefined);
+            }
+            if (await this.isMultimodalReady()) {
+                args.push('--mmproj', await this.mmprojPath());
+            }
         }
         const child = spawn(runtimePath, args, {
             windowsHide: true,
             stdio: ['ignore', 'ignore', 'pipe'],
+            env: { ...process.env, LLAMA_API_KEY: this.apiKey },
         });
         this.child = child;
+        this.childExit = new Promise<void>((resolve) => child.once('close', () => resolve()));
         const failureRef: { current: Error | null } = { current: null };
         child.once('error', (error) => {
             failureRef.current = error;
@@ -402,6 +538,10 @@ export class LocalEmbeddingRuntime {
         const endpoint = `http://127.0.0.1:${port}`;
         const deadline = Date.now() + 30_000;
         while (Date.now() < deadline) {
+            if (generation !== this.generation) {
+                // 启动期间被 shutdown 叫停：不再复活已被清理的状态。
+                return null;
+            }
             if (failureRef.current) {
                 this.logger.warn('embedding runtime failed to start', { error: failureRef.current.message });
                 await this.shutdown();
@@ -411,8 +551,13 @@ export class LocalEmbeddingRuntime {
                 const response = await undiciFetch(`${endpoint}/health`, {
                     dispatcher: this.directLoopbackAgent,
                     signal: AbortSignal.timeout(1_000),
+                    headers: { Authorization: `Bearer ${this.apiKey}` },
                 });
                 if (response.ok) {
+                    if (generation !== this.generation) {
+                        await this.shutdown();
+                        return null;
+                    }
                     this.endpoint = endpoint;
                     return endpoint;
                 }
@@ -432,7 +577,7 @@ export class LocalEmbeddingRuntime {
             const response = await undiciFetch(`${endpoint}/v1/embeddings`, {
                 method: 'POST',
                 dispatcher: this.directLoopbackAgent,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
                 body: JSON.stringify({ input: batch }),
                 signal: AbortSignal.timeout(15_000),
             });
@@ -471,7 +616,7 @@ export class LocalEmbeddingRuntime {
             const response = await undiciFetch(`${endpoint}/v1/embeddings`, {
                 method: 'POST',
                 dispatcher: this.directLoopbackAgent,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
                 body: JSON.stringify({
                     input: [{
                         content: [{

@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import 'reflect-metadata';
+import { LocalEmbeddingRuntime } from '@/backend/infrastructure/ai/LocalEmbeddingRuntime';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import { app, BrowserWindow, protocol, type Session } from 'electron';
 import squirrelStartup from 'electron-squirrel-startup';
@@ -459,11 +460,17 @@ app.on('before-quit', (event) => {
             .catch((error) => {
                 logger.error('local AI shutdown failed', { error });
             });
+        // 语义向量运行时是独立的 llama-server 进程，不接入退出链会在每次正常
+        // 退出后留下一个常驻孤儿进程（空闲卸载窗口内使用过语义推荐即触发）。
+        const embeddingShutdown = container.get<LocalEmbeddingRuntime>(TYPES.LocalEmbeddingRuntime).shutdown()
+            .catch((error) => {
+                logger.error('embedding runtime shutdown failed', { error });
+            });
         const mobileAccessShutdown = container.get<MobileAccessService>(TYPES.MobileAccessService).shutdown()
             .catch((error) => {
                 logger.error('mobile access shutdown failed', { error });
             });
-        void Promise.allSettled([localAiShutdown, mobileAccessShutdown]).finally(() => {
+        void Promise.allSettled([localAiShutdown, embeddingShutdown, mobileAccessShutdown]).finally(() => {
             shutdownPhase = 'ready';
             app.quit();
         });
