@@ -72,6 +72,21 @@ describe('日志脱敏', () => {
             expect(maskSensitiveValues('Authorization: Bearer abc.def')).toBe('Authorization: Bearer ***');
         });
 
+        it('掩掉 URL 查询串里的手机访问令牌', () => {
+            // 手机访问地址形如 http://192.168.1.5:27182/?t=<token>，字段名不敏感
+            expect(maskSensitiveValues('http://192.168.1.5:27182/?t=abcDEF123_-xyz'))
+                .toBe('http://192.168.1.5:27182/?t=***');
+            expect(maskSensitiveValues('http://10.0.0.2:27182/api/recent?token=secret-value'))
+                .toBe('http://10.0.0.2:27182/api/recent?token=***');
+            expect(maskSensitiveValues('http://10.0.0.2/x?a=1&t=abcdefghijklmnop&b=2'))
+                .toBe('http://10.0.0.2/x?a=1&t=***&b=2');
+        });
+
+        it('普通查询参数不受影响', () => {
+            expect(maskSensitiveValues('http://10.0.0.2/x?time=30&format=jpg'))
+                .toBe('http://10.0.0.2/x?time=30&format=jpg');
+        });
+
         it('无敏感模式时原样返回', () => {
             expect(maskSensitiveValues('普通日志内容')).toBe('普通日志内容');
         });

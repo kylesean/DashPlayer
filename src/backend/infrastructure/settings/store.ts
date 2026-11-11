@@ -15,13 +15,15 @@ const store = buildStore(getEnvironmentConfigName('config'));
 /**
  * 需要加密落盘的设置键。
  *
- * 这些值是用户的云端凭据，落盘即为明文的话，任何能读这个用户目录的进程都能拿到。
+ * 这些值是用户的凭据，落盘即为明文的话，任何能读这个用户目录的进程都能拿到。
+ * 代理地址常带 `user:pass@host` 形式的认证信息，与 API 密钥同级。
  */
 const SECRET_SETTING_KEYS: ReadonlySet<string> = new Set([
     'apiKeys.tencent.secretId',
     'apiKeys.tencent.secretKey',
     'apiKeys.openAi.key',
     'mobileAccess.token',
+    'proxy.url',
 ]);
 
 /** 加密值的落盘前缀；用来区分「密文」与「历史遗留的明文」。 */

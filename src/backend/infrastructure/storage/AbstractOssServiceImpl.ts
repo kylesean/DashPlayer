@@ -35,6 +35,31 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
     abstract getBasePath(): Promise<string>;
 
     /**
+     * 把片段 key 解析为库内的绝对目录，并确保它确实落在库根之下。
+     *
+     * 片段 key 由渲染层提供（`<srtHash>__<index>`），但 IPC 只校验了「非空字符串」。
+     * `path.join` 会把 `..` 归一化，一个 `../../..` 就能让后续的 `fs.rm(recursive)`
+     * 递归删除用户目录。这里用 `path.relative` 做边界判定：结果以 `..` 开头或为绝对路径
+     * 都视为越界；同时拒绝空 key 与绝对路径。
+     *
+     * @param key 片段键。
+     * @returns 库内的绝对目录路径。
+     * @throws key 为空、为绝对路径或解析后越出库根时抛出。
+     */
+    protected async resolveClipDirectory(key: string): Promise<string> {
+        const basePath = path.resolve(await this.getBasePath());
+        if (!key || path.isAbsolute(key)) {
+            throw new Error(`非法的片段 key：${key}`);
+        }
+        const target = path.resolve(basePath, key);
+        const relative = path.relative(basePath, target);
+        if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative)) {
+            throw new Error(`非法的片段 key：${key}`);
+        }
+        return target;
+    }
+
+    /**
      * 获取当前元数据版本
      */
     abstract getVersion(): number;
@@ -52,7 +77,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
     abstract parseMetadata(metadata: unknown): OssBaseMeta & T | null;
 
     public async putFile(key: string, fileName: string, sourcePath: string) {
-        const clipDir = path.join(await this.getBasePath(), key);
+        const clipDir = await this.resolveClipDirectory(key);
         try {
             await this.fileSystemGateway.ensureDirectory(clipDir);
             await this.fileSystemGateway.copyFile(sourcePath, path.join(clipDir, fileName));
@@ -63,7 +88,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
     }
 
     public async delete(key: string) {
-        const clipDir = path.join(await this.getBasePath(), key);
+        const clipDir = await this.resolveClipDirectory(key);
         try {
             await this.fileSystemGateway.removeDirectoryIfExists(clipDir);
         } catch (error) {
@@ -84,7 +109,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
      * @returns 校验通过的元数据；片段不存在时返回 `null`。
      */
     public async get(key: string): Promise<OssBaseMeta & T | null> {
-        const clipDir = path.join(await this.getBasePath(), key);
+        const clipDir = await this.resolveClipDirectory(key);
         const metadataPath = path.join(clipDir, this.METADATA_FILE);
 
         if (await this.fileSystemGateway.pathIsMissing(clipDir)) {
@@ -127,7 +152,7 @@ export default abstract class AbstractOssServiceImpl<T> implements OssService<T>
      * @param newMetadata 需要合并的新元数据。
      */
     public async updateMetadata(key: string, newMetadata: Partial<T>): Promise<void> {
-        const clipDir = path.join(await this.getBasePath(), key);
+        const clipDir = await this.resolveClipDirectory(key);
         const metadataPath = path.join(clipDir, this.METADATA_FILE);
         const tempMetadataPath = `${metadataPath}.tmp`;
         try {

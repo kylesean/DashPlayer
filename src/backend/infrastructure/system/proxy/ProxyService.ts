@@ -189,13 +189,52 @@ let systemProxyInterval: NodeJS.Timeout | null = null;
 let appliedKey: string | null = null;
 
 /**
+ * 把代理规则串脱敏成「只保留协议 + 主机」的形态。
+ *
+ * Electron 的 proxyRules 可以是 `http=host:port;https=host:port` 这种多段写法，
+ * 也可能带 `user:password@`。逐段解析后丢弃 userinfo，解析失败时整段打码。
+ *
+ * @param proxyRules 原始代理规则串。
+ * @returns 可安全落日志的规则描述。
+ */
+const describeProxyHosts = (proxyRules: string | undefined): string => {
+    if (!proxyRules) {
+        return '';
+    }
+    return proxyRules
+        .split(';')
+        .map((segment) => segment.trim())
+        .filter(Boolean)
+        .map((segment) => {
+            const separator = segment.indexOf('=');
+            const scheme = separator >= 0 ? segment.slice(0, separator) : '';
+            const address = separator >= 0 ? segment.slice(separator + 1) : segment;
+            let host = address;
+            try {
+                const parsed = new URL(address.includes('://') ? address : `http://${address}`);
+                host = parsed.username || parsed.password ? '***' : parsed.host;
+            } catch {
+                host = '***';
+            }
+            return scheme ? `${scheme}=${host}` : host;
+        })
+        .join(';');
+};
+
+/**
  * 将给定配置应用到所有网络栈：
  * - Electron session（Chromium / net 请求）
  * - Node 侧全局 fetch（AI SDK / openai SDK）
  * - Node 标准代理环境变量（node-fetch / tencentcloud-sdk）
  */
 const applyProxy = async (config: Electron.ProxyConfig): Promise<void> => {
-    logger.info('apply proxy', { mode: config.mode, proxyRules: config.proxyRules, proxyBypassRules: config.proxyBypassRules });
+    // 代理地址允许带 userinfo（http://user:pass@host:port），原样记日志会把口令写进磁盘。
+    // 这里只保留协议与主机，凭据一律打码。
+    logger.info('apply proxy', {
+        mode: config.mode,
+        proxyHosts: describeProxyHosts(config.proxyRules),
+        proxyBypassRules: config.proxyBypassRules,
+    });
     applyProxyEnv(config);
     nodeController.configure(
         config.mode === 'direct' ? undefined : config.proxyRules,

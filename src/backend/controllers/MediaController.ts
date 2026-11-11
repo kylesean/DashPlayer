@@ -65,7 +65,8 @@ export default class MediaController implements Controller {
                 filePath: nonEmptyStringSchema,
                 time: finiteNonNegativeNumberSchema,
                 quality: z.enum(['low', 'medium', 'high', 'ultra']).optional(),
-                width: positiveIntSchema.optional(),
+                // 上界防止 scale=<巨大值>:-1 把 ffmpeg 的内存打爆
+                width: positiveIntSchema.max(4096).optional(),
                 format: z.enum(['jpg', 'png']).optional(),
             }),
         });

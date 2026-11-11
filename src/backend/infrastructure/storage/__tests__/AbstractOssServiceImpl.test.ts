@@ -77,6 +77,48 @@ describe('片段本地存储抽象类', () => {
         });
     });
 
+    describe('片段 key 的路径边界', () => {
+        it('key 含 .. 越出库根时拒绝删除，不触碰库外目录', async () => {
+            // 库外放一个"用户目录"，确认越界 key 不会把它删掉
+            const outsideFile = path.join('/', 'storage', 'user-document.txt');
+            await gateway.writeTextFile(outsideFile, 'keep me');
+
+            await expect(storage.delete('..')).rejects.toThrow('非法的片段 key');
+            await expect(storage.delete('../..')).rejects.toThrow('非法的片段 key');
+            await expect(storage.delete('a/../../b')).rejects.toThrow('非法的片段 key');
+
+            expect(await gateway.readTextFile(outsideFile)).toBe('keep me');
+            expect(await gateway.fileExists(outsideFile)).toBe(true);
+        });
+
+        it('绝对路径 key 被拒绝', async () => {
+            await expect(storage.delete('/tmp')).rejects.toThrow('非法的片段 key');
+        });
+
+        it('空 key 与仅由点号组成的 key 被拒绝', async () => {
+            await expect(storage.delete('')).rejects.toThrow('非法的片段 key');
+            await expect(storage.delete('.')).rejects.toThrow('非法的片段 key');
+        });
+
+        it('写入同样受边界保护，无法把文件写到库外', async () => {
+            await gateway.writeTextFile(path.join('/', 'tmp', 'source.mp4'), 'video-bytes');
+
+            await expect(
+                storage.putFile('../escape', 'clip.mp4', path.join('/', 'tmp', 'source.mp4'))
+            ).rejects.toThrow('非法的片段 key');
+        });
+
+        it('正常 key 与库内子路径仍然可用', async () => {
+            await gateway.writeTextFile(path.join('/', 'tmp', 'source.mp4'), 'video-bytes');
+
+            await storage.putFile('k1', 'clip.mp4', path.join('/', 'tmp', 'source.mp4'));
+            await storage.putFile('k1/nested', 'clip.mp4', path.join('/', 'tmp', 'source.mp4'));
+
+            expect(await gateway.directoryExists(path.join(basePath, 'k1'))).toBe(true);
+            expect(await gateway.directoryExists(path.join(basePath, 'k1', 'nested'))).toBe(true);
+        });
+    });
+
     describe('删除片段', () => {
         it('删除整个片段目录', async () => {
             await gateway.writeTextFile(path.join('/', 'tmp', 'source.mp4'), 'video-bytes');

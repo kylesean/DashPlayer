@@ -33,10 +33,18 @@ export function normalizeSensitiveKey(key: string): string {
     return key.toLowerCase().replace(/[_-]/g, '');
 }
 
-/** 敏感值模式：字符串中命中即替换为掩码占位。 */
-const SENSITIVE_VALUE_PATTERNS: RegExp[] = [
-    /sk-[A-Za-z0-9_-]{16,}/g,
-    /Bearer\s+\S+/g,
+/**
+ * 敏感值模式：字符串中命中即替换为掩码占位。
+ *
+ * 除密钥前缀外，还要覆盖「凭据藏在 URL 查询串里」这一形态：手机访问地址
+ * 形如 `http://192.168.1.5:27182/?t=<token>`，字段名 `lanUrls` 不敏感，
+ * 值里也没有 `sk-`/`Bearer`，只靠键名规则会让令牌原样落盘。
+ */
+const SENSITIVE_VALUE_PATTERNS: Array<{ pattern: RegExp; replace: string }> = [
+    { pattern: /sk-[A-Za-z0-9_-]{16,}/g, replace: 'sk-***' },
+    { pattern: /Bearer\s+\S+/g, replace: 'Bearer ***' },
+    // URL 查询串里的访问令牌：?t=... / &t=... / ?token=...
+    { pattern: /([?&](?:t|token|access_token)=)[^&\s"'#]+/gi, replace: '$1***' },
 ];
 
 /**
@@ -55,8 +63,8 @@ export function isSensitiveKey(key: string): boolean {
  */
 export function maskSensitiveValues(text: string): string {
     let masked = text;
-    for (const pattern of SENSITIVE_VALUE_PATTERNS) {
-        masked = masked.replace(pattern, (match) => (match.startsWith('sk-') ? 'sk-***' : 'Bearer ***'));
+    for (const { pattern, replace } of SENSITIVE_VALUE_PATTERNS) {
+        masked = masked.replace(pattern, replace);
     }
     return masked;
 }

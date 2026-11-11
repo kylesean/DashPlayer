@@ -4,6 +4,8 @@ import type FileSystemGateway from '@/backend/services/gateways/storage/FileSyst
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type FfmpegService from '@/backend/services/FfmpegService';
+import type MediaPathRegistry from '@/backend/services/MediaPathRegistry';
+import { isPathInsideRoot } from '@/backend/infrastructure/media/MediaProtocol';
 import TYPES from '@/backend/ioc/types';
 import { ObjUtil } from '@/backend/utils/ObjUtil';
 import type { VideoInfo } from '@/common/types/video-info';
@@ -67,6 +69,8 @@ export class MediaServiceImpl implements MediaService {
         private readonly ffmpegService: FfmpegService,
         @inject(TYPES.FileSystemGateway)
         private readonly fileSystemGateway: FileSystemGateway,
+        @inject(TYPES.MediaPathRegistry)
+        private readonly mediaPathRegistry: MediaPathRegistry,
     ) {}
 
     /**
@@ -104,6 +108,7 @@ export class MediaServiceImpl implements MediaService {
         timestamp?: number,
         options: ThumbnailOptions = {},
     ): Promise<string> {
+        await this.assertMediaPathAllowed(sourceFilePath);
         await this.assertSourceFileExists(sourceFilePath);
         const duration = await this.readPositiveDuration(sourceFilePath);
         const adjustedTimestamp = this.calculateAdjustedTimestamp(timestamp, duration);
@@ -146,6 +151,7 @@ export class MediaServiceImpl implements MediaService {
      * @returns 媒体时长，单位为秒。
      */
     public async duration(inputFile: string): Promise<number> {
+        await this.assertMediaPathAllowed(inputFile);
         await this.assertSourceFileExists(inputFile);
         return this.readPositiveDuration(inputFile);
     }
@@ -156,6 +162,7 @@ export class MediaServiceImpl implements MediaService {
      * @returns FFprobe 解析后的媒体信息。
      */
     public async info(inputFile: string): Promise<VideoInfo> {
+        await this.assertMediaPathAllowed(inputFile);
         await this.assertSourceFileExists(inputFile);
         return this.ffmpegService.getVideoInfo(inputFile);
     }
@@ -169,6 +176,33 @@ export class MediaServiceImpl implements MediaService {
         if (!(await this.fileSystemGateway.fileExists(sourceFilePath))) {
             throw new Error(`媒体文件不存在：${sourceFilePath}`);
         }
+    }
+
+    /**
+     * 校验调用方给的媒体路径确实属于「后端交付过或媒体库内」的范围。
+     *
+     * 这三条路由（thumbnail / duration / info）会把任意路径交给 ffmpeg/ffprobe 解析，
+     * 缩略图还会落到媒体库 temp 目录、随后可经 `media://` 读回。只做「存在性」校验
+     * 等于给渲染层一个任意文件探测与画面读取的通道，与其它路由（字幕、词汇表）
+     * 已经采用的路径约束不一致。
+     *
+     * 放行条件与 `media://` 协议保持一致：路径在媒体库根内，或已被登记为交付给渲染层的媒体。
+     *
+     * @param sourceFilePath 待校验的媒体路径。
+     * @throws 路径不在允许范围内时抛出。
+     */
+    private async assertMediaPathAllowed(sourceFilePath: string): Promise<void> {
+        if (!sourceFilePath) {
+            throw new Error('媒体路径不能为空');
+        }
+        const libraryRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.LIBRARY_ROOT);
+        if (isPathInsideRoot(libraryRoot, sourceFilePath)) {
+            return;
+        }
+        if (this.mediaPathRegistry.isAllowed(sourceFilePath)) {
+            return;
+        }
+        throw new Error(`媒体路径未授权：${sourceFilePath}`);
     }
 
     /**

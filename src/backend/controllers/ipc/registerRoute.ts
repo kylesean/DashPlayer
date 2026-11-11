@@ -21,6 +21,11 @@ const QUIET_PATH_POLICIES: Partial<Record<string, { logParam: boolean; logResult
     'video-learning/clip-queue-status': { logParam: false, logResult: false },
     'video-learning/detect-clip-status': { logParam: false, logResult: false },
     'dp-task/detail': { logParam: true, logResult: false },
+    // 返回值里带手机访问令牌（lanUrls 的 ?t= 与裸 token），落日志等于把长期凭据写进磁盘
+    'settings/mobile-access/detail': { logParam: true, logResult: false },
+    'settings/mobile-access/regenerate-token': { logParam: true, logResult: false },
+    // 返回值是解密后的云端凭据（OpenAI key、腾讯 secretId/secretKey）
+    'settings/service-credentials/detail': { logParam: true, logResult: false },
 };
 
 /**
