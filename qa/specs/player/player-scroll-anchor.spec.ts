@@ -185,7 +185,8 @@ async function wheelToScrollTop(page: Page, target: number): Promise<number> {
     if (!box) {
         throw new Error('侧栏滚动容器不可见，无法构造滚动起点');
     }
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    // 指针移到滚动容器左侧边衬区（避开中间词元，防止触发单词释义浮层捕获滚轮事件）
+    await page.mouse.move(box.x + 8, box.y + box.height / 2);
 
     // 先回到顶部再单向滚下来：这样每一轮的起点都从同一个方向逼近，避免「从深处往上滚」
     // 与「从顶部往下滚」在虚拟列表里落到不同的行高估算上，产生双峰。
@@ -197,7 +198,8 @@ async function wheelToScrollTop(page: Page, target: number): Promise<number> {
         const delta = target - current;
         // 单次滚动量夹在 300px 内：一次甩太远会让虚拟列表跳过大段未测量行，
         // 落点由估算行高决定，反而更不准。
-        await page.mouse.wheel(0, Math.sign(delta) * Math.min(Math.abs(delta), 300));
+        const wheelAmount = Math.sign(delta) * Math.min(Math.abs(delta), 300);
+        await page.mouse.wheel(0, wheelAmount);
         await page.waitForTimeout(35);
         current = await readScrollTop(page);
     }
@@ -456,7 +458,7 @@ async function runRound(
         if (!box) {
             throw new Error('侧栏滚动容器不可见，无法构造甩动');
         }
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.move(box.x + 8, box.y + box.height / 2);
         // 滚轮位移与 scrollTop 近似 1:1（实测 900 + 3000 → 3900）。
         // 这里直接给一个远超内容高度的位移，等价于「甩到底部」——锚点在第 1 行时
         // 必然被虚拟列表回收，且结论不依赖行高与总句数（见协议常量里的说明）。

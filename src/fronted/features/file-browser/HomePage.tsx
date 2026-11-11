@@ -47,7 +47,11 @@ const HomePage = () => {
         navigate(`/player/${vId}`);
     }
 
-    const { data: vpsBasic } = useSWR(apiPath('watch-history/list/basic'), fileBrowserApi.listBasicWatchHistory);
+    const { data: vpsBasic } = useSWR(
+        apiPath('watch-history/list/basic'),
+        fileBrowserApi.listBasicWatchHistory,
+        { revalidateOnMount: true, dedupingInterval: 0 }
+    );
     const [vpsFull, setVpsFull] = React.useState<typeof vpsBasic>(undefined);
     const vps = vpsFull ?? vpsBasic;
     const clear = usePlaybackSession((s) => s.clear);
