@@ -1,0 +1,11 @@
+{
+    "title": "Memory map",
+    "localBadge": "Local",
+    "summary": "{{total}} words · {{active}} in progress · {{topics}} content topics",
+    "expand": "Expand map",
+    "collapse": "Collapse map",
+    "wordCount": "{{count}} words",
+    "untitledTopic": "Untitled content",
+    "looseTitle": "Words without context",
+    "looseHint": "These came from manual entries or older records. They join a topic once you meet them in a video."
+}

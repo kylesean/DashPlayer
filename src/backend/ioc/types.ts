@@ -65,6 +65,7 @@ const TYPES = {
     WordEncounterService: Symbol('WordEncounterService'),
     LearningDataService: Symbol('LearningDataService'),
     LearningRecapService: Symbol('LearningRecapService'),
+    MemoryMapService: Symbol('MemoryMapService'),
     ContentCompassService: Symbol('ContentCompassService'),
     DpTaskRepository: Symbol('DpTaskRepository'),
     VideoLearningClipRepository: Symbol('VideoLearningClipRepository'),

@@ -9,8 +9,10 @@ import { positiveIntSchema } from '@/backend/controllers/ipc/routeSchemas';
 import TYPES from '@/backend/ioc/types';
 import type LearningDataService from '@/backend/services/LearningDataService';
 import type LearningRecapService from '@/backend/services/LearningRecapService';
+import type MemoryMapService from '@/backend/services/MemoryMapService';
 import type { LearningSessionSummaryParams } from '@/common/types/learningSession';
 import type { LearningDataExportResultVO } from '@/common/types/learningData';
+import type { MemoryMapParams } from '@/common/types/memoryMap';
 import type {
     LearningRecapParams,
     RetellEvaluationParams,
@@ -25,6 +27,7 @@ export default class LearningDataController implements Controller {
     constructor(
         @inject(TYPES.LearningDataService) private readonly learningDataService: LearningDataService,
         @inject(TYPES.LearningRecapService) private readonly learningRecapService: LearningRecapService,
+        @inject(TYPES.MemoryMapService) private readonly memoryMapService: MemoryMapService,
     ) {}
 
     /**
@@ -53,6 +56,13 @@ export default class LearningDataController implements Controller {
      */
     public async evaluateRolePlay(params: RolePlayFeedbackParams) {
         return this.learningRecapService.evaluateRolePlay(params);
+    }
+
+    /**
+     * 生成个人记忆图谱。
+     */
+    public async getMemoryMap(params: MemoryMapParams) {
+        return this.memoryMapService.getMap(params);
     }
 
     /**
@@ -126,6 +136,11 @@ export default class LearningDataController implements Controller {
                 targetExpressions: z.array(z.string().min(1).max(120)).max(3).optional(),
                 locale: z.enum(['zh-CN', 'en-US']).optional(),
                 forceRefresh: z.boolean().optional(),
+            }),
+        });
+        registerRoute('learning-data/memory-map', (p) => this.getMemoryMap(p), {
+            schema: z.object({
+                limit: z.number().int().min(1).max(20).optional(),
             }),
         });
     }

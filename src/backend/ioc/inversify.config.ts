@@ -122,6 +122,8 @@ import type LearningRecapService from '@/backend/services/LearningRecapService';
 import { LearningRecapServiceImpl } from '@/backend/services/LearningRecapService';
 import type ContentCompassService from '@/backend/services/ContentCompassService';
 import { ContentCompassServiceImpl } from '@/backend/services/ContentCompassService';
+import type MemoryMapService from '@/backend/services/MemoryMapService';
+import { MemoryMapServiceImpl } from '@/backend/services/MemoryMapService';
 import type SubtitleComprehensionService from '@/backend/services/SubtitleComprehensionService';
 import { SubtitleComprehensionServiceImpl } from '@/backend/services/SubtitleComprehensionService';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
@@ -315,5 +317,6 @@ container.bind<ContextPackService>(TYPES.ContextPackService).to(ContextPackServi
 container.bind<WordContextInsightService>(TYPES.WordContextInsightService).to(WordContextInsightServiceImpl).inSingletonScope();
 container.bind<LearningRecapService>(TYPES.LearningRecapService).to(LearningRecapServiceImpl).inSingletonScope();
 container.bind<ContentCompassService>(TYPES.ContentCompassService).to(ContentCompassServiceImpl).inSingletonScope();
+container.bind<MemoryMapService>(TYPES.MemoryMapService).to(MemoryMapServiceImpl).inSingletonScope();
 container.bind<SubtitleComprehensionService>(TYPES.SubtitleComprehensionService).to(SubtitleComprehensionServiceImpl).inSingletonScope();
 export default container;

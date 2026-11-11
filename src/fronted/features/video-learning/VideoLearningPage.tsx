@@ -21,6 +21,7 @@ import { toast } from 'react-hot-toast';
 const logger = getRendererLogger('VideoLearning');
 import PageHeader from '@/fronted/components/shared/common/PageHeader';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import MemoryMapSection from '@/fronted/features/learning-data/MemoryMapSection';
 
 type PendingClipTarget = number | 'last';
 type PendingClipRequest = {
@@ -396,6 +397,25 @@ export default function VideoLearningPage() {
     handlePageChange(1, { targetIndex: 0 });
   }, [handlePageChange, setSelectedWord]);
 
+  /**
+   * 从记忆图谱选择词条：优先命中左侧已有词条，保证编辑/删除等操作上下文一致。
+   */
+  const handleMemoryMapWord = useCallback((word: string) => {
+    const matched = words.find((item) => item.word.toLowerCase() === word.toLowerCase());
+    if (matched) {
+      handleWordClick(matched);
+      return;
+    }
+    setSelectedWord({
+      id: -1,
+      word,
+      translate: '',
+      created_at: '',
+      updated_at: '',
+    });
+    handlePageChange(1, { targetIndex: 0 });
+  }, [handlePageChange, handleWordClick, words]);
+
   // 处理清除选择
   const handleClearSelection = useCallback(() => {
     setSelectedWord(null);
@@ -496,6 +516,10 @@ export default function VideoLearningPage() {
           title={t('vocabularyStudio.title')}
           description={t('vocabularyStudio.description')}
         />
+      </div>
+
+      <div className="px-6 pb-1">
+        <MemoryMapSection onSelectWord={handleMemoryMapWord} />
       </div>
 
       {/* 主体内容区域：双栏现代化卡片工作台 */}

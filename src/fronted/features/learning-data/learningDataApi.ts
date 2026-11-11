@@ -5,6 +5,7 @@ import type {
     RetellEvaluationParams,
     RolePlayFeedbackParams,
 } from '@/common/types/learningRecap';
+import type { MemoryMapParams } from '@/common/types/memoryMap';
 
 /**
  * 学习数据与播放会话摘要接口。
@@ -33,6 +34,12 @@ export const learningDataApi = {
      */
     evaluateRolePlay: (params: RolePlayFeedbackParams) =>
         backendClient.call('learning-data/role-play-feedback', params),
+
+    /**
+     * 生成个人记忆图谱。
+     */
+    getMemoryMap: (params: MemoryMapParams = {}) =>
+        backendClient.call('learning-data/memory-map', params),
 
     /**
      * 打开保存对话框并导出学习数据 JSON。

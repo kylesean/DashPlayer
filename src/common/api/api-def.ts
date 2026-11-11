@@ -49,6 +49,7 @@ import type {
     RolePlayFeedbackParams,
     RolePlayFeedbackVO,
 } from '@/common/types/learningRecap';
+import type { MemoryMapParams, MemoryMapVO } from '@/common/types/memoryMap';
 import type {
     ContentCompassEventParams,
     ContentCompassListParams,
@@ -493,6 +494,11 @@ interface LearningDataDef {
     'learning-data/role-play-feedback': {
         params: RolePlayFeedbackParams,
         return: RolePlayFeedbackVO
+    };
+    /** 汇总本地词表、上下文与复习状态，生成个人记忆图谱。 */
+    'learning-data/memory-map': {
+        params: MemoryMapParams,
+        return: MemoryMapVO
     };
 }
 

@@ -1,0 +1,11 @@
+{
+    "title": "记忆图谱",
+    "localBadge": "本地生成",
+    "summary": "{{total}} 个词 · {{active}} 个学习中 · {{topics}} 个内容主题",
+    "expand": "展开图谱",
+    "collapse": "收起图谱",
+    "wordCount": "{{count}} 个词",
+    "untitledTopic": "未命名内容",
+    "looseTitle": "还没有上下文的词",
+    "looseHint": "这些词来自手动添加或更早的记录，进入视频后会自动归入主题。"
+}
