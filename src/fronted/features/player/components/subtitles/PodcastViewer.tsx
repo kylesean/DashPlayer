@@ -51,7 +51,8 @@ const PodcastViewer = ({ className }: { className?: string }) => {
 
         const targetY = -(activeElem.offsetTop + activeElem.offsetHeight / 2 - viewportCenter);
         springY.set(targetY);
-    }, [current?.key, newTranslation, showCn, showSourceZh]);
+    // current 用对象身份入依赖（key 变化必然伴随对象变化），同帧重复执行无副作用；springY 为稳定 MotionValue
+    }, [current, newTranslation, showCn, showSourceZh, springY]);
 
     if (!current || !srtTender) {
         return (
@@ -105,8 +106,16 @@ const PodcastViewer = ({ className }: { className?: string }) => {
                         <div
                             key={sentence.key}
                             ref={isCurrent ? activeItemRef : undefined}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => {
                                 playerActions.gotoSentence(sentence);
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    playerActions.gotoSentence(sentence);
+                                }
                             }}
                             style={{
                                 transform: `scale(${scale})`,

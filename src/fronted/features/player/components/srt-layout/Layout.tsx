@@ -7,6 +7,8 @@ import Subtitle from './components/Subtitle';
 import LearningToolbar from '@/fronted/features/player/components/learning-toolbar/LearningToolbar';
 import { useRef } from 'react';
 import type { ImperativePanelGroupHandle } from 'react-resizable-panels';
+import { BookOpen, PanelBottomOpen } from 'lucide-react';
+import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { useLocalStorage } from '@uidotdev/usehooks';
@@ -47,12 +49,15 @@ const PlaybackLayout = () => {
     const hasLearningContext = useChatPanel((s) => s.hasLearningContext);
     const learningVisible = useChatPanel((s) => s.learningVisible);
     const practiceVisible = usePracticePanel((s) => s.visible);
+    const showTranscript = useLayout((s) => s.showTranscript);
+    const setTranscriptVisible = useLayout((s) => s.setTranscriptVisible);
     // 有会话时保持挂载，切回播放画面只做隐藏，避免回来时对话与滚动状态丢失
     const learningMounted = learningVisible || hasLearningContext;
     const [sizeOa, setSizeOa] = useLocalStorage<number>('split-size-oa', DEFAULT_OUTER_VIDEO_SIZE);
     const [sizeOb, setSizeOb] = useLocalStorage<number>('split-size-ob', DEFAULT_OUTER_TRANSCRIPT_SIZE);
     const [sizeIa, setSizeIa] = useLocalStorage<number>('split-size-ia', DEFAULT_INNER_STAGE_SIZE);
     const [sizeIb, setSizeIb] = useLocalStorage<number>('split-size-ib', DEFAULT_INNER_SUBTITLE_SIZE);
+    const [toolbarPinned, setToolbarPinned] = useLocalStorage<boolean>('dashplayer.learning_toolbar_pinned', true);
     const outerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const innerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
@@ -103,7 +108,9 @@ const PlaybackLayout = () => {
             key="video-stage-panel"
             defaultSize={sizeOa}
             onResize={(e) => {
-                if (fullScreen) {
+                // 全屏不记忆；文稿收起时视频面板会被拉到 100%，这是临时形态，
+                // 不能覆盖用户拖出来的比例，否则收起态退出后下次会以 100% 启动。
+                if (fullScreen || !showTranscript) {
                     return;
                 }
                 logger.debug('Outer panel resized', { size: e });
@@ -158,11 +165,28 @@ const PlaybackLayout = () => {
                             >
                                 {/* 字幕内容 + 学习台：学习台占布局的一行，任何内容都盖不到它；
                                     没有字幕时也保留学习台，训练/设置入口不会随字幕一起消失 */}
-                                <div className="group/subtitles flex h-full w-full flex-col">
+                                <div className="group/subtitles relative flex h-full w-full flex-col">
                                     <div className="min-h-0 flex-1">
                                         {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
                                     </div>
-                                    <LearningToolbar />
+                                    <LearningToolbar
+                                        pinned={toolbarPinned}
+                                        onTogglePinned={() => setToolbarPinned(!toolbarPinned)}
+                                    />
+                                    {!toolbarPinned && (
+                                        <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover/subtitles:opacity-100 transition-opacity duration-200">
+                                            <Tooltip content={t('controlBar.showLearningToolbar', { defaultValue: '展开操作栏' })} placement="above">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setToolbarPinned(true)}
+                                                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface/80 hover:bg-surface text-muted-foreground hover:text-foreground border border-border/60 shadow-xs backdrop-blur-md transition-all cursor-pointer"
+                                                    aria-label={t('controlBar.showLearningToolbar', { defaultValue: '展开操作栏' })}
+                                                >
+                                                    <PanelBottomOpen className="w-3.5 h-3.5" />
+                                                </button>
+                                            </Tooltip>
+                                        </div>
+                                    )}
                                 </div>
                             </ResizablePanel>
                         </>
@@ -197,6 +221,27 @@ const PlaybackLayout = () => {
                 {learningVisible && (
                     <div className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-30 pointer-events-auto', CAPTION_CARD_CLASS)}>
                         <LearningModeButton/>
+                    </div>
+                )}
+
+                {/* 字幕文稿收起时，在画面右上角提供优雅直观的恢复把手，杜绝“收起后找不到还原入口” */}
+                {!showTranscript && !fullScreen && !learningVisible && !practiceVisible && (
+                    <div className="absolute top-3 right-3 z-30 pointer-events-auto">
+                        <Tooltip content={t('controlButton.openTranscript', { defaultValue: '展开字幕文稿' })} placement="below">
+                            <button
+                                type="button"
+                                onClick={() => setTranscriptVisible(true)}
+                                className={cn(
+                                    'flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium cursor-pointer select-none',
+                                    'bg-surface/85 hover:bg-surface text-muted-foreground hover:text-foreground border border-border/70 shadow-xs backdrop-blur-md transition-all duration-150',
+                                    'hover:scale-105 active:scale-95'
+                                )}
+                                aria-label={t('controlButton.openTranscript', { defaultValue: '展开字幕文稿' })}
+                            >
+                                <BookOpen className="w-3.5 h-3.5 text-accent" />
+                                <span>{t('subtitleScript', { defaultValue: '字幕文稿' })}</span>
+                            </button>
+                        </Tooltip>
                     </div>
                 )}
             </div>
@@ -258,15 +303,15 @@ const PlaybackLayout = () => {
             >
                 {isLeftTranscript ? (
                     <>
-                        {!fullScreen && subtitlePanel}
-                        {!fullScreen && splitHandle}
+                        {!fullScreen && showTranscript && subtitlePanel}
+                        {!fullScreen && showTranscript && splitHandle}
                         {videoStagePanel}
                     </>
                 ) : (
                     <>
                         {videoStagePanel}
-                        {!fullScreen && splitHandle}
-                        {!fullScreen && subtitlePanel}
+                        {!fullScreen && showTranscript && splitHandle}
+                        {!fullScreen && showTranscript && subtitlePanel}
                     </>
                 )}
             </ResizablePanelGroup>

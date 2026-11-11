@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Slider } from '@astryxdesign/core/Slider';
-import { Button } from '@astryxdesign/core/Button';
 import { cn } from '@/fronted/lib/utils';
-import { Volume, Volume1, Volume2, VolumeX } from 'lucide-react';
+import { Volume1, Volume2, VolumeX } from 'lucide-react';
 
 export interface VolumeSliderProps {
     volume: number;

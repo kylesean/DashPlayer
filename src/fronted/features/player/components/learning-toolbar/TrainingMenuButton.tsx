@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
     CirclePause,
-    Dumbbell,
     FastForward,
     Gauge,
+    Headphones,
     Mic,
     Repeat,
     Repeat1,
@@ -34,6 +34,7 @@ import { formatShortcut } from '@/fronted/features/player/components/formatShort
 import { deriveSentenceEndMode } from '@/fronted/features/player/lib/sentence-end-mode';
 import {
     TOOLBAR_BADGE,
+    TOOLBAR_ICON_BUTTON,
     TOOLBAR_TEXT_BUTTON,
     TOOLBAR_TONE,
     type ToolbarTone,
@@ -167,13 +168,15 @@ export default function TrainingMenuButton({
                     <PopoverTrigger asChild>
                         <button
                             className={cn(
-                                TOOLBAR_TEXT_BUTTON,
+                                (loopTimesActive || loopRatesActive || shadowing || showLabel)
+                                    ? TOOLBAR_TEXT_BUTTON
+                                    : TOOLBAR_ICON_BUTTON,
                                 trainingActive
                                     ? style.accent.emerald
                                     : style.idle
                             )}
                         >
-                            <Dumbbell className="w-4 h-4" />
+                            <Headphones className="w-4 h-4 shrink-0" />
                             {showLabel ? <span className="font-sans">{trainingLabel}</span> : null}
 
                             {/* 进度徽章槽位：宽度按模式最长内容钉死、常驻（内容缺失时透明占位），

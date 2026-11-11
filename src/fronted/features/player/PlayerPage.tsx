@@ -1,8 +1,7 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {useLocation, useNavigate, useParams, useSearchParams} from 'react-router-dom';
-import useLayout, {cpW} from '@/fronted/app/stores/layoutStore';
+import {useEffect, useRef} from 'react';
+import {useLocation, useParams, useSearchParams} from 'react-router-dom';
+import useLayout from '@/fronted/app/stores/layoutStore';
 import {cn} from '@/fronted/lib/utils';
-import ControlButton from '@/fronted/features/player/components/ControlButton';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import PlayerShortcut from '@/fronted/features/player/components/PlayerShortcut';
 import SideBar from '@/fronted/components/layout/SideBar';
@@ -13,11 +12,10 @@ import {SWR_KEY, swrMutate} from '@/fronted/lib/swr-util';
 import PathUtil from '@/common/utils/PathUtil';
 import MediaUtil from '@/common/utils/MediaUtil';
 import {getRendererLogger} from '@/fronted/log/simple-logger';
-import toast, { type Toast } from 'react-hot-toast';
+import { toast, type Toast } from 'react-hot-toast';
 import {ModeSwitchToast} from '@/fronted/components/shared/toasts/ModeSwitchToast';
 import useSystem from '@/fronted/app/stores/systemStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
-import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSubtitleTranslation from '@/fronted/features/player/translationStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { useDevPlayerEntry } from '@/fronted/features/player/dev/useDevPlayerEntry';
@@ -25,9 +23,7 @@ import { useDevPlayerEntry } from '@/fronted/features/player/dev/useDevPlayerEnt
 const logger = getRendererLogger('PlayerWithControlsPage');
 const MODE_SWITCH_TOAST_ID = 'mode-switch-toast';
 const PlayerWithControlsPage = () => {
-    const { t } = useI18nTranslation('player');
     const {videoId} = useParams();
-    const navigate = useNavigate();
     const [_searchParams, setSearchParams] = useSearchParams();
     // dev/qa 入口：`?file=` 直接把路径换成观看记录，跳过「入库 → 点进去」的前置（打包版忽略）
     const devEntry = useDevPlayerEntry(_searchParams);
@@ -42,22 +38,19 @@ const PlayerWithControlsPage = () => {
     const { data: windowState } = useSWR(SWR_KEY.WINDOW_SIZE, playerApi.getWindowState);
     const isMac = useSystem((s) => s.isMac);
     const showSideBar = useLayout((state) => state.showSideBar);
-    const sidebarCollapsed = useLayout((state) => state.sidebarCollapsed);
-    const titleBarHeight = useLayout((state) => state.titleBarHeight);
+    const changeSideBar = useLayout((state) => state.changeSideBar);
     const uiFullScreen = useLayout((s) => s.fullScreen);
     const changeFullScreen = useLayout((s) => s.changeFullScreen);
     const videoLoaded = usePlaybackSession((s) => s.videoLoaded);
-    const w = cpW.bind(
-        null,
-        useLayout((s) => s.width)
-    );
-    const h = cpW.bind(
-        null,
-        useLayout((s) => s.height)
-    );
     const location = useLocation();
     const referrer = location.state && location.state.referrer;
     logger.debug('page referrer', {referrer});
+
+    // 进入播放学习界面默认完全收起侧栏，给予视频画面与双语字幕最大的沉浸专注视野
+    useEffect(() => {
+        changeSideBar(false);
+    }, [changeSideBar]);
+
     const windowButtonsVisibleRef = useRef<boolean | null>(null);
         useEffect(() => {
         if (!isMac) {
@@ -289,7 +282,6 @@ const PlayerWithControlsPage = () => {
             return next;
         });
     }, [setSearchParams]);
-    const isCompact = !w('xl') || sidebarCollapsed;
 
     // 全屏是应用内的沉浸视图：Esc 必须能退出，否则隐藏两侧后只能靠控制条
     useEffect(() => {
@@ -308,25 +300,21 @@ const PlayerWithControlsPage = () => {
 
     return (
         <div className={cn('relative w-full h-full flex flex-row overflow-hidden bg-background')}>
-            {/* 全屏沉浸：左右两侧（导航栏 + 伴读面板）都要让位给画面 */}
+            {/* 全屏沉浸：左右两侧（导航栏 + 字幕面板）都要让位给画面 */}
             {showSideBar && !uiFullScreen && (
                 <div
                     className={cn(
-                        // overflow-hidden：Astryx SideNav 折叠/展开时会短暂保留一份旧宽度的副本，
-                        // 容器不裁剪就会把它漏到旁边的字幕面板上（表现为浮空按钮压住“伴读剧本”标题）
-                        // 宽度切换交给 SideNav 自己的布局动画，外层不要再加 transition，否则两者互相打架
                         'shrink-0 h-full z-20 overflow-hidden border-r border-border/40 bg-surface/50 backdrop-blur-md',
-                        isCompact ? 'w-14' : 'w-52',
+                        'w-52',
                     )}
                 >
-                    <SideBar compact={isCompact} inPlayer />
+                    <SideBar compact={false} inPlayer />
                 </div>
             )}
             <div className="flex-1 h-full w-full relative overflow-hidden">
                 <PlaybackLayout />
             </div>
             {/* 播放类快捷键在学习页打开期间停用（见 PlayerShortcut）；控制面板与字幕列表保持可用 */}
-            <ControlButton />
             <PlayerShortcut />
         </div>
     );

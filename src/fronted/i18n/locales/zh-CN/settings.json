@@ -67,8 +67,8 @@
         "languageSystem": "跟随系统",
         "languageZhCN": "简体中文",
         "languageEnUS": "English",
-        "transcriptPositionTitle": "伴读面板停靠方位",
-        "transcriptPositionDescription": "伴读剧本流在播放界面的停靠位置",
+        "transcriptPositionTitle": "文稿面板停靠方位",
+        "transcriptPositionDescription": "字幕文稿流在播放界面的停靠位置",
         "transcriptPositionRight": "靠右（默认）",
         "transcriptPositionLeft": "靠左（精读）",
         "sections": {

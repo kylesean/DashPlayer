@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
     useFloating,
     autoUpdate,
@@ -12,7 +12,7 @@ import {
     useInteractions,
     safePolygon,
 } from '@floating-ui/react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import WordPop from './word-pop';
 import { playWord, getTtsUrl, playAudioUrl } from '@/fronted/infrastructure/audio/AudioPlayer';
@@ -89,6 +89,7 @@ export interface WordParam {
         hover?: string;   // 覆盖 hover 背景
         vocab?: string;   // 覆盖词汇高亮
     };
+    children?: React.ReactNode;
 }
 
 /**
@@ -105,6 +106,7 @@ export default function Word({
     show,
     alwaysDark = false,
     classNames,
+    children,
 }: WordParam) {
     const pause = usePlayer((s) => s.pause);
     const {
@@ -136,13 +138,6 @@ export default function Word({
 
     const hoverBg = classNames?.hover ?? (alwaysDark ? 'hover:bg-muted/70' : theme.word.hoverBgClass);
     const vocabCls = isVocabularyWord ? (classNames?.vocab ?? theme.word.vocabHighlightClass) : undefined;
-    // 订阅设置值本身而非直读 get()：setting() 引用稳定不触发重渲染，
-    // 开关切换后已挂载的 Word 会拿旧闭包值（开关拨了第一下不灵）
-    const dictionaryEngineRaw = useSetting((state) => state.values.get('providers.dictionary'));
-    const dictionaryEngine =
-        dictionaryEngineRaw === 'openai' || dictionaryEngineRaw === 'local'
-            ? dictionaryEngineRaw
-            : 'openai';
     const pauseOnWordHover = useSetting((state) => state.values.get('player.pauseOnWordHover')) === 'true';
 
     // 订阅流式查词状态；当本词不是活动流时直接忽略
@@ -364,8 +359,8 @@ export default function Word({
     });
 
     return (
-        <span className="inline">
-            <span {...referenceProps}>
+        <span className="inline" data-word="true">
+            <span {...referenceProps} data-word="true">
                 <span
                     className={cn(
                         'rounded select-text transition-all duration-150',
@@ -376,7 +371,7 @@ export default function Word({
                         classNames?.word,
                     )}
                 >
-                    {word}
+                    {children ?? word}
                 </span>
             </span>
             {pop && isOpen ? (

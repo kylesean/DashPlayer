@@ -87,6 +87,14 @@ export interface TranslationActions {
 
 const logger = getRendererLogger('useTranslation');
 
+/**
+ * 空译文表的稳定引用。
+ *
+ * 供「仅在搜索/展示需要时才订阅整张译文表」的选择器使用：不需要全表时返回该引用，
+ * zustand 的引用相等判断会让译文批次到达不再触发订阅方重渲染。
+ */
+export const EMPTY_TRANSLATIONS: Map<string, string> = new Map();
+
 /** 保证后端只接受当前 renderer 会话内最新播放位置的递增需求标记。 */
 let nextSubtitleDemandId = 1;
 

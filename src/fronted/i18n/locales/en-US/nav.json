@@ -1,4 +1,6 @@
 {
+    "mediaLibrary": "Media Library",
+    "backToLibrary": "Back to Library",
     "playbackLab": "Immersive Player",
     "subtitleWorkspace": "Subtitle Generator",
     "vocabularyStudio": "Vocabulary Studio",
@@ -11,5 +13,7 @@
     "youtubeImport": "Import YouTube video",
     "collapseSidebar": "Collapse Navigation",
     "expandSidebar": "Expand Navigation",
-    "hideSidebar": "Hide Sidebar"
+    "hideSidebar": "Hide Sidebar",
+    "home": "Home",
+    "appTitle": "DashPlayer"
 }

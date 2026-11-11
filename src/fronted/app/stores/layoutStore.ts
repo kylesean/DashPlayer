@@ -27,12 +27,24 @@ export type UseLayoutState = {
     chatting: boolean;
     /** 主侧边栏是否处于收起为紧凑图标轨的状态。 */
     sidebarCollapsed: boolean;
+    /** 播放页字幕文稿流面板是否显示。 */
+    showTranscript: boolean;
+    /** 播放页字幕文稿流显示模式：'sentence'（单句精析）或 'article'（连贯讲稿）。 */
+    transcriptViewMode: 'sentence' | 'article';
 };
 
 /** 全局布局状态修改动作。 */
 export type UseLayoutActions = {
     /** 切换侧边栏显示状态。 */
     changeSideBar: (show: boolean) => void;
+    /** 切换字幕文稿流显示状态。 */
+    setTranscriptVisible: (visible: boolean) => void;
+    /** 反转字幕文稿流显示状态。 */
+    toggleTranscript: () => void;
+    /** 设置字幕文稿流显示模式。 */
+    setTranscriptViewMode: (mode: 'sentence' | 'article') => void;
+    /** 切换字幕文稿流显示模式。 */
+    toggleTranscriptViewMode: () => void;
     /** 切换全屏状态。 */
     changeFullScreen: (full: boolean) => void;
     /** 只同步窗口真实全屏状态，不再反向请求窗口（供 main 进程推送使用）。 */
@@ -48,6 +60,8 @@ export type UseLayoutActions = {
 };
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'dashplayer.sidebar_collapsed';
+const TRANSCRIPT_VISIBLE_STORAGE_KEY = 'dashplayer.transcript_visible';
+const TRANSCRIPT_VIEW_MODE_STORAGE_KEY = 'dashplayer.transcript_view_mode';
 
 const readInitialSidebarCollapsed = (): boolean => {
     if (typeof window === 'undefined') return false;
@@ -62,6 +76,32 @@ const readInitialSidebarCollapsed = (): boolean => {
     return false;
 };
 
+const readInitialTranscriptVisible = (): boolean => {
+    if (typeof window === 'undefined') return true;
+    try {
+        const stored = localStorage.getItem(TRANSCRIPT_VISIBLE_STORAGE_KEY);
+        if (stored !== null) {
+            return stored === 'true';
+        }
+    } catch {
+        // 忽略存储访问异常
+    }
+    return true;
+};
+
+const readInitialTranscriptViewMode = (): 'sentence' | 'article' => {
+    if (typeof window === 'undefined') return 'sentence';
+    try {
+        const stored = localStorage.getItem(TRANSCRIPT_VIEW_MODE_STORAGE_KEY);
+        if (stored === 'sentence' || stored === 'article') {
+            return stored;
+        }
+    } catch {
+        // 忽略存储访问异常
+    }
+    return 'sentence';
+};
+
 /**
  * 管理全局布局状态，包括侧边栏、窗口分级尺寸、全屏和播客模式。
  */
@@ -69,6 +109,8 @@ const useLayout = create<UseLayoutState & UseLayoutActions>()(
     subscribeWithSelector((set) => ({
         showSideBar: true,
         sidebarCollapsed: readInitialSidebarCollapsed(),
+        showTranscript: readInitialTranscriptVisible(),
+        transcriptViewMode: readInitialTranscriptViewMode(),
         chatting: false,
         titleBarHeight: 0,
         width: '2xl',
@@ -76,6 +118,44 @@ const useLayout = create<UseLayoutState & UseLayoutActions>()(
         fullScreen: false,
         changeSideBar: (show: boolean) => {
             set({ showSideBar: show });
+        },
+        setTranscriptVisible: (visible: boolean) => {
+            try {
+                localStorage.setItem(TRANSCRIPT_VISIBLE_STORAGE_KEY, String(visible));
+            } catch {
+                // 忽略存储访问异常
+            }
+            set({ showTranscript: visible });
+        },
+        toggleTranscript: () => {
+            set((state) => {
+                const next = !state.showTranscript;
+                try {
+                    localStorage.setItem(TRANSCRIPT_VISIBLE_STORAGE_KEY, String(next));
+                } catch {
+                    // 忽略存储访问异常
+                }
+                return { showTranscript: next };
+            });
+        },
+        setTranscriptViewMode: (mode: 'sentence' | 'article') => {
+            try {
+                localStorage.setItem(TRANSCRIPT_VIEW_MODE_STORAGE_KEY, mode);
+            } catch {
+                // 忽略存储访问异常
+            }
+            set({ transcriptViewMode: mode });
+        },
+        toggleTranscriptViewMode: () => {
+            set((state) => {
+                const next = state.transcriptViewMode === 'sentence' ? 'article' : 'sentence';
+                try {
+                    localStorage.setItem(TRANSCRIPT_VIEW_MODE_STORAGE_KEY, next);
+                } catch {
+                    // 忽略存储访问异常
+                }
+                return { transcriptViewMode: next };
+            });
         },
         setSidebarCollapsed: (collapsed: boolean) => {
             try {

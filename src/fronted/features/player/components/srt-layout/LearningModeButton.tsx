@@ -1,5 +1,5 @@
 import { GraduationCap } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { cn } from '@/fronted/lib/utils';
 import { Tooltip } from '@astryxdesign/core/Tooltip';

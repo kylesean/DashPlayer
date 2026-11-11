@@ -1,4 +1,3 @@
-import React from 'react';
 import { p } from '@/common/utils/Util';
 import { FONT_SIZE } from '@/fronted/styles/style';
 import { cn } from '@/fronted/lib/utils';

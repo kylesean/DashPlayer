@@ -11,9 +11,10 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
 import useTranslation from '@/fronted/features/player/translationStore';
-import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
-import { splitWords, isWordToken, cleanWord } from '@/common/utils/subtitle';
 import TimeUtil from '@/common/utils/TimeUtil';
+import { playerActions } from '@/fronted/features/player/components/PlayerActions';
+import { renderSentenceTokens } from './sentence-token-renderer';
+import { highlightSlice } from './transcript-highlight';
 
 /**
  * 侧栏单句剧本行入参定义。
@@ -33,14 +34,12 @@ export interface SideSentenceProps {
         isGroupStart: boolean;
         isGroupEnd: boolean;
     };
-}
-
-/** 分词结构体。 */
-interface TextPart {
-    content: string;
-    isWord: boolean;
-    id: string;
-    isVocab?: boolean | '';
+    /** 搜索文本查询。 */
+    searchQuery?: string;
+    /** 是否为当前聚焦选中的搜索匹配项。 */
+    isActiveSearchMatch?: boolean;
+    /** 切换单句循环回调。 */
+    onToggleSingleRepeat?: (sentence: Sentence) => void;
 }
 
 /**
@@ -89,7 +88,20 @@ const RepeatAudioWave = () => (
  * 4. 非活跃行轻柔退后，悬停展现时间戳与快捷重播，提供纯粹从容的伴读体验。
  */
 const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
-    ({ sentence, onClick, isCurrent, isRepeat, selectionState }: SideSentenceProps, ref) => {
+    (
+        {
+            sentence,
+            onClick,
+            isCurrent,
+            isRepeat,
+            selectionState,
+            searchQuery = '',
+            isActiveSearchMatch = false,
+            onToggleSingleRepeat,
+        }: SideSentenceProps,
+        ref
+    ) => {
+        const { t } = useI18nTranslation('player');
         const playing = usePlayerState((state) => state.playing);
         const { showEn, syncSide, showSideTranslation } = usePlayerUiState(
             useShallow((s) => ({
@@ -106,62 +118,42 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
             ) || '';
 
         const primaryText = sentence.text || '';
-        const secondaryText = showSideTranslation ? sentence.textZH || newTranslation || '' : '';
+        const isZhSearchMatch = Boolean(
+            searchQuery.trim() &&
+            ((sentence.textZH && sentence.textZH.toLowerCase().includes(searchQuery.trim().toLowerCase())) ||
+             (newTranslation && newTranslation.toLowerCase().includes(searchQuery.trim().toLowerCase())))
+        );
+        const secondaryText = (showSideTranslation || isZhSearchMatch) ? sentence.textZH || newTranslation || '' : '';
 
         const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
         const [hover, setHover] = useState(false);
         const show = !syncSide ? true : showEn;
         const concealed = !show && !hover;
 
-        const { isVocabularyWord } = useVocabularyState(
-            useShallow((s) => ({
-                isVocabularyWord: s.isVocabularyWord,
-                version: s.version,
-            })),
-        );
+        const [popEle, setPopEle] = useState<string | null>(null);
 
-        /** 分割句子为词元以点亮生词本词汇。 */
-        const splitText = (text: string): TextPart[] => {
-            const textHash = text;
-            return splitWords(text).map((w, index) => {
-                const cleaned = cleanWord(w);
-                return {
-                    content: w,
-                    isWord: isWordToken(w),
-                    id: `${textHash}:${index}`,
-                    isVocab: cleaned && isVocabularyWord(cleaned),
-                };
-            });
+        const handleRequestPop = (k: string) => {
+            if (popEle !== k) {
+                setPopEle(k);
+            }
         };
 
-        const renderHighlightedText = (text: string) => {
-            const parts = splitText(text);
-            return parts.map((part) => {
-                if (part.isVocab) {
-                    return (
-                        <span
-                            key={part.id}
-                            className={cn(
-                                'underline decoration-accent/60 underline-offset-4 decoration-2 font-medium transition-colors',
-                                isCurrent
-                                    ? 'text-accent decoration-accent'
-                                    : 'text-accent hover:decoration-accent hover:text-primary',
-                            )}
-                        >
-                            {part.content}
-                        </span>
-                    );
-                }
-                return <span key={part.id}>{part.content}</span>;
+        const renderHighlightedText = (text: string) =>
+            renderSentenceTokens({
+                sentence,
+                text,
+                searchQuery,
+                isActiveMatch: isActiveSearchMatch,
+                popEle,
+                onRequestPop: handleRequestPop,
             });
-        };
 
         /** 选区多句合并样式计算。 */
         const selectionClass = useMemo(() => {
             if (!selectionState?.isMember) {
                 return '';
             }
-            const classes: string[] = ['bg-accent-muted/20 border-l-[3px] border-accent text-primary'];
+            const classes: string[] = ['bg-accent-muted/15 text-primary'];
 
             if (selectionState.isGroupStart && selectionState.isGroupEnd) {
                 classes.push('rounded-lg');
@@ -195,21 +187,23 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                 onMouseEnter={() => setHover(true)}
                 onMouseLeave={() => setHover(false)}
                 className={cn(
-                    // 遵循 Astryx Row Stream：左对齐平滑流式行，微内边距，移除厚重卡片外框
-                    'group relative mx-2 my-0.5 px-3 py-2.5 rounded-lg flex flex-col justify-start items-start cursor-pointer select-none transition-all duration-150',
-                    'border-l-[3px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
-                    // 未在多句选区中的常规状态：
+                    // 遵循 Astryx Item Stream：左对齐平滑流式行，微内边距，移除厚重卡片外框与左侧彩色竖线
+                    'group relative mx-2 my-0.5 px-3 py-2 rounded-lg flex flex-col justify-start items-start cursor-pointer select-none transition-colors duration-150',
+                    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent/50',
+                    // 未在多句选区中的常规状态：依靠文字对比度与时间戳音波动效指示，彻底去除生硬的左侧彩色竖条
                     !selectionState?.isMember && (
                         isCurrent
-                            ? 'border-l-accent bg-accent-muted/15 text-primary shadow-xs'
-                            : 'border-l-transparent text-secondary hover:text-primary hover:bg-surface/60 hover:border-l-border/60'
+                            ? 'bg-surface/70 text-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-surface/40'
                     ),
+                    // 激活的搜索匹配高亮项
+                    isActiveSearchMatch && 'ring-1 ring-amber-500/80 bg-amber-500/10 shadow-xs',
                     // 随英文字幕隐藏时淡化：
                     concealed && 'opacity-20 hover:opacity-100',
                     selectionClass,
                 )}
             >
-                {/* 顶部行：状态指示 / 时间戳 / 悬停快捷重播入口 */}
+                {/* 顶部行：状态指示 / 时间戳 / 悬停快捷重播与单句精听循环 */}
                 <div className="w-full flex items-center justify-between gap-1.5 mb-1 pointer-events-none">
                     <div className="flex items-center gap-1.5">
                         {/* 活跃态声波动效 */}
@@ -223,7 +217,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                             <span
                                 className={cn(
                                     'text-metadata font-mono tracking-tight transition-colors',
-                                    isCurrent ? 'text-accent font-medium' : 'text-muted-foreground/60 group-hover:text-muted-foreground',
+                                    isCurrent ? 'text-foreground/75 font-medium' : 'text-muted-foreground/50 group-hover:text-muted-foreground/75',
                                 )}
                             >
                                 {timeStr}
@@ -231,25 +225,69 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                         )}
                     </div>
 
-                    {/* 悬停微动作栏：重播单句 */}
+                    {/* 悬停微动作栏：单句精听循环 / 重播单句 */}
                     <div
                         className={cn(
-                            'flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-auto',
-                            isCurrent && 'opacity-100',
+                            'flex items-center gap-1 transition-opacity duration-150 pointer-events-auto',
+                            isCurrent && isRepeat ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
                         )}
                     >
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onClick(sentence);
-                            }}
-                            className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-surface transition-colors cursor-pointer"
-                            title="从头重播此句"
-                            aria-label="从头重播此句"
+                        <Tooltip
+                            content={
+                                isCurrent && isRepeat
+                                    ? t('sideSentence.cancelSingleLoop', { defaultValue: '关闭单句循环' })
+                                    : t('sideSentence.loopSentence', { defaultValue: '开启单句循环' })
+                            }
+                            placement="above"
                         >
-                            <Play className="w-3 h-3 fill-current" />
-                        </button>
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (onToggleSingleRepeat) {
+                                        onToggleSingleRepeat(sentence);
+                                    } else if (isCurrent) {
+                                        playerActions.setSingleRepeat(!isRepeat);
+                                    } else {
+                                        playerActions.gotoSentence(sentence);
+                                        playerActions.setSingleRepeat(true);
+                                    }
+                                }}
+                                className={cn(
+                                    'p-1 rounded transition-colors cursor-pointer',
+                                    isCurrent && isRepeat
+                                        ? 'text-accent bg-accent/20 hover:bg-accent/30'
+                                        : 'text-muted-foreground hover:text-foreground hover:bg-surface/80',
+                                )}
+                                title={
+                                    isCurrent && isRepeat
+                                        ? t('sideSentence.cancelSingleLoop', { defaultValue: '关闭单句循环' })
+                                        : t('sideSentence.loopSentence', { defaultValue: '开启单句循环' })
+                                }
+                                aria-label={
+                                    isCurrent && isRepeat
+                                        ? t('sideSentence.cancelSingleLoop', { defaultValue: '关闭单句循环' })
+                                        : t('sideSentence.loopSentence', { defaultValue: '开启单句循环' })
+                                }
+                            >
+                                <Repeat1 className="w-2.5 h-2.5" />
+                            </button>
+                        </Tooltip>
+
+                        <Tooltip content={t('sideSentence.replaySentence', { defaultValue: '从头重播此句' })} placement="above">
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClick(sentence);
+                                }}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface/80 transition-colors cursor-pointer"
+                                title={t('sideSentence.replaySentence', { defaultValue: '从头重播此句' })}
+                                aria-label={t('sideSentence.replaySentence', { defaultValue: '从头重播此句' })}
+                            >
+                                <Play className="w-2.5 h-2.5 fill-current" />
+                            </button>
+                        </Tooltip>
                     </div>
                 </div>
 
@@ -267,8 +305,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                             (!fontSize || fontSize === 'fontSizeMedium') && 'text-side-en-medium',
                             fontSize === 'fontSizeLarge' && 'text-side-en-large',
                             isCurrent
-                                ? 'text-primary font-medium'
-                                : 'text-primary/80 group-hover:text-primary',
+                                ? 'text-foreground font-medium'
+                                : 'text-muted-foreground/90 group-hover:text-foreground',
                         )}
                     >
                         {renderHighlightedText(primaryText)}
@@ -283,11 +321,11 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                                 (!fontSize || fontSize === 'fontSizeMedium') && 'text-side-zh-medium',
                                 fontSize === 'fontSizeLarge' && 'text-side-zh-large',
                                 isCurrent
-                                    ? 'text-secondary font-normal'
-                                    : 'text-secondary/70 group-hover:text-secondary',
+                                    ? 'text-muted-foreground font-normal'
+                                    : 'text-muted-foreground/60 group-hover:text-muted-foreground/85',
                             )}
                         >
-                            {secondaryText}
+                            {highlightSlice(secondaryText, secondaryText, 0, searchQuery, isActiveSearchMatch)}
                         </div>
                     )}
                 </motion.div>

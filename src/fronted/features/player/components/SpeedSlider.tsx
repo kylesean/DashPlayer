@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from "@/fronted/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import { Button } from '@astryxdesign/core/Button';
@@ -114,6 +114,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                                     onSelectFinish?.();
                                 }}
                                 right={
+                                    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- 仅阻止冒泡以免误触发整行的 onActivate，本身不是可交互控件
                                     <div className="flex items-center pl-2" onClick={(e) => e.stopPropagation()}>
                                         <Tooltip
                                             content={t('speedSlider.favoriteHint', {

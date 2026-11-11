@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';

@@ -34,7 +34,9 @@
         "modeShadowing": "影子跟读",
         "modeLoopTimes": "重复 ×{{times}}",
         "modeLoopRates": "倍速精听",
-        "modeTraining": "训练",
+        "modeTraining": "听力训练",
+        "hideLearningToolbar": "收起操作栏 (沉浸模式)",
+        "showLearningToolbar": "展开操作栏",
         "trainingMenuLabel": "精听与训练模式",
         "rowSingleRepeat": "单句循环",
         "rowAutoPause": "句末自动暂停",
@@ -198,7 +200,10 @@
     "sideSentence": {
         "playing": "正在播放",
         "singleLoop": "单句循环中",
-        "paused": "已暂停"
+        "paused": "已暂停",
+        "loopSentence": "开启单句循环",
+        "cancelSingleLoop": "关闭单句循环",
+        "replaySentence": "从头重播此句"
     },
     "sourceLine": {
         "aiTranslation": "AI 翻译",
@@ -207,7 +212,9 @@
     "controlButton": {
         "backToPlayhead": "回到当前播放位置",
         "openPanel": "打开控制面板",
-        "closePanel": "收起控制面板"
+        "closePanel": "收起控制面板",
+        "openTranscript": "展开字幕文稿",
+        "closeTranscript": "收起字幕文稿"
     },
     "fullscreenHint": {
         "toggle": "沉浸全屏",
@@ -242,8 +249,21 @@
         "hint": "视频无法播放（错误码 {{code}}）。本地视频建议转成 H.264 + AAC 的 MP4 后重试；YouTube 导入的视频不受影响。"
     },
     "translationFailed": "字幕翻译失败",
-    "subtitleScript": "伴读剧本",
+    "subtitleScript": "字幕文稿",
+    "dockToLeft": "将文稿切换至左侧",
+    "dockToRight": "将文稿切换至右侧",
+    "closeTranscript": "收起字幕文稿",
+    "openTranscript": "展开字幕文稿",
     "cancelLoop": "取消选区循环",
+    "nSentencesLoop": "{{count}} 句循环",
+    "searchTranscript": "搜索文稿 (Cmd/Ctrl+F)",
+    "searchPlaceholder": "在文稿中搜索中英文...",
+    "noSearchResults": "无匹配",
+    "prevMatch": "上一个匹配 (Shift+Enter)",
+    "nextMatch": "下一个匹配 (Enter)",
+    "closeSearch": "关闭搜索 (Esc)",
+    "switchToArticleMode": "切换为连贯讲稿模式",
+    "switchToSentenceMode": "切换为单句精析模式",
     "layout": {
         "resetSplitHint": "双击分栏恢复默认比例"
     }

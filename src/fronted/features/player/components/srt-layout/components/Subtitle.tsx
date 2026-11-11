@@ -1,12 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Virtuoso } from 'react-virtuoso';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import { useShallow } from 'zustand/react/shallow';
 import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { BookOpen, Languages, LocateFixed, Repeat, X } from 'lucide-react';
+import { ArrowLeftRight, BookOpen, ChevronDown, ChevronUp, FileText, Languages, List, LocateFixed, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
+import ArticleBlock from './ArticleBlock';
+import { groupSentencesIntoBlocks, type SentenceBlock } from '@/fronted/features/player/lib/sentence-grouping';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { isSidebarHiddenByEnglish } from '@/fronted/features/player/components/sidePanelVisibility';
@@ -23,11 +25,23 @@ import {
 import useBoundary from '@/fronted/features/player/hooks/useBoundary';
 import useChatPanel from '@/fronted/features/chat/chatStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
+import useTranslation, { EMPTY_TRANSLATIONS } from '@/fronted/features/player/translationStore';
 import { exitOverlayView } from '@/fronted/features/player/lib/player-view-controller';
 import type { Sentence } from '@/common/types/SentenceC';
 
+const VIRTUOSO_COMPONENTS = {
+    Footer: () => <div className="h-28" />,
+    Header: () => <div className="h-1" />,
+};
+
 export default function Subtitle() {
     const showSideBar = useLayout((state) => state.showSideBar);
+    const showTranscript = useLayout((state) => state.showTranscript);
+    const setTranscriptVisible = useLayout((state) => state.setTranscriptVisible);
+    const transcriptViewMode = useLayout((state) => state.transcriptViewMode);
+    const toggleTranscriptViewMode = useLayout((state) => state.toggleTranscriptViewMode);
+    const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
+    const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
     const showEn = usePlayerUi((state) => state.showEn);
     const syncSide = usePlayerUi((state) => state.syncSide);
     const showSideTranslation = usePlayerUi((state) => state.showSideTranslation);
@@ -83,11 +97,17 @@ export default function Subtitle() {
     }, [currentSentence, subtitle]);
 
     useEffect(() => {
-        if (currentListPosition < 0) {
+        if (transcriptViewMode !== 'sentence' || currentListPosition < 0) {
             return;
         }
         syncIntoView(currentListPosition);
-    }, [currentListPosition, syncIntoView]);
+    }, [transcriptViewMode, currentListPosition, syncIntoView]);
+
+    // 模式切换时重置同步记忆并恢复正常跟读状态
+    useEffect(() => {
+        useSubtitleScroll.getState().resetSyncDedupe();
+        delaySetNormal();
+    }, [transcriptViewMode, delaySetNormal]);
 
     // 字幕列表整体换掉（换视频/重新加载）时清掉「上次同步下标」的去重记忆：
     // 新列表里同一下标代表的是另一句，必须允许重新同步一次。
@@ -103,6 +123,235 @@ export default function Subtitle() {
         return scroller instanceof HTMLElement ? scroller : null;
     }, []);
     useSideTranslationHold(getScroller);
+
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    /**
+     * 用户显式导航过的匹配项（上下条/Enter）。
+     * 记录它所属的搜索词：词未变时钉住选择，词变了则自动回落到「距当前播放位置最近」的匹配。
+     */
+    const [pinnedMatch, setPinnedMatch] = useState<{ query: string; index: number }>({ query: '', index: -1 });
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const virtuosoHandleRef = useRef<VirtuosoHandle | null>(null);
+    const activeBlockRef = useRef<HTMLDivElement | null>(null);
+
+    // 搜索进行中才订阅整张译文表（全文匹配需要）；未搜索时退化为稳定空引用，
+    // 避免流式翻译的每一批译文到达都触发本组件与全部可见行重渲染。
+    const searchActive = isSearchOpen && searchQuery.trim() !== '';
+    const translations = useTranslation((state) =>
+        searchActive ? state.translations : EMPTY_TRANSLATIONS,
+    );
+
+    const blocks = useMemo(() => groupSentencesIntoBlocks(subtitle), [subtitle]);
+
+    const matchedSentenceIndices = useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return [];
+        const res: number[] = [];
+        for (let i = 0; i < subtitle.length; i++) {
+            const s = subtitle[i];
+            const textMatch = s.text && s.text.toLowerCase().includes(q);
+            const zhMatch = s.textZH && s.textZH.toLowerCase().includes(q);
+            const dynamicZh = s.translationKey ? translations.get(s.translationKey) : '';
+            const dynamicMatch = dynamicZh && dynamicZh.toLowerCase().includes(q);
+            if (textMatch || zhMatch || dynamicMatch) {
+                res.push(i);
+            }
+        }
+        return res;
+    }, [subtitle, searchQuery, translations]);
+
+    /** 未被显式导航时，默认选中距离当前播放位置最近的匹配项。 */
+    const autoMatchIndex = useMemo(() => {
+        if (matchedSentenceIndices.length === 0) return -1;
+        const closest = matchedSentenceIndices.findIndex((idx) => idx >= currentListPosition);
+        return closest >= 0 ? closest : 0;
+    }, [matchedSentenceIndices, currentListPosition]);
+
+    const safeMatchIndex = useMemo(() => {
+        if (matchedSentenceIndices.length === 0) return -1;
+        const pinned = pinnedMatch.query === searchQuery ? pinnedMatch.index : autoMatchIndex;
+        if (pinned >= 0 && pinned < matchedSentenceIndices.length) {
+            return pinned;
+        }
+        return 0;
+    }, [pinnedMatch, searchQuery, autoMatchIndex, matchedSentenceIndices]);
+
+    const activeMatchedSentenceIndex = useMemo(() => {
+        if (safeMatchIndex >= 0 && safeMatchIndex < matchedSentenceIndices.length) {
+            return subtitle[matchedSentenceIndices[safeMatchIndex]]?.index ?? -1;
+        }
+        return -1;
+    }, [safeMatchIndex, matchedSentenceIndices, subtitle]);
+
+    const currentBlockIndex = useMemo(() => {
+        if (!currentSentence || blocks.length === 0) return -1;
+        return blocks.findIndex((b) =>
+            b.sentences.some((s) => s.index === currentSentence.index && s.fileHash === currentSentence.fileHash)
+        );
+    }, [currentSentence, blocks]);
+
+    /**
+     * article 模式的程序化滚动：先进入 AUTO_SCROLLING 再平滑滚动，
+     * 归位 NORMAL 交给 handleArticleScroll 的「滚动事件静止」判定，
+     * 避免动画进行中被误判为用户浏览。
+     */
+    const scrollArticleTo = useCallback((blockIdx: number) => {
+        useSubtitleScroll.setState({ scrollState: 'AUTO_SCROLLING' });
+        virtuosoHandleRef.current?.scrollToIndex({
+            index: blockIdx,
+            align: 'center',
+            behavior: 'smooth',
+        });
+        useSubtitleScroll.getState().delaySetNormal();
+    }, []);
+
+    useEffect(() => {
+        if (transcriptViewMode === 'article' && currentBlockIndex >= 0 && scrollState === 'NORMAL') {
+            scrollArticleTo(currentBlockIndex);
+        }
+    }, [transcriptViewMode, currentBlockIndex, scrollState, scrollArticleTo]);
+
+    const handleArticleScroll = useCallback(() => {
+        const state = useSubtitleScroll.getState();
+        if (state.scrollState === 'AUTO_SCROLLING') {
+            // 程序滚动期间每个 scroll 事件都续期归位计时：滚动事件停止（平滑动画结束）才回 NORMAL。
+            // 与 sentence 模式 onScrolling 的语义一致，避免动画中途被误判为用户浏览而闪现「回到当前句」。
+            state.delaySetNormal();
+            return;
+        }
+        const scroller = scrollerRef.current;
+        if (!(scroller instanceof HTMLElement)) return;
+        const currentRef = activeBlockRef.current;
+        if (!currentRef) return;
+
+        const scrollerRect = scroller.getBoundingClientRect();
+        const eleRect = currentRef.getBoundingClientRect();
+
+        // 舒适阅读区：上下至少保留 48px 安全余量
+        const zoneTop = scrollerRect.top + 48;
+        const zoneBottom = scrollerRect.bottom - 48;
+        // 完全滑出视野
+        const isOutOfView = eleRect.bottom <= scrollerRect.top + 16 || eleRect.top >= scrollerRect.bottom - 16;
+        // 「成块」回到阅读区才恢复跟读：块主体（≥60% 高度）落在舒适区内且块中心也在区内。
+        // 只要求边缘擦到区域的话，用户停在当前句块边缘露出 20px 也会被立即拉回原位，抢走阅读位置。
+        const overlap = Math.min(eleRect.bottom, zoneBottom) - Math.max(eleRect.top, zoneTop);
+        const visibleRatio = eleRect.height > 0 ? overlap / eleRect.height : 0;
+        const blockCenter = eleRect.top + eleRect.height / 2;
+        const isSettledInZone = visibleRatio >= 0.6 && blockCenter > zoneTop && blockCenter < zoneBottom;
+
+        if (state.scrollState === 'NORMAL' && isOutOfView) {
+            useSubtitleScroll.setState({ scrollState: 'USER_BROWSING' });
+        } else if (state.scrollState === 'USER_BROWSING' && isSettledInZone) {
+            state.delaySetNormal();
+        }
+    }, []);
+
+    const scrollToMatch = useCallback((targetListIndex: number, shouldSeek = false) => {
+        if (targetListIndex < 0 || targetListIndex >= subtitle.length) return;
+        const targetSentence = subtitle[targetListIndex];
+        if (!targetSentence) return;
+        if (shouldSeek) {
+            playerActions.gotoSentence(targetSentence);
+        }
+        if (transcriptViewMode === 'article') {
+            const blockIdx = blocks.findIndex((b) =>
+                b.sentences.some((s) => s.index === targetSentence.index && s.fileHash === targetSentence.fileHash)
+            );
+            if (blockIdx >= 0) {
+                scrollArticleTo(blockIdx);
+            }
+        } else {
+            virtuosoHandleRef.current?.scrollToIndex({
+                index: targetListIndex,
+                align: 'center',
+                behavior: 'smooth',
+            });
+        }
+    }, [subtitle, transcriptViewMode, blocks, scrollArticleTo]);
+
+    const handleSearchChange = (val: string) => {
+        setSearchQuery(val);
+    };
+
+    /**
+     * 搜索词变化时选中距离当前播放位置最近的匹配项并滚动过去。
+     * 匹配扫描只由 matchedSentenceIndices 这一份 memo 负责（此前在这里重复扫一遍）；
+     * 同一搜索词下 matchedSentenceIndices 因译文到达等再变化时保持用户当前导航位置，不重置选中。
+     */
+    const lastSearchQueryRef = useRef('');
+    useEffect(() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q || q === lastSearchQueryRef.current) {
+            return;
+        }
+        lastSearchQueryRef.current = q;
+        if (matchedSentenceIndices.length === 0 || safeMatchIndex < 0) {
+            return;
+        }
+        // 仅滚动定位（副作用），选中项由 autoMatchIndex/safeMatchIndex 派生，无需在此 setState
+        scrollToMatch(matchedSentenceIndices[safeMatchIndex], false);
+    }, [searchQuery, matchedSentenceIndices, safeMatchIndex, scrollToMatch]);
+
+    const handleNextMatch = useCallback(() => {
+        if (matchedSentenceIndices.length === 0) return;
+        const current = safeMatchIndex >= 0 ? safeMatchIndex : 0;
+        const nextIdx = (current + 1) % matchedSentenceIndices.length;
+        setPinnedMatch({ query: searchQuery, index: nextIdx });
+        scrollToMatch(matchedSentenceIndices[nextIdx], true);
+    }, [matchedSentenceIndices, safeMatchIndex, searchQuery, scrollToMatch]);
+
+    const handlePrevMatch = useCallback(() => {
+        if (matchedSentenceIndices.length === 0) return;
+        const current = safeMatchIndex >= 0 ? safeMatchIndex : 0;
+        const prevIdx = (current - 1 + matchedSentenceIndices.length) % matchedSentenceIndices.length;
+        setPinnedMatch({ query: searchQuery, index: prevIdx });
+        scrollToMatch(matchedSentenceIndices[prevIdx], true);
+    }, [matchedSentenceIndices, safeMatchIndex, searchQuery, scrollToMatch]);
+
+    const handleCloseSearch = () => {
+        setIsSearchOpen(false);
+        setSearchQuery('');
+        setPinnedMatch({ query: '', index: -1 });
+    };
+
+    /** 搜索栏挂载后聚焦并全选：由 isSearchOpen 驱动，替代散落的 setTimeout 魔法延迟。 */
+    useEffect(() => {
+        if (isSearchOpen) {
+            searchInputRef.current?.focus();
+            searchInputRef.current?.select();
+        }
+    }, [isSearchOpen]);
+
+    const toggleSearch = () => {
+        if (isSearchOpen) {
+            handleCloseSearch();
+        } else {
+            setIsSearchOpen(true);
+        }
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
+                if (!showTranscript) return;
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable)) {
+                    if (active !== searchInputRef.current) {
+                        return;
+                    }
+                }
+                e.preventDefault();
+                setIsSearchOpen(true);
+            } else if (e.key === 'Escape' && isSearchOpen) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleCloseSearch();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [showTranscript, isSearchOpen]);
 
     useEffect(() => {
         return () => {
@@ -210,6 +459,11 @@ export default function Subtitle() {
     }, [finalizeSelection]);
 
     const handleMouseDown = useCallback((sentence: Sentence, listPosition: number) => (event: React.MouseEvent) => {
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('[data-word="true"]') || target?.closest('button')) {
+            // 点击或操作单词/按钮时不拦截原生交互与词典浮层
+            return;
+        }
         event.preventDefault();
         dragStateRef.current = {
             active: true,
@@ -298,11 +552,28 @@ export default function Subtitle() {
             >
                 <SideSentence
                     sentence={item}
-                    onClick={() => {
-                        // handled via drag finalize logic
+                    onClick={(targetSentence) => {
+                        playerActions.clearVirtualGroup();
+                        if (useChatPanel.getState().learningVisible) {
+                            exitOverlayView();
+                        }
+                        playerActions.gotoSentence(targetSentence || item);
+                        if (scrollState === 'USER_BROWSING') {
+                            delaySetNormal();
+                        }
                     }}
                     isCurrent={isCurrent}
                     isRepeat={singleRepeat || hoverRepeat}
+                    searchQuery={searchQuery}
+                    isActiveSearchMatch={activeMatchedSentenceIndex === item.index}
+                    onToggleSingleRepeat={(sentence) => {
+                        if (currentSentence && sentence.index === currentSentence.index && sentence.fileHash === currentSentence.fileHash) {
+                            playerActions.setSingleRepeat(!singleRepeat);
+                        } else {
+                            playerActions.gotoSentence(sentence);
+                            playerActions.setSingleRepeat(true);
+                        }
+                    }}
                     selectionState={
                         isSelected
                             ? {
@@ -329,27 +600,25 @@ export default function Subtitle() {
         hoverRepeat,
         updateCurrentRef,
         virtualGroupMeta,
+        searchQuery,
+        activeMatchedSentenceIndex,
+        scrollState,
+        delaySetNormal,
     ]);
 
     return (
         <div className="w-full h-full flex flex-col relative select-none" ref={setBoundaryRef}>
-            {/* 伴读剧本流状态栏 */}
+            {/* 字幕文稿流状态栏 */}
             <div className="shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-xs">
                 <div className="flex items-center gap-2 min-w-0 shrink-0">
-                    <BookOpen className="w-3.5 h-3.5 text-accent shrink-0" />
+                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                     <span className="font-medium text-foreground tracking-tight">{t('subtitleScript')}</span>
-                    {subtitle.length > 0 && (
-                        <Badge
-                            variant="neutral"
-                            label={`${subtitle.length} 句`}
-                        />
-                    )}
                     {virtualGroup.active && virtualGroup.sentences.length > 1 && (
                         <div className="flex items-center gap-1">
                             <Badge
                                 variant="teal"
                                 icon={<Repeat className="w-2.5 h-2.5" />}
-                                label={`${virtualGroup.sentences.length} 句循环`}
+                                label={t('nSentencesLoop', { count: virtualGroup.sentences.length, defaultValue: `${virtualGroup.sentences.length} 句循环` })}
                             />
                             <Tooltip content={t('cancelLoop')} placement="below">
                                 <button
@@ -364,8 +633,57 @@ export default function Subtitle() {
                         </div>
                     )}
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                    {/* 侧栏译文开关：放进标题栏，不再浮在第一条字幕上遮挡阅读 */}
+                <div className="flex items-center gap-1 shrink-0">
+                    {/* 搜索开关 */}
+                    <Tooltip content={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })} placement="below">
+                        <button
+                            type="button"
+                            onClick={toggleSearch}
+                            className={cn(
+                                'p-1 rounded-md transition-colors cursor-pointer',
+                                isSearchOpen
+                                    ? 'text-accent bg-accent-muted/20'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                            )}
+                            aria-label={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })}
+                        >
+                            <Search className="w-3.5 h-3.5" />
+                        </button>
+                    </Tooltip>
+
+                    {/* 双模视图切换：单句精析模式 vs 连贯讲稿模式 */}
+                    <Tooltip
+                        content={
+                            transcriptViewMode === 'sentence'
+                                ? t('switchToArticleMode', { defaultValue: '切换为连贯讲稿模式' })
+                                : t('switchToSentenceMode', { defaultValue: '切换为单句精析模式' })
+                        }
+                        placement="below"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => toggleTranscriptViewMode()}
+                            className={cn(
+                                'p-1 rounded-md transition-colors cursor-pointer',
+                                transcriptViewMode === 'article'
+                                    ? 'text-accent bg-accent-muted/20'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                            )}
+                            aria-label={
+                                transcriptViewMode === 'sentence'
+                                    ? t('switchToArticleMode', { defaultValue: '切换为连贯讲稿模式' })
+                                    : t('switchToSentenceMode', { defaultValue: '切换为单句精析模式' })
+                            }
+                        >
+                            {transcriptViewMode === 'sentence' ? (
+                                <FileText className="w-3.5 h-3.5" />
+                            ) : (
+                                <List className="w-3.5 h-3.5" />
+                            )}
+                        </button>
+                    </Tooltip>
+
+                    {/* 侧栏译文开关 */}
                     <Tooltip content={t('controlBox.sideTranslationHint')} placement="below">
                         <button
                             type="button"
@@ -378,18 +696,30 @@ export default function Subtitle() {
                                 showSideTranslation
                                     ? 'text-accent hover:bg-accent-muted/20'
                                     : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
-                                sidebarHiddenByEnglish && 'opacity-40'
+                                sidebarHiddenByEnglish && 'opacity-40',
                             )}
                         >
                             <Languages className="w-3.5 h-3.5" />
                         </button>
                     </Tooltip>
-                    {/* 停靠方向与侧栏译文都收进学习台设置里，这里只留在浏览时才有意义的“回到当前句” */}
-                    {scrollState === 'USER_BROWSING' && currentListPosition >= 0 && (
+
+                    {/* 浏览偏离时回到当前播放句 */}
+                    {scrollState === 'USER_BROWSING' && (currentListPosition >= 0 || currentBlockIndex >= 0) && (
                         <Tooltip content={t('controlButton.backToPlayhead')} placement="below">
                             <button
                                 type="button"
-                                onClick={() => syncIntoView(currentListPosition)}
+                                onClick={() => {
+                                    if (transcriptViewMode === 'article' && currentBlockIndex >= 0) {
+                                        virtuosoHandleRef.current?.scrollToIndex({
+                                            index: currentBlockIndex,
+                                            align: 'center',
+                                            behavior: 'smooth',
+                                        });
+                                        delaySetNormal();
+                                    } else if (currentListPosition >= 0) {
+                                        syncIntoView(currentListPosition);
+                                    }
+                                }}
                                 className="p-1 rounded-md text-accent hover:bg-accent-muted/20 transition-colors cursor-pointer"
                                 aria-label={t('controlButton.backToPlayhead')}
                             >
@@ -397,31 +727,204 @@ export default function Subtitle() {
                             </button>
                         </Tooltip>
                     )}
+
+                    {/* 左右停靠对调切换 */}
+                    <Tooltip
+                        content={transcriptPosition === 'right' ? t('dockToLeft', { defaultValue: '将文稿切换至左侧' }) : t('dockToRight', { defaultValue: '将文稿切换至右侧' })}
+                        placement="below"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const next = transcriptPosition === 'right' ? 'left' : 'right';
+                                void useSetting.getState().setSetting('appearance.transcriptPosition', next);
+                            }}
+                            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                            aria-label={transcriptPosition === 'right' ? t('dockToLeft', { defaultValue: '将文稿切换至左侧' }) : t('dockToRight', { defaultValue: '将文稿切换至右侧' })}
+                        >
+                            <ArrowLeftRight className="w-3.5 h-3.5" />
+                        </button>
+                    </Tooltip>
+
+                    {/* 收起字幕文稿 */}
+                    <Tooltip content={t('controlButton.closeTranscript', { defaultValue: '收起字幕文稿' })} placement="below">
+                        <button
+                            type="button"
+                            onClick={() => setTranscriptVisible(false)}
+                            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                            aria-label={t('controlButton.closeTranscript', { defaultValue: '收起字幕文稿' })}
+                        >
+                            {transcriptPosition === 'right' ? (
+                                <PanelRightClose className="w-3.5 h-3.5" />
+                            ) : (
+                                <PanelLeftClose className="w-3.5 h-3.5" />
+                            )}
+                        </button>
+                    </Tooltip>
                 </div>
             </div>
 
-            <div className="flex-1 min-h-0 relative">
-                <Virtuoso
-                    onScroll={onScrolling}
-                    scrollerRef={handleScrollerRef}
-                    increaseViewportBy={200}
-                    minOverscanItemCount={{ top: 3, bottom: 6 }}
-                    defaultItemHeight={60}
-                    ref={setVirtuoso}
-                    className={twJoin(
-                        'h-full w-full overflow-y-auto text-primary py-2',
-                        'scrollbar-thin scrollbar-thumb-rounded-full',
-                        'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
-                        showSideBar && 'scrollbar-none'
+            {/* 即时搜索栏 */}
+            {isSearchOpen && (
+                <div className="shrink-0 px-3 py-1.5 border-b border-border/40 bg-surface/80 backdrop-blur-md flex items-center gap-2 text-xs z-20">
+                    <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <input
+                        ref={searchInputRef}
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                if (e.shiftKey) {
+                                    handlePrevMatch();
+                                } else {
+                                    handleNextMatch();
+                                }
+                            } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                handlePrevMatch();
+                            } else if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                handleNextMatch();
+                            } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                handleCloseSearch();
+                            }
+                        }}
+                        placeholder={t('searchPlaceholder', { defaultValue: '在文稿中搜索中英文...' })}
+                        className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/60 text-xs min-w-0"
+                    />
+                    {searchQuery.trim() && (
+                        <span className="text-metadata font-mono text-muted-foreground shrink-0 select-none">
+                            {matchedSentenceIndices.length > 0 && safeMatchIndex >= 0 ? (
+                                `${safeMatchIndex + 1}/${matchedSentenceIndices.length}`
+                            ) : (
+                                <span className="text-muted-foreground/60">{t('noSearchResults', { defaultValue: '无匹配' })}</span>
+                            )}
+                        </span>
                     )}
-                    data={subtitle}
-                    rangeChanged={handleRangeChanged}
-                    itemContent={renderItem}
-                    components={{
-                        Footer: () => <div className="h-28" />,
-                        Header: () => <div className={cn('h-1')} />,
-                    }}
-                />
+                    <div className="flex items-center gap-0.5 shrink-0">
+                        <Tooltip content={t('prevMatch', { defaultValue: '上一个匹配 (Shift+Enter)' })} placement="below">
+                            <button
+                                type="button"
+                                disabled={matchedSentenceIndices.length === 0}
+                                onClick={handlePrevMatch}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                                aria-label={t('prevMatch', { defaultValue: '上一个匹配 (Shift+Enter)' })}
+                            >
+                                <ChevronUp className="w-3.5 h-3.5" />
+                            </button>
+                        </Tooltip>
+                        <Tooltip content={t('nextMatch', { defaultValue: '下一个匹配 (Enter)' })} placement="below">
+                            <button
+                                type="button"
+                                disabled={matchedSentenceIndices.length === 0}
+                                onClick={handleNextMatch}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                                aria-label={t('nextMatch', { defaultValue: '下一个匹配 (Enter)' })}
+                            >
+                                <ChevronDown className="w-3.5 h-3.5" />
+                            </button>
+                        </Tooltip>
+                        <Tooltip content={t('closeSearch', { defaultValue: '关闭搜索 (Esc)' })} placement="below">
+                            <button
+                                type="button"
+                                onClick={handleCloseSearch}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                                aria-label={t('closeSearch', { defaultValue: '关闭搜索 (Esc)' })}
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </Tooltip>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex-1 min-h-0 relative">
+                {transcriptViewMode === 'article' ? (
+                    <Virtuoso<SentenceBlock>
+                        onScroll={handleArticleScroll}
+                        scrollerRef={handleScrollerRef}
+                        increaseViewportBy={200}
+                        minOverscanItemCount={{ top: 2, bottom: 4 }}
+                        defaultItemHeight={120}
+                        ref={(handle) => {
+                            virtuosoHandleRef.current = handle;
+                            if (handle) {
+                                setVirtuoso(handle);
+                            }
+                        }}
+                        className={twJoin(
+                            'h-full w-full overflow-y-auto text-primary py-2',
+                            'scrollbar-thin scrollbar-thumb-rounded-full',
+                            'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
+                            showSideBar && 'scrollbar-none',
+                        )}
+                        data={blocks}
+                        itemContent={(_index, block) => {
+                            const hasActiveCurrent = block.sentences.some(
+                                (s) => !!currentSentence && s.index === currentSentence.index && s.fileHash === currentSentence.fileHash,
+                            );
+                            return (
+                                <ArticleBlock
+                                    ref={hasActiveCurrent ? activeBlockRef : undefined}
+                                    key={`block-${block.repr.fileHash}-${block.repr.index}`}
+                                    block={block}
+                                    currentSentence={currentSentence}
+                                    searchQuery={searchQuery}
+                                    activeMatchedSentenceIndex={activeMatchedSentenceIndex}
+                                    showSideTranslation={showSideTranslation}
+                                    fontSize={fontSize}
+                                    onSentenceClick={(sentence) => {
+                                        playerActions.clearVirtualGroup();
+                                        if (useChatPanel.getState().learningVisible) {
+                                            exitOverlayView();
+                                        }
+                                        playerActions.gotoSentence(sentence);
+                                        if (scrollState === 'USER_BROWSING') {
+                                            delaySetNormal();
+                                        }
+                                    }}
+                                    onToggleSingleRepeat={(sentence) => {
+                                        if (currentSentence && sentence.index === currentSentence.index && sentence.fileHash === currentSentence.fileHash) {
+                                            playerActions.setSingleRepeat(!singleRepeat);
+                                        } else {
+                                            playerActions.gotoSentence(sentence);
+                                            playerActions.setSingleRepeat(true);
+                                        }
+                                    }}
+                                    isRepeat={singleRepeat || hoverRepeat}
+                                />
+                            );
+                        }}
+                        components={VIRTUOSO_COMPONENTS}
+                    />
+                ) : (
+                    <Virtuoso<Sentence>
+                        onScroll={onScrolling}
+                        scrollerRef={handleScrollerRef}
+                        increaseViewportBy={200}
+                        minOverscanItemCount={{ top: 3, bottom: 6 }}
+                        defaultItemHeight={60}
+                        ref={(handle) => {
+                            virtuosoHandleRef.current = handle;
+                            if (handle) {
+                                setVirtuoso(handle);
+                            }
+                        }}
+                        className={twJoin(
+                            'h-full w-full overflow-y-auto text-primary py-2',
+                            'scrollbar-thin scrollbar-thumb-rounded-full',
+                            'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
+                            showSideBar && 'scrollbar-none',
+                        )}
+                        data={subtitle}
+                        rangeChanged={handleRangeChanged}
+                        itemContent={renderItem}
+                        components={VIRTUOSO_COMPONENTS}
+                    />
+                )}
 
                 {/* 侧栏被「随英文字幕隐藏」收起时给一条唯一解释：卡片底色已隐去，避免看起来像骨架屏 */}
                 {sidebarHiddenByEnglish && (

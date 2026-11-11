@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { CirclePause, Repeat1 } from 'lucide-react';
+import { useRef } from 'react';
+import { CirclePause, PanelBottomClose, Repeat1 } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 
@@ -27,14 +27,6 @@ import {
 const POPOVER_OFFSET = 8;
 
 /**
- * 收起训练按钮文字的面板宽度阈值（CSS px）。
- *
- * 字幕面板由用户拖拽改宽，和浏览器视口无关，所以不能用 `sm:`/`md:` 这类断点；
- * 低于这个宽度时训练按钮只留图标 + 进度徽章，把横向空间让给轨道与快捷开关。
- */
-const TRAINING_LABEL_MIN_WIDTH = 440;
-
-/**
  * 主字幕学习台：固定在字幕面板底部的工具条。
  *
  * 分层约定：视频控制条只管“看”（播放、进度、倍速、音量、遮挡、全屏），
@@ -43,7 +35,17 @@ const TRAINING_LABEL_MIN_WIDTH = 440;
  *
  * 常态降一档对比度，鼠标进入字幕区再升满：控件是配角，句子是主角。
  */
-export default function LearningToolbar() {
+export interface LearningToolbarProps {
+    /** 是否固定显示；若为 false 则完全折叠进入沉浸专注模式。 */
+    pinned?: boolean;
+    /** 切换固定/沉浸模式回调。 */
+    onTogglePinned?: () => void;
+}
+
+export default function LearningToolbar({
+    pinned = true,
+    onTogglePinned,
+}: LearningToolbarProps = {}) {
     const { t } = useI18nTranslation('player');
     const singleRepeat = usePlayer((s) => s.singleRepeat);
     const autoPause = usePlayer((s) => s.autoPause);
@@ -51,20 +53,10 @@ export default function LearningToolbar() {
     const autoPauseShortcut = useSetting((s) => s.setting('shortcut.autoPause'));
 
     const rootRef = useRef<HTMLDivElement>(null);
-    const [compact, setCompact] = useState(false);
 
-    // 面板宽度由用户拖拽改变，不走 React 渲染；用 ResizeObserver 跟着调，避免文字把工具条挤成横向滚动
-    useEffect(() => {
-        const element = rootRef.current;
-        if (!element) {
-            return;
-        }
-        const sync = () => setCompact(element.clientWidth < TRAINING_LABEL_MIN_WIDTH);
-        sync();
-        const observer = new ResizeObserver(sync);
-        observer.observe(element);
-        return () => observer.disconnect();
-    }, []);
+    if (!pinned) {
+        return null;
+    }
 
     const style = TOOLBAR_TONE.panel;
 
@@ -119,7 +111,7 @@ export default function LearningToolbar() {
                 </button>
             </Tooltip>
 
-            <TrainingMenuButton tone="panel" popoverOffset={POPOVER_OFFSET} showLabel={!compact} />
+            <TrainingMenuButton tone="panel" popoverOffset={POPOVER_OFFSET} showLabel={false} />
 
             <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
 
@@ -129,6 +121,22 @@ export default function LearningToolbar() {
             <div className="flex-1" />
 
             <PlayerSettingsPopover tone="panel" popoverOffset={POPOVER_OFFSET} />
+
+            {onTogglePinned && (
+                <Tooltip
+                    content={t('controlBar.hideLearningToolbar', { defaultValue: '收起操作栏 (沉浸模式)' })}
+                    placement="above"
+                >
+                    <button
+                        type="button"
+                        onClick={onTogglePinned}
+                        aria-label={t('controlBar.hideLearningToolbar', { defaultValue: '收起操作栏 (沉浸模式)' })}
+                        className={cn(TOOLBAR_ICON_BUTTON, style.idle)}
+                    >
+                        <PanelBottomClose className="w-4 h-4 stroke-[1.8]" />
+                    </button>
+                </Tooltip>
+            )}
         </div>
     );
 }

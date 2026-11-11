@@ -3,7 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Eraser, History, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSWR, { useSWRConfig } from 'swr';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 
 import { cn } from '@/fronted/lib/utils';

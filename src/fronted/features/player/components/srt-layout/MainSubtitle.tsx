@@ -3,6 +3,7 @@ import TranslatableLine from '@/fronted/features/player/components/subtitles/Tra
 import NormalLine from './NormalLine';
 import useTranslation from '@/fronted/features/player/translationStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
+import useSetting from '@/fronted/features/settings/settingsStore';
 import StrUtil from '@/common/utils/str-util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { usePlayerState } from '@/fronted/features/player/playerState';
@@ -22,18 +23,32 @@ export default function MainSubtitle() {
     const openAiMode = useTranslation(state => state.openAiMode);
     const activeFileHash = useTranslation(state => state.activeFileHash);
 
+    // 顶层订阅组件所需状态
+    const translationKey = sentence?.translationKey || '';
+    const newTranslation = useTranslation(state => state.translations.get(translationKey)) || '';
+    /** 整句模式需要渲染块内其他行的译文：订阅整个译文表，任一译文到达都触发重渲染。 */
+    const translations = useTranslation(state => state.translations);
+    /** 当前句所在的意群块；整句模式关闭时为 null，回退单行渲染。 */
+    const block = usePlayer(state => state.getCurrentBlock());
+    // getCurrentBlock 依赖的 sentenceBlockMode 在 playerStore 内经 getState 非响应式读取，
+    // 这里必须订阅开关本身：否则暂停态下（无 timeupdate）切换整句模式不会重算，主字幕区永久陈旧
+    usePlayerUi(state => state.sentenceBlockMode);
+    const showCn = usePlayerUi((state) => state.showCn);
+    const showSourceZh = usePlayerUi((state) => state.showSourceZh);
+    const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
+
     // 长意群溢出适配:通过 CSS 变量 --sub-scale 进行自适应字号缩放，保证原文+译文永远完整可见，
     // 杜绝非标准 CSS zoom 造成的文本模糊、布局变形及 Floating UI 浮层坐标偏移。
     // 正常长度时 scale 为 1，用户设置的固定字号不受影响；超出容器时动态缩小（下限 0.75，防止字体过小不可读）。
     const subtitleContainerRef = React.useRef<HTMLDivElement>(null);
     const subtitleContentRef = React.useRef<HTMLDivElement>(null);
-    const [, bumpSubtitleFitTick] = React.useReducer((tick: number) => tick + 1, 0);
+    const [fitTick, bumpSubtitleFitTick] = React.useReducer((tick: number) => tick + 1, 0);
 
     // 绘制前测量:先复位 --sub-scale 量自然高度,超出容器则按比例调整字号缩放(上限 1,不放大)。
     // 全部用布局口径(offsetHeight / clientHeight):播放器浮动层带 transform: scale(),
     // getBoundingClientRect 会把测量值乘上缩放系数,而滚动/裁切按布局盒计算,
     // 两种口径混用会算错缩放比。可用高度要扣除内层容器的上下内边距(pt-3 / pb-3)。
-    // 无依赖数组——每次渲染都重测:译文到达、意群切换、字号设置变更都会改变内容高度。
+    // 传入精确依赖项，杜绝每帧时间推进无谓触发强制同步重排（layout thrashing）。
     useLayoutEffect(() => {
         const scroller = subtitleContainerRef.current;
         const content = subtitleContentRef.current;
@@ -49,7 +64,7 @@ export default function MainSubtitle() {
             const scale = Math.max(0.75, available / natural);
             content.style.setProperty('--sub-scale', scale.toFixed(3));
         }
-    });
+    }, [sentence?.key, sentence?.text, newTranslation, showCn, showSourceZh, block?.repr?.key, fontSize, fitTick]);
 
     // 字号缩到下限仍放不下时（超长意群 + 多行译文），面板改为滚动而不是把最后一行裁掉；
     // 内容超出可视区时再把当前句滚回视野中央，保证正在读的那一句永远看得见。
@@ -71,7 +86,7 @@ export default function MainSubtitle() {
         if (elementTop >= viewTop && elementBottom <= viewBottom) return;
         const target = elementTop - (scroller.clientHeight - active.offsetHeight) / 2;
         scroller.scrollTop = Math.min(Math.max(target, 0), maxScroll);
-    });
+    }, [sentence?.key, sentence?.text, newTranslation, showCn, showSourceZh, block?.repr?.key, fontSize, fitTick]);
 
     // 容器尺寸变化(拖窗口/切换窗口模式)不经过 React 渲染,监听后触发一次重渲染走上面的测量
     useEffect(() => {
@@ -81,17 +96,6 @@ export default function MainSubtitle() {
         observer.observe(container);
         return () => observer.disconnect();
     }, []);
-
-    // 在组件顶层获取当前句子的翻译
-    const translationKey = sentence?.translationKey || '';
-    const newTranslation = useTranslation(state => state.translations.get(translationKey)) || '';
-    /** 整句模式需要渲染块内其他行的译文：订阅整个译文表，任一译文到达都触发重渲染。 */
-    const translations = useTranslation(state => state.translations);
-    /** 当前句所在的意群块；整句模式关闭时为 null，回退单行渲染。 */
-    const block = usePlayer(state => state.getCurrentBlock());
-    // getCurrentBlock 依赖的 sentenceBlockMode 在 playerStore 内经 getState 非响应式读取，
-    // 这里必须订阅开关本身：否则暂停态下（无 timeupdate）切换整句模式不会重算，主字幕区永久陈旧
-    usePlayerUi(state => state.sentenceBlockMode);
 
     useEffect(() => {
         if (sentence && engine !== 'none' && activeFileHash === sentence.fileHash) {
@@ -108,8 +112,6 @@ export default function MainSubtitle() {
     useEffect(() => () => { playerActions.setHoverRepeat(false); }, []);
 
     // 字幕轨道显隐：只在这里订阅展示值，切换入口在视频底部控制条
-    const showCn = usePlayerUi((state) => state.showCn);
-    const showSourceZh = usePlayerUi((state) => state.showSourceZh);
 
     /** 渲染一行字幕的译文与源自带中文（整句模式用），按开关与有无依次输出。 */
     const renderZhLinesForBlock = (item: Sentence): ReactElement[] => {

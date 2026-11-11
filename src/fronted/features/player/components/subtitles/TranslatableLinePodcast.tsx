@@ -1,4 +1,3 @@
-import React from 'react';
 import { History } from 'lucide-react';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { cn } from '@/fronted/lib/utils';

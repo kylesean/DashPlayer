@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { Button } from '@astryxdesign/core/Button';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';

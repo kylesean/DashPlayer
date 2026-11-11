@@ -67,6 +67,7 @@ const WordPop: React.FC<WordSubParam> = ({
 
     return (
         <FloatingPortal>
+            {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- 浮层容器仅阻止冒泡避免关闭底层取词浮层，交互由内部按钮与文档点击处理 */}
             <div
                 {...getFloatingProps()}
                 ref={setFloatingRef}

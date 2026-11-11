@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
 import { Keyboard, Loader2, Mic, Pause, Play, RotateCcw, Square, Volume2, X } from 'lucide-react';
 import { Button } from '@astryxdesign/core/Button';
@@ -381,6 +381,7 @@ const PracticePanel = () => {
                         <p className="text-xs text-muted-foreground">{t('shadowing.hint')}</p>
                     </div>
                 ) : (
+                    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 容器级键位委派：Ctrl/Cmd+Enter 提交由内部输入框触发，此处集中拦截
                     <div
                         className="flex flex-col gap-3"
                         onKeyDown={(e) => {

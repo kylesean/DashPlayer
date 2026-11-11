@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useHotkeys } from 'react-hotkeys-hook';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { useSubtitleScrollState } from '@/fronted/features/player/hooks/useSubtitleScroll';
@@ -10,6 +10,7 @@ import { playerActions } from '@/fronted/features/player/components/PlayerAction
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { exitOverlayView } from '@/fronted/features/player/lib/player-view-controller';
+import useLayout from '@/fronted/app/stores/layoutStore';
 
 /**
  * 规范化快捷键配置字符串，去除空白项。
@@ -73,6 +74,7 @@ export default function PlayerShortCut() {
         volumeDown: s.values.get('shortcut.volumeDown') ?? '',
         seekBackward: s.values.get('shortcut.seekBackward') ?? '',
         seekForward: s.values.get('shortcut.seekForward') ?? '',
+        openControlPanel: s.values.get('shortcut.openControlPanel') ?? '',
     })));
 
     // 模式开关的写入统一走 PlayerActions，此处只订阅展示用的值
@@ -81,6 +83,12 @@ export default function PlayerShortCut() {
     const learningVisible = useChatPanel((s) => s.learningVisible);
     const practiceRecording = usePracticePanel((s) => s.recording);
     const playbackKeysEnabled = !learningVisible && !practiceRecording;
+    const showSideBar = useLayout((s) => s.showSideBar);
+    const changeSideBar = useLayout((s) => s.changeSideBar);
+
+    useHotkeys(process(shortcuts.openControlPanel), () => {
+        changeSideBar(!showSideBar);
+    }, [changeSideBar, showSideBar]);
 
     const toggleSingleRepeat = () => {
         playerActions.setSingleRepeat(!singleRepeat);

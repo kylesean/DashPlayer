@@ -34,7 +34,9 @@
         "modeShadowing": "Shadowing",
         "modeLoopTimes": "Repeat ×{{times}}",
         "modeLoopRates": "Rate drill",
-        "modeTraining": "Training",
+        "modeTraining": "Listening Drill",
+        "hideLearningToolbar": "Hide toolbar (Immersive mode)",
+        "showLearningToolbar": "Show learning toolbar",
         "trainingMenuLabel": "Intensive Listening & Training",
         "rowSingleRepeat": "Single sentence loop",
         "rowAutoPause": "Auto-pause at sentence end",
@@ -198,7 +200,10 @@
     "sideSentence": {
         "playing": "Playing",
         "singleLoop": "Single-sentence loop",
-        "paused": "Paused"
+        "paused": "Paused",
+        "loopSentence": "Loop sentence",
+        "cancelSingleLoop": "Cancel single-sentence loop",
+        "replaySentence": "Replay sentence"
     },
     "sourceLine": {
         "aiTranslation": "AI translation",
@@ -207,7 +212,9 @@
     "controlButton": {
         "backToPlayhead": "Back to current position",
         "openPanel": "Open control panel",
-        "closePanel": "Close control panel"
+        "closePanel": "Close control panel",
+        "openTranscript": "Show transcript",
+        "closeTranscript": "Hide transcript"
     },
     "fullscreenHint": {
         "toggle": "Immersive fullscreen",
@@ -243,7 +250,20 @@
     },
     "translationFailed": "Subtitle translation failed",
     "subtitleScript": "Transcript",
+    "dockToLeft": "Dock transcript to left",
+    "dockToRight": "Dock transcript to right",
+    "closeTranscript": "Hide transcript",
+    "openTranscript": "Show transcript",
     "cancelLoop": "Cancel loop",
+    "nSentencesLoop": "{{count}} Sentences Loop",
+    "searchTranscript": "Search transcript (Cmd/Ctrl+F)",
+    "searchPlaceholder": "Search transcript in English or Chinese...",
+    "noSearchResults": "No matches",
+    "prevMatch": "Previous match (Shift+Enter)",
+    "nextMatch": "Next match (Enter)",
+    "closeSearch": "Close search (Esc)",
+    "switchToArticleMode": "Switch to Flowing Article Mode",
+    "switchToSentenceMode": "Switch to Sentence Mode",
     "layout": {
         "resetSplitHint": "Double-click the divider to reset the default ratio"
     }
