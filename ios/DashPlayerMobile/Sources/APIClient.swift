@@ -16,15 +16,34 @@ struct APIClient {
     /// 手机服务的根地址，例如 `http://192.168.1.5:27182`。
     let baseURL: URL
 
-    /// 把服务端返回的相对路径拼成绝对地址。
+    /// 访问令牌；服务端开启鉴权时逐次携带。
+    let token: String?
+
+    init(baseURL: URL, token: String? = nil) {
+        self.baseURL = baseURL
+        self.token = token
+    }
+
+    /// 把服务端返回的相对路径拼成绝对地址，并自动追加访问令牌（若配置）。
     ///
     /// - Parameter path: 服务端返回的路径，可能已经是绝对地址。
     /// - Returns: 绝对地址；路径非法时为 nil。
     func absoluteURL(_ path: String) -> URL? {
+        let base: URL?
         if path.hasPrefix("http://") || path.hasPrefix("https://") {
-            return URL(string: path)
+            base = URL(string: path)
+        } else {
+            base = URL(string: path, relativeTo: baseURL)?.absoluteURL
         }
-        return URL(string: path, relativeTo: baseURL)?.absoluteURL
+        guard let base else { return nil }
+        guard let token, !token.isEmpty else { return base }
+        guard var components = URLComponents(url: base, resolvingAgainstBaseURL: false) else { return base }
+        var items = components.queryItems ?? []
+        if !items.contains(where: { $0.name == "t" }) {
+            items.append(URLQueryItem(name: "t", value: token))
+            components.queryItems = items
+        }
+        return components.url ?? base
     }
 
     /// 读取最近播放列表。
@@ -101,7 +120,11 @@ struct APIClient {
             throw APIError(message: "服务器地址无效")
         }
         components.path = path
-        components.queryItems = query.isEmpty ? nil : query
+        var queryItems = query
+        if let token, !token.isEmpty {
+            queryItems.append(URLQueryItem(name: "t", value: token))
+        }
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
         guard let url = components.url else {
             throw APIError(message: "请求地址无效")
         }
@@ -109,6 +132,9 @@ struct APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = 20
+        if let token, !token.isEmpty {
+            request.setValue(token, forHTTPHeaderField: "X-DashPlayer-Token")
+        }
         if let body {
             request.httpBody = body
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

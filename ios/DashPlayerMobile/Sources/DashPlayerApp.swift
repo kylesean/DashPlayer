@@ -25,7 +25,7 @@ struct RootView: View {
     var body: some View {
         Group {
             if let baseURL = server.baseURL {
-                RecentListView(api: APIClient(baseURL: baseURL))
+                RecentListView(api: APIClient(baseURL: baseURL, token: server.token))
                     .id(baseURL)
             } else {
                 ServerSetupView()

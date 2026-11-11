@@ -69,7 +69,7 @@ struct AppSettingsView: View {
                 }
             }
             .onAppear {
-                address = server.baseURL?.absoluteString ?? ""
+                address = server.displayAddress
             }
         }
     }
@@ -83,7 +83,7 @@ struct AppSettingsView: View {
             connecting = false
             connected = server.lastError == nil
             if connected {
-                address = server.baseURL?.absoluteString ?? address
+                address = server.displayAddress
             }
         }
     }

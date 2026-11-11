@@ -73,8 +73,14 @@ final class WatchModel: ObservableObject {
         }
     }
 
-    /// 用户是否正在拖进度条；这期间不让时间回调覆盖位置。
-    var isScrubbing = false
+    /// 用户是否正在拖进度条；这期间不让时间回调覆盖位置，拖动结束统一提交 seek。
+    var isScrubbing = false {
+        didSet {
+            if !isScrubbing && oldValue {
+                commitScrub(to: currentTime)
+            }
+        }
+    }
 
     /// 可选倍速，和网页版保持一致。
     static let speedOptions: [Double] = [0.75, 1, 1.25, 1.5]
@@ -240,12 +246,20 @@ final class WatchModel: ObservableObject {
         seek(toLine: max(0, base))
     }
 
-    /// 拖动进度条。
+    /// 拖动进度条：实时更新本地时间与字幕位置，拖动手势结束时由 isScrubbing 统一提交底层 seek。
     ///
     /// - Parameter seconds: 目标位置，单位秒。
     func scrub(to seconds: Double) {
         currentTime = seconds
         seekTargetIndex = nil
+        let next = index.index(at: seconds)
+        if next != currentIndex {
+            apply(next)
+        }
+    }
+
+    /// 拖动结束后提交底层播放器精准 seek。
+    private func commitScrub(to seconds: Double) {
         seekInFlight = true
         seek(to: seconds) { [weak self] finished in
             guard let self else { return }
