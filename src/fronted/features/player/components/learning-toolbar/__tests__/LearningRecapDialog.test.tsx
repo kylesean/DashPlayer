@@ -26,6 +26,7 @@ vi.mock('@/fronted/features/learning-data/learningDataApi', () => ({
         getRecap: vi.fn(),
         evaluateRetell: vi.fn(),
         evaluateRolePlay: vi.fn(),
+        listProductionPractice: vi.fn(async () => []),
     },
 }));
 
@@ -82,6 +83,41 @@ describe('LearningRecapContent', () => {
         expect(screen.getByText('aiBadge')).toBeDefined();
     });
 
+    it('展示上次复述与角色扮演结果', async () => {
+        vi.mocked(learningDataApi.getRecap).mockResolvedValue(aiRecap);
+        vi.mocked(learningDataApi.listProductionPractice).mockResolvedValue([
+            {
+                id: 2,
+                mode: 'roleplay',
+                level: 'good',
+                sentenceText: 'It was a long journey home.',
+                responseText: 'It was long, but I was glad to be back.',
+                feedback: null,
+                improved: null,
+                createdAt: '2026-01-01 10:30:00',
+            },
+            {
+                id: 1,
+                mode: 'retell',
+                level: 'great',
+                sentenceText: 'It was a long journey home.',
+                responseText: 'The trip home was long.',
+                feedback: null,
+                improved: null,
+                createdAt: '2026-01-01 10:20:00',
+            },
+        ]);
+        renderContent('video-history');
+
+        expect(await screen.findByTestId('learning-last-retell')).toBeDefined();
+        expect(screen.getByTestId('learning-last-role-play')).toBeDefined();
+        expect(learningDataApi.listProductionPractice).toHaveBeenCalledWith({
+            videoId: 'video-history',
+            fileHash: undefined,
+            limit: 10,
+        });
+    });
+
     it('提交复述后展示等级、点评与更自然的说法', async () => {
         const feedback: RetellEvaluationVO = {
             level: 'good',
@@ -110,6 +146,8 @@ describe('LearningRecapContent', () => {
             original: 'It was a long journey home.',
             response: 'They cancelled the meeting.',
             locale: 'zh-CN',
+            videoId: 'video-retell',
+            fileHash: undefined,
         });
     });
 
@@ -169,6 +207,8 @@ describe('LearningRecapContent', () => {
             response: 'It was a long journey, but I was glad to be home.',
             targetExpressions: ['long journey'],
             locale: 'zh-CN',
+            videoId: 'video-role-play',
+            fileHash: undefined,
         });
     });
 

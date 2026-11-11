@@ -289,6 +289,8 @@
         "statusFamiliar": "有印象",
         "noTranslation": "暂无释义",
         "recallHint": "先在心里回忆它的意思，再揭示答案",
+        "sourceVideo": "来自 {{name}}",
+        "sourceSentence": "第 {{index}} 句",
         "reveal": "显示答案",
         "mastery": "掌握",
         "evidence": "证据",

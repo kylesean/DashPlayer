@@ -79,6 +79,32 @@ describe('VocabularyService 单词状态', () => {
         expect(await reviewCardRepository.findByWord('cancel')).toBeNull();
     });
 
+    it('手动设回学习时会重置复习卡，避免掌握度为 0 却长期不到期', async () => {
+        memoryDb = createMemoryDb();
+        const { service, repository, reviewCardRepository } = buildService(memoryDb);
+        await repository.insertOne({ word: 'orbit', translate: '轨道', status: 'known', source: 'manual' });
+        await reviewCardRepository.upsert({
+            word: 'orbit',
+            due_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            state: 'review',
+            reps: 5,
+            lapses: 1,
+            stability: 30,
+            difficulty: 5,
+            last_review_at: new Date().toISOString(),
+            last_rating: 'good',
+        });
+
+        const result = await service.updateWordState({ word: 'orbit', status: 'learning' });
+
+        expect(result.success).toBe(true);
+        expect((await repository.findByWord('orbit'))?.mastery).toBe(0);
+        const card = await reviewCardRepository.findByWord('orbit');
+        expect(card?.state).toBe('new');
+        expect(card?.reps).toBe(0);
+        expect(Date.parse(card?.due_at ?? '')).toBeLessThanOrEqual(Date.now());
+    });
+
     it('收藏已掌握的词会重新激活为 learning', async () => {
         memoryDb = createMemoryDb();
         const { service, repository } = buildService(memoryDb);

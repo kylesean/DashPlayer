@@ -42,4 +42,16 @@ export default interface ReviewCardRepository {
      * 删除某个词的卡。
      */
     deleteByWord(word: string): Promise<void>;
+
+    /**
+     * 为一批词补建到期卡；已有卡保持原调度不变。
+     *
+     * 用于词表导入：导入的词会参与字幕标注与推荐，必须同时进入复习队列。
+     */
+    ensureForWords(words: string[], dueAt: string): Promise<void>;
+
+    /**
+     * 清理词表里已经不存在的卡，避免重新导入同名词时复活旧调度。
+     */
+    deleteOrphans(): Promise<void>;
 }

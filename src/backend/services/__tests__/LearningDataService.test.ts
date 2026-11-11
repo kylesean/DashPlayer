@@ -6,8 +6,10 @@ import { eq } from 'drizzle-orm';
 
 import LearningDataRepositoryImpl from '@/backend/infrastructure/db/repositories/LearningDataRepositoryImpl';
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
+import { productionPracticeRecord } from '@/backend/infrastructure/db/tables/productionPracticeRecord';
 import { recommendationEvent } from '@/backend/infrastructure/db/tables/recommendationEvent';
 import { reviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
+import { sentencePracticeRecord } from '@/backend/infrastructure/db/tables/sentencePracticeRecord';
 import { wordEncounter, type InsertWordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import { words } from '@/backend/infrastructure/db/tables/words';
 import FileSystemGatewayImpl from '@/backend/infrastructure/storage/FileSystemGatewayImpl';
@@ -310,6 +312,18 @@ describe('LearningDataService 导出与清除', () => {
             score: 0.5,
             reason_code: 'next_step',
         });
+        await memoryDb.db.insert(sentencePracticeRecord).values({
+            file_hash: 'subtitle-1',
+            sentence_index: 0,
+            mode: 'shadowing',
+            score: 90,
+        });
+        await memoryDb.db.insert(productionPracticeRecord).values({
+            mode: 'retell',
+            sentence_text: 'The journey changed everything.',
+            response_text: 'The journey changed everything for me.',
+            level: 'good',
+        });
         await memoryDb.db.update(words).set({ updated_at: new Date(0).toISOString() }).run();
 
         const result = await service.resetLearningData();
@@ -323,6 +337,8 @@ describe('LearningDataService 导出与清除', () => {
         expect(await memoryDb.db.select().from(wordEncounter)).toHaveLength(0);
         expect(await memoryDb.db.select().from(reviewCard)).toHaveLength(0);
         expect(await memoryDb.db.select().from(recommendationEvent)).toHaveLength(0);
+        expect(await memoryDb.db.select().from(sentencePracticeRecord)).toHaveLength(0);
+        expect(await memoryDb.db.select().from(productionPracticeRecord)).toHaveLength(0);
         const remaining = await memoryDb.db.select().from(words);
         expect(remaining).toHaveLength(2);
         expect(remaining.find((word) => word.word === 'journey')).toMatchObject({

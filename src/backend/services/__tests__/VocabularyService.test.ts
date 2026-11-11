@@ -55,13 +55,19 @@ const buildService = (options: { fileContent: Buffer; existingWords?: StoredWord
         }),
     } as unknown as WordsRepository;
 
+    const reviewCardRepository = {
+        deleteByWord: vi.fn(),
+        ensureForWords: vi.fn(),
+        deleteOrphans: vi.fn(),
+    } as unknown as ReviewCardRepository;
+
     const service = new VocabularyServiceImpl(
         {
             syncFromOss: vi.fn(async () => undefined),
             invalidateClipAnalysisCache: vi.fn(),
         } as unknown as VideoLearningService,
         wordsRepository,
-        { deleteByWord: vi.fn() } as unknown as ReviewCardRepository,
+        reviewCardRepository,
         { invalidateVocabularyCache: vi.fn() } as unknown as WordMatchService,
         {} as unknown as AiProviderService,
         {} as unknown as VideoLearningClipWordRepository,
@@ -70,7 +76,7 @@ const buildService = (options: { fileContent: Buffer; existingWords?: StoredWord
         fileSystemGateway,
     );
 
-    return { service, stored, fileSystemGateway };
+    return { service, stored, fileSystemGateway, reviewCardRepository };
 };
 
 /**
@@ -233,6 +239,19 @@ describe('词汇表导入', () => {
         expect(result.success).toBe(true);
         expect(stored.map((item) => item.word)).toEqual(['apple', 'banana']);
         expect(stored[0].translate).toBe('苹果');
+    });
+
+    it('导入的单词同时进入复习队列', async () => {
+        const csv = Buffer.from('英文,释义\napple,苹果\nbanana,香蕉\n', 'utf-8');
+        const { service, reviewCardRepository } = buildService({ fileContent: csv });
+
+        await service.importWords('/tmp/word.csv');
+
+        expect(reviewCardRepository.ensureForWords).toHaveBeenCalledWith(
+            ['apple', 'banana'],
+            expect.any(String),
+        );
+        expect(reviewCardRepository.deleteOrphans).toHaveBeenCalled();
     });
 
     it('富文本单元格也能被导入成单词', async () => {

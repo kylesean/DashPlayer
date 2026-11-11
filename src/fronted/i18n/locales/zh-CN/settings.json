@@ -356,15 +356,15 @@
             "clearConfirmCancel": "取消",
             "clearConfirmOk": "确认清除",
             "recommendationTitle": "内容推荐效果",
-            "recommendationDescription": "用曝光、打开与真实复习回忆校准内容指南针；仅统计最近 7 天",
+            "recommendationDescription": "按视频×天去重统计曝光、打开与从推荐进入复习的比例；仅统计最近 7 天",
             "recommendationLoading": "正在汇总推荐反馈…",
             "recommendationEmpty": "还没有推荐曝光。打开首页后，内容指南针会开始记录本地反馈。",
             "recommendationShown": "曝光",
             "recommendationOpened": "打开",
             "recommendationDismissed": "不感兴趣",
             "recommendationReviewed": "进入复习",
-            "recommendationRecall": "7 天回忆",
-            "recommendationRecallHint": "{{count}} 次复习"
+            "recommendationRecall": "全局 7 天回忆",
+            "recommendationRecallHint": "{{count}} 次复习（全站，不按推荐归因）"
         },
         "sections": {
             "location": "存储位置",

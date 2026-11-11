@@ -52,15 +52,43 @@ describe('reviewScheduler', () => {
             state: 'review',
             reps: 10,
             lapses: 0,
-            stability: 3650,
+            stability: 365,
             difficulty: 10,
             lastReviewAt: NOW.toISOString(),
             lastRating: 'good',
         }, 'easy', NOW);
 
-        expect(next.stability).toBeLessThanOrEqual(3650);
+        expect(next.stability).toBe(365);
+        expect(Date.parse(next.dueAt) - NOW.getTime()).toBe(365 * DAY_MS);
         expect(next.difficulty).toBeGreaterThanOrEqual(1);
         expect(next.difficulty).toBeLessThanOrEqual(10);
+    });
+
+    it('lapses 达到 4 后稳定度增长封顶 60 天', () => {
+        const leech = scheduleReview({
+            dueAt: NOW.toISOString(),
+            state: 'review',
+            reps: 8,
+            lapses: 4,
+            stability: 100,
+            difficulty: 5,
+            lastReviewAt: NOW.toISOString(),
+            lastRating: 'good',
+        }, 'good', NOW);
+        const normal = scheduleReview({
+            dueAt: NOW.toISOString(),
+            state: 'review',
+            reps: 8,
+            lapses: 3,
+            stability: 100,
+            difficulty: 5,
+            lastReviewAt: NOW.toISOString(),
+            lastRating: 'good',
+        }, 'good', NOW);
+
+        expect(leech.stability).toBe(60);
+        expect(Date.parse(leech.dueAt) - NOW.getTime()).toBe(60 * DAY_MS);
+        expect(normal.stability).toBeCloseTo(220, 5);
     });
 
     it('练习分数按四档映射', () => {

@@ -56,7 +56,11 @@ interface Harness {
     directory: string;
 }
 
-const buildHarness = async (): Promise<Harness> => {
+const buildHarness = async (
+    embedding: { embed: (items: ReadonlyArray<{ id: string; text: string }>) => Promise<Array<{ id: string; vector: number[] }> | null> } = {
+        embed: async () => null,
+    },
+): Promise<Harness> => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-compass-'));
     const memoryDb = createMemoryDb();
     const watchHistoryRepository = new WatchHistoryRepositoryImpl(memoryDb.db);
@@ -67,6 +71,7 @@ const buildHarness = async (): Promise<Harness> => {
         new FileSystemGatewayImpl(),
         dictionary,
         new MediaPathRegistry(),
+        embedding,
     );
     return { service, memoryDb, directory };
 };
@@ -224,6 +229,97 @@ My grandmother baked a lemon cake in the kitchen.
         const byId = new Map(result.items.map((item) => [item.videoId, item]));
 
         expect(byId.get('similar')!.interest).toBeGreaterThan(byId.get('different')!.interest);
+    });
+
+    it('语义模型可用时使用向量兴趣分，而不是词面重合', async () => {
+        const embeddedIds: string[] = [];
+        harness = await buildHarness({
+            embed: async (items) => {
+                embeddedIds.push(...items.map((item) => item.id));
+                return items.map((item) => ({
+                    id: item.id,
+                    // 只有「无关主题」与已观看视频同向，词面分支不可能得到这个结果。
+                    vector: item.id.endsWith('different.mp4') ? [1, 0, 0]
+                        : item.id.endsWith('watched.mp4') ? [1, 0, 0]
+                            : [0, 1, 0],
+                }));
+            },
+        });
+        const watched = `1
+00:00:01,000 --> 00:00:04,000
+The spacecraft entered a stable orbit around the planet.
+`;
+        const similar = `1
+00:00:01,000 --> 00:00:04,000
+The spacecraft orbit around the planet stayed stable.
+`;
+        const different = `1
+00:00:01,000 --> 00:00:04,000
+My grandmother baked a lemon cake in the kitchen.
+`;
+        await writeMedia(harness.directory, 'watched.mp4', watched);
+        await writeMedia(harness.directory, 'similar.mp4', similar);
+        await writeMedia(harness.directory, 'different.mp4', different);
+        await insertHistory(harness.memoryDb, [
+            {
+                id: 'watched',
+                basePath: harness.directory,
+                fileName: 'watched.mp4',
+                updatedAt: new Date().toISOString(),
+                position: 120,
+            },
+            {
+                id: 'similar',
+                basePath: harness.directory,
+                fileName: 'similar.mp4',
+                updatedAt: new Date(Date.now() - 1_000).toISOString(),
+            },
+            {
+                id: 'different',
+                basePath: harness.directory,
+                fileName: 'different.mp4',
+                updatedAt: new Date(Date.now() - 2_000).toISOString(),
+            },
+        ]);
+
+        const semantic = await harness.service.list({ limit: 3 });
+        const semanticById = new Map(semantic.items.map((item) => [item.videoId, item]));
+
+        // 语义分支必须真正参与，而不是静默降级。
+        expect(embeddedIds.some((id) => id.endsWith('watched.mp4'))).toBe(true);
+
+        // 同一批数据在词面分支下兴趣分不同，证明排序层确实使用了语义向量。
+        harness.memoryDb.close();
+        harness = await buildHarness();
+        await writeMedia(harness.directory, 'watched.mp4', watched);
+        await writeMedia(harness.directory, 'similar.mp4', similar);
+        await writeMedia(harness.directory, 'different.mp4', different);
+        await insertHistory(harness.memoryDb, [
+            {
+                id: 'watched',
+                basePath: harness.directory,
+                fileName: 'watched.mp4',
+                updatedAt: new Date().toISOString(),
+                position: 120,
+            },
+            {
+                id: 'similar',
+                basePath: harness.directory,
+                fileName: 'similar.mp4',
+                updatedAt: new Date(Date.now() - 1_000).toISOString(),
+            },
+            {
+                id: 'different',
+                basePath: harness.directory,
+                fileName: 'different.mp4',
+                updatedAt: new Date(Date.now() - 2_000).toISOString(),
+            },
+        ]);
+        const lexical = await harness.service.list({ limit: 3 });
+        const lexicalById = new Map(lexical.items.map((item) => [item.videoId, item]));
+
+        expect(semanticById.get('different')!.interest)
+            .not.toBe(lexicalById.get('different')!.interest);
     });
 
     it('排除已展示视频后返回下一个候选，没有字幕的视频不参与', async () => {

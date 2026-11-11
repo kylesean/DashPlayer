@@ -15,10 +15,12 @@ import {
 import type { ReviewCard, InsertReviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
 import type ReviewCardRepository from '@/backend/services/repositories/ReviewCardRepository';
 import type WordEncounterRepository from '@/backend/services/repositories/WordEncounterRepository';
+import type { EncounterContextRow } from '@/backend/services/repositories/WordEncounterRepository';
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
 import type { Word } from '@/backend/infrastructure/db/tables/words';
 import { lemmatizeWord } from '@/backend/utils/language/VocabularyMatcher';
 import type {
+    ReviewCardContextVO,
     ReviewCardVO,
     ReviewQueueVO,
     ReviewRateParams,
@@ -115,9 +117,10 @@ export class WordEncounterServiceImpl implements WordEncounterService {
             this.getRetentionSince(new Date(now.getTime() - 7 * DAY_MS).toISOString()),
             this.getRetentionSince(new Date(now.getTime() - 30 * DAY_MS).toISOString()),
         ]);
+        const contexts = await this.loadContexts(dueCards.map(({ card }) => card.word));
 
         return {
-            items: dueCards.map(({ card, word }) => this.toReviewCardVO(card, word)),
+            items: dueCards.map(({ card, word }) => this.toReviewCardVO(card, word, contexts.get(card.word) ?? null)),
             dueCount,
             nextDueAt,
             stats: { last7Days, last30Days },
@@ -184,8 +187,9 @@ export class WordEncounterServiceImpl implements WordEncounterService {
             last_review_at: nextSchedule.lastReviewAt,
             last_rating: nextSchedule.lastRating,
         } as ReviewCard;
+        const contexts = await this.loadContexts([lemma]);
         return {
-            card: this.toReviewCardVO(nextCard, nextWord),
+            card: this.toReviewCardVO(nextCard, nextWord, contexts.get(lemma) ?? null),
             status: nextStatus,
         };
     }
@@ -235,12 +239,17 @@ export class WordEncounterServiceImpl implements WordEncounterService {
         params: WordEncounterInput,
         now: Date,
     ): Promise<void> {
+        // 跟读只提供发音反馈与 mastery 证据，不参与复习调度：
+        // 口音导致的低分不应把词推进复习队列，也不应提前/推迟 due。
+        if (params.action === 'shadow') {
+            return;
+        }
         if (status === 'known' || status === 'ignored') {
             await this.reviewCardRepository.deleteByWord(lemma);
             return;
         }
         const existingCard = await this.reviewCardRepository.findByWord(lemma);
-        const shouldTouchCard = ['save', 'shadow', 'dictation', 'review'].includes(params.action);
+        const shouldTouchCard = ['save', 'dictation', 'review'].includes(params.action);
         if (!existingCard && !shouldTouchCard) {
             return;
         }
@@ -248,7 +257,7 @@ export class WordEncounterServiceImpl implements WordEncounterService {
         const current = existingCard
             ? this.scheduleFromCard(existingCard)
             : createNewReviewSchedule(now);
-        const next = params.action === 'shadow' || params.action === 'dictation'
+        const next = params.action === 'dictation'
             ? scheduleReview(current, reviewRatingFromPracticeScore(params.score ?? 0), now)
             : params.action === 'review' && params.rating
                 ? scheduleReview(current, params.rating, now)
@@ -302,7 +311,7 @@ export class WordEncounterServiceImpl implements WordEncounterService {
         };
     }
 
-    private toReviewCardVO(card: ReviewCard, word: Word): ReviewCardVO {
+    private toReviewCardVO(card: ReviewCard, word: Word, context: ReviewCardContextVO | null): ReviewCardVO {
         return {
             id: card.id,
             word: word.word,
@@ -311,6 +320,26 @@ export class WordEncounterServiceImpl implements WordEncounterService {
             mastery: word.mastery,
             confidence: word.confidence,
             schedule: this.scheduleFromCard(card),
+            context,
+        };
+    }
+
+    /**
+     * 批量读取每个词最近一次带字幕原句的遭遇，供复习卡还原语境。
+     */
+    private async loadContexts(lemmas: string[]): Promise<Map<string, ReviewCardContextVO>> {
+        const rows = await this.repository.findLatestContexts(lemmas);
+        return new Map(rows.map((row) => [row.lemma, this.toReviewContext(row)]));
+    }
+
+    private toReviewContext(row: EncounterContextRow): ReviewCardContextVO {
+        return {
+            text: row.text,
+            videoId: row.videoId,
+            videoFileName: row.videoFileName,
+            sentenceIndex: row.sentenceIndex,
+            sentenceHash: row.sentenceHash,
+            lastSeenAt: row.createdAt,
         };
     }
 }

@@ -13,6 +13,7 @@ import type LearningDataService from '@/backend/services/LearningDataService';
 import { LEARNING_SESSION_ACTIONS } from '@/backend/services/LearningDataService';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
+import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
 import { isContentLemma } from '@/common/learning/contentWords';
 import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
 import type {
@@ -21,6 +22,8 @@ import type {
     LearningRecapRolePlayVO,
     LearningRecapVO,
     LearningRecapWordVO,
+    ProductionPracticeListParams,
+    ProductionPracticeRecordVO,
     RetellEvaluationParams,
     RetellEvaluationVO,
     RetellLevel,
@@ -129,6 +132,11 @@ export default interface LearningRecapService {
      * 目标表达使用情况始终由本地逐字匹配；AI 只补充点评与更自然的回应。
      */
     evaluateRolePlay(params: RolePlayFeedbackParams): Promise<RolePlayFeedbackVO>;
+
+    /**
+     * 读取某个视频下最近的复述 / 角色扮演结果，供复盘弹窗展示。
+     */
+    listProductionPractice(params: ProductionPracticeListParams): Promise<ProductionPracticeRecordVO[]>;
 }
 
 /**
@@ -149,6 +157,8 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         @inject(TYPES.AiProviderService) private readonly aiProviderService: AiProviderService,
         @inject(TYPES.LocalAiService) private readonly localAiService: LocalAiService,
         @inject(TYPES.CacheService) private readonly cacheService: CacheService,
+        @inject(TYPES.ProductionPracticeRecordRepository)
+        private readonly productionPracticeRepository: ProductionPracticeRecordRepository,
     ) {}
 
     public async buildRecap(params: LearningRecapParams): Promise<LearningRecapVO> {
@@ -235,6 +245,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         const cloudModel = this.resolveCloudModel();
         const localModelId = await this.resolveLocalModelId();
         if (!cloudModel && !localModelId) {
+            await this.recordRetellAttempt(params, original, response, localResult);
             return localResult;
         }
 
@@ -248,13 +259,17 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         if (!params.forceRefresh) {
             const cached = this.cacheService.get('cache:retell-feedback', cacheKey);
             if (cached) {
-                return { ...cached, cached: true };
+                const result = { ...cached, cached: true };
+                await this.recordRetellAttempt(params, original, response, result);
+                return result;
             }
         }
 
         const existing = this.retellInFlight.get(cacheKey);
         if (existing) {
-            return existing;
+            const result = await existing;
+            await this.recordRetellAttempt(params, original, response, result);
+            return result;
         }
 
         const task = this.generateRetell({
@@ -269,7 +284,9 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             this.retellInFlight.delete(cacheKey);
         });
         this.retellInFlight.set(cacheKey, task);
-        return task;
+        const result = await task;
+        await this.recordRetellAttempt(params, original, response, result);
+        return result;
     }
 
     public async evaluateRolePlay(params: RolePlayFeedbackParams): Promise<RolePlayFeedbackVO> {
@@ -288,6 +305,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         const cloudModel = this.resolveCloudModel();
         const localModelId = await this.resolveLocalModelId();
         if (!cloudModel && !localModelId) {
+            await this.recordRolePlayAttempt(params, openingLine, response, localResult);
             return localResult;
         }
 
@@ -303,13 +321,17 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         if (!params.forceRefresh) {
             const cached = this.cacheService.get('cache:role-play-feedback', cacheKey);
             if (cached) {
-                return { ...cached, cached: true };
+                const result = { ...cached, cached: true };
+                await this.recordRolePlayAttempt(params, openingLine, response, result);
+                return result;
             }
         }
 
         const existing = this.rolePlayInFlight.get(cacheKey);
         if (existing) {
-            return existing;
+            const result = await existing;
+            await this.recordRolePlayAttempt(params, openingLine, response, result);
+            return result;
         }
 
         const task = this.generateRolePlay({
@@ -326,7 +348,89 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             this.rolePlayInFlight.delete(cacheKey);
         });
         this.rolePlayInFlight.set(cacheKey, task);
-        return task;
+        const result = await task;
+        await this.recordRolePlayAttempt(params, openingLine, response, result);
+        return result;
+    }
+
+    public async listProductionPractice(params: ProductionPracticeListParams): Promise<ProductionPracticeRecordVO[]> {
+        const records = await this.productionPracticeRepository.listRecentByLocation(params);
+        return records.map((record) => ({
+            id: record.id,
+            mode: record.mode,
+            level: record.level,
+            sentenceText: record.sentence_text,
+            responseText: record.response_text,
+            feedback: record.feedback,
+            improved: record.improved,
+            createdAt: record.created_at,
+        }));
+    }
+
+    /**
+     * 记录一次复述尝试。
+     *
+     * 落库失败不影响用户拿到反馈，只写日志。
+     */
+    private async recordRetellAttempt(
+        params: RetellEvaluationParams,
+        original: string,
+        response: string,
+        result: RetellEvaluationVO,
+    ): Promise<void> {
+        try {
+            await this.productionPracticeRepository.insertOne({
+                mode: 'retell',
+                video_id: params.videoId ?? null,
+                file_hash: params.fileHash ?? null,
+                sentence_index: params.sentenceIndex ?? null,
+                sentence_text: original,
+                response_text: response,
+                level: result.level,
+                feedback: result.feedback || null,
+                improved: result.improved || null,
+                detail_json: JSON.stringify({
+                    coverage: result.coverage,
+                    matchedKeywords: result.matchedKeywords,
+                    totalKeywords: result.totalKeywords,
+                    missingWords: result.missingWords,
+                    source: result.source,
+                }),
+            });
+        } catch (error) {
+            this.logger.warn('failed to persist retell attempt', { error: this.errorMessage(error) });
+        }
+    }
+
+    /**
+     * 记录一次角色扮演尝试；落库失败同样不阻断反馈。
+     */
+    private async recordRolePlayAttempt(
+        params: RolePlayFeedbackParams,
+        openingLine: string,
+        response: string,
+        result: RolePlayFeedbackVO,
+    ): Promise<void> {
+        try {
+            await this.productionPracticeRepository.insertOne({
+                mode: 'roleplay',
+                video_id: params.videoId ?? null,
+                file_hash: params.fileHash ?? null,
+                sentence_index: params.sentenceIndex ?? null,
+                sentence_text: openingLine,
+                response_text: response,
+                level: result.level,
+                feedback: result.feedback || null,
+                improved: result.improved || null,
+                detail_json: JSON.stringify({
+                    usedExpressions: result.usedExpressions,
+                    targetExpressions: params.targetExpressions ?? [],
+                    source: result.source,
+                }),
+            });
+        } catch (error) {
+            this.logger.warn('failed to persist role play attempt', { error: this.errorMessage(error) });
+        }
     }
 
     /**

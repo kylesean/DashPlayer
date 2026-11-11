@@ -75,6 +75,7 @@ const TYPES = {
     WordTranslatesRepository: Symbol('WordTranslatesRepository'),
     SentenceTranslatesRepository: Symbol('SentenceTranslatesRepository'),
     SentencePracticeRecordRepository: Symbol('SentencePracticeRecordRepository'),
+    ProductionPracticeRecordRepository: Symbol('ProductionPracticeRecordRepository'),
     SysConfRepository: Symbol('SysConfRepository'),
     SubtitleTimestampAdjustmentsRepository: Symbol('SubtitleTimestampAdjustmentsRepository'),
     // Clients

@@ -289,6 +289,8 @@
         "statusFamiliar": "Getting familiar",
         "noTranslation": "No definition yet",
         "recallHint": "Recall the meaning first, then reveal the answer",
+        "sourceVideo": "From {{name}}",
+        "sourceSentence": "Sentence {{index}}",
         "reveal": "Reveal answer",
         "mastery": "Mastery",
         "evidence": "Evidence",

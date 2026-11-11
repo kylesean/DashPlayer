@@ -30,6 +30,7 @@ import {
 } from '@/backend/services/LearningRecapService';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
+import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
 import type { WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import type { LearningSessionSummaryVO } from '@/common/types/learningSession';
 
@@ -117,14 +118,23 @@ const buildService = (options: {
         generate: vi.fn(async () => options.localGenerate?.() ?? {}),
     } as unknown as LocalAiService;
     const cache = new CacheServiceImpl();
+    const productionPractice: { mode: string; [key: string]: unknown }[] = [];
+    const productionPracticeRepository = {
+        insertOne: vi.fn(async (value: Record<string, unknown>) => {
+            productionPractice.push(value as { mode: string; [key: string]: unknown });
+            return productionPractice.length;
+        }),
+        listRecentByLocation: vi.fn(async () => []),
+    } as unknown as ProductionPracticeRecordRepository;
     const service = new LearningRecapServiceImpl(
         learningDataService,
         learningDataRepository,
         aiProviderService,
         localAiService,
         cache,
+        productionPracticeRepository,
     );
-    return { service, aiProviderService, localAiService, cache };
+    return { service, aiProviderService, localAiService, cache, productionPractice };
 };
 
 const RECAP_PARAMS = {
@@ -356,6 +366,43 @@ describe('LearningRecapService', () => {
         expect(first.improved).toBe('They chose to call off the meeting.');
         expect(second.cached).toBe(true);
         expect(generateObject).toHaveBeenCalledTimes(1);
+    });
+
+    it('复述与角色扮演结果会落库，并带上视频归因', async () => {
+        const { service, productionPractice } = buildService({});
+
+        await service.evaluateRetell({
+            original: 'They decided to cancel the meeting.',
+            response: 'They cancelled the meeting.',
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+            sentenceIndex: 3,
+        });
+        await service.evaluateRolePlay({
+            openingLine: 'It was a long journey home.',
+            response: 'It really was a long journey, but coming home felt wonderful.',
+            targetExpressions: ['long journey', 'coming home'],
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+        });
+
+        expect(productionPractice).toHaveLength(2);
+        expect(productionPractice[0]).toMatchObject({
+            mode: 'retell',
+            video_id: 'video-1',
+            file_hash: 'subtitle-1',
+            sentence_index: 3,
+            sentence_text: 'They decided to cancel the meeting.',
+            level: 'great',
+        });
+        expect(productionPractice[1]).toMatchObject({
+            mode: 'roleplay',
+            video_id: 'video-1',
+            level: 'great',
+        });
+        expect(JSON.parse(productionPractice[1].detail_json as string)).toMatchObject({
+            usedExpressions: ['long journey', 'coming home'],
+        });
     });
 
     it('场景回应在本地计算目标表达使用情况', async () => {

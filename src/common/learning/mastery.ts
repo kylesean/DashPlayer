@@ -33,6 +33,72 @@ export interface MasteryUpdate extends MasterySnapshot {
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 掌握概率衰减的半衰期（天）。
+ *
+ * 14 天是词表学习的常见量级：两周不复习，掌握概率回落到一半区间。
+ */
+export const MASTERY_HALF_LIFE_DAYS = 14;
+
+/**
+ * 衰减下限。
+ *
+ * 长期不复习的词会回落到「接近遗忘」，但不直接归零——
+ * 归零会让 UI 把它当成全新词，也会让一次新的证据产生不合理的跳变。
+ */
+export const MASTERY_DECAY_FLOOR = 0.1;
+
+/**
+ * 按距离上次遇见的时间衰减掌握概率。
+ *
+ * 只在读取边界应用，数据库里仍保存原始证据值；因此重复读取不会产生复利，
+ * 下次写入新证据时也从「当前时刻的真实估计」继续更新。
+ *
+ * @param mastery 最近一次写入的掌握概率。
+ * @param lastSeenAt 最近一次学习证据时间（ISO 8601）。
+ * @param now 当前时间。
+ * @returns 衰减后的掌握概率；没有时间信息或时间无法解析时原样返回。
+ */
+export function decayMastery(
+    mastery: number,
+    lastSeenAt: string | null | undefined,
+    now: Date = new Date(),
+): number {
+    const value = clamp01(mastery);
+    if (!lastSeenAt || value <= 0) {
+        return value;
+    }
+    const lastSeen = Date.parse(lastSeenAt);
+    if (Number.isNaN(lastSeen)) {
+        return value;
+    }
+    const elapsedDays = Math.max(0, now.getTime() - lastSeen) / DAY_MS;
+    if (elapsedDays === 0) {
+        return value;
+    }
+    const decayed = value * Math.pow(0.5, elapsedDays / MASTERY_HALF_LIFE_DAYS);
+    // 只向「不高于当前值」的方向衰减：历史值本就低于下限的词保持原值。
+    return Math.max(decayed, Math.min(value, MASTERY_DECAY_FLOOR));
+}
+
+/**
+ * 读取单词行时的有效掌握度。
+ *
+ * `known` 是用户的手动裁决，不参与遗忘衰减；其余状态按距上次遇见的时间折算。
+ * 仓储读取边界统一使用它，保证词表、复习队列、理解度、图谱与推荐看到同一个值。
+ */
+export function effectiveWordMastery(
+    word: { mastery: number; last_seen_at: string | null; status: WordStatus },
+    now: Date = new Date(),
+): number {
+    if (word.status === 'known') {
+        return clamp01(word.mastery);
+    }
+    return decayMastery(word.mastery, word.last_seen_at, now);
+}
+
 /**
  * 将学习行为映射为“观察值 + 证据权重”。
  *

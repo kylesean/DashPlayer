@@ -37,6 +37,26 @@ export interface ReviewSchedule {
 }
 
 /**
+ * 用户遇见该词时留下的一次真实语境。
+ *
+ * 复习时先回忆单词、揭示后显示原句，避免复习退化成脱离内容的纯词卡。
+ */
+export interface ReviewCardContextVO {
+    /** 字幕原句。 */
+    text: string;
+    /** 来源视频的观看历史 id；没有来源时为 null。 */
+    videoId: string | null;
+    /** 来源视频文件名；视频记录已删除时回退为 null。 */
+    videoFileName: string | null;
+    /** 该句在字幕中的序号。 */
+    sentenceIndex: number | null;
+    /** 句子内容哈希。 */
+    sentenceHash: string | null;
+    /** 最近一次在该句中遇到这个词的时间（ISO 8601）。 */
+    lastSeenAt: string;
+}
+
+/**
  * 复习队列中的一张卡。
  */
 export interface ReviewCardVO {
@@ -47,6 +67,8 @@ export interface ReviewCardVO {
     mastery: number;
     confidence: number;
     schedule: ReviewSchedule;
+    /** 最近一次带上下文的遭遇；只有复习评分或导入词等没有语境时为 null。 */
+    context: ReviewCardContextVO | null;
 }
 
 /**

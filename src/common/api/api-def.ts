@@ -44,6 +44,8 @@ import type { LearningSessionSummaryParams, LearningSessionSummaryVO } from '@/c
 import type {
     LearningRecapParams,
     LearningRecapVO,
+    ProductionPracticeListParams,
+    ProductionPracticeRecordVO,
     RetellEvaluationParams,
     RetellEvaluationVO,
     RolePlayFeedbackParams,
@@ -105,7 +107,7 @@ interface ApiDefinition {
         params: void;
         return: { ready: boolean; name: string; sizeLabel: string; bytes: number };
     };
-    'local-ai/embedding-download': { params: void, return: void };
+    'local-ai/embedding-download': { params: void; return: void };
 }
 
 // 定义额外的接口
@@ -500,6 +502,11 @@ interface LearningDataDef {
         params: RolePlayFeedbackParams,
         return: RolePlayFeedbackVO
     };
+    /** 读取某个视频下最近的复述 / 角色扮演结果。 */
+    'learning-data/production-practice': {
+        params: ProductionPracticeListParams,
+        return: ProductionPracticeRecordVO[]
+    };
     /** 汇总本地词表、上下文与复习状态，生成个人记忆图谱。 */
     'learning-data/memory-map': {
         params: MemoryMapParams,
@@ -661,6 +668,7 @@ export const API_ROUTE_KEYS = [
     'dp-task/detail',
     'learning-data/export',
     'learning-data/memory-map',
+    'learning-data/production-practice',
     'learning-data/recap',
     'learning-data/reset',
     'learning-data/retell-feedback',

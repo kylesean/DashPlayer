@@ -24,6 +24,7 @@ import {
     parseImportedWords,
 } from '@/backend/services/VocabularySpreadsheet';
 import { isActiveWordStatus, type WordSource, type WordStatus } from '@/common/types/vocabulary';
+import { createNewReviewSchedule } from '@/common/learning/reviewScheduler';
 
 export interface GetAllWordsParams {
     search?: string;
@@ -308,6 +309,11 @@ export class VocabularyServiceImpl implements VocabularyService {
             const removedCount = existingWords.filter((item) => !importedWordSet.has(item.word)).length;
 
             await this.wordsRepository.replaceAll(importedWords);
+            // 导入词统一是 learning 状态，同样参与字幕标注与推荐，必须同步进入复习队列；
+            // 同时清掉已不在词表里的孤儿卡，避免同名再次导入时复活旧调度。
+            const activeWords = importedWords.map((item) => item.word);
+            await this.reviewCardRepository.ensureForWords(activeWords, new Date().toISOString());
+            await this.reviewCardRepository.deleteOrphans();
             this.wordMatchService.invalidateVocabularyCache();
             this.subtitleService.invalidateVocabularyAnalysisCache();
 
@@ -462,6 +468,21 @@ export class VocabularyServiceImpl implements VocabularyService {
             }
             if (params.status === 'known' || params.status === 'ignored') {
                 await this.reviewCardRepository.deleteByWord(lemma);
+            } else {
+                // 手动设回学习中/熟悉时 mastery 已被清零，卡片必须重新到期，
+                // 否则会出现「掌握度 0、却要 30 天后才复习」的矛盾。
+                const schedule = createNewReviewSchedule();
+                await this.reviewCardRepository.upsert({
+                    word: lemma,
+                    due_at: schedule.dueAt,
+                    state: schedule.state,
+                    reps: schedule.reps,
+                    lapses: schedule.lapses,
+                    stability: schedule.stability,
+                    difficulty: schedule.difficulty,
+                    last_review_at: schedule.lastReviewAt,
+                    last_rating: schedule.lastRating,
+                });
             }
             this.invalidateVocabularyCaches();
 

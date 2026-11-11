@@ -90,6 +90,12 @@ export interface RetellEvaluationParams {
     locale?: 'zh-CN' | 'en-US';
     /** 是否绕过缓存重新检查。 */
     forceRefresh?: boolean;
+    /** 来源视频，仅用于把本次复述归到对应视频下。 */
+    videoId?: string;
+    /** 来源字幕 hash，仅用于复盘弹窗读取「上次结果」。 */
+    fileHash?: string;
+    /** 原句在字幕中的序号；无法定位时省略。 */
+    sentenceIndex?: number;
 }
 
 /**
@@ -129,6 +135,44 @@ export interface RolePlayFeedbackParams {
     locale?: 'zh-CN' | 'en-US';
     /** 是否绕过缓存重新检查。 */
     forceRefresh?: boolean;
+    /** 来源视频，仅用于把本次回应归到对应视频下。 */
+    videoId?: string;
+    /** 来源字幕 hash，仅用于复盘弹窗读取「上次结果」。 */
+    fileHash?: string;
+    /** 开场白在字幕中的序号；无法定位时省略。 */
+    sentenceIndex?: number;
+}
+
+/**
+ * 产出型练习模式。
+ */
+export type ProductionPracticeMode = 'retell' | 'roleplay';
+
+/**
+ * 复盘弹窗读取「上次结果」的参数。
+ */
+export interface ProductionPracticeListParams {
+    videoId?: string;
+    fileHash?: string;
+    /** 返回条数上限，默认 10。 */
+    limit?: number;
+}
+
+/**
+ * 一次产出型练习记录。
+ */
+export interface ProductionPracticeRecordVO {
+    id: number;
+    mode: ProductionPracticeMode;
+    /** great | good | retry */
+    level: RetellLevel;
+    /** 复述原句或角色扮演开场白。 */
+    sentenceText: string;
+    /** 用户当时的回答。 */
+    responseText: string;
+    feedback: string | null;
+    improved: string | null;
+    createdAt: string;
 }
 
 /**

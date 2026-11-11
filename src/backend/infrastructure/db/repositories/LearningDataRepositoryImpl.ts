@@ -7,7 +7,9 @@ import {
     type InsertRecommendationEvent,
     type RecommendationEvent,
 } from '@/backend/infrastructure/db/tables/recommendationEvent';
+import { productionPracticeRecord } from '@/backend/infrastructure/db/tables/productionPracticeRecord';
 import { reviewCard, type ReviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
+import { sentencePracticeRecord } from '@/backend/infrastructure/db/tables/sentencePracticeRecord';
 import { wordEncounter, type WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import { words, type Word } from '@/backend/infrastructure/db/tables/words';
 import TYPES from '@/backend/ioc/types';
@@ -17,6 +19,7 @@ import type {
     SessionEventQuery,
 } from '@/backend/services/repositories/LearningDataRepository';
 import type { ReviewOutcome } from '@/backend/services/repositories/WordEncounterRepository';
+import { effectiveWordMastery } from '@/common/learning/mastery';
 
 /**
  * 学习数据 SQLite 仓储。
@@ -26,11 +29,12 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
     constructor(@inject(TYPES.Database) private readonly db: Db) {}
 
     public async listUserWords(): Promise<Word[]> {
-        return this.db
+        const rows = await this.db
             .select()
             .from(words)
             .where(ne(words.source, 'default'))
             .orderBy(asc(words.word));
+        return rows.map((row) => ({ ...row, mastery: effectiveWordMastery(row) }));
     }
 
     public async listEncounters(): Promise<WordEncounter[]> {
@@ -70,10 +74,11 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
         if (lemmas.length === 0) {
             return [];
         }
-        return this.db
+        const rows = await this.db
             .select()
             .from(words)
             .where(inArray(sql`lower(${words.word})`, lemmas.map((lemma) => lemma.toLowerCase())));
+        return rows.map((row) => ({ ...row, mastery: effectiveWordMastery(row) }));
     }
 
     public async findReviewCardsByWords(wordsToFind: string[]): Promise<ReviewCard[]> {
@@ -128,6 +133,10 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             const encounters = tx.delete(wordEncounter).run();
             const cards = tx.delete(reviewCard).run();
             const recommendations = tx.delete(recommendationEvent).run();
+            // 句子练习（跟读/听写）与产出型练习（复述/角色扮演）都属于用户学习记录，
+            // 清除学习数据时必须一并删除，否则会残留按视频定位的历史成绩。
+            tx.delete(sentencePracticeRecord).run();
+            tx.delete(productionPracticeRecord).run();
             const updatedWords = tx.update(words).set({
                 mastery: 0,
                 confidence: 0,

@@ -69,7 +69,7 @@ export default interface LearningDataRepository {
     listRecommendationEvents(): Promise<RecommendationEvent[]>;
 
     /**
-     * 删除遭遇事件、复习卡与推荐事件，并重置词条掌握字段。
+     * 删除遭遇事件、复习卡、推荐事件与练习记录，并重置词条掌握字段。
      *
      * 在一个事务内完成，避免用户看到“记录已删但掌握度还在”的半清空状态。
      */

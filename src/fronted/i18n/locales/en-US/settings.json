@@ -356,15 +356,15 @@
             "clearConfirmCancel": "Cancel",
             "clearConfirmOk": "Clear now",
             "recommendationTitle": "Recommendation performance",
-            "recommendationDescription": "Calibrates Content Compass with impressions, opens, and real review recall over the last 7 days",
+            "recommendationDescription": "Impression, open, and review-entry rates over the last 7 days, deduplicated per video per day",
             "recommendationLoading": "Summarizing recommendation feedback…",
             "recommendationEmpty": "No recommendation impressions yet. Content Compass starts collecting local feedback after you open Home.",
             "recommendationShown": "Shown",
             "recommendationOpened": "Opened",
             "recommendationDismissed": "Not interested",
             "recommendationReviewed": "Reviewed",
-            "recommendationRecall": "7-day recall",
-            "recommendationRecallHint": "{{count}} reviews"
+            "recommendationRecall": "Global 7-day recall",
+            "recommendationRecallHint": "{{count}} reviews (site-wide, not attributed)"
         },
         "sections": {
             "location": "Storage Location",

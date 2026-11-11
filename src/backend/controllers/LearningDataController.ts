@@ -15,6 +15,7 @@ import type { LearningDataExportResultVO } from '@/common/types/learningData';
 import type { MemoryMapParams } from '@/common/types/memoryMap';
 import type {
     LearningRecapParams,
+    ProductionPracticeListParams,
     RetellEvaluationParams,
     RolePlayFeedbackParams,
 } from '@/common/types/learningRecap';
@@ -56,6 +57,13 @@ export default class LearningDataController implements Controller {
      */
     public async evaluateRolePlay(params: RolePlayFeedbackParams) {
         return this.learningRecapService.evaluateRolePlay(params);
+    }
+
+    /**
+     * 读取某个视频下最近的复述 / 角色扮演结果。
+     */
+    public async listProductionPractice(params: ProductionPracticeListParams) {
+        return this.learningRecapService.listProductionPractice(params);
     }
 
     /**
@@ -126,6 +134,9 @@ export default class LearningDataController implements Controller {
                 response: z.string().min(1).max(2_000),
                 locale: z.enum(['zh-CN', 'en-US']).optional(),
                 forceRefresh: z.boolean().optional(),
+                videoId: z.string().min(1).optional(),
+                fileHash: z.string().min(1).optional(),
+                sentenceIndex: z.number().int().min(0).optional(),
             }),
         });
         registerRoute('learning-data/role-play-feedback', (p) => this.evaluateRolePlay(p), {
@@ -136,6 +147,18 @@ export default class LearningDataController implements Controller {
                 targetExpressions: z.array(z.string().min(1).max(120)).max(3).optional(),
                 locale: z.enum(['zh-CN', 'en-US']).optional(),
                 forceRefresh: z.boolean().optional(),
+                videoId: z.string().min(1).optional(),
+                fileHash: z.string().min(1).optional(),
+                sentenceIndex: z.number().int().min(0).optional(),
+            }),
+        });
+        registerRoute('learning-data/production-practice', (p) => this.listProductionPractice(p), {
+            schema: z.object({
+                videoId: z.string().min(1).optional(),
+                fileHash: z.string().min(1).optional(),
+                limit: positiveIntSchema.max(50).optional(),
+            }).refine((value) => Boolean(value.videoId || value.fileHash), {
+                message: 'videoId 或 fileHash 至少提供一个',
             }),
         });
         registerRoute('learning-data/memory-map', (p) => this.getMemoryMap(p), {

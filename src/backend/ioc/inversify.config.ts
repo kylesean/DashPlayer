@@ -165,6 +165,8 @@ import type SentenceTranslatesRepository from '@/backend/services/repositories/S
 import SentenceTranslatesRepositoryImpl from '@/backend/infrastructure/db/repositories/SentenceTranslatesRepositoryImpl';
 import type SentencePracticeRecordRepository from '@/backend/services/repositories/SentencePracticeRecordRepository';
 import SentencePracticeRecordRepositoryImpl from '@/backend/infrastructure/db/repositories/SentencePracticeRecordRepositoryImpl';
+import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
+import ProductionPracticeRecordRepositoryImpl from '@/backend/infrastructure/db/repositories/ProductionPracticeRecordRepositoryImpl';
 import type SysConfRepository from '@/backend/services/repositories/SysConfRepository';
 import SysConfRepositoryImpl from '@/backend/infrastructure/db/repositories/SysConfRepositoryImpl';
 import type SubtitleTimestampAdjustmentsRepository from '@/backend/services/repositories/SubtitleTimestampAdjustmentsRepository';
@@ -271,6 +273,7 @@ container.bind<WatchHistoryExtRepository>(TYPES.WatchHistoryExtRepository).to(Wa
 container.bind<WordTranslatesRepository>(TYPES.WordTranslatesRepository).to(WordTranslatesRepositoryImpl).inSingletonScope();
 container.bind<SentenceTranslatesRepository>(TYPES.SentenceTranslatesRepository).to(SentenceTranslatesRepositoryImpl).inSingletonScope();
 container.bind<SentencePracticeRecordRepository>(TYPES.SentencePracticeRecordRepository).to(SentencePracticeRecordRepositoryImpl).inSingletonScope();
+container.bind<ProductionPracticeRecordRepository>(TYPES.ProductionPracticeRecordRepository).to(ProductionPracticeRecordRepositoryImpl).inSingletonScope();
 container.bind<SysConfRepository>(TYPES.SysConfRepository).to(SysConfRepositoryImpl).inSingletonScope();
 container.bind<SubtitleTimestampAdjustmentsRepository>(TYPES.SubtitleTimestampAdjustmentsRepository).to(SubtitleTimestampAdjustmentsRepositoryImpl).inSingletonScope();
 container.bind<ClipOssService>(TYPES.VideoLearningOssService).to(VideoLearningOssServiceImpl).inSingletonScope();

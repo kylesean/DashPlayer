@@ -55,7 +55,7 @@ export default interface LearningDataService {
     exportToJson(filePath: string): Promise<{ bytes: number }>;
 
     /**
-     * 删除学习事件与复习卡，并重置掌握字段；保留词表与用户状态。
+     * 删除学习事件、复习卡与练习记录，并重置掌握字段；保留词表与用户状态。
      */
     resetLearningData(): Promise<LearningDataResetResultVO>;
 }

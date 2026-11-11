@@ -2,6 +2,7 @@ import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import type { LearningSessionSummaryParams } from '@/common/types/learningSession';
 import type {
     LearningRecapParams,
+    ProductionPracticeListParams,
     RetellEvaluationParams,
     RolePlayFeedbackParams,
 } from '@/common/types/learningRecap';
@@ -34,6 +35,12 @@ export const learningDataApi = {
      */
     evaluateRolePlay: (params: RolePlayFeedbackParams) =>
         backendClient.call('learning-data/role-play-feedback', params),
+
+    /**
+     * 读取某个视频下最近的复述 / 角色扮演结果，用于展示「上次结果」。
+     */
+    listProductionPractice: (params: ProductionPracticeListParams) =>
+        backendClient.call('learning-data/production-practice', params),
 
     /**
      * 生成个人记忆图谱。

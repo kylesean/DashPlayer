@@ -20,6 +20,20 @@ export interface EncounterActionRow {
 }
 
 /**
+ * 复习卡展示语境所需的一次带字幕句的遭遇。
+ */
+export interface EncounterContextRow {
+    lemma: string;
+    /** 字幕原句。 */
+    text: string;
+    videoId: string | null;
+    videoFileName: string | null;
+    sentenceIndex: number | null;
+    sentenceHash: string | null;
+    createdAt: string;
+}
+
+/**
  * 单词遭遇事件仓储。
  */
 export default interface WordEncounterRepository {
@@ -44,4 +58,11 @@ export default interface WordEncounterRepository {
         since: string,
         actions: readonly WordEncounterAction[],
     ): Promise<EncounterActionRow[]>;
+
+    /**
+     * 批量查询每个词最近一次带字幕原句的遭遇。
+     *
+     * 只返回带 context 的事件：复习卡要靠它还原「在哪个视频的哪句话里见过」。
+     */
+    findLatestContexts(lemmas: string[]): Promise<EncounterContextRow[]>;
 }

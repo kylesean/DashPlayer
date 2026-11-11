@@ -8,6 +8,7 @@ import { resolveDictionaryDifficulty } from '@/backend/services/dictionaryDiffic
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type MediaPathRegistry from '@/backend/services/MediaPathRegistry';
+import type TopicEmbeddingService from '@/backend/services/TopicEmbeddingService';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
 import type WatchHistoryRepository from '@/backend/services/repositories/WatchHistoryRepository';
 import {
@@ -113,9 +114,9 @@ interface TopicVectorSpace {
 /**
  * 本地内容指南针。
  *
- * 视频级理解度、用户词复现与最近观看主题共同形成可解释排序。首版不下载
- * embedding 模型，而用字幕词频向量与预置词典做确定性近似；后续可在同一
- * 接口内替换为本地向量索引。
+ * 视频级理解度、用户词复现与最近观看主题共同形成可解释排序。主题相似度优先
+ * 使用可选的本地 embedding 模型；模型未安装或推理失败时自动降级为字幕词面向量，
+ * 因此推荐在任何环境下都能给出结果。
  */
 @injectable()
 export class ContentCompassServiceImpl implements ContentCompassService {
@@ -130,6 +131,7 @@ export class ContentCompassServiceImpl implements ContentCompassService {
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
         @inject(TYPES.BuiltinDictionaryStore) private readonly dictionaryStore: BuiltinDictionaryStore,
         @inject(TYPES.MediaPathRegistry) private readonly mediaPathRegistry: MediaPathRegistry,
+        @inject(TYPES.TopicEmbeddingService) private readonly topicEmbeddingService: TopicEmbeddingService,
     ) {}
 
     public async list(params: ContentCompassListParams): Promise<ContentCompassVO> {
@@ -184,29 +186,21 @@ export class ContentCompassServiceImpl implements ContentCompassService {
         }
 
         const recentProfiles = await this.loadRecentTopicProfiles(records);
-        const space = this.buildTopicVectorSpace([
-            ...candidateDetails.map(({ analysis }) => analysis.normalizedFrequency),
-            ...recentProfiles.map(({ frequency }) => frequency),
-        ]);
-        const recentEntries: TopicVectorEntry[] = recentProfiles.map((profile) =>
-            toTopicVectorEntry(profile.videoPath, space.project(profile.frequency)));
+        const semanticVectors = await this.loadSemanticVectors(candidateDetails, recentProfiles);
+        const interestOf = semanticVectors
+            ? this.semanticInterestProvider(semanticVectors)
+            : this.lexicalInterestProvider(candidateDetails, recentProfiles);
         const rankInputs: ContentCompassRankCandidate[] = candidateDetails.map(({ candidate, analysis }) => {
             const dueWords = this.collectOverlapWords(analysis.contentLemmas, dueLemmas, userWordMap);
             const dueSet = new Set(dueLemmas);
             const learningWords = activeWords
                 .map((word) => word.word.toLowerCase())
                 .filter((lemma) => !dueSet.has(lemma) && analysis.contentLemmas.has(lemma));
-            const otherEntries = recentEntries.filter((entry) => entry.id !== candidate.videoPath);
-            // 兴趣分统一走本地主题索引检索；词面实现与后续 embedding 共用同一入口。
-            const interestScore = aggregateInterestScore(
-                searchTopicVectors(space.project(analysis.normalizedFrequency), otherEntries)
-                    .map((match) => match.similarity),
-            );
             return {
                 id: candidate.record.id,
                 directoryKey: candidate.record.base_path,
                 comprehensionScore: this.estimateVideoComprehension(analysis, userWordMap),
-                interestScore,
+                interestScore: interestOf(candidate.videoPath, analysis),
                 dueWords,
                 learningWords,
             };
@@ -268,13 +262,41 @@ export class ContentCompassServiceImpl implements ContentCompassService {
             this.learningDataRepository.listRecommendationEventsSince(since),
             this.learningDataRepository.listReviewOutcomesSince(since),
         ]);
-        const shown = events.filter((event) => event.action === 'shown').length;
-        const opened = events.filter((event) => event.action === 'opened').length;
-        const dismissed = events.filter((event) => event.action === 'dismissed').length;
-        const reviewed = events.filter((event) => event.action === 'reviewed').length;
-        const dueSamples = events.filter(
-            (event) => event.action === 'shown' && event.reason_code === 'due_review',
-        ).length;
+        // 所有推荐指标按「视频 × 自然日」去重：曝光在前端本就按天去重，其余动作
+        // 也按同一粒度聚合，打开/不感兴趣/进入复习才是曝光集合的子集，比率不会越界。
+        const shownKeys = new Set<string>();
+        const dueShownKeys = new Set<string>();
+        const openedKeys = new Set<string>();
+        const dismissedKeys = new Set<string>();
+        const reviewedKeys = new Set<string>();
+        for (const event of events) {
+            const key = `${event.video_id}|${event.created_at.slice(0, 10)}`;
+            if (event.action === 'shown') {
+                shownKeys.add(key);
+                if (event.reason_code === 'due_review') {
+                    dueShownKeys.add(key);
+                }
+            } else if (event.action === 'opened') {
+                openedKeys.add(key);
+            } else if (event.action === 'dismissed') {
+                dismissedKeys.add(key);
+            } else if (event.action === 'reviewed') {
+                reviewedKeys.add(key);
+            }
+        }
+        const countWithin = (subset: Set<string>, superset: Set<string>): number => {
+            let count = 0;
+            for (const key of subset) {
+                if (superset.has(key)) {
+                    count += 1;
+                }
+            }
+            return count;
+        };
+        const shown = shownKeys.size;
+        const opened = countWithin(openedKeys, shownKeys);
+        const dismissed = countWithin(dismissedKeys, shownKeys);
+        const reviewed = countWithin(reviewedKeys, dueShownKeys);
         const successfulReviews = outcomes.filter((outcome) =>
             outcome.rating === 'good' || outcome.rating === 'easy',
         ).length;
@@ -284,9 +306,9 @@ export class ContentCompassServiceImpl implements ContentCompassService {
             opened,
             dismissed,
             reviewed,
-            openRate: shown === 0 ? null : Math.min(1, opened / shown),
-            dismissRate: shown === 0 ? null : Math.min(1, dismissed / shown),
-            reviewRate: dueSamples === 0 ? null : Math.min(1, reviewed / dueSamples),
+            openRate: shown === 0 ? null : opened / shown,
+            dismissRate: shown === 0 ? null : dismissed / shown,
+            reviewRate: dueShownKeys.size === 0 ? null : reviewed / dueShownKeys.size,
             retention: {
                 reviewed: outcomes.length,
                 retention: outcomes.length === 0 ? null : successfulReviews / outcomes.length,
@@ -632,6 +654,121 @@ export class ContentCompassServiceImpl implements ContentCompassService {
                 return vector;
             },
         };
+    }
+
+    /**
+     * 词面兴趣分：把候选与近期视频投影到共享词表空间后检索。
+     *
+     * @param candidateDetails 候选及其字幕分析。
+     * @param recentProfiles 近期观看视频的词频表。
+     * @returns 按视频路径计算兴趣分的函数。
+     */
+    private lexicalInterestProvider(
+        candidateDetails: Array<{ candidate: CandidateRecord; analysis: SubtitleAnalysis }>,
+        recentProfiles: Array<{ videoPath: string; frequency: Map<string, number> }>,
+    ): (videoPath: string, analysis: SubtitleAnalysis) => number {
+        const space = this.buildTopicVectorSpace([
+            ...candidateDetails.map(({ analysis }) => analysis.normalizedFrequency),
+            ...recentProfiles.map(({ frequency }) => frequency),
+        ]);
+        const recentEntries: TopicVectorEntry[] = recentProfiles.map((profile) =>
+            toTopicVectorEntry(profile.videoPath, space.project(profile.frequency)));
+        return (videoPath, analysis) => {
+            const otherEntries = recentEntries.filter((entry) => entry.id !== videoPath);
+            return aggregateInterestScore(
+                searchTopicVectors(space.project(analysis.normalizedFrequency), otherEntries)
+                    .map((match) => match.similarity),
+            );
+        };
+    }
+
+    /**
+     * 语义兴趣分：使用本地 embedding 向量检索。
+     *
+     * @param vectors 视频路径 → 已生成的原始向量。
+     * @returns 按视频路径计算兴趣分的函数。
+     */
+    private semanticInterestProvider(
+        vectors: Map<string, number[]>,
+    ): (videoPath: string, analysis: SubtitleAnalysis) => number {
+        return (videoPath) => {
+            const query = vectors.get(videoPath);
+            if (!query) {
+                return 0;
+            }
+            const others: TopicVectorEntry[] = [];
+            for (const [id, vector] of vectors) {
+                if (id !== videoPath) {
+                    others.push(toTopicVectorEntry(id, vector));
+                }
+            }
+            return aggregateInterestScore(
+                searchTopicVectors(query, others).map((match) => match.similarity),
+            );
+        };
+    }
+
+    /**
+     * 为候选与近期视频生成语义向量。
+     *
+     * 每条视频用抽样字幕拼成一段主题文本；任一环节失败都返回 `null`，
+     * 由调用方整体降级为词面相似度，避免部分语义、部分词面混算。
+     *
+     * @param candidateDetails 候选及其字幕分析。
+     * @param recentProfiles 近期观看视频的词频表。
+     * @returns 视频路径 → 向量；模型不可用时为 `null`。
+     */
+    private async loadSemanticVectors(
+        candidateDetails: Array<{ candidate: CandidateRecord; analysis: SubtitleAnalysis }>,
+        recentProfiles: Array<{ videoPath: string; frequency: Map<string, number> }>,
+    ): Promise<Map<string, number[]> | null> {
+        const topics = new Map<string, string>();
+        for (const { candidate, analysis } of candidateDetails) {
+            topics.set(candidate.videoPath, this.topicTextOf(analysis));
+        }
+        for (const profile of recentProfiles) {
+            if (!topics.has(profile.videoPath)) {
+                topics.set(profile.videoPath, this.topicTextFromFrequency(profile.frequency));
+            }
+        }
+        if (topics.size === 0) {
+            return null;
+        }
+        try {
+            const embedded = await this.topicEmbeddingService.embed(
+                Array.from(topics, ([id, text]) => ({ id, text })),
+            );
+            if (!embedded) {
+                return null;
+            }
+            return new Map(embedded.map((item) => [item.id, item.vector]));
+        } catch (error) {
+            this.logger.warn('content compass semantic index skipped', {
+                error: this.errorMessage(error),
+            });
+            return null;
+        }
+    }
+
+    /**
+     * 用分析阶段保留的句子构造主题文本。
+     */
+    private topicTextOf(analysis: SubtitleAnalysis): string {
+        return analysis.sentences
+            .map((sentence) => sentence.words.map((word) => word.lemma).join(' '))
+            .filter((text) => text.length > 0)
+            .join('. ');
+    }
+
+    /**
+     * 近期视频只保留了词频，没有原句；按词频降序拼接高频词作为主题文本。
+     */
+    private topicTextFromFrequency(frequency: Map<string, number>): string {
+        return Array.from(frequency)
+            .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+            .slice(0, 64)
+            .map(([lemma]) => lemma)
+            .join(' ');
     }
 
     private async loadRecentTopicProfiles(

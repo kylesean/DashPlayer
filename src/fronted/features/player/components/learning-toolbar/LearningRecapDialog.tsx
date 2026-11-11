@@ -8,6 +8,8 @@ import { toast } from 'react-hot-toast';
 
 import type {
     LearningRecapVO,
+    ProductionPracticeMode,
+    ProductionPracticeRecordVO,
     RetellEvaluationVO,
     RetellLevel,
     RolePlayFeedbackVO,
@@ -113,6 +115,17 @@ export function LearningRecapContent({
             shouldRetryOnError: false,
         },
     );
+    // 上次练习结果：让落库的复述 / 角色扮演在下次打开时可见。
+    const { data: practiceHistory, mutate: mutateHistory } = useSWR<ProductionPracticeRecordVO[]>(
+        enabled ? ['learning-data/production-practice', videoId, fileHash] as const : null,
+        () => learningDataApi.listProductionPractice({ videoId, fileHash, limit: 10 }),
+        {
+            revalidateOnFocus: false,
+            shouldRetryOnError: false,
+        },
+    );
+    const lastRetell = practiceHistory?.find((record) => record.mode === 'retell') ?? null;
+    const lastRolePlay = practiceHistory?.find((record) => record.mode === 'roleplay') ?? null;
 
     /**
      * 绕过缓存重新生成，并用新结果替换 SWR 缓存。
@@ -157,8 +170,11 @@ export function LearningRecapContent({
                 original,
                 response: draft.trim(),
                 locale,
+                videoId,
+                fileHash,
             });
             setRetellResult(result);
+            void mutateHistory();
         } catch {
             setRetellError(t('retellFailed'));
         } finally {
@@ -189,8 +205,11 @@ export function LearningRecapContent({
                 response: rolePlayDraft.trim(),
                 targetExpressions: rolePlay.targetExpressions.map((item) => item.text),
                 locale,
+                videoId,
+                fileHash,
             });
             setRolePlayResult(result);
+            void mutateHistory();
         } catch {
             setRolePlayError(t('rolePlayFailed'));
         } finally {
@@ -236,6 +255,8 @@ export function LearningRecapContent({
                         rolePlayError={rolePlayError}
                         onRolePlayDraftChange={handleRolePlayDraftChange}
                         onCheckRolePlay={() => { void handleCheckRolePlay(); }}
+                        lastRetell={lastRetell}
+                        lastRolePlay={lastRolePlay}
                         refreshing={refreshing}
                         onRefresh={() => { void handleRefresh(); }}
                     />
@@ -272,6 +293,8 @@ function RecapBody({
     rolePlayError,
     onRolePlayDraftChange,
     onCheckRolePlay,
+    lastRetell,
+    lastRolePlay,
     refreshing,
     onRefresh,
 }: {
@@ -288,6 +311,8 @@ function RecapBody({
     rolePlayError: string | null;
     onRolePlayDraftChange: (value: string) => void;
     onCheckRolePlay: () => void;
+    lastRetell: ProductionPracticeRecordVO | null;
+    lastRolePlay: ProductionPracticeRecordVO | null;
     refreshing: boolean;
     onRefresh: () => void;
 }) {
@@ -391,6 +416,17 @@ function RecapBody({
                     <p className="mt-1 text-metadata leading-relaxed text-muted-foreground">
                         {t('speakingHint')}
                     </p>
+                    {lastRetell && (
+                        <p
+                            data-testid="learning-last-retell"
+                            className="mt-1 text-metadata text-muted-foreground/80"
+                        >
+                            {t('lastRetell', {
+                                level: t(levelKey('retell', lastRetell.level)),
+                                date: formatPracticeDate(lastRetell.createdAt),
+                            })}
+                        </p>
+                    )}
                     <textarea
                         value={draft}
                         rows={3}
@@ -445,6 +481,17 @@ function RecapBody({
                     <p className="mt-1.5 text-metadata leading-relaxed text-muted-foreground">
                         {recap.rolePlay.prompt || t('rolePlayPromptFallback')}
                     </p>
+                    {lastRolePlay && (
+                        <p
+                            data-testid="learning-last-role-play"
+                            className="mt-1 text-metadata text-muted-foreground/80"
+                        >
+                            {t('lastRolePlay', {
+                                level: t(levelKey('roleplay', lastRolePlay.level)),
+                                date: formatPracticeDate(lastRolePlay.createdAt),
+                            })}
+                        </p>
+                    )}
                     {recap.rolePlay.targetExpressions.length > 0 && (
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                             {recap.rolePlay.targetExpressions.map((item) => (
@@ -498,6 +545,23 @@ function RecapBody({
             )}
         </div>
     );
+}
+
+/**
+ * 复述与角色扮演的等级共用同一批等级值，但文案分开。
+ */
+function levelKey(mode: ProductionPracticeMode, level: RetellLevel): string {
+    const suffix = level === 'great' ? 'Great' : level === 'good' ? 'Good' : 'Retry';
+    return mode === 'roleplay' ? `rolePlayLevel${suffix}` : `level${suffix}`;
+}
+
+/**
+ * 兼容 SQLite 默认的 `YYYY-MM-DD HH:MM:SS`（UTC）与 ISO 字符串。
+ */
+function formatPracticeDate(value: string): string {
+    const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
+    const date = new Date(normalized);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
 /**

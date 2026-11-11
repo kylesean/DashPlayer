@@ -27,6 +27,15 @@ export interface MatchedWord {
     databaseWord?: Word;   // 数据库中匹配的单词
 }
 
+/**
+ * 词表缓存有效期。
+ *
+ * 词条掌握度会随距上次遇见的时间衰减，而仓储只在读取时折算；
+ * 缓存若永不过期，会让「已知词」判断一直停留在首次读取的快照。
+ * 掌握度以 14 天为半衰期，小时级刷新对判断足够灵敏，也不会造成额外读取压力。
+ */
+const VOCABULARY_CACHE_TTL_MS = 60 * 60 * 1000;
+
 
 /**
  * 词表匹配与缓存管理服务实现。
@@ -36,6 +45,8 @@ export class WordMatchServiceImpl implements WordMatchService {
 
     private vocabularyWordsCache: Word[] | null = null;
     private vocabularyMatcherCache: VocabularyMatcher<Word> | null = null;
+    /** 词表缓存到期时间；到点后重新读取，让衰减后的掌握度进入快照。 */
+    private vocabularyCacheExpiresAt = 0;
     /** 词表缓存版本，每次词表失效时递增。 */
     private vocabularyRevision = 0;
 
@@ -112,12 +123,16 @@ export class WordMatchServiceImpl implements WordMatchService {
     }
 
     async getVocabularyWords(): Promise<Word[]> {
-        if (this.vocabularyWordsCache) {
+        if (this.vocabularyWordsCache && Date.now() < this.vocabularyCacheExpiresAt) {
             return this.vocabularyWordsCache;
         }
 
         const words = await this.wordsRepository.getAll();
         this.vocabularyWordsCache = words.filter((word) => isActiveWordStatus(word.status));
+        this.vocabularyCacheExpiresAt = Date.now() + VOCABULARY_CACHE_TTL_MS;
+        // 匹配器持有的是旧快照的 payload，刷新时必须一起丢弃，
+        // 否则命中结果里的 databaseWord 仍会带着过期掌握度。
+        this.vocabularyMatcherCache = null;
         return this.vocabularyWordsCache;
     }
 
@@ -136,6 +151,7 @@ export class WordMatchServiceImpl implements WordMatchService {
     invalidateVocabularyCache(): void {
         this.vocabularyWordsCache = null;
         this.vocabularyMatcherCache = null;
+        this.vocabularyCacheExpiresAt = 0;
         this.vocabularyRevision += 1;
     }
 }

@@ -137,6 +137,29 @@ const ReviewCardBody = ({
                 )}
             </div>
 
+            {revealed && card.context && (
+                <div
+                    data-testid="review-card-context"
+                    className="mb-2 rounded-lg bg-muted/45 px-2.5 py-2 text-left"
+                >
+                    <p className="text-sm leading-relaxed text-foreground/85">
+                        “{card.context.text}”
+                    </p>
+                    {(card.context.videoFileName || card.context.sentenceIndex !== null) && (
+                        <p className="mt-1 truncate text-metadata text-muted-foreground">
+                            {[
+                                card.context.videoFileName
+                                    ? t('reviewDock.sourceVideo', { name: card.context.videoFileName })
+                                    : null,
+                                card.context.sentenceIndex !== null
+                                    ? t('reviewDock.sourceSentence', { index: card.context.sentenceIndex + 1 })
+                                    : null,
+                            ].filter(Boolean).join(' · ')}
+                        </p>
+                    )}
+                </div>
+            )}
+
             {revealed ? (
                 <div className="grid grid-cols-2 gap-1.5">
                     {([

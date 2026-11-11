@@ -6,6 +6,7 @@ import ReviewCardRepositoryImpl from '@/backend/infrastructure/db/repositories/R
 import WordEncounterRepositoryImpl from '@/backend/infrastructure/db/repositories/WordEncounterRepositoryImpl';
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
 import { wordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
+import { words as wordsTable } from '@/backend/infrastructure/db/tables/words';
 import { WordEncounterServiceImpl } from '@/backend/services/WordEncounterService';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -49,7 +50,7 @@ describe('WordEncounterService 复习闭环', () => {
         expect(queue.items[0].schedule.state).toBe('new');
     });
 
-    it('跟读高分提高掌握度，并把复习时间推后', async () => {
+    it('复习队列携带遇见该词的原句与句序号', async () => {
         memoryDb = createMemoryDb();
         const { service, words } = buildService(memoryDb);
         await words.insertOne({
@@ -58,8 +59,39 @@ describe('WordEncounterService 复习闭环', () => {
             status: 'learning',
             source: 'manual',
         });
+
+        await service.record({
+            word: 'journey',
+            action: 'save',
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+            sentenceIndex: 4,
+            sentenceHash: 'sentence-4',
+            context: 'The journey changed everything.',
+        });
+
+        const queue = await service.getReviewQueue();
+        expect(queue.items[0].context).toMatchObject({
+            text: 'The journey changed everything.',
+            videoId: 'video-1',
+            sentenceIndex: 4,
+            sentenceHash: 'sentence-4',
+        });
+    });
+
+    it('跟读提高掌握度，但不改变复习排期', async () => {
+        memoryDb = createMemoryDb();
+        const { service, words, cards } = buildService(memoryDb);
+        await words.insertOne({
+            word: 'journey',
+            translate: '旅程',
+            status: 'learning',
+            source: 'manual',
+        });
         await service.record({ word: 'journey', action: 'save' });
-        const before = await words.findByWord('journey');
+        const beforeWord = await words.findByWord('journey');
+        const beforeCard = await cards.findByWord('journey');
+        expect(beforeCard).not.toBeNull();
 
         await service.record({
             word: 'journey',
@@ -71,13 +103,64 @@ describe('WordEncounterService 复习闭环', () => {
             context: 'The journey changed everything.',
         });
 
-        const after = await words.findByWord('journey');
-        expect(after?.mastery).toBeGreaterThan(before?.mastery ?? 0);
-        expect(after?.last_seen_at).not.toBeNull();
+        const afterWord = await words.findByWord('journey');
+        const afterCard = await cards.findByWord('journey');
+        expect(afterWord?.mastery).toBeGreaterThan(beforeWord?.mastery ?? 0);
+        expect(afterWord?.last_seen_at).not.toBeNull();
+        expect(afterCard).toEqual(beforeCard);
+    });
+
+    it('跟读不会为目标词建卡', async () => {
+        memoryDb = createMemoryDb();
+        const { service, words, cards } = buildService(memoryDb);
+        await words.insertOne({
+            word: 'journey',
+            translate: '旅程',
+            status: 'learning',
+            source: 'manual',
+        });
+        const beforeWord = await words.findByWord('journey');
+
+        await service.record({ word: 'journey', action: 'shadow', score: 92 });
+
+        expect(await cards.findByWord('journey')).toBeNull();
+        const afterWord = await words.findByWord('journey');
+        expect(afterWord?.mastery).toBeGreaterThan(beforeWord?.mastery ?? 0);
+        expect((await service.getReviewQueue()).dueCount).toBe(0);
+    });
+
+    it('复习队列返回的掌握度按距上次遇见的时间衰减，数据库仍保留原始值', async () => {
+        memoryDb = createMemoryDb();
+        const { service, words: wordsRepository, cards } = buildService(memoryDb);
+        await wordsRepository.insertOne({
+            word: 'journey',
+            translate: '旅程',
+            status: 'learning',
+            source: 'manual',
+        });
+        const lastSeen = new Date(Date.now() - 14 * DAY_MS).toISOString();
+        await memoryDb.db.update(wordsTable)
+            .set({ mastery: 0.8, confidence: 0.6, last_seen_at: lastSeen })
+            .run();
+        await cards.upsert({
+            word: 'journey',
+            due_at: new Date(Date.now() - DAY_MS).toISOString(),
+            state: 'review',
+            reps: 3,
+            lapses: 0,
+            stability: 4,
+            difficulty: 5,
+            last_review_at: null,
+            last_rating: null,
+        });
+
         const queue = await service.getReviewQueue();
-        expect(queue.dueCount).toBe(0);
-        expect(queue.items).toHaveLength(0);
-        expect(queue.nextDueAt).not.toBeNull();
+
+        expect(queue.items).toHaveLength(1);
+        expect(queue.items[0].mastery).toBeCloseTo(0.4, 1);
+        const stored = await memoryDb.db.select().from(wordsTable).where(eq(wordsTable.word, 'journey'));
+        expect(stored[0].mastery).toBe(0.8);
+        expect(stored[0].confidence).toBe(0.6);
     });
 
     it('标记已掌握后删除复习卡', async () => {

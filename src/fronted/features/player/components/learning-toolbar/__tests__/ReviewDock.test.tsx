@@ -48,6 +48,14 @@ const queue: ReviewQueueVO = {
             lastReviewAt: null,
             lastRating: null,
         },
+        context: {
+            text: 'The journey changed everything.',
+            videoId: 'video-1',
+            videoFileName: 'lesson.mp4',
+            sentenceIndex: 4,
+            sentenceHash: 'sentence-4',
+            lastSeenAt: '2026-01-01T00:00:00.000Z',
+        },
     }],
     dueCount: 1,
     nextDueAt: '2026-01-01T00:00:00.000Z',
@@ -88,6 +96,22 @@ describe('ReviewDock', () => {
         expect(screen.getByTestId('review-rating-hard')).toBeDefined();
         expect(screen.getByTestId('review-rating-good')).toBeDefined();
         expect(screen.getByTestId('review-rating-easy')).toBeDefined();
+    });
+
+    it('揭示后展示遇见这个词的原句与来源视频', () => {
+        mockSWR(queue);
+        render(<ReviewDock tone="panel" popoverOffset={8} />);
+
+        fireEvent.click(screen.getByTestId('review-dock-trigger'));
+        expect(screen.queryByTestId('review-card-context')).toBeNull();
+
+        fireEvent.click(screen.getByTestId('review-reveal'));
+
+        const context = screen.getByTestId('review-card-context');
+        expect(context.textContent).toContain('The journey changed everything.');
+        // 该测试的 i18n mock 只返回 key，来源信息断言到 key 即可验证已渲染。
+        expect(context.textContent).toContain('reviewDock.sourceVideo');
+        expect(context.textContent).toContain('reviewDock.sourceSentence');
     });
 
     it('提交反馈后调用评分接口并刷新队列', async () => {

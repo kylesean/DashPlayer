@@ -85,20 +85,28 @@ export interface ContentCompassStatsParams {
 
 /**
  * 推荐效果看板。
+ *
+ * 计数都按「视频 × 自然日」去重：一次曝光、后续动作属于同一组样本，
+ * 因此 openRate / dismissRate / reviewRate 的分子一定分母的子集。
  */
 export interface ContentCompassStatsVO {
     since: string;
     shown: number;
     opened: number;
     dismissed: number;
-    /** 从推荐直接进入复习的次数。 */
+    /** 含到期词的曝光中，用户从推荐直接进入复习的次数（与推荐样本同一群体）。 */
     reviewed: number;
     /** 打开次数 / 曝光次数；没有曝光时为 null。 */
     openRate: number | null;
     /** 不感兴趣次数 / 曝光次数；没有曝光时为 null。 */
     dismissRate: number | null;
-    /** 从推荐进入复习的次数 / 含到期词的曝光次数；没有样本时为 null。 */
+    /** 进入复习次数 / 含到期词的曝光次数；没有样本时为 null。不代表复习完成。 */
     reviewRate: number | null;
-    /** 同一统计窗口内的复习回忆指标。 */
+    /**
+     * 同一统计窗口内的全局复习回忆指标。
+     *
+     * 这是全站复习结果，不按推荐来源归因；用于观察整体记忆趋势，
+     * 不能解读为「推荐让用户多记住了多少词」。
+     */
     retention: ReviewRetentionStats;
 }

@@ -6,7 +6,12 @@ import type {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TEN_MINUTES_MS = 10 * 60 * 1000;
-const MAX_STABILITY_DAYS = 3650;
+/** 稳定度上限：一年，避免「easy 几次就排到十年后、实际等于不再复习」。 */
+const MAX_STABILITY_DAYS = 365;
+/** 累计遗忘次数达到该值即视为 leech（难词）。 */
+const LEECH_LAPSES = 4;
+/** 难词的稳定度封顶：反复遗忘的词不应获得超长间隔。 */
+const LEECH_MAX_STABILITY_DAYS = 60;
 
 const addMs = (now: Date, ms: number): string => new Date(now.getTime() + ms).toISOString();
 const clamp = (value: number, min: number, max: number): number => Math.max(min, Math.min(max, value));
@@ -40,18 +45,21 @@ const nextStability = (
     state: ReviewCardState,
     stability: number,
     rating: ReviewRating,
+    lapses: number,
 ): number => {
     const base = Math.max(stability, 0.5);
+    // lapses 真正参与决策：反复遗忘的词稳定度增长封顶，避免越忘越久才复习。
+    const maxStability = lapses >= LEECH_LAPSES ? LEECH_MAX_STABILITY_DAYS : MAX_STABILITY_DAYS;
     if (rating === 'again') {
-        return clamp(base * 0.35, 0.15, MAX_STABILITY_DAYS);
+        return clamp(base * 0.35, 0.15, maxStability);
     }
     if (rating === 'hard') {
-        return clamp(base * (state === 'new' ? 0.8 : 1.2), 0.25, MAX_STABILITY_DAYS);
+        return clamp(base * (state === 'new' ? 0.8 : 1.2), 0.25, maxStability);
     }
     if (rating === 'good') {
-        return clamp(base * (state === 'new' ? 1.8 : 2.2), 0.5, MAX_STABILITY_DAYS);
+        return clamp(base * (state === 'new' ? 1.8 : 2.2), 0.5, maxStability);
     }
-    return clamp(base * (state === 'new' ? 3 : 3.2), 0.5, MAX_STABILITY_DAYS);
+    return clamp(base * (state === 'new' ? 3 : 3.2), 0.5, maxStability);
 };
 
 /**
@@ -69,7 +77,7 @@ export function scheduleReview(
 ): ReviewSchedule {
     const firstReview = current.state === 'new' || current.reps === 0;
     const previousState = current.state;
-    const stability = nextStability(previousState, current.stability, rating);
+    const stability = nextStability(previousState, current.stability, rating, current.lapses);
     const difficultyBase = current.difficulty > 0 ? current.difficulty : 5;
     const difficulty = clamp(
         difficultyBase + (rating === 'again' ? 0.8 : rating === 'hard' ? 0.25 : rating === 'good' ? -0.15 : -0.45),

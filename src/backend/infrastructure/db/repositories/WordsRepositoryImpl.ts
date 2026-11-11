@@ -11,6 +11,7 @@ import {
     type WordLearningUpdate,
     type WordStateUpdate,
 } from '@/backend/services/repositories/WordsRepository';
+import { effectiveWordMastery } from '@/common/learning/mastery';
 
 /**
  * 单词仓储实现。
@@ -38,7 +39,7 @@ export default class WordsRepositoryImpl implements WordsRepository {
     }
 
     public async getAll(query: GetAllWordsQuery = {}): Promise<Word[]> {
-        return this.db
+        const rows = await this.db
             .select()
             .from(words)
             .where(and(
@@ -50,6 +51,7 @@ export default class WordsRepositoryImpl implements WordsRepository {
                     )
                     : undefined,
             ));
+        return rows.map((row) => this.withEffectiveMastery(row));
     }
 
     /**
@@ -87,7 +89,14 @@ export default class WordsRepositoryImpl implements WordsRepository {
             .from(words)
             .where(this.wordEquals(word))
             .limit(1);
-        return rows[0] ?? null;
+        return rows[0] ? this.withEffectiveMastery(rows[0]) : null;
+    }
+
+    /**
+     * 读取边界应用时间衰减；数据库里仍保存原始证据值，写入新证据时才更新。
+     */
+    private withEffectiveMastery(word: Word): Word {
+        return { ...word, mastery: effectiveWordMastery(word) };
     }
 
     /**
