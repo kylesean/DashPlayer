@@ -3,6 +3,7 @@ import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Button } from '@astryxdesign/core/Button';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
@@ -25,6 +26,8 @@ export default function DictionaryEnhancementCard() {
     const { data: status, mutate } = useSWR<EnglishDictionaryStatusVO>(STATUS_KEY, englishDictionaryApi.status);
     const [taskId, setTaskId] = useState<number | null>(null);
     const [progress, setProgress] = useState<string | null>(null);
+    /** 删除增强包的确认弹窗是否打开。 */
+    const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
 
     /** 启动安装并订阅任务进度。 */
     const install = async (): Promise<void> => {
@@ -60,11 +63,8 @@ export default function DictionaryEnhancementCard() {
         }
     };
 
-    /** 删除已安装的增强包。 */
+    /** 删除已安装的增强包；确认由 AlertDialog 统一承担。 */
     const remove = async (): Promise<void> => {
-        if (!window.confirm(t('resources.dictionaryEnhancement.removeConfirm'))) {
-            return;
-        }
         try {
             await englishDictionaryApi.remove();
             await mutate();
@@ -102,7 +102,7 @@ export default function DictionaryEnhancementCard() {
                         variant="secondary"
                         size="sm"
                         label={t('resources.dictionaryEnhancement.remove')}
-                        onClick={() => void remove()}
+                        onClick={() => setRemoveConfirmOpen(true)}
                     />
                 ) : (
                     <Button
@@ -118,6 +118,19 @@ export default function DictionaryEnhancementCard() {
                     {t('resources.dictionaryEnhancement.installFailed', { message: status.error })}
                 </Text>
             )}
+            <AlertDialog
+                isOpen={removeConfirmOpen}
+                onOpenChange={setRemoveConfirmOpen}
+                title={t('resources.dictionaryEnhancement.remove')}
+                description={t('resources.dictionaryEnhancement.removeConfirm')}
+                actionLabel={t('resources.dictionaryEnhancement.remove')}
+                cancelLabel={t('common.cancel', { defaultValue: '取消' })}
+                actionVariant="destructive"
+                onAction={() => {
+                    setRemoveConfirmOpen(false);
+                    void remove();
+                }}
+            />
         </VStack>
     );
 }

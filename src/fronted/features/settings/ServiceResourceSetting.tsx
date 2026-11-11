@@ -2,7 +2,6 @@ import React from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { useSearchParams } from 'react-router-dom';
 import useSWR from 'swr';
-import { toast } from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import {
     BookA,
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { Banner } from '@astryxdesign/core/Banner';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { Button } from '@astryxdesign/core/Button';
 import { Divider } from '@astryxdesign/core/Divider';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
@@ -32,11 +32,10 @@ import DictionaryEnhancementCard from '@/fronted/features/settings/components/Di
 import { OpenAiCredentialCard } from '@/fronted/features/settings/components/OpenAiCredentialCard';
 import { SETTINGS_DETAIL_SWR_OPTIONS, settingsApi } from '@/fronted/features/settings/settingsApi';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
+import { useServiceResourceActions } from '@/fronted/features/settings/hooks/useServiceResourceActions';
 import { OPENAI_SUBTITLE_DEFAULT_STYLES } from '@/common/constants/openaiSubtitlePrompts';
 import { subscribeLocalAiDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
-import type { LocalAiModelStatus } from '@/common/contracts/local-ai';
-import type { TranscriptionEngine } from '@/common/contracts/transcription-engine';
 import type { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import type { ServiceCredentialSettingDetailVO } from '@/common/types/vo/service-credentials-setting-vo';
 import {
@@ -177,20 +176,34 @@ const ServiceResourceSetting: React.FC = () => {
         setSearchParams(next, { replace: true });
     };
 
-    // 云端密钥的连通性测试
-    const [testingOpenAiModel, setTestingOpenAiModel] = React.useState<string | null>(null);
-    const [openAiTestResults, setOpenAiTestResults] = React.useState<Record<string, { success: boolean; message: string } | null>>({});
-
-    // 本地增强模型
-    const [localAiBusy, setLocalAiBusy] = React.useState(false);
-    const [clearingCache, setClearingCache] = React.useState(false);
-    const [testingModelId, setTestingModelId] = React.useState<string | null>(null);
-    const [testResultsMap, setTestResultsMap] = React.useState<Record<string, {
-        success: boolean;
-        warmSec: string;
-        tps: string;
-        errorMessage?: string;
-    } | null>>({});
+    // 云端密钥测试、本地模型下载/测速、缓存清理等动作统一收进 hook
+    const {
+        testingOpenAiModel,
+        openAiTestResults,
+        localAiBusy,
+        clearingCache,
+        cacheConfirmOpen,
+        setCacheConfirmOpen,
+        testingModelId,
+        testResultsMap,
+        changeTranscriptionEngine,
+        clearCaches,
+        runLocalAiAction,
+        downloadLocalAi,
+        testLocalAiModel,
+        copyText,
+        openUrl,
+        openFolder,
+        testOpenAiModel,
+        cancelLocalAiDownload,
+        forgetOpenAiTestResult,
+    } = useServiceResourceActions({
+        t,
+        refreshResourceStatus,
+        flushCredentials,
+        localAiStatus,
+        cacheTargets,
+    });
 
     React.useEffect(() => {
         if (!settings) return;
@@ -252,145 +265,6 @@ const ServiceResourceSetting: React.FC = () => {
         return unsubscribe;
     }, [refreshResourceStatus]);
 
-    const changeTranscriptionEngine = async (engine: TranscriptionEngine) => {
-        try {
-            await settingsApi.saveTranscriptionEngine(engine);
-            await refreshResourceStatus();
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error));
-        }
-    };
-
-    const clearCaches = async () => {
-        setClearingCache(true);
-        try {
-            const [subtitle, dictionary] = await Promise.all([
-                cacheTargets.subtitle ? settingsApi.clearSubtitleTranslationCache() : { deleted: 0 },
-                cacheTargets.dictionary ? settingsApi.clearDictionaryCache() : { deleted: 0 },
-            ]);
-            toast.success(t('resources.preference.clearCacheDone', {
-                count: subtitle.deleted + dictionary.deleted,
-            }));
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error));
-        } finally {
-            setClearingCache(false);
-        }
-    };
-
-    const localAiDisplayName = (model: LocalAiModelStatus): string =>
-        model.custom ? model.name : t('serviceCredentials.localAi.builtinModelName');
-
-    const runLocalAiAction = async (model: LocalAiModelStatus, action: () => Promise<unknown>, successMessage: string) => {
-        setLocalAiBusy(true);
-        try {
-            await action();
-            toast.success(`${localAiDisplayName(model)}: ${successMessage}`);
-        } catch (error) {
-            toast.error(`${localAiDisplayName(model)}: ${error instanceof Error ? error.message : String(error)}`);
-        } finally {
-            setLocalAiBusy(false);
-            await refreshResourceStatus();
-        }
-    };
-
-    const downloadLocalAi = async (modelId: string) => {
-        const model = localAiStatus?.models.find((item) => item.modelId === modelId);
-        void refreshResourceStatus((current) => current ? {
-            ...current,
-            localAi: {
-                ...current.localAi,
-                models: current.localAi.models.map((item) => item.modelId === modelId ? { ...item, phase: 'downloading' } : item),
-            },
-        } : current, { revalidate: false });
-        try {
-            await settingsApi.downloadLocalAi(modelId);
-            toast.success(t('common.downloadDone'));
-        } catch (error) {
-            const prefix = model ? `${localAiDisplayName(model)}: ` : '';
-            toast.error(`${prefix}${error instanceof Error ? error.message : String(error)}`);
-        } finally {
-            await refreshResourceStatus();
-        }
-    };
-
-    const testLocalAiModel = async (modelId: string) => {
-        setTestingModelId(modelId);
-        try {
-            const result = await settingsApi.speedTestLocalAi(modelId);
-            setTestResultsMap((prev) => ({
-                ...prev,
-                [modelId]: {
-                    success: true,
-                    warmSec: (result.warmMs / 1000).toFixed(1),
-                    tps: result.tokensPerSecond === null ? '—' : result.tokensPerSecond.toFixed(1),
-                },
-            }));
-        } catch (error) {
-            setTestResultsMap((prev) => ({
-                ...prev,
-                [modelId]: {
-                    success: false,
-                    warmSec: '—',
-                    tps: '—',
-                    errorMessage: error instanceof Error ? error.message : String(error),
-                },
-            }));
-        } finally {
-            setTestingModelId(null);
-            await refreshResourceStatus();
-        }
-    };
-
-    const copyText = async (value: string) => {
-        try {
-            await navigator.clipboard.writeText(value);
-            toast.success(t('common.copied'));
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error));
-        }
-    };
-
-    const openUrl = async (url: string) => {
-        try {
-            await settingsApi.openUrl(url);
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error));
-        }
-    };
-
-    const openFolder = async (path?: string) => {
-        if (!path) return;
-        try {
-            await settingsApi.openFolderForFile(path);
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error));
-        }
-    };
-
-    const testOpenAiModel = async (model: string) => {
-        try {
-            await flushCredentials();
-        } catch (flushError) {
-            toast.error(`${t('common.saveFailed')}\n${flushError instanceof Error ? flushError.message : String(flushError)}`);
-            return;
-        }
-
-        setTestingOpenAiModel(model);
-        setOpenAiTestResults((prev) => ({ ...prev, [model]: null }));
-        try {
-            const result = await settingsApi.testOpenAi(model);
-            setOpenAiTestResults((prev) => ({ ...prev, [model]: result }));
-        } catch (error) {
-            setOpenAiTestResults((prev) => ({
-                ...prev,
-                [model]: { success: false, message: error instanceof Error ? error.message : String(error) },
-            }));
-        } finally {
-            setTestingOpenAiModel(null);
-        }
-    };
-
     const applyEngineValue = (
         value: string,
         engineKey: 'providers.subtitleTranslationEngine' | 'providers.dictionaryEngine',
@@ -447,7 +321,7 @@ const ServiceResourceSetting: React.FC = () => {
             ? [{ value: 'local-mt', label: t('resources.preference.engineLocalMtLegacy'), disabled: true }]
             : []),
         { value: 'none', label: t('resources.preference.engineNone') },
-    ], [availableModels, subtitleEngine, watched.openai?.featureModels?.subtitleTranslation, t]);
+    ], [availableModels, subtitleEngine, watched.openai, t]);
 
     const styleOptions = React.useMemo(() => [
         { value: 'zh', label: t('resources.preference.styleZh') },
@@ -462,7 +336,7 @@ const ServiceResourceSetting: React.FC = () => {
             : []),
         { value: 'local', label: t('resources.preference.engineLocalAi') },
         { value: 'none', label: t('resources.preference.engineNoSupplement') },
-    ], [availableModels, watched.providers?.dictionaryEngine, watched.openai?.featureModels?.dictionary, t]);
+    ], [availableModels, watched.providers?.dictionaryEngine, watched.openai, t]);
 
     const sentenceOptions = React.useMemo(() => [
         { value: 'none', label: t('resources.preference.engineDisabled') },
@@ -544,15 +418,7 @@ const ServiceResourceSetting: React.FC = () => {
                                 }}
                                 onTestModel={(modelId) => testLocalAiModel(modelId).catch(() => null)}
                                 onDownloadModel={(modelId) => downloadLocalAi(modelId).catch(() => null)}
-                                onCancelDownload={() => {
-                                    setLocalAiBusy(true);
-                                    settingsApi.cancelLocalAiDownload()
-                                        .catch((error) => toast.error(error instanceof Error ? error.message : String(error)))
-                                        .finally(() => {
-                                            setLocalAiBusy(false);
-                                            void refreshResourceStatus();
-                                        });
-                                }}
+                                onCancelDownload={cancelLocalAiDownload}
                                 onDeleteModel={(modelId) => {
                                     const model = localAiStatus?.models.find((item) => item.modelId === modelId);
                                     if (!model) return;
@@ -602,11 +468,7 @@ const ServiceResourceSetting: React.FC = () => {
                                 testingModel={testingOpenAiModel}
                                 testResults={openAiTestResults}
                                 onTestModel={(model) => testOpenAiModel(model).catch(() => null)}
-                                onModelRemoved={(model) => setOpenAiTestResults((prev) => {
-                                    const next = { ...prev };
-                                    delete next[model];
-                                    return next;
-                                })}
+                                onModelRemoved={forgetOpenAiTestResult}
                                 onCopy={(text) => copyText(text).catch(() => null)}
                                 onOpenUrl={(url) => openUrl(url).catch(() => null)}
                                 disabled={credentialSaveStatus === 'saving'}
@@ -735,7 +597,21 @@ const ServiceResourceSetting: React.FC = () => {
                                             variant="secondary"
                                             isLoading={clearingCache}
                                             icon={<Icon icon={Eraser as unknown as IconType} size="sm" />}
-                                            onClick={() => { void clearCaches(); }}
+                                            onClick={() => setCacheConfirmOpen(true)}
+                                        />
+                                        <AlertDialog
+                                            isOpen={cacheConfirmOpen}
+                                            onOpenChange={setCacheConfirmOpen}
+                                            title={t('resources.preference.clearCache')}
+                                            description={t('resources.preference.cacheDesc')}
+                                            actionLabel={t('resources.preference.clearCache')}
+                                            cancelLabel={t('common.cancel', { defaultValue: '取消' })}
+                                            actionVariant="destructive"
+                                            isActionLoading={clearingCache}
+                                            onAction={() => {
+                                                setCacheConfirmOpen(false);
+                                                void clearCaches();
+                                            }}
                                         />
                                     </SettingField>
                                 </>

@@ -72,58 +72,73 @@ export default function LearningToolbar({
                 '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             )}
         >
-            <SubtitleTrackSegmented tone="panel" />
-
-            <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
-
-            {/* 精听两个最常用开关：与训练菜单里的开关是同一份状态，只是快速入口 */}
-            <Tooltip
-                content={`${t('controlBar.modeSingleRepeat')}${formatShortcut(repeatShortcut)}`}
-                placement="above"
+            <div
+                role="group"
+                aria-label={t('controlBar.groupPlayback', { defaultValue: '播放控制' })}
+                className="flex shrink-0 items-center gap-1.5"
             >
-                <button
-                    type="button"
-                    onClick={() => playerActions.setSingleRepeat(!singleRepeat)}
-                    aria-pressed={singleRepeat}
-                    aria-label={t('controlBar.modeSingleRepeat')}
-                    className={cn(
-                        TOOLBAR_ICON_BUTTON,
-                        singleRepeat ? style.accent.amber : style.idle
-                    )}
-                >
-                    <Repeat1 className="w-4 h-4 stroke-[2]" />
-                </button>
-            </Tooltip>
+                <SubtitleTrackSegmented tone="panel" />
 
-            <Tooltip
-                content={`${t('controlBar.modeAutoPause')}${formatShortcut(autoPauseShortcut)}`}
-                placement="above"
+                <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
+
+                {/* 精听两个最常用开关：与训练菜单里的开关是同一份状态，只是快速入口 */}
+                <Tooltip
+                    content={`${t('controlBar.modeSingleRepeat')}${formatShortcut(repeatShortcut)}`}
+                    placement="above"
+                >
+                    <button
+                        type="button"
+                        onClick={() => playerActions.setSingleRepeat(!singleRepeat)}
+                        aria-pressed={singleRepeat}
+                        aria-label={t('controlBar.modeSingleRepeat')}
+                        className={cn(
+                            TOOLBAR_ICON_BUTTON,
+                            singleRepeat ? style.accent.amber : style.idle
+                        )}
+                    >
+                        <Repeat1 className="w-4 h-4 stroke-[2]" />
+                    </button>
+                </Tooltip>
+
+                <Tooltip
+                    content={`${t('controlBar.modeAutoPause')}${formatShortcut(autoPauseShortcut)}`}
+                    placement="above"
+                >
+                    <button
+                        type="button"
+                        onClick={() => playerActions.setAutoPause(!autoPause)}
+                        aria-pressed={autoPause}
+                        aria-label={t('controlBar.modeAutoPause')}
+                        className={cn(
+                            TOOLBAR_ICON_BUTTON,
+                            autoPause ? style.accent.emerald : style.idle
+                        )}
+                    >
+                        <CirclePause className="w-4 h-4 stroke-[2]" />
+                    </button>
+                </Tooltip>
+            </div>
+
+            <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
+
+            {/* 学习动作独占一组：与播放开关区分开，避免一排图标被当成同权重操作 */}
+            <div
+                role="group"
+                aria-label={t('controlBar.groupLearning', { defaultValue: '学习动作' })}
+                className="flex shrink-0 items-center gap-1 rounded-lg bg-muted/25 px-1 py-0.5"
             >
-                <button
-                    type="button"
-                    onClick={() => playerActions.setAutoPause(!autoPause)}
-                    aria-pressed={autoPause}
-                    aria-label={t('controlBar.modeAutoPause')}
-                    className={cn(
-                        TOOLBAR_ICON_BUTTON,
-                        autoPause ? style.accent.emerald : style.idle
-                    )}
-                >
-                    <CirclePause className="w-4 h-4 stroke-[2]" />
-                </button>
-            </Tooltip>
+                <TrainingMenuButton tone="panel" popoverOffset={POPOVER_OFFSET} showLabel={false} />
 
-            <TrainingMenuButton tone="panel" popoverOffset={POPOVER_OFFSET} showLabel={false} />
+                <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
 
-            <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
+                <PracticeModeButton variant="toolbar" />
+                <LearningModeButton variant="toolbar" />
 
-            <PracticeModeButton variant="toolbar" />
-            <LearningModeButton variant="toolbar" />
+                <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
 
-            <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
-
-            <ReviewDock tone="panel" popoverOffset={POPOVER_OFFSET} />
-            <LearningSessionDock tone="panel" popoverOffset={POPOVER_OFFSET} />
+                <ReviewDock tone="panel" popoverOffset={POPOVER_OFFSET} />
+                <LearningSessionDock tone="panel" popoverOffset={POPOVER_OFFSET} />
+            </div>
 
             <div className="flex-1" />
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { Button } from '@astryxdesign/core/Button';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Switch } from '@astryxdesign/core/Switch';
@@ -26,6 +27,8 @@ export default function ImportedDictionaryCard() {
         dictionaryImportApi.list,
     );
     const [busy, setBusy] = useState(false);
+    /** 待确认删除的词典；null 表示没有打开确认弹窗。 */
+    const [pendingDelete, setPendingDelete] = useState<ImportedDictionaryVO | null>(null);
 
     /** 选择文件并导入。 */
     const importDictionary = async (): Promise<void> => {
@@ -47,11 +50,8 @@ export default function ImportedDictionaryCard() {
         }
     };
 
-    /** 删除词典；先确认避免误删。 */
+    /** 删除词典；确认由 AlertDialog 统一承担。 */
     const removeDictionary = async (dictionary: ImportedDictionaryVO): Promise<void> => {
-        if (!window.confirm(t('resources.dictionaryPack.removeConfirm', { name: dictionary.name }))) {
-            return;
-        }
         try {
             await dictionaryImportApi.remove(dictionary.id);
             await mutate();
@@ -119,11 +119,29 @@ export default function ImportedDictionaryCard() {
                         variant="secondary"
                         size="sm"
                         label={t('resources.dictionaryPack.remove')}
-                        onClick={() => void removeDictionary(dictionary)}
+                        onClick={() => setPendingDelete(dictionary)}
                     />
                 </HStack>
             ))}
             <Text size="2xs" color="secondary">{t('resources.dictionaryPack.formats')}</Text>
+            <AlertDialog
+                isOpen={pendingDelete !== null}
+                onOpenChange={(open) => {
+                    if (!open) setPendingDelete(null);
+                }}
+                title={t('resources.dictionaryPack.remove')}
+                description={t('resources.dictionaryPack.removeConfirm', { name: pendingDelete?.name ?? '' })}
+                actionLabel={t('resources.dictionaryPack.remove')}
+                cancelLabel={t('cancel', { defaultValue: '取消' })}
+                actionVariant="destructive"
+                onAction={() => {
+                    const target = pendingDelete;
+                    setPendingDelete(null);
+                    if (target) {
+                        void removeDictionary(target);
+                    }
+                }}
+            />
         </VStack>
     );
 }

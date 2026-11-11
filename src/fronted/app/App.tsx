@@ -208,12 +208,13 @@ export const App = () => {
                             <Route path="/" element={<Eb key="home-root"><HomePage /></Eb>} />
                             <Route path="home" element={<Eb key="home"><HomePage /></Eb>} />
                             <Route element={<TitleBarLayout />}>
+                                {/* 用 splat 承接 /learn 子路径：同一 Route 命中，切到学习视图时页面组件不重挂载 */}
                                 <Route
-                                    path="player/:videoId"
+                                    path="player/:videoId/*"
                                     element={<Eb key="player-video"><PlayerPage /></Eb>}
                                 />
                                 <Route
-                                    path="player"
+                                    path="player/*"
                                     element={<Eb key="player"><PlayerPage /></Eb>}
                                 />
                                 <Route path="*" element={<AppShellLayout />}>

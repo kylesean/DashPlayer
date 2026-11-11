@@ -15,6 +15,7 @@ import { useLocalStorage } from '@uidotdev/usehooks';
 import StrUtil from '@/common/utils/str-util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { usePlayerBridge } from '@/fronted/features/player/hooks/usePlayerBridge';
+import { useLearningRouteSync } from '@/fronted/features/player/hooks/useLearningRouteSync';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import PlaybackEmptyState from './EmptyState';
@@ -79,6 +80,8 @@ const PlaybackLayout = () => {
     const isLeftTranscript = transcriptPosition === 'left';
     const navigate = useNavigate();
     const { handlePlayerReady, handleAutoPlayNext } = usePlayerBridge(navigate);
+    // 学习页的地址同步：/player/:id/learn 是入口与退出依据，不再依赖工具条是否可见
+    useLearningRouteSync();
 
     const rootContainerRef = useRef<HTMLDivElement>(null);
 

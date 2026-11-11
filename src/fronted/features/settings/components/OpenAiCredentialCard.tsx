@@ -14,6 +14,7 @@ import {
 import { toast } from 'react-hot-toast';
 
 import { Button } from '@astryxdesign/core/Button';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { Card } from '@astryxdesign/core/Card';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { Divider } from '@astryxdesign/core/Divider';
@@ -82,6 +83,8 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
     const { setValue } = form;
     const [newModel, setNewModel] = React.useState('');
     const [presetDialogOpen, setPresetDialogOpen] = React.useState(false);
+    /** 待确认删除的模型；null 表示没有打开确认弹窗。 */
+    const [pendingDeleteModel, setPendingDeleteModel] = React.useState<string | null>(null);
 
     const openAiKey = useWatch({ control: form.control, name: 'openai.key' }) ?? '';
     const endpoint = useWatch({ control: form.control, name: 'openai.endpoint' }) ?? '';
@@ -274,7 +277,7 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                                                     variant="ghost"
                                                     isDisabled={usage.length > 0}
                                                     icon={<Icon icon={Trash2 as unknown as IconType} size="sm" />}
-                                                    onClick={() => handleDeleteModel(model)}
+                                                    onClick={() => setPendingDeleteModel(model)}
                                                 />
                                             </HStack>
                                         </TableCell>
@@ -374,6 +377,27 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                     </ScrollableArea>
                 </VStack>
             </Dialog>
+            <AlertDialog
+                isOpen={pendingDeleteModel !== null}
+                onOpenChange={(open) => {
+                    if (!open) setPendingDeleteModel(null);
+                }}
+                title={t('common.delete')}
+                description={t('serviceCredentials.openai.deleteModelConfirm', {
+                    model: pendingDeleteModel ?? '',
+                    defaultValue: '删除模型 {{model}}？此操作无法撤销。',
+                })}
+                actionLabel={t('common.delete')}
+                cancelLabel={t('common.cancel', { defaultValue: '取消' })}
+                actionVariant="destructive"
+                onAction={() => {
+                    const target = pendingDeleteModel;
+                    setPendingDeleteModel(null);
+                    if (target) {
+                        handleDeleteModel(target);
+                    }
+                }}
+            />
         </VStack>
     );
 };
