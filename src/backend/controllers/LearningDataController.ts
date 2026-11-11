@@ -11,7 +11,11 @@ import type LearningDataService from '@/backend/services/LearningDataService';
 import type LearningRecapService from '@/backend/services/LearningRecapService';
 import type MemoryMapService from '@/backend/services/MemoryMapService';
 import type { LearningSessionSummaryParams } from '@/common/types/learningSession';
-import type { LearningDataExportResultVO } from '@/common/types/learningData';
+import type {
+    LearningDataExportResultVO,
+    LearningDataImportResultVO,
+} from '@/common/types/learningData';
+import { LearningDataSnapshotError } from '@/common/learning/learningDataSnapshot';
 import type { MemoryMapParams } from '@/common/types/memoryMap';
 import type {
     LearningRecapParams,
@@ -104,6 +108,33 @@ export default class LearningDataController implements Controller {
         return this.learningDataService.resetLearningData();
     }
 
+    /**
+     * 打开文件对话框并从备份恢复学习数据。
+     *
+     * 结构错误单独给出可读提示，磁盘错误保持原始信息，避免用户误以为是文件选错。
+     */
+    public async importData(): Promise<LearningDataImportResultVO> {
+        const result = await dialog.showOpenDialog({
+            title: '导入学习数据',
+            properties: ['openFile'],
+            filters: [{ name: 'JSON', extensions: ['json'] }],
+        });
+        const filePath = result.filePaths[0];
+        if (result.canceled || !filePath) {
+            return { success: false, canceled: true };
+        }
+        try {
+            return await this.learningDataService.importFromJson(filePath);
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof LearningDataSnapshotError
+                    ? error.message
+                    : error instanceof Error ? error.message : String(error),
+            };
+        }
+    }
+
     public registerRoutes(): void {
         registerRoute('learning-data/session-summary', (p) => this.getSessionSummary(p), {
             schema: z.object({
@@ -116,6 +147,7 @@ export default class LearningDataController implements Controller {
             }),
         });
         registerRoute('learning-data/export', () => this.exportData());
+        registerRoute('learning-data/import', () => this.importData());
         registerRoute('learning-data/reset', () => this.resetLearningData());
         registerRoute('learning-data/recap', (p) => this.getRecap(p), {
             schema: z.object({

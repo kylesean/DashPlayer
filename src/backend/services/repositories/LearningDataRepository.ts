@@ -1,4 +1,3 @@
-import type { ReviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
 import type {
     InsertRecommendationEvent,
     RecommendationEvent,
@@ -7,6 +6,13 @@ import type { WordEncounter } from '@/backend/infrastructure/db/tables/wordEncou
 import type { Word } from '@/backend/infrastructure/db/tables/words';
 import type { ReviewOutcome } from '@/backend/services/repositories/WordEncounterRepository';
 import type { WordEncounterAction } from '@/common/types/vocabulary';
+import type {
+    LearningDataRestoreCounts,
+    LearningDataRestoreSnapshot,
+} from '@/common/types/learningData';
+import type { ReviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
+import type { ProductionPracticeRecord } from '@/backend/infrastructure/db/tables/productionPracticeRecord';
+import type { SentencePracticeRecord } from '@/backend/infrastructure/db/tables/sentencePracticeRecord';
 
 /**
  * 会话摘要需要的事件查询条件。
@@ -68,10 +74,27 @@ export default interface LearningDataRepository {
     /** 读取全部推荐事件，用于可移植导出。 */
     listRecommendationEvents(): Promise<RecommendationEvent[]>;
 
+    /** 读取全部跟读 / 听写记录，用于可移植导出。 */
+    listSentencePracticeRecords(): Promise<SentencePracticeRecord[]>;
+
+    /** 读取全部复述 / 角色扮演记录，用于可移植导出。 */
+    listProductionPracticeRecords(): Promise<ProductionPracticeRecord[]>;
+
     /**
      * 删除遭遇事件、复习卡、推荐事件与练习记录，并重置词条掌握字段。
      *
      * 在一个事务内完成，避免用户看到“记录已删但掌握度还在”的半清空状态。
      */
     resetLearningData(): Promise<LearningDataResetCounts>;
+
+    /**
+     * 把一份导出的学习数据写回本地库。
+     *
+     * 与导出对称：先清空事件类数据，再按导出快照恢复词条状态、事件、复习卡、
+     * 推荐事件与练习记录。整个过程在一个事务内完成，失败时整体回滚。
+     *
+     * @param snapshot 已完成结构校验的导出快照。
+     * @returns 恢复后的各表记录数量。
+     */
+    restoreLearningData(snapshot: LearningDataRestoreSnapshot): Promise<LearningDataRestoreCounts>;
 }

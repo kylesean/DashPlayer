@@ -59,7 +59,11 @@ import type {
     ContentCompassStatsVO,
     ContentCompassVO,
 } from '@/common/types/contentCompass';
-import type { LearningDataExportResultVO, LearningDataResetResultVO } from '@/common/types/learningData';
+import type {
+    LearningDataExportResultVO,
+    LearningDataImportResultVO,
+    LearningDataResetResultVO,
+} from '@/common/types/learningData';
 import type {
     ChatSessionCloseParams,
     ChatSessionCreateParams,
@@ -483,6 +487,11 @@ interface LearningDataDef {
         params: void,
         return: LearningDataExportResultVO
     };
+    /** 从备份 JSON 恢复学习数据；默认词表不受影响。 */
+    'learning-data/import': {
+        params: void,
+        return: LearningDataImportResultVO
+    };
     'learning-data/reset': {
         params: void,
         return: LearningDataResetResultVO
@@ -667,6 +676,7 @@ export const API_ROUTE_KEYS = [
     'dp-task/cancel',
     'dp-task/detail',
     'learning-data/export',
+    'learning-data/import',
     'learning-data/memory-map',
     'learning-data/production-practice',
     'learning-data/recap',

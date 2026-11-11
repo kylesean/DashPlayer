@@ -54,6 +54,11 @@ export const learningDataApi = {
     exportLearningData: () => backendClient.call('learning-data/export'),
 
     /**
+     * 打开文件对话框并从备份恢复学习数据。
+     */
+    importLearningData: () => backendClient.call('learning-data/import'),
+
+    /**
      * 清除学习事件、复习卡与掌握字段；词表与用户状态保留。
      */
     resetLearningData: () => backendClient.call('learning-data/reset'),

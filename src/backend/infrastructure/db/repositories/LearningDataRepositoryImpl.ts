@@ -18,6 +18,10 @@ import type {
     LearningDataResetCounts,
     SessionEventQuery,
 } from '@/backend/services/repositories/LearningDataRepository';
+import type {
+    LearningDataRestoreCounts,
+    LearningDataRestoreSnapshot,
+} from '@/common/types/learningData';
 import type { ReviewOutcome } from '@/backend/services/repositories/WordEncounterRepository';
 import { effectiveWordMastery } from '@/common/learning/mastery';
 
@@ -127,6 +131,20 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             .orderBy(asc(recommendationEvent.id));
     }
 
+    public async listSentencePracticeRecords() {
+        return this.db
+            .select()
+            .from(sentencePracticeRecord)
+            .orderBy(asc(sentencePracticeRecord.id));
+    }
+
+    public async listProductionPracticeRecords() {
+        return this.db
+            .select()
+            .from(productionPracticeRecord)
+            .orderBy(asc(productionPracticeRecord.id));
+    }
+
     public async resetLearningData(): Promise<LearningDataResetCounts> {
         const now = new Date().toISOString();
         return this.db.transaction((tx) => {
@@ -149,6 +167,125 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
                 reviewCardsDeleted: Number(cards.changes),
                 recommendationsDeleted: Number(recommendations.changes),
                 wordsReset: Number(updatedWords.changes),
+            };
+        });
+    }
+
+    /**
+     * 用导出的快照整体覆盖学习数据。
+     *
+     * 采用「先清空、再写入」而不是逐条合并：导出是完整快照，合并会让已经删除的
+     * 事件复活，也会让同一词条的掌握度出现无法解释的混合值。整个替换在一个事务
+     * 内完成，任何一步失败都不会留下半套数据。
+     */
+    public async restoreLearningData(
+        snapshot: LearningDataRestoreSnapshot,
+    ): Promise<LearningDataRestoreCounts> {
+        return this.db.transaction((tx) => {
+            tx.delete(wordEncounter).run();
+            tx.delete(reviewCard).run();
+            tx.delete(recommendationEvent).run();
+            tx.delete(sentencePracticeRecord).run();
+            tx.delete(productionPracticeRecord).run();
+
+            // 只替换用户词表：默认词表是产品资产，不随用户备份进出。
+            // 但如果备份里的某个词正好与默认词表同形，必须先让位，否则会撞上 word 唯一约束；
+            // 恢复后该词属于用户，而不是产品内置词。
+            const restoreWords = snapshot.words.map((word) => word.word.toLowerCase());
+            tx.delete(words).where(restoreWords.length > 0
+                ? or(ne(words.source, 'default'), inArray(sql`lower(${words.word})`, restoreWords))
+                : ne(words.source, 'default')).run();
+
+            for (const word of snapshot.words) {
+                tx.insert(words).values({
+                    word: word.word,
+                    translate: word.translate,
+                    status: word.status,
+                    source: word.source,
+                    mastery: word.mastery,
+                    confidence: word.confidence,
+                    last_seen_at: word.lastSeenAt,
+                    mastered_at: word.masteredAt,
+                    created_at: word.createdAt,
+                    updated_at: word.updatedAt,
+                }).run();
+            }
+            if (snapshot.encounters.length > 0) {
+                tx.insert(wordEncounter).values(snapshot.encounters.map((encounter) => ({
+                    word: encounter.word,
+                    lemma: encounter.lemma,
+                    action: encounter.action,
+                    video_id: encounter.videoId,
+                    file_hash: encounter.fileHash,
+                    sentence_index: encounter.sentenceIndex,
+                    sentence_hash: encounter.sentenceHash,
+                    context: encounter.context,
+                    score: encounter.score,
+                    rating: encounter.rating,
+                    created_at: encounter.createdAt,
+                }))).run();
+            }
+            if (snapshot.reviewCards.length > 0) {
+                tx.insert(reviewCard).values(snapshot.reviewCards.map((card) => ({
+                    word: card.word,
+                    due_at: card.dueAt,
+                    state: card.state,
+                    reps: card.reps,
+                    lapses: card.lapses,
+                    stability: card.stability,
+                    difficulty: card.difficulty,
+                    last_review_at: card.lastReviewAt,
+                    last_rating: card.lastRating,
+                    created_at: card.createdAt,
+                    updated_at: card.updatedAt,
+                }))).run();
+            }
+            if (snapshot.recommendations.length > 0) {
+                tx.insert(recommendationEvent).values(snapshot.recommendations.map((event) => ({
+                    video_id: event.videoId,
+                    action: event.action,
+                    surface: event.surface,
+                    score: event.score,
+                    reason_code: event.reasonCode,
+                    created_at: event.createdAt,
+                }))).run();
+            }
+            if (snapshot.sentencePractices.length > 0) {
+                tx.insert(sentencePracticeRecord).values(snapshot.sentencePractices.map((record) => ({
+                    file_hash: record.fileHash,
+                    sentence_index: record.sentenceIndex,
+                    resegmented: record.resegmented,
+                    mode: record.mode,
+                    score: record.score,
+                    transcript: record.transcript,
+                    audio_file: record.audioFile,
+                    detail_json: record.detailJson,
+                    created_at: record.createdAt,
+                }))).run();
+            }
+            if (snapshot.productionPractices.length > 0) {
+                tx.insert(productionPracticeRecord).values(snapshot.productionPractices.map((record) => ({
+                    mode: record.mode,
+                    video_id: record.videoId,
+                    file_hash: record.fileHash,
+                    sentence_index: record.sentenceIndex,
+                    sentence_text: record.sentenceText,
+                    response_text: record.responseText,
+                    level: record.level,
+                    feedback: record.feedback,
+                    improved: record.improved,
+                    detail_json: record.detailJson,
+                    created_at: record.createdAt,
+                }))).run();
+            }
+
+            return {
+                wordsRestored: snapshot.words.length,
+                encountersRestored: snapshot.encounters.length,
+                reviewCardsRestored: snapshot.reviewCards.length,
+                recommendationsRestored: snapshot.recommendations.length,
+                sentencePracticesRestored: snapshot.sentencePractices.length,
+                productionPracticesRestored: snapshot.productionPractices.length,
             };
         });
     }

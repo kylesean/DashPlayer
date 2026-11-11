@@ -25,6 +25,7 @@ import {
     RefreshCw,
     TriangleAlert,
     Trash2,
+    Upload,
 } from 'lucide-react';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
 import { toast } from 'react-hot-toast';
@@ -41,6 +42,7 @@ import type { StorageSettingVO } from '@/common/contracts/storage-setting-vo';
 import type { StorageUsageVO } from '@/common/contracts/storage-usage-vo';
 import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
 import { revalidateReviewQueue } from '@/fronted/features/video-learning/reviewQueue';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { contentCompassApi } from '@/fronted/features/content-compass/contentCompassApi';
 import type { ContentCompassStatsVO } from '@/common/types/contentCompass';
 
@@ -66,6 +68,8 @@ const StorageSetting: React.FC = () => {
     const [isClearLearningDialogOpen, setIsClearLearningDialogOpen] = React.useState(false);
     const [isClearingLearning, setIsClearingLearning] = React.useState(false);
     const [isExportingLearning, setIsExportingLearning] = React.useState(false);
+    const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false);
+    const [isImportingLearning, setIsImportingLearning] = React.useState(false);
     const { data: compassStats, isLoading: compassStatsLoading } = useSWR<ContentCompassStatsVO>(
         'content-compass/stats',
         () => contentCompassApi.getStats({ days: 7 }),
@@ -208,6 +212,42 @@ const StorageSetting: React.FC = () => {
         }
     };
 
+    /**
+     * 从备份恢复学习数据。
+     *
+     * 导入会整体替换现有记录，因此先走确认弹窗；文件对话框被取消时保持静默，
+     * 不把「用户主动取消」当成失败提示。
+     */
+    const handleImportLearningData = async () => {
+        try {
+            setIsImportingLearning(true);
+            const result = await learningDataApi.importLearningData();
+            setIsImportDialogOpen(false);
+            if (result.canceled) {
+                return;
+            }
+            if (!result.success) {
+                throw new Error(result.error ?? t('storage.learningData.importFailed'));
+            }
+            revalidateReviewQueue();
+            await swrApiMutate('learning-data/session-summary');
+            await swrApiMutate('content-compass/stats');
+            // 字幕标注来自播放会话的词表匹配结果，不是 SWR 缓存；递增重载令牌
+            // 让 usePlayerBridge 重新解析并重新匹配，否则要等下次切视频才生效。
+            usePlaybackSession.getState().reloadSubtitles();
+            toast.success(t('storage.learningData.importSuccess', {
+                words: result.wordsRestored ?? 0,
+                events: result.encountersRestored ?? 0,
+                cards: result.reviewCardsRestored ?? 0,
+            }));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            toast.error(`${t('storage.learningData.importFailed')}\n${message}`);
+        } finally {
+            setIsImportingLearning(false);
+        }
+    };
+
     const handleOpen = async () => {
         try {
             await settingsApi.openCacheFolder();
@@ -265,6 +305,18 @@ const StorageSetting: React.FC = () => {
                     actionVariant="destructive"
                     isActionLoading={isClearingLearning}
                     onAction={() => handleClearLearningData()}
+                />
+
+                <AlertDialog
+                    isOpen={isImportDialogOpen}
+                    onOpenChange={setIsImportDialogOpen}
+                    title={t('storage.learningData.importConfirmTitle')}
+                    description={t('storage.learningData.importConfirmDescription')}
+                    actionLabel={t('storage.learningData.importConfirmOk')}
+                    cancelLabel={t('storage.learningData.importConfirmCancel')}
+                    actionVariant="destructive"
+                    isActionLoading={isImportingLearning}
+                    onAction={() => handleImportLearningData()}
                 />
 
                 {autoSaveStatus === 'error' && autoSaveError && (
@@ -387,6 +439,18 @@ const StorageSetting: React.FC = () => {
                             icon={<Icon icon={Download} size="sm" />}
                             isLoading={isExportingLearning}
                             onClick={handleExportLearningData}
+                        />
+                    </SettingField>
+                    <SettingField
+                        title={t('storage.learningData.importTitle')}
+                        description={t('storage.learningData.importDescription')}
+                    >
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            label={t('storage.learningData.importButton')}
+                            icon={<Icon icon={Upload} size="sm" />}
+                            onClick={() => setIsImportDialogOpen(true)}
                         />
                     </SettingField>
                     <SettingField

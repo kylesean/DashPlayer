@@ -251,7 +251,7 @@ describe('LearningDataService 导出与清除', () => {
 
         const exported = await service.buildExport();
 
-        expect(exported.schemaVersion).toBe(1);
+        expect(exported.schemaVersion).toBe(2);
         expect(exported.words.map((word) => word.word)).toEqual(['journey']);
         expect(exported.words[0]).toMatchObject({
             word: 'journey',
@@ -269,6 +269,272 @@ describe('LearningDataService 导出与清除', () => {
         });
         expect(exported.retention.last7Days).toEqual({ reviewed: 2, retention: 0.5 });
         expect(exported.retention.last30Days).toEqual({ reviewed: 2, retention: 0.5 });
+    });
+
+    it('导出包含跟读、听写与产出型练习，避免清除后无法恢复', async () => {
+        memoryDb = createMemoryDb();
+        const { service } = buildService(memoryDb);
+        await seedWords(memoryDb, [
+            { word: 'journey', translate: '旅程', status: 'learning', source: 'manual' },
+        ]);
+        await memoryDb.db.insert(sentencePracticeRecord).values({
+            file_hash: 'subtitle-1',
+            sentence_index: 3,
+            resegmented: false,
+            mode: 'shadowing',
+            score: 88.5,
+            transcript: 'the journey changed everything',
+            audio_file: 'practice/a.webm',
+            detail_json: '[]',
+        });
+        await memoryDb.db.insert(productionPracticeRecord).values({
+            mode: 'roleplay',
+            video_id: 'video-1',
+            sentence_text: 'What did you learn?',
+            response_text: 'I learned to slow down.',
+            level: 'good',
+            feedback: 'clear',
+            improved: 'I learned to slow down and listen.',
+        });
+
+        const exported = await service.buildExport();
+
+        expect(exported.schemaVersion).toBe(2);
+        expect(exported.sentencePractices).toEqual([{
+            fileHash: 'subtitle-1',
+            sentenceIndex: 3,
+            resegmented: false,
+            mode: 'shadowing',
+            score: 88.5,
+            transcript: 'the journey changed everything',
+            audioFile: 'practice/a.webm',
+            detailJson: '[]',
+            createdAt: expect.any(String),
+        }]);
+        expect(exported.productionPractices).toHaveLength(1);
+        expect(exported.productionPractices[0]).toMatchObject({
+            mode: 'roleplay',
+            videoId: 'video-1',
+            level: 'good',
+            responseText: 'I learned to slow down.',
+        });
+    });
+
+    it('导入备份会整体恢复词表、事件、复习卡与练习记录', async () => {
+        memoryDb = createMemoryDb();
+        const { service } = buildService(memoryDb);
+        const now = new Date().toISOString();
+        await seedWords(memoryDb, [
+            { word: 'stale', translate: '旧词', status: 'learning', source: 'manual' },
+        ]);
+        seedEvents(memoryDb, [{ word: 'stale', action: 'save', createdAt: now }]);
+        await memoryDb.db.insert(sentencePracticeRecord).values({
+            file_hash: 'old',
+            sentence_index: 0,
+            mode: 'dictation',
+            score: 10,
+        });
+
+        const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-learning-import-'));
+        const filePath = path.join(directory, 'backup.json');
+        try {
+            await fs.writeFile(filePath, JSON.stringify({
+                schemaVersion: 2,
+                exportedAt: now,
+                words: [{
+                    word: 'journey',
+                    translate: '旅程',
+                    status: 'known',
+                    source: 'manual',
+                    mastery: 0.9,
+                    confidence: 0.8,
+                    lastSeenAt: now,
+                    masteredAt: now,
+                    createdAt: now,
+                    updatedAt: now,
+                }],
+                encounters: [{
+                    id: 99,
+                    word: 'journey',
+                    lemma: 'journey',
+                    action: 'review',
+                    videoId: 'video-1',
+                    fileHash: 'subtitle-1',
+                    sentenceIndex: 1,
+                    sentenceHash: 'hash',
+                    context: 'a long journey',
+                    score: null,
+                    rating: 'good',
+                    createdAt: now,
+                }],
+                reviewCards: [{
+                    word: 'journey',
+                    dueAt: now,
+                    state: 'review',
+                    reps: 3,
+                    lapses: 1,
+                    stability: 4.5,
+                    difficulty: 5,
+                    lastReviewAt: now,
+                    lastRating: 'good',
+                    createdAt: now,
+                    updatedAt: now,
+                }],
+                recommendations: [],
+                sentencePractices: [{
+                    fileHash: 'subtitle-1',
+                    sentenceIndex: 2,
+                    resegmented: true,
+                    mode: 'shadowing',
+                    score: 91,
+                    transcript: 'the journey',
+                    audioFile: null,
+                    detailJson: null,
+                    createdAt: now,
+                }],
+                productionPractices: [{
+                    mode: 'retell',
+                    videoId: 'video-1',
+                    fileHash: 'subtitle-1',
+                    sentenceIndex: 2,
+                    sentenceText: 'The journey changed everything.',
+                    responseText: 'Everything changed.',
+                    level: 'great',
+                    feedback: null,
+                    improved: null,
+                    detailJson: null,
+                    createdAt: now,
+                }],
+                retention: { last7Days: { reviewed: 0, retention: null }, last30Days: { reviewed: 0, retention: null } },
+            }), 'utf8');
+
+            const result = await service.importFromJson(filePath);
+
+            expect(result).toMatchObject({
+                success: true,
+                wordsRestored: 1,
+                encountersRestored: 1,
+                reviewCardsRestored: 1,
+                sentencePracticesRestored: 1,
+                productionPracticesRestored: 1,
+            });
+            const remainingWords = await memoryDb.db.select().from(words);
+            expect(remainingWords.map((word) => word.word)).toEqual(['journey']);
+            expect(remainingWords[0]).toMatchObject({ status: 'known', mastery: 0.9, confidence: 0.8 });
+            const remainingEncounters = await memoryDb.db.select().from(wordEncounter);
+            expect(remainingEncounters).toHaveLength(1);
+            expect(remainingEncounters[0]).toMatchObject({ word: 'journey', action: 'review', rating: 'good' });
+            expect(await memoryDb.db.select().from(sentencePracticeRecord)).toHaveLength(1);
+            expect(await memoryDb.db.select().from(productionPracticeRecord)).toHaveLength(1);
+            const cards = await memoryDb.db.select().from(reviewCard);
+            expect(cards).toHaveLength(1);
+            expect(cards[0]).toMatchObject({ word: 'journey', reps: 3, lapses: 1 });
+        } finally {
+            await fs.rm(directory, { recursive: true, force: true });
+        }
+    });
+
+    it('导入备份保留默认词表，并允许备份里的同名词覆盖默认词', async () => {
+        memoryDb = createMemoryDb();
+        const { service } = buildService(memoryDb);
+        const now = new Date().toISOString();
+        await seedWords(memoryDb, [
+            { word: 'the', translate: '这个', status: 'ignored', source: 'default' },
+        ]);
+
+        const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-learning-default-'));
+        const filePath = path.join(directory, 'backup.json');
+        try {
+            await fs.writeFile(filePath, JSON.stringify({
+                schemaVersion: 2,
+                exportedAt: now,
+                words: [{
+                    word: 'the',
+                    translate: '这个（我自己的）',
+                    status: 'learning',
+                    source: 'manual',
+                    mastery: 0.2,
+                    confidence: 0.3,
+                    lastSeenAt: null,
+                    masteredAt: null,
+                    createdAt: now,
+                    updatedAt: now,
+                }],
+                encounters: [],
+                reviewCards: [],
+                recommendations: [],
+                sentencePractices: [],
+                productionPractices: [],
+            }), 'utf8');
+
+            await service.importFromJson(filePath);
+
+            const remainingWords = await memoryDb.db.select().from(words);
+            expect(remainingWords).toHaveLength(1);
+            expect(remainingWords[0]).toMatchObject({
+                word: 'the',
+                source: 'manual',
+                status: 'learning',
+                translate: '这个（我自己的）',
+            });
+        } finally {
+            await fs.rm(directory, { recursive: true, force: true });
+        }
+    });
+
+    it('导出后清除再导入，可以完整还原学习数据', async () => {
+        memoryDb = createMemoryDb();
+        const { service } = buildService(memoryDb);
+        const now = new Date().toISOString();
+        await seedWords(memoryDb, [
+            { word: 'journey', translate: '旅程', status: 'known', source: 'manual', mastery: 0.9, confidence: 0.8, masteredAt: now },
+            { word: 'orbit', translate: '轨道', status: 'learning', source: 'manual', mastery: 0.3, confidence: 0.4 },
+        ]);
+        seedCards(memoryDb, [{ word: 'orbit', dueAt: now }]);
+        seedEvents(memoryDb, [
+            { word: 'journey', action: 'review', createdAt: now, rating: 'good' },
+            { word: 'orbit', action: 'shadow', createdAt: now, score: 85 },
+        ]);
+        await memoryDb.db.insert(sentencePracticeRecord).values({
+            file_hash: 'subtitle-1',
+            sentence_index: 4,
+            mode: 'shadowing',
+            score: 85,
+            transcript: 'a long journey',
+        });
+        await memoryDb.db.insert(productionPracticeRecord).values({
+            mode: 'retell',
+            sentence_text: 'The journey changed everything.',
+            response_text: 'Everything changed after the journey.',
+            level: 'great',
+        });
+
+        const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-learning-roundtrip-'));
+        const filePath = path.join(directory, 'backup.json');
+        try {
+            const before = await service.buildExport();
+            await service.exportToJson(filePath);
+            await service.resetLearningData();
+
+            const cleared = await service.buildExport();
+            expect(cleared.encounters).toHaveLength(0);
+            expect(cleared.reviewCards).toHaveLength(0);
+            expect(cleared.sentencePractices).toHaveLength(0);
+            expect(cleared.productionPractices).toHaveLength(0);
+
+            const imported = await service.importFromJson(filePath);
+            expect(imported.success).toBe(true);
+
+            const after = await service.buildExport();
+            expect(after.words).toEqual(before.words);
+            expect(after.encounters).toHaveLength(before.encounters.length);
+            expect(after.reviewCards).toEqual(before.reviewCards);
+            expect(after.sentencePractices).toEqual(before.sentencePractices);
+            expect(after.productionPractices).toEqual(before.productionPractices);
+            expect(after.retention.last7Days.reviewed).toBe(before.retention.last7Days.reviewed);
+        } finally {
+            await fs.rm(directory, { recursive: true, force: true });
+        }
     });
 
     it('exportToJson 写入可解析的 JSON 文件', async () => {

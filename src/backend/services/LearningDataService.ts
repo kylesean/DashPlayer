@@ -15,9 +15,11 @@ import type {
 } from '@/common/types/learningSession';
 import type {
     LearningDataExportVO,
+    LearningDataImportResultVO,
     LearningDataResetResultVO,
 } from '@/common/types/learningData';
 import type { ReviewRetentionStats } from '@/common/types/review';
+import { parseLearningDataExport } from '@/common/learning/learningDataSnapshot';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -58,6 +60,15 @@ export default interface LearningDataService {
      * 删除学习事件、复习卡与练习记录，并重置掌握字段；保留词表与用户状态。
      */
     resetLearningData(): Promise<LearningDataResetResultVO>;
+
+    /**
+     * 从导出的 JSON 文件恢复学习数据。
+     *
+     * 先完整校验再整体替换，避免半套数据落库；默认词表不受影响。
+     *
+     * @param filePath 备份文件绝对路径。
+     */
+    importFromJson(filePath: string): Promise<LearningDataImportResultVO>;
 }
 
 /**
@@ -169,16 +180,27 @@ export class LearningDataServiceImpl implements LearningDataService {
 
     public async buildExport(): Promise<LearningDataExportVO> {
         const now = new Date();
-        const [words, encounters, reviewCards, recommendations, last7Days, last30Days] = await Promise.all([
+        const [
+            words,
+            encounters,
+            reviewCards,
+            recommendations,
+            sentencePractices,
+            productionPractices,
+            last7Days,
+            last30Days,
+        ] = await Promise.all([
             this.repository.listUserWords(),
             this.repository.listEncounters(),
             this.repository.listReviewCards(),
             this.repository.listRecommendationEvents(),
+            this.repository.listSentencePracticeRecords(),
+            this.repository.listProductionPracticeRecords(),
             this.getRetentionSince(new Date(now.getTime() - 7 * DAY_MS).toISOString()),
             this.getRetentionSince(new Date(now.getTime() - 30 * DAY_MS).toISOString()),
         ]);
         return {
-            schemaVersion: 1,
+            schemaVersion: 2,
             exportedAt: now.toISOString(),
             words: words.map((word) => ({
                 word: word.word,
@@ -228,6 +250,30 @@ export class LearningDataServiceImpl implements LearningDataService {
                 reasonCode: event.reason_code ?? null,
                 createdAt: event.created_at,
             })),
+            sentencePractices: sentencePractices.map((record) => ({
+                fileHash: record.file_hash,
+                sentenceIndex: record.sentence_index,
+                resegmented: record.resegmented,
+                mode: record.mode,
+                score: record.score,
+                transcript: record.transcript,
+                audioFile: record.audio_file,
+                detailJson: record.detail_json,
+                createdAt: record.created_at,
+            })),
+            productionPractices: productionPractices.map((record) => ({
+                mode: record.mode,
+                videoId: record.video_id,
+                fileHash: record.file_hash,
+                sentenceIndex: record.sentence_index,
+                sentenceText: record.sentence_text,
+                responseText: record.response_text,
+                level: record.level,
+                feedback: record.feedback,
+                improved: record.improved,
+                detailJson: record.detail_json,
+                createdAt: record.created_at,
+            })),
             retention: { last7Days, last30Days },
         };
     }
@@ -236,6 +282,19 @@ export class LearningDataServiceImpl implements LearningDataService {
         const content = JSON.stringify(await this.buildExport(), null, 2);
         await this.fileSystemGateway.writeTextFile(filePath, content);
         return { bytes: Buffer.byteLength(content, 'utf8') };
+    }
+
+    public async importFromJson(filePath: string): Promise<LearningDataImportResultVO> {
+        const raw = await this.fileSystemGateway.readTextFile(filePath);
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(raw);
+        } catch {
+            throw new Error('备份文件不是合法的 JSON');
+        }
+        const snapshot = parseLearningDataExport(parsed);
+        const counts = await this.repository.restoreLearningData(snapshot);
+        return { success: true, path: filePath, ...counts };
     }
 
     public async resetLearningData(): Promise<LearningDataResetResultVO> {

@@ -929,6 +929,41 @@ context_embeddings
 - 语音韵律（重音、语调）作为场景信号；当前只覆盖跟读环节的节奏反馈。
 - 场景切分结果的持久化与跨会话复用；当前按当前字幕数组在渲染进程内计算。
 
+#### R3 第七阶段实施记录（2026-11-12）
+
+已落地：
+
+- 修复导出与清除的不对称：此前「清除学习记录」会删除跟读、听写与复述/角色扮演记录，但导出只包含词表、遭遇事件、复习卡与推荐事件，导出的 JSON 并不能恢复被清掉的内容。
+- 导出 schema 升到 `schemaVersion: 2`，补齐 `sentencePractices`（跟读/听写）与 `productionPractices`（复述/角色扮演）两组记录；旧备份仍可读，缺失字段按空数组处理。
+- 新增「导入学习数据」：设置 → 存储 → 学习数据中可直接从 JSON 备份恢复，先确认再执行，取消文件对话框不报错。
+- 导入先做完整结构校验（枚举、数值、必填、重复词条与重复复习卡），通过后才在单个事务里整体替换；任何一步失败都回滚，不会留下半套数据。
+- 恢复语义是「快照覆盖」而不是合并：已删除的事件不会被旧备份复活，掌握度也不会出现无法解释的混合值。
+- 内置默认词表不随备份进出；若备份里有同形词，导入后该词归属用户（`source=manual`），避免撞唯一约束。
+- 导入完成后递增字幕重载令牌，播放器重新解析并重新匹配词表，字幕标注立即反映恢复结果，无需切换视频。
+- 版本高于当前支持的备份会被明确拒绝，而不是用旧代码写入它不理解的字段。
+
+核心实现：
+
+- `src/common/learning/learningDataSnapshot.ts`
+- `src/common/types/learningData.ts`
+- `src/backend/services/LearningDataService.ts`
+- `src/backend/services/repositories/LearningDataRepository.ts`
+- `src/backend/infrastructure/db/repositories/LearningDataRepositoryImpl.ts`
+- `src/backend/controllers/LearningDataController.ts`
+- `src/fronted/features/settings/StorageSetting.tsx`
+
+验证：
+
+- 导出完整性、导入往返、默认词表保留与同名词覆盖、坏备份拒绝等 11 项定向测试通过。
+- 全量单元/组件测试：1017 项通过，9 项跳过。
+- TypeScript 全量检查通过，全量 ESLint 零告警。
+
+尚未包含：
+
+- 跨设备同步与冲突合并；导入是整体覆盖，不做字段级 merge。
+- 音频文件本体的搬迁；跟读录音只保留相对路径，换机恢复后需自行拷贝 practice 目录才能回放。
+- 备份的加密与签名；当前是明文 JSON，不含任何密钥。
+
 ### 8.1 第一个 Sprint 的具体任务
 
 1. 明确 `WordState` 状态机与迁移策略。
