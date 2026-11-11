@@ -204,10 +204,14 @@ const ProjectListCard = ({
             <AlertDialog
                 isOpen={deleteConfirmOpen}
                 onOpenChange={setDeleteConfirmOpen}
-                title={i18n.t('common:deleteConfirmTitle', { defaultValue: '移除观看记录？' })}
-                description={i18n.t('common:deleteConfirmDesc', {
-                    defaultValue: '此操作仅从播放历史中移除该项记录，不会删除磁盘上的本地文件。',
-                })}
+                title={i18n.t('common:deleteConfirmTitle', { defaultValue: '删除观看记录？' })}
+                description={video.isFolder
+                    ? i18n.t('common:deleteFolderConfirmDesc', {
+                        defaultValue: '该目录下的全部观看记录都会被删除。位于媒体库视频目录内的文件会连同记录一起从磁盘删除，无法撤销；媒体库之外的视频只移除记录，原文件保留。',
+                    })
+                    : i18n.t('common:deleteConfirmDesc', {
+                        defaultValue: '位于媒体库视频目录内的文件会连同记录一起从磁盘删除，无法撤销；媒体库之外的视频只移除记录，原文件保留。',
+                    })}
                 actionLabel={i18n.t('common:delete')}
                 actionVariant="destructive"
                 cancelLabel={i18n.t('common:cancel', { defaultValue: '取消' })}
