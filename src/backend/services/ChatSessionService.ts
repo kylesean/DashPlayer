@@ -126,6 +126,21 @@ export class ChatSessionServiceImpl implements ChatSessionService {
     }
 
     /**
+     * 读取整句学习的云端模型；未配置或模型解析失败时返回 null，由调用方走本地兜底。
+     *
+     * getModel 在模型路由解析失败（如从未配置过云端模型、可用列表为空）时会抛错，
+     * 而这里的产品语义是「云端不可用就回退本地，本地就绪即可用」——不能用异常打断
+     * 纯本地用户的对话链路。
+     */
+    private resolveCloudModelOrNull(): LanguageModel | null {
+        try {
+            return this.aiProviderService.getModel('sentenceLearning');
+        } catch {
+            return null;
+        }
+    }
+
+    /**
      * @param params 会话 ID，主题从会话快照读取。
      * @returns 本次分析消息 ID。
      */
@@ -133,7 +148,7 @@ export class ChatSessionServiceImpl implements ChatSessionService {
     public async startAnalysis(params: AnalysisStartParams): Promise<AnalysisStartResult> {
         const sessionId = params.sessionId;
         const session = this.chatSessionStore.get(sessionId);
-        const model = this.aiProviderService.getModel('sentenceLearning');
+        const model = this.resolveCloudModelOrNull();
         let localModelId: string | null = null;
         if (!model) {
             // 云端未配置时自动回退本地大模型:本地模型就绪即可用,无需额外设置
@@ -179,7 +194,7 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         const sessionId = params.sessionId;
         const content = params.content;
         const session = this.chatSessionStore.get(sessionId);
-        const model = this.aiProviderService.getModel('sentenceLearning');
+        const model = this.resolveCloudModelOrNull();
         const messageId = this.createMessageId();
 
         const isFirstTurn = session.messages.length === 0;
