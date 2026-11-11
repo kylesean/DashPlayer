@@ -526,6 +526,7 @@
             "dictionaryDesc": "Fallback beyond the built-in dictionary",
             "engineLocalAi": "Local enhancement resource pack",
             "engineLocalBase": "Local base resource pack",
+            "engineLocalMtLegacy": "Lightweight local translation (retired, please pick another engine)",
             "engineNone": "Off",
             "styleLabel": "Translation style",
             "styleZh": "Translate into Chinese",

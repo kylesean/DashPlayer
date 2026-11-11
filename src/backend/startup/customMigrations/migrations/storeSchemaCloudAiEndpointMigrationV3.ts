@@ -44,7 +44,9 @@ export const resolveCloudAiEndpointMigrationOutputs = (
     if (autoAppendV1 === 'false') {
         return [];
     }
-    if (/\/v1$/.test(endpoint)) {
+    // 判重必须容忍尾斜杠：joinUrl 会先剥掉末尾的 /，`.../v1/` 若只按 /v1$ 判重
+    // 会漏掉，最终拼成 `.../v1/v1`，升级后云端请求直接 404。
+    if (/\/v1\/?$/.test(endpoint.trim())) {
         return [];
     }
     return [{ key: 'apiKeys.openAi.endpoint', value: joinUrl(endpoint, '/v1') }];

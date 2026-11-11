@@ -54,6 +54,24 @@ describe('storeSchemaCloudAiEndpointMigrationV3 迁移决策', () => {
         expect(outputs).toEqual([]);
     });
 
+    it('地址以 /v1/ 结尾（带尾斜杠）时同样不重复追加，不会拼成 /v1/v1', () => {
+        const outputs = resolveCloudAiEndpointMigrationOutputs({
+            endpoint: 'https://api.openai.com/v1/',
+            autoAppendV1: 'true',
+        });
+
+        expect(outputs).toEqual([]);
+    });
+
+    it('带尾斜杠但尚未带版本路径时仍会正确展开', () => {
+        const outputs = resolveCloudAiEndpointMigrationOutputs({
+            endpoint: 'https://api.deepseek.com/',
+            autoAppendV1: 'true',
+        });
+
+        expect(writtenEndpoint(outputs)).toBe('https://api.deepseek.com/v1');
+    });
+
     it('不产出旧开关键的任何写操作，交由重跑收敛', () => {
         const outputs = resolveCloudAiEndpointMigrationOutputs({
             endpoint: 'https://api.deepseek.com',

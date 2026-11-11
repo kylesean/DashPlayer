@@ -433,7 +433,12 @@ const ServiceResourceSetting: React.FC = () => {
         ...(subtitleEngine === 'openai' && !!watched.openai?.featureModels?.subtitleTranslation && !availableModels.includes(watched.openai.featureModels.subtitleTranslation)
             ? [{ value: `openai:${watched.openai.featureModels.subtitleTranslation}`, label: watched.openai.featureModels.subtitleTranslation, disabled: true }]
             : []),
-        { value: 'local-mt', label: t('resources.preference.engineLocalBase') },
+        // 历史值 'local-mt' 的 OPUS-MT 轻量管线已移除，后端会把它映射到本地大模型。
+        // 不再提供这个选项：选了「基础资源包」实际却走本地大模型，提示与真实能力不符。
+        // 旧安装的存储值由 storeSchemaSubtitleEngineLocalMtMigrationV1 改写成 'local'。
+        ...(subtitleEngine === 'local-mt'
+            ? [{ value: 'local-mt', label: t('resources.preference.engineLocalMtLegacy'), disabled: true }]
+            : []),
         { value: 'none', label: t('resources.preference.engineNone') },
     ], [availableModels, subtitleEngine, watched.openai?.featureModels?.subtitleTranslation, t]);
 

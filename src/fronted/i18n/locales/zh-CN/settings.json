@@ -526,6 +526,7 @@
             "dictionaryDesc": "内置词典之外的补充方式",
             "engineLocalAi": "本地增强资源包",
             "engineLocalBase": "本地基础资源包",
+            "engineLocalMtLegacy": "本地轻量翻译（已下线，请改选其他引擎）",
             "engineNone": "关闭",
             "styleLabel": "翻译风格",
             "styleZh": "翻译成中文",
