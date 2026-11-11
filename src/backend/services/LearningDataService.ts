@@ -169,10 +169,11 @@ export class LearningDataServiceImpl implements LearningDataService {
 
     public async buildExport(): Promise<LearningDataExportVO> {
         const now = new Date();
-        const [words, encounters, reviewCards, last7Days, last30Days] = await Promise.all([
+        const [words, encounters, reviewCards, recommendations, last7Days, last30Days] = await Promise.all([
             this.repository.listUserWords(),
             this.repository.listEncounters(),
             this.repository.listReviewCards(),
+            this.repository.listRecommendationEvents(),
             this.getRetentionSince(new Date(now.getTime() - 7 * DAY_MS).toISOString()),
             this.getRetentionSince(new Date(now.getTime() - 30 * DAY_MS).toISOString()),
         ]);
@@ -217,6 +218,15 @@ export class LearningDataServiceImpl implements LearningDataService {
                 lastRating: card.last_rating,
                 createdAt: card.created_at,
                 updatedAt: card.updated_at,
+            })),
+            recommendations: recommendations.map((event) => ({
+                id: event.id,
+                videoId: event.video_id,
+                action: event.action,
+                surface: event.surface,
+                score: event.score,
+                reasonCode: event.reason_code ?? null,
+                createdAt: event.created_at,
             })),
             retention: { last7Days, last30Days },
         };

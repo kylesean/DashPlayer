@@ -15,6 +15,7 @@ import { Divider } from '@astryxdesign/core/Divider';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
+import { Text } from '@astryxdesign/core/Text';
 import {
     BookOpenCheck,
     ChartPie,
@@ -40,6 +41,8 @@ import type { StorageSettingVO } from '@/common/contracts/storage-setting-vo';
 import type { StorageUsageVO } from '@/common/contracts/storage-usage-vo';
 import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
 import { revalidateReviewQueue } from '@/fronted/features/video-learning/reviewQueue';
+import { contentCompassApi } from '@/fronted/features/content-compass/contentCompassApi';
+import type { ContentCompassStatsVO } from '@/common/types/contentCompass';
 
 type StorageFormValues = StorageSettingVO;
 
@@ -63,6 +66,11 @@ const StorageSetting: React.FC = () => {
     const [isClearLearningDialogOpen, setIsClearLearningDialogOpen] = React.useState(false);
     const [isClearingLearning, setIsClearingLearning] = React.useState(false);
     const [isExportingLearning, setIsExportingLearning] = React.useState(false);
+    const { data: compassStats, isLoading: compassStatsLoading } = useSWR<ContentCompassStatsVO>(
+        'content-compass/stats',
+        () => contentCompassApi.getStats({ days: 7 }),
+        { revalidateOnFocus: false, shouldRetryOnError: false },
+    );
 
     const { data: detail } = useSWR<StorageSettingVO>(
         'settings/storage/detail',
@@ -187,6 +195,7 @@ const StorageSetting: React.FC = () => {
             setIsClearLearningDialogOpen(false);
             revalidateReviewQueue();
             await swrApiMutate('learning-data/session-summary');
+            await swrApiMutate('content-compass/stats');
             toast.success(t('storage.learningData.clearSuccess', {
                 encounters: result.encountersDeleted,
                 cards: result.reviewCardsDeleted,
@@ -392,6 +401,44 @@ const StorageSetting: React.FC = () => {
                             onClick={() => setIsClearLearningDialogOpen(true)}
                         />
                     </SettingField>
+                    <SettingField
+                        title={t('storage.learningData.recommendationTitle')}
+                        description={t('storage.learningData.recommendationDescription')}
+                    >
+                        <VStack gap={2} width="100%">
+                            {compassStatsLoading ? (
+                                <Text type="supporting" color="secondary">
+                                    {t('storage.learningData.recommendationLoading')}
+                                </Text>
+                            ) : compassStats && compassStats.shown > 0 ? (
+                                <HStack gap={6} vAlign="start" wrap="wrap">
+                                    <CompassStat
+                                        label={t('storage.learningData.recommendationShown')}
+                                        value={String(compassStats.shown)}
+                                    />
+                                    <CompassStat
+                                        label={t('storage.learningData.recommendationOpened')}
+                                        value={`${compassStats.opened} · ${formatRate(compassStats.openRate)}`}
+                                    />
+                                    <CompassStat
+                                        label={t('storage.learningData.recommendationDismissed')}
+                                        value={`${compassStats.dismissed} · ${formatRate(compassStats.dismissRate)}`}
+                                    />
+                                    <CompassStat
+                                        label={t('storage.learningData.recommendationRecall')}
+                                        value={formatRate(compassStats.retention.retention)}
+                                        hint={t('storage.learningData.recommendationRecallHint', {
+                                            count: compassStats.retention.reviewed,
+                                        })}
+                                    />
+                                </HStack>
+                            ) : (
+                                <Text type="supporting" color="secondary">
+                                    {t('storage.learningData.recommendationEmpty')}
+                                </Text>
+                            )}
+                        </VStack>
+                    </SettingField>
                 </SettingSection>
 
                 <Divider />
@@ -418,5 +465,27 @@ const StorageSetting: React.FC = () => {
         </VStack>
     );
 };
+
+function CompassStat({
+    label,
+    value,
+    hint,
+}: {
+    label: string;
+    value: string;
+    hint?: string;
+}) {
+    return (
+        <VStack gap={0.5}>
+            <Text type="supporting" color="secondary">{label}</Text>
+            <Text type="body" weight="semibold">{value}</Text>
+            {hint && <Text type="supporting" color="secondary">{hint}</Text>}
+        </VStack>
+    );
+}
+
+function formatRate(rate: number | null): string {
+    return rate === null ? '—' : `${Math.round(rate * 100)}%`;
+}
 
 export default StorageSetting;

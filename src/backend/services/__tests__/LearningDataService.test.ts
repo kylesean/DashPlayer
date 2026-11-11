@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 
 import LearningDataRepositoryImpl from '@/backend/infrastructure/db/repositories/LearningDataRepositoryImpl';
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
+import { recommendationEvent } from '@/backend/infrastructure/db/tables/recommendationEvent';
 import { reviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
 import { wordEncounter, type InsertWordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import { words } from '@/backend/infrastructure/db/tables/words';
@@ -238,6 +239,13 @@ describe('LearningDataService 导出与清除', () => {
                 rating: 'again',
             },
         ]);
+        await memoryDb.db.insert(recommendationEvent).values({
+            video_id: 'video-1',
+            action: 'opened',
+            surface: 'home',
+            score: 0.8,
+            reason_code: 'due_review',
+        });
 
         const exported = await service.buildExport();
 
@@ -251,6 +259,12 @@ describe('LearningDataService 导出与清除', () => {
         });
         expect(exported.encounters).toHaveLength(2);
         expect(exported.reviewCards).toHaveLength(1);
+        expect(exported.recommendations).toHaveLength(1);
+        expect(exported.recommendations[0]).toMatchObject({
+            videoId: 'video-1',
+            action: 'opened',
+            reasonCode: 'due_review',
+        });
         expect(exported.retention.last7Days).toEqual({ reviewed: 2, retention: 0.5 });
         expect(exported.retention.last30Days).toEqual({ reviewed: 2, retention: 0.5 });
     });
@@ -289,6 +303,13 @@ describe('LearningDataService 导出与清除', () => {
             { word: 'journey', action: 'known', createdAt: now },
             { word: 'journey', action: 'shadow', createdAt: now, score: 90 },
         ]);
+        await memoryDb.db.insert(recommendationEvent).values({
+            video_id: 'video-1',
+            action: 'shown',
+            surface: 'home',
+            score: 0.5,
+            reason_code: 'next_step',
+        });
         await memoryDb.db.update(words).set({ updated_at: new Date(0).toISOString() }).run();
 
         const result = await service.resetLearningData();
@@ -296,10 +317,12 @@ describe('LearningDataService 导出与清除', () => {
         expect(result).toEqual({
             encountersDeleted: 2,
             reviewCardsDeleted: 1,
+            recommendationsDeleted: 1,
             wordsReset: 2,
         });
         expect(await memoryDb.db.select().from(wordEncounter)).toHaveLength(0);
         expect(await memoryDb.db.select().from(reviewCard)).toHaveLength(0);
+        expect(await memoryDb.db.select().from(recommendationEvent)).toHaveLength(0);
         const remaining = await memoryDb.db.select().from(words);
         expect(remaining).toHaveLength(2);
         expect(remaining.find((word) => word.word === 'journey')).toMatchObject({

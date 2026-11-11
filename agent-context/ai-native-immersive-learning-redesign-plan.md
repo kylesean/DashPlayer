@@ -1,6 +1,6 @@
 # DashPlayer AI-native 沉浸式学习重构方案
 
-> 状态：R0–R1 已完成，R2 上下文建议与首版自适应中文字幕已落地，R2 其余项与 R3 待推进
+> 状态：R0–R1 已完成，R2 上下文建议、自适应中文字幕、AI 复盘与内容指南针已落地，R3 待推进
 > 日期：2026-11-12
 > 范围：播放器、字幕、生词、句子学习、跟读/听写、AI 学习页
 > 一句话：把 DashPlayer 从「视频播放器 + 学习工具」重构为「内容 × 上下文 × 学习者记忆」的沉浸式学习系统。
@@ -634,6 +634,44 @@ context_embeddings
 - 视频结束自动提示复盘；当前由用户从「本次学习」主动打开，避免打断连续播放。
 - 语音复述与发音/流利度评分；当前只做书面复述。
 - 复述结果写入掌握度与长期学习指标；当前只作为即时练习反馈。
+
+#### R2 第五阶段实施记录（2026-11-12）
+
+已落地：
+
+- 首页新增低干扰「内容指南针」：位于快速开始与最近观看之间，只展示媒体库中有可用字幕的视频；推荐失败、无候选或无可解析字幕时整段静默隐藏。
+- 推荐完全本地、确定性执行：不调用模型、不下载 embedding、不访问网络。字幕按均匀抽样最多 30 行，单文件上限 2 MB，分析结果做 64 条 LRU 缓存。
+- 候选先按媒体目录轮转排序，再逐条解析字幕直到凑满 12 个有效候选；不会因为前序视频没有字幕而提前返回空结果。
+- 排序由四个可解释信号组成：理解度契合 44%、到期词复现 30%、学习中/熟悉词复现 16%、最近观看主题词相似 10%；理解度低于 0.35 时整体降权 25%。
+- 理解度复用自适应中文字幕的本地估算器，并把词典难度映射抽到共享服务，保证首页推荐与播放器内理解度口径一致。
+- 每张推荐卡展示本地理解度、推荐理由、封面与打开入口；理由只暴露证据（到期词、学习词、主题相近或难度合适），不展示内部评分。
+- 支持「不感兴趣」即时移除；同一视频同一自然日只上报一次曝光，避免打开首页反复刷高曝光量。
+- 新增 `dp_recommendation_event` 与迁移 `0017_content_compass_recommendations.sql`，记录 `shown / opened / dismissed`、分数、理由代码与来源界面；推荐事件独立存放，不反向污染词表或学习状态。
+- 设置页学习数据区新增推荐效果看板：最近 7 天曝光、打开率、忽略率，以及同窗口内 `Good + Easy` 的复习回忆率；加载中显示占位，无曝光时给出解释而不是零值噪声。
+- 学习数据导出增加推荐事件；清除学习记录时同步删除推荐反馈。推荐事件只保留聚合所需字段，不存储字幕内容。
+
+核心实现：
+
+- `src/common/types/contentCompass.ts`、`src/common/learning/contentCompass.ts`
+- `src/backend/services/ContentCompassService.ts`、`src/backend/services/dictionaryDifficulty.ts`
+- `src/backend/controllers/ContentCompassController.ts`
+- `src/backend/infrastructure/db/tables/recommendationEvent.ts`
+- `drizzle/migrations/0017_content_compass_recommendations.sql`
+- `src/fronted/features/content-compass/ContentCompassSection.tsx`
+- `src/fronted/features/file-browser/HomePage.tsx`、`src/fronted/features/settings/StorageSetting.tsx`
+
+验证：
+
+- 全量单元/组件测试：865 项通过，9 项跳过。
+- 推荐排序、候选字幕回退、事件汇总、导出/清除与首页组件定向测试共 44 项通过。
+- TypeScript 全量检查通过，R2 涉及文件定向 ESLint 零告警。
+
+尚未包含：
+
+- 真实语义 embedding 与向量索引；当前主题相似度只基于字幕内容词频的余弦相似度。
+- 在线学习或 bandit 调参；当前权重是透明常量，先积累曝光、打开与复习结果。
+- 推荐 → 观看 → 复习的因果归因与长期留存实验；当前只统计同窗口相关指标，不宣称因果。
+- 学习数据导入/恢复与跨设备同步；当前只提供 JSON 导出。
 
 ### R3：沉浸式学习 OS（6–8 周）
 

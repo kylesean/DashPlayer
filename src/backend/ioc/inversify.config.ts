@@ -120,6 +120,8 @@ import type WordContextInsightService from '@/backend/services/WordContextInsigh
 import { WordContextInsightServiceImpl } from '@/backend/services/WordContextInsightService';
 import type LearningRecapService from '@/backend/services/LearningRecapService';
 import { LearningRecapServiceImpl } from '@/backend/services/LearningRecapService';
+import type ContentCompassService from '@/backend/services/ContentCompassService';
+import { ContentCompassServiceImpl } from '@/backend/services/ContentCompassService';
 import type SubtitleComprehensionService from '@/backend/services/SubtitleComprehensionService';
 import { SubtitleComprehensionServiceImpl } from '@/backend/services/SubtitleComprehensionService';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
@@ -143,6 +145,7 @@ import { WordEncounterServiceImpl } from '@/backend/services/WordEncounterServic
 import type LearningDataService from '@/backend/services/LearningDataService';
 import { LearningDataServiceImpl } from '@/backend/services/LearningDataService';
 import LearningDataController from '@/backend/controllers/LearningDataController';
+import ContentCompassController from '@/backend/controllers/ContentCompassController';
 import type DpTaskRepository from '@/backend/services/repositories/DpTaskRepository';
 import DpTaskRepositoryImpl from '@/backend/infrastructure/db/repositories/DpTaskRepositoryImpl';
 import type VideoLearningClipRepository from '@/backend/services/repositories/VideoLearningClipRepository';
@@ -227,6 +230,7 @@ container.bind<ResourceFallbackService>(TYPES.ResourceFallbackService).to(Resour
 container.bind<Controller>(TYPES.Controller).to(SherpaTtsModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VocabularyController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(LearningDataController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(ContentCompassController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VideoLearningApiController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SentencePracticeController).inSingletonScope();
 // 恢复路由控制器：不绑定到 TYPES.Controller（恢复模式下不解析业务控制器），单独绑定。
@@ -310,5 +314,6 @@ container.bind<SentenceVocabularyService>(TYPES.SentenceVocabularyService).to(Se
 container.bind<ContextPackService>(TYPES.ContextPackService).to(ContextPackServiceImpl).inSingletonScope();
 container.bind<WordContextInsightService>(TYPES.WordContextInsightService).to(WordContextInsightServiceImpl).inSingletonScope();
 container.bind<LearningRecapService>(TYPES.LearningRecapService).to(LearningRecapServiceImpl).inSingletonScope();
+container.bind<ContentCompassService>(TYPES.ContentCompassService).to(ContentCompassServiceImpl).inSingletonScope();
 container.bind<SubtitleComprehensionService>(TYPES.SubtitleComprehensionService).to(SubtitleComprehensionServiceImpl).inSingletonScope();
 export default container;

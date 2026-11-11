@@ -25,6 +25,8 @@ import zhPractice from '@/fronted/i18n/locales/zh-CN/practice.json';
 import enPractice from '@/fronted/i18n/locales/en-US/practice.json';
 import zhRecap from '@/fronted/i18n/locales/zh-CN/recap.json';
 import enRecap from '@/fronted/i18n/locales/en-US/recap.json';
+import zhCompass from '@/fronted/i18n/locales/zh-CN/compass.json';
+import enCompass from '@/fronted/i18n/locales/en-US/compass.json';
 
 export type AppLocale = 'zh-CN' | 'en-US';
 export type AppLanguageSetting = 'system' | AppLocale;
@@ -45,6 +47,7 @@ export const resources = {
         youtubeImport: zhYoutubeImport,
         practice: zhPractice,
         recap: zhRecap,
+        compass: zhCompass,
     },
     'en-US': {
         nav: enNav,
@@ -59,6 +62,7 @@ export const resources = {
         youtubeImport: enYoutubeImport,
         practice: enPractice,
         recap: enRecap,
+        compass: enCompass,
     },
 };
 
@@ -98,7 +102,7 @@ void i18nextUse(initReactI18next)
         interpolation: {
             escapeValue: false,
         },
-        ns: ['nav', 'settings', 'toast', 'errors', 'player', 'pages', 'common', 'onboarding', 'migration', 'youtubeImport', 'practice', 'recap'],
+        ns: ['nav', 'settings', 'toast', 'errors', 'player', 'pages', 'common', 'onboarding', 'migration', 'youtubeImport', 'practice', 'recap', 'compass'],
         defaultNS: 'settings',
         returnNull: false,
         debug: import.meta.env.DEV,

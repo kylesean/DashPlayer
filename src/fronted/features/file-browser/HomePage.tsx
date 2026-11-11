@@ -30,6 +30,7 @@ import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import YoutubeImportButton from '@/fronted/features/youtube-import/YoutubeImportButton';
 import YoutubeImportHero from '@/fronted/features/youtube-import/YoutubeImportHero';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import ContentCompassSection from '@/fronted/features/content-compass/ContentCompassSection';
 
 const logger = getRendererLogger('HomePage');
 
@@ -147,6 +148,11 @@ const HomePage = () => {
                                     </HStack>
                                 </HStack>
                             </Card>
+
+                            <ContentCompassSection
+                                excludeVideoIds={vps?.slice(0, 3).map((video) => video.id)}
+                                onSelected={handleClickById}
+                            />
 
                             {/* 最近观看区 */}
                             <VStack gap={3} width="100%">

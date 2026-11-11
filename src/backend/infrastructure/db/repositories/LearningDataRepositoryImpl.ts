@@ -2,6 +2,11 @@ import { and, asc, eq, gte, inArray, ne, or, sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 
 import type { Db } from '@/backend/infrastructure/db/createDb';
+import {
+    recommendationEvent,
+    type InsertRecommendationEvent,
+    type RecommendationEvent,
+} from '@/backend/infrastructure/db/tables/recommendationEvent';
 import { reviewCard, type ReviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
 import { wordEncounter, type WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import { words, type Word } from '@/backend/infrastructure/db/tables/words';
@@ -94,11 +99,35 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             ));
     }
 
+    public async insertRecommendationEvent(value: InsertRecommendationEvent): Promise<void> {
+        await this.db.insert(recommendationEvent).values(value);
+    }
+
+    public async listRecommendationEventsSince(
+        since: string,
+        limit = 5000,
+    ): Promise<RecommendationEvent[]> {
+        return this.db
+            .select()
+            .from(recommendationEvent)
+            .where(gte(recommendationEvent.created_at, since))
+            .orderBy(asc(recommendationEvent.id))
+            .limit(limit);
+    }
+
+    public async listRecommendationEvents(): Promise<RecommendationEvent[]> {
+        return this.db
+            .select()
+            .from(recommendationEvent)
+            .orderBy(asc(recommendationEvent.id));
+    }
+
     public async resetLearningData(): Promise<LearningDataResetCounts> {
         const now = new Date().toISOString();
         return this.db.transaction((tx) => {
             const encounters = tx.delete(wordEncounter).run();
             const cards = tx.delete(reviewCard).run();
+            const recommendations = tx.delete(recommendationEvent).run();
             const updatedWords = tx.update(words).set({
                 mastery: 0,
                 confidence: 0,
@@ -109,6 +138,7 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             return {
                 encountersDeleted: Number(encounters.changes),
                 reviewCardsDeleted: Number(cards.changes),
+                recommendationsDeleted: Number(recommendations.changes),
                 wordsReset: Number(updatedWords.changes),
             };
         });

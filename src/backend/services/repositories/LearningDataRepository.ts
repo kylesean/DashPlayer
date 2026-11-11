@@ -1,4 +1,8 @@
 import type { ReviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
+import type {
+    InsertRecommendationEvent,
+    RecommendationEvent,
+} from '@/backend/infrastructure/db/tables/recommendationEvent';
 import type { WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import type { Word } from '@/backend/infrastructure/db/tables/words';
 import type { ReviewOutcome } from '@/backend/services/repositories/WordEncounterRepository';
@@ -23,6 +27,7 @@ export interface SessionEventQuery {
 export interface LearningDataResetCounts {
     encountersDeleted: number;
     reviewCardsDeleted: number;
+    recommendationsDeleted: number;
     wordsReset: number;
 }
 
@@ -54,8 +59,17 @@ export default interface LearningDataRepository {
     /** 查询某时间之后的复习结果，用于导出 7/30 天指标。 */
     listReviewOutcomesSince(since: string): Promise<ReviewOutcome[]>;
 
+    /** 写入一条内容指南针曝光或反馈事件。 */
+    insertRecommendationEvent(value: InsertRecommendationEvent): Promise<void>;
+
+    /** 查询指定时间后的推荐事件，按写入顺序升序。 */
+    listRecommendationEventsSince(since: string, limit?: number): Promise<RecommendationEvent[]>;
+
+    /** 读取全部推荐事件，用于可移植导出。 */
+    listRecommendationEvents(): Promise<RecommendationEvent[]>;
+
     /**
-     * 删除遭遇事件与复习卡，并重置词条掌握字段。
+     * 删除遭遇事件、复习卡与推荐事件，并重置词条掌握字段。
      *
      * 在一个事务内完成，避免用户看到“记录已删但掌握度还在”的半清空状态。
      */

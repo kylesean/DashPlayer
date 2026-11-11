@@ -8,6 +8,10 @@ import type {
     WordSource,
     WordStatus,
 } from '@/common/types/vocabulary';
+import type {
+    ContentCompassAction,
+    ContentCompassReason,
+} from '@/common/types/contentCompass';
 
 /**
  * 学习数据导出中的词条快照。
@@ -61,6 +65,19 @@ export interface LearningDataReviewCardVO {
 }
 
 /**
+ * 学习数据导出中的内容推荐事件。
+ */
+export interface LearningDataRecommendationVO {
+    id: number;
+    videoId: string;
+    action: ContentCompassAction;
+    surface: string;
+    score: number;
+    reasonCode: ContentCompassReason | null;
+    createdAt: string;
+}
+
+/**
  * 可移植的学习数据 JSON。
  */
 export interface LearningDataExportVO {
@@ -69,6 +86,7 @@ export interface LearningDataExportVO {
     words: LearningDataWordVO[];
     encounters: LearningDataEncounterVO[];
     reviewCards: LearningDataReviewCardVO[];
+    recommendations: LearningDataRecommendationVO[];
     retention: {
         last7Days: ReviewRetentionStats;
         last30Days: ReviewRetentionStats;
@@ -81,6 +99,7 @@ export interface LearningDataExportVO {
 export interface LearningDataResetResultVO {
     encountersDeleted: number;
     reviewCardsDeleted: number;
+    recommendationsDeleted: number;
     wordsReset: number;
 }
 

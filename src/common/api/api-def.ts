@@ -47,6 +47,13 @@ import type {
     RetellEvaluationParams,
     RetellEvaluationVO,
 } from '@/common/types/learningRecap';
+import type {
+    ContentCompassEventParams,
+    ContentCompassListParams,
+    ContentCompassStatsParams,
+    ContentCompassStatsVO,
+    ContentCompassVO,
+} from '@/common/types/contentCompass';
 import type { LearningDataExportResultVO, LearningDataResetResultVO } from '@/common/types/learningData';
 import type {
     ChatSessionCloseParams,
@@ -482,6 +489,24 @@ interface LearningDataDef {
     };
 }
 
+interface ContentCompassDef {
+    /** 从本地媒体库推荐下一段适合学习的内容。 */
+    'content-compass/list': {
+        params: ContentCompassListParams,
+        return: ContentCompassVO
+    };
+    /** 记录推荐曝光、打开或不感兴趣。 */
+    'content-compass/event': {
+        params: ContentCompassEventParams,
+        return: void
+    };
+    /** 汇总推荐打开率、忽略率与复习回忆率。 */
+    'content-compass/stats': {
+        params: ContentCompassStatsParams,
+        return: ContentCompassStatsVO
+    };
+}
+
 interface VideoLearningDef {
     'video-learning/detect-clip-status': {
         params: { videoPath: string; srtKey: string; srtPath?: string },
@@ -562,6 +587,7 @@ export type ApiDefinitions = ApiDefinition
     & WhisperCppModelDef
     & VocabularyDef
     & LearningDataDef
+    & ContentCompassDef
     & VideoLearningDef
     & PracticeDef;
 

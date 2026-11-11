@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 
 import TYPES from '@/backend/ioc/types';
 import type { Word } from '@/backend/infrastructure/db/tables/words';
+import { resolveDictionaryDifficulty } from '@/backend/services/dictionaryDifficulty';
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
 import { analyzeWords } from '@/backend/utils/language/VocabularyMatcher';
@@ -9,7 +10,6 @@ import { estimateComprehension } from '@/common/learning/comprehension';
 import { isContentLemma } from '@/common/learning/contentWords';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import type {
-    ComprehensionDifficulty,
     ComprehensionWordInput,
     SubtitleComprehensionParams,
     SubtitleComprehensionVO,
@@ -76,7 +76,7 @@ export class SubtitleComprehensionServiceImpl implements SubtitleComprehensionSe
             }
             contentWords.push({
                 lemma,
-                difficulty: this.resolveDifficulty(entry),
+                difficulty: resolveDictionaryDifficulty(entry),
                 userStatus: userWord?.status,
                 mastery: userWord?.mastery,
             });
@@ -117,39 +117,4 @@ export class SubtitleComprehensionServiceImpl implements SubtitleComprehensionSe
         return this.dictionaryStore.lookup(lemma) ?? this.dictionaryStore.lookup(surface);
     }
 
-    /**
-     * 将本地词典频率与考纲标签映射为理解度难度档位。
-     *
-     * @param entry 本地词典词条。
-     * @returns 难度档位。
-     */
-    private resolveDifficulty(entry: OpenAIDictionaryResult | null): ComprehensionDifficulty {
-        if (!entry) {
-            return 'unknown';
-        }
-        const tags = new Set(entry.tags ?? []);
-        if (
-            (entry.oxford ?? 0) > 0
-            || (entry.collins ?? 0) >= 4
-            || ((entry.bnc ?? 0) > 0 && (entry.bnc ?? 0) <= 2000)
-            || tags.has('zk')
-        ) {
-            return 'basic';
-        }
-        if (
-            ((entry.bnc ?? 0) > 0 && (entry.bnc ?? 0) <= 5000)
-            || (entry.collins ?? 0) >= 3
-            || tags.has('gk')
-            || tags.has('cet4')
-        ) {
-            return 'common';
-        }
-        if (tags.has('cet6') || tags.has('ky')) {
-            return 'exam';
-        }
-        if (tags.has('toefl') || tags.has('ielts') || tags.has('gre')) {
-            return 'advanced';
-        }
-        return 'unknown';
-    }
 }
