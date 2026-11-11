@@ -258,12 +258,14 @@ export default function MainSubtitle() {
                内层 min-h-full 保证内容不满一屏时仍沿用原来的「中上黄金位置」留白。 */
             <div
                 ref={subtitleContainerRef}
+                data-testid="main-subtitle-scroller"
                 className="relative h-full w-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
                 <div className="flex min-h-full w-full flex-col items-center justify-center px-8 py-3 text-center text-textColor select-none">
                     {/* 字幕内容区：受 py-3 保护，自然居中 */}
                     <div
                         ref={subtitleContentRef}
+                        data-testid="main-subtitle-content"
                         data-subtitle-active={block ? undefined : 'true'}
                         className="flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto"
                     >

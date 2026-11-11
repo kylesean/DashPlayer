@@ -26,17 +26,19 @@ import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import LearningModeButton from './LearningModeButton';
 import SubtitleGenerationPanel from './SubtitleGenerationPanel';
 import { usePlayer } from '@/fronted/features/player/playerStore';
+import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { CAPTION_CARD_ANCHOR_CLASS, CAPTION_CARD_CLASS } from '@/fronted/features/player/components/captionCardShell';
 import useSetting from '@/fronted/features/settings/settingsStore';
+import {
+    DEFAULT_INNER_STAGE_SIZE,
+    DEFAULT_INNER_SUBTITLE_SIZE,
+    DEFAULT_OUTER_TRANSCRIPT_SIZE,
+    DEFAULT_OUTER_VIDEO_SIZE,
+    getDefaultInnerSplit,
+} from './splitLayoutDefaults';
 
 const logger = getRendererLogger('PlaybackLayout');
-
-/** 分栏默认比例（百分比）：视频 75 / 剧本 25，舞台 80 / 主字幕 20。 */
-const DEFAULT_OUTER_VIDEO_SIZE = 75;
-const DEFAULT_OUTER_TRANSCRIPT_SIZE = 25;
-const DEFAULT_INNER_STAGE_SIZE = 80;
-const DEFAULT_INNER_SUBTITLE_SIZE = 20;
 
 const PlaybackLayout = () => {
     const { t } = useI18nTranslation('player');
@@ -61,6 +63,8 @@ const PlaybackLayout = () => {
     const outerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const innerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
+    const fontSize = useSetting((s) => s.values.get('appearance.fontSize'));
+    const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
     const isLeftTranscript = transcriptPosition === 'left';
     const navigate = useNavigate();
     const { handlePlayerReady, handleAutoPlayNext } = usePlayerBridge(navigate);
@@ -85,9 +89,16 @@ const PlaybackLayout = () => {
      *
      * 面板顺序会随笔剧停靠方向翻转，所以重置值必须按当前顺序给出；
      * 同时写回 localStorage，下一次打开还是这个比例。
+     *
+     * 字幕文稿收起时这一组只剩一个面板，setLayout 会因布局长度不匹配直接抛错，
+     * 所以要先确认两个面板都还在。
      */
     const resetOuterLayout = () => {
-        outerGroupRef.current?.setLayout(
+        const group = outerGroupRef.current;
+        if (!group || group.getLayout().length !== 2) {
+            return;
+        }
+        group.setLayout(
             isLeftTranscript
                 ? [DEFAULT_OUTER_TRANSCRIPT_SIZE, DEFAULT_OUTER_VIDEO_SIZE]
                 : [DEFAULT_OUTER_VIDEO_SIZE, DEFAULT_OUTER_TRANSCRIPT_SIZE]
@@ -96,11 +107,31 @@ const PlaybackLayout = () => {
         setSizeOb(DEFAULT_OUTER_TRANSCRIPT_SIZE);
     };
 
-    /** 把舞台/主字幕的竖向分栏恢复成默认比例。 */
+    /**
+     * 把舞台/主字幕的竖向分栏恢复成默认比例；大字号和整句模式各多给 3%。
+     *
+     * 播客模式与全屏会隐藏主字幕，这一组只剩舞台一个面板；同样不能强行 setLayout。
+     */
     const resetInnerLayout = () => {
-        innerGroupRef.current?.setLayout([DEFAULT_INNER_STAGE_SIZE, DEFAULT_INNER_SUBTITLE_SIZE]);
-        setSizeIa(DEFAULT_INNER_STAGE_SIZE);
-        setSizeIb(DEFAULT_INNER_SUBTITLE_SIZE);
+        const group = innerGroupRef.current;
+        if (!group || group.getLayout().length !== 2) {
+            return;
+        }
+        const { stage: stageSize, subtitle: subtitleSize } = getDefaultInnerSplit(fontSize, sentenceBlockMode);
+        group.setLayout([stageSize, subtitleSize]);
+        setSizeIa(stageSize);
+        setSizeIb(subtitleSize);
+    };
+
+    /**
+     * 同时恢复左右与上下两组分栏。
+     *
+     * 两个分隔条共用「双击恢复默认」的提示，但此前各自只重置自己那一组：
+     * 用户拖过上下字幕分栏，却双击了左右分隔条时，看起来就像完全没反应。
+     */
+    const resetSplitLayout = () => {
+        resetOuterLayout();
+        resetInnerLayout();
     };
 
     const videoStagePanel = (
@@ -120,6 +151,7 @@ const PlaybackLayout = () => {
             <div className="relative w-full h-full overflow-hidden">
                 {/* 视频与主字幕：学习页打开时只隐藏不卸载，切回播放时视频元素、播放进度与滚动位置全部保留 */}
                 <ResizablePanelGroup
+                    ref={innerGroupRef}
                     direction={'vertical'}
                     className={cn('relative z-10', (learningVisible || practiceVisible) && 'invisible')}
                 >
@@ -142,8 +174,10 @@ const PlaybackLayout = () => {
                     {!fullScreen && !podcastMode && (
                         <>
                             <ResizableHandle
-                                onDoubleClick={resetInnerLayout}
+                                data-testid="playback-split-handle-inner"
+                                onDoubleClick={resetSplitLayout}
                                 title={t('layout.resetSplitHint')}
+                                aria-label={t('layout.resetSplitHint')}
                                 className={cn(
                                     'group relative h-1.5 w-full flex items-center justify-center',
                                     'bg-border/30 hover:bg-accent/40',
@@ -273,8 +307,10 @@ const PlaybackLayout = () => {
     const splitHandle = (
         <ResizableHandle
             key="outer-split-handle"
-            onDoubleClick={resetOuterLayout}
+            data-testid="playback-split-handle-outer"
+            onDoubleClick={resetSplitLayout}
             title={t('layout.resetSplitHint')}
+            aria-label={t('layout.resetSplitHint')}
             className={cn(
                 'group relative w-1.5 h-full flex items-center justify-center',
                 'bg-border/30 hover:bg-accent/40',

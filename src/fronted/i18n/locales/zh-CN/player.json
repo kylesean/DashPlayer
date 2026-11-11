@@ -265,6 +265,6 @@
     "switchToArticleMode": "切换为连贯讲稿模式",
     "switchToSentenceMode": "切换为单句精析模式",
     "layout": {
-        "resetSplitHint": "双击分栏恢复默认比例"
+        "resetSplitHint": "双击任一分隔条，恢复默认分栏比例"
     }
 }

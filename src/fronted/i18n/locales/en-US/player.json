@@ -265,6 +265,6 @@
     "switchToArticleMode": "Switch to Flowing Article Mode",
     "switchToSentenceMode": "Switch to Sentence Mode",
     "layout": {
-        "resetSplitHint": "Double-click the divider to reset the default ratio"
+        "resetSplitHint": "Double-click either divider to reset the default split"
     }
 }
