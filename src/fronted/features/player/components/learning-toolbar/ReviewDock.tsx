@@ -21,6 +21,7 @@ import {
     type ToolbarTone,
 } from './toolbarStyles';
 import { formatLearningDue } from './learningTime';
+import { useReviewDockStore } from './reviewDockStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 
 const RATING_STYLES: Record<ReviewRating, string> = {
@@ -189,6 +190,9 @@ export default function ReviewDock({
 }) {
     const { t, i18n } = useTranslation('player');
     const [open, setOpen] = useState(false);
+    const requestId = useReviewDockStore((state) => state.requestId);
+    const consumedId = useReviewDockStore((state) => state.consumedId);
+    const consumeRequest = useReviewDockStore((state) => state.consume);
     const [revealedFor, setRevealedFor] = useState<string | null>(null);
     const [pending, setPending] = useState(false);
     const [lastRated, setLastRated] = useState<{
@@ -215,6 +219,9 @@ export default function ReviewDock({
     const hasRetentionSample = (data?.stats.last7Days.reviewed ?? 0) > 0
         || (data?.stats.last30Days.reviewed ?? 0) > 0;
 
+    // 首页请求打开时直接派生打开态，避免 effect 内 setState 多渲染一轮。
+    const isOpen = open || requestId > consumedId;
+
     const rate = async (rating: ReviewRating) => {
         if (!card || pending) return;
         setPending(true);
@@ -238,9 +245,12 @@ export default function ReviewDock({
 
     return (
         <Popover
-            open={open}
+            open={isOpen}
             onOpenChange={(next) => {
                 setOpen(next);
+                if (requestId > consumedId) {
+                    consumeRequest(requestId);
+                }
                 if (!next) {
                     setRevealedFor(null);
                     setLastRated(null);

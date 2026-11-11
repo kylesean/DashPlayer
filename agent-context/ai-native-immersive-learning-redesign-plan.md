@@ -1,6 +1,6 @@
 # DashPlayer AI-native 沉浸式学习重构方案
 
-> 状态：R0–R2 已完成，R3 已落地暂停微回忆、场景化角色扮演、跟读节奏反馈与个人记忆图谱，R3 其余项待推进
+> 状态：R0–R2 已完成，R3 已落地暂停微回忆、场景化角色扮演、跟读节奏反馈、个人记忆图谱与推荐→复习联动，仅剩可选本地多模态
 > 日期：2026-11-12
 > 范围：播放器、字幕、生词、句子学习、跟读/听写、AI 学习页
 > 一句话：把 DashPlayer 从「视频播放器 + 学习工具」重构为「内容 × 上下文 × 学习者记忆」的沉浸式学习系统。
@@ -820,6 +820,38 @@ context_embeddings
 - 词与词之间的共现边、聚类主题命名与图谱可视化布局；当前是主题分组 + 阶段分布。
 - 跨设备的图谱同步；当前只读本机数据库。
 - 点击图谱词后的主题内连续学习队列；当前复用词汇工坊既有的片段筛选。
+
+#### R3 第五阶段实施记录（2026-11-12）
+
+已落地：
+
+- 内容指南针的到期词理由从「只展示数量」升级为可执行闭环：含到期词的推荐卡直接展示具体词，并提供「复习这 N 个到期词」入口。
+- 点击复习入口不跳转视频、不打断当前内容，只向播放器学习台发出一次性打开复习坞请求；复习 UI 仍只有一套。
+- 新增跨页面 `reviewDockStore`，用「请求序号 / 已消费序号」表达一次性意图，避免 effect 内 setState 与重复弹层。
+- 推荐事件新增 `reviewed` 动作，并记录 `due_review` 理由；推荐看板新增「进入复习」次数与复习转化率。
+- 复习转化率分母只统计带到期词理由的曝光，避免把普通推荐算进分母。
+- 推荐卡在复习入口旁展示具体到期词，用户点击前就能知道会复习什么。
+
+核心实现：
+
+- `src/common/types/contentCompass.ts`
+- `src/backend/services/ContentCompassService.ts`
+- `src/fronted/features/content-compass/ContentCompassSection.tsx`
+- `src/fronted/features/player/components/learning-toolbar/reviewDockStore.ts`
+- `src/fronted/features/player/components/learning-toolbar/ReviewDock.tsx`
+- `src/fronted/features/settings/StorageSetting.tsx`
+
+验证：
+
+- 推荐统计口径、复习入口、跨页请求消费与看板展示定向测试 9 项通过。
+- 全量单元/组件测试：944 项通过，9 项跳过。
+- TypeScript 全量检查通过，全量 ESLint 零告警。
+
+尚未包含：
+
+- 「推荐 → 打开视频 → 视频内复习 → 次日回忆」的完整因果归因；当前只记录推荐到复习的点击。
+- 按复习结果反向调整推荐权重；当前排序仍使用到期词数量与理解度等本地信号。
+- 非首页场景（播放器内推荐、移动端）的复习联动入口。
 
 ### 8.1 第一个 Sprint 的具体任务
 

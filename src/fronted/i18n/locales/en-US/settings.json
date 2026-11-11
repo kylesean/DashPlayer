@@ -362,6 +362,7 @@
             "recommendationShown": "Shown",
             "recommendationOpened": "Opened",
             "recommendationDismissed": "Not interested",
+            "recommendationReviewed": "Reviewed",
             "recommendationRecall": "7-day recall",
             "recommendationRecallHint": "{{count}} reviews"
         },

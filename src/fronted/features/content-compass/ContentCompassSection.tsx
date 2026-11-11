@@ -20,6 +20,7 @@ import { cn } from '@/fronted/lib/utils';
 import PathUtil from '@/common/utils/PathUtil';
 import UrlUtil from '@/common/utils/UrlUtil';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
+import { useReviewDockStore } from '@/fronted/features/player/components/learning-toolbar/reviewDockStore';
 
 const logger = getRendererLogger('ContentCompassSection');
 const IMPRESSION_STORAGE_PREFIX = 'dashplayer:content-compass:shown';
@@ -126,6 +127,25 @@ export default function ContentCompassSection({
         });
     };
 
+    /**
+     * 从推荐直接进入到期复习：不打断当前内容，只打开播放器的复习坞。
+     */
+    const handleReviewDue = (item: ContentCompassItemVO) => {
+        void contentCompassApi.recordEvent({
+            videoId: item.videoId,
+            action: 'reviewed',
+            score: item.score,
+            reasonCode: item.reason.code,
+            surface: 'home',
+        }).catch((reason) => {
+            logger.warn('content compass review event failed', {
+                videoId: item.videoId,
+                error: reason instanceof Error ? reason.message : String(reason),
+            });
+        });
+        useReviewDockStore.getState().open();
+    };
+
     return (
         <VStack gap={3} width="100%">
             <HStack vAlign="center" gap={2} width="100%">
@@ -149,6 +169,7 @@ export default function ContentCompassSection({
                         item={item}
                         onOpen={() => handleOpen(item)}
                         onDismiss={() => handleDismiss(item)}
+                        onReviewDue={() => handleReviewDue(item)}
                     />
                 ))}
             </Grid>
@@ -160,10 +181,12 @@ function CompassCard({
     item,
     onOpen,
     onDismiss,
+    onReviewDue,
 }: {
     item: ContentCompassItemVO;
     onOpen: () => void;
     onDismiss: () => void;
+    onReviewDue: () => void;
 }) {
     const { t } = useTranslation('compass');
     const containerRef = React.useRef<HTMLDivElement | null>(null);
@@ -229,6 +252,22 @@ function CompassCard({
                 )}
                 onClick={onDismiss}
             />
+            {item.reason.dueCount > 0 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <button
+                        type="button"
+                        onClick={onReviewDue}
+                        className="inline-flex h-6 items-center rounded-md bg-warning-muted/60 px-2 text-metadata font-medium text-warning-text transition-colors hover:bg-warning-muted"
+                    >
+                        {t('reviewDue', { count: item.reason.dueCount })}
+                    </button>
+                    {item.reason.words.length > 0 && (
+                        <span className="truncate text-metadata text-muted-foreground">
+                            {item.reason.words.join(' · ')}
+                        </span>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

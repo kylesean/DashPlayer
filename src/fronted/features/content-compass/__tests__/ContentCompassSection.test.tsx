@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ContentCompassSection from '../ContentCompassSection';
 import { contentCompassApi } from '@/fronted/features/content-compass/contentCompassApi';
 import type { ContentCompassVO } from '@/common/types/contentCompass';
+import { useReviewDockStore } from '@/fronted/features/player/components/learning-toolbar/reviewDockStore';
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -112,6 +113,20 @@ describe('ContentCompassSection', () => {
         expect(contentCompassApi.recordEvent).toHaveBeenCalledWith(expect.objectContaining({
             videoId: 'video-1',
             action: 'dismissed',
+        }));
+    });
+
+    it('有到期词时可直接请求复习，并记录 reviewed', async () => {
+        useReviewDockStore.setState({ requestId: 0, consumedId: 0 });
+        render(<ContentCompassSection onSelected={() => undefined} />);
+
+        fireEvent.click(await screen.findByText('reviewDue'));
+
+        expect(useReviewDockStore.getState().requestId).toBe(1);
+        expect(contentCompassApi.recordEvent).toHaveBeenCalledWith(expect.objectContaining({
+            videoId: 'video-1',
+            action: 'reviewed',
+            reasonCode: 'due_review',
         }));
     });
 });

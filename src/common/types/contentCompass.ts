@@ -2,7 +2,7 @@ import type { ReviewRetentionStats } from '@/common/types/review';
 import type { ComprehensionBand } from '@/common/types/subtitleComprehension';
 
 /** 内容推荐在界面上被用户执行的动作。 */
-export const CONTENT_COMPASS_ACTIONS = ['shown', 'opened', 'dismissed'] as const;
+export const CONTENT_COMPASS_ACTIONS = ['shown', 'opened', 'dismissed', 'reviewed'] as const;
 export type ContentCompassAction = (typeof CONTENT_COMPASS_ACTIONS)[number];
 
 /** 推荐理由；前端根据代码渲染本地化文案。 */
@@ -91,10 +91,14 @@ export interface ContentCompassStatsVO {
     shown: number;
     opened: number;
     dismissed: number;
+    /** 从推荐直接进入复习的次数。 */
+    reviewed: number;
     /** 打开次数 / 曝光次数；没有曝光时为 null。 */
     openRate: number | null;
     /** 不感兴趣次数 / 曝光次数；没有曝光时为 null。 */
     dismissRate: number | null;
+    /** 从推荐进入复习的次数 / 含到期词的曝光次数；没有样本时为 null。 */
+    reviewRate: number | null;
     /** 同一统计窗口内的复习回忆指标。 */
     retention: ReviewRetentionStats;
 }

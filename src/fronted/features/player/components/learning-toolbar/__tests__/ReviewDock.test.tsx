@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import ReviewDock from '../ReviewDock';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import type { ReviewQueueVO } from '@/common/types/review';
+import { useReviewDockStore } from '../reviewDockStore';
 
 vi.mock('swr', () => ({
     default: vi.fn(),
@@ -144,5 +145,15 @@ describe('ReviewDock', () => {
 
         expect(screen.getByText('reviewDock.loadFailed')).toBeDefined();
         expect(screen.getByRole('button', { name: /reviewDock.retry/i })).toBeDefined();
+    });
+
+    it('消费首页的打开请求并展示复习面板', async () => {
+        mockSWR(queue);
+        useReviewDockStore.setState({ requestId: 1, consumedId: 0 });
+        render(<ReviewDock tone="panel" popoverOffset={8} />);
+
+        expect(await screen.findByTestId('review-dock-panel')).toBeDefined();
+        fireEvent.click(screen.getByTestId('review-dock-trigger'));
+        await waitFor(() => expect(useReviewDockStore.getState().consumedId).toBe(1));
     });
 });

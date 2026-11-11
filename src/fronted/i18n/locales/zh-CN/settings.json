@@ -362,6 +362,7 @@
             "recommendationShown": "曝光",
             "recommendationOpened": "打开",
             "recommendationDismissed": "不感兴趣",
+            "recommendationReviewed": "进入复习",
             "recommendationRecall": "7 天回忆",
             "recommendationRecallHint": "{{count}} 次复习"
         },

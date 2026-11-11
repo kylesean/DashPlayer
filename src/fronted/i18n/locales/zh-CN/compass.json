@@ -8,5 +8,6 @@
     "reasonInterest": "与你最近观看的内容有相近的主题词",
     "reasonNext": "难度适合作为下一段学习输入",
     "open": "打开 {{name}}",
-    "dismiss": "不感兴趣"
+    "dismiss": "不感兴趣",
+    "reviewDue": "复习这 {{count}} 个到期词"
 }

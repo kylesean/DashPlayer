@@ -252,6 +252,10 @@ export class ContentCompassServiceImpl implements ContentCompassService {
         const shown = events.filter((event) => event.action === 'shown').length;
         const opened = events.filter((event) => event.action === 'opened').length;
         const dismissed = events.filter((event) => event.action === 'dismissed').length;
+        const reviewed = events.filter((event) => event.action === 'reviewed').length;
+        const dueSamples = events.filter(
+            (event) => event.action === 'shown' && event.reason_code === 'due_review',
+        ).length;
         const successfulReviews = outcomes.filter((outcome) =>
             outcome.rating === 'good' || outcome.rating === 'easy',
         ).length;
@@ -260,8 +264,10 @@ export class ContentCompassServiceImpl implements ContentCompassService {
             shown,
             opened,
             dismissed,
+            reviewed,
             openRate: shown === 0 ? null : Math.min(1, opened / shown),
             dismissRate: shown === 0 ? null : Math.min(1, dismissed / shown),
+            reviewRate: dueSamples === 0 ? null : Math.min(1, reviewed / dueSamples),
             retention: {
                 reviewed: outcomes.length,
                 retention: outcomes.length === 0 ? null : successfulReviews / outcomes.length,

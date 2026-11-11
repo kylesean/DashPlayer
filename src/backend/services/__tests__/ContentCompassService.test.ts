@@ -266,6 +266,18 @@ describe('ContentCompassService', () => {
             action: 'shown',
             surface: 'home',
         });
+        await harness.service.recordEvent({
+            videoId: 'video-1',
+            action: 'shown',
+            reasonCode: 'due_review',
+            surface: 'home',
+        });
+        await harness.service.recordEvent({
+            videoId: 'video-1',
+            action: 'reviewed',
+            reasonCode: 'due_review',
+            surface: 'home',
+        });
         await harness.memoryDb.db.insert(wordEncounter).values({
             word: 'journey',
             lemma: 'journey',
@@ -285,13 +297,15 @@ describe('ContentCompassService', () => {
         const events = await harness.memoryDb.db.select().from(recommendationEvent);
 
         expect(stats).toMatchObject({
-            shown: 2,
+            shown: 3,
             opened: 1,
             dismissed: 1,
-            openRate: 0.5,
-            dismissRate: 0.5,
+            reviewed: 1,
+            openRate: 1 / 3,
+            dismissRate: 1 / 3,
+            reviewRate: 1,
             retention: { reviewed: 2, retention: 0.5 },
         });
-        expect(events).toHaveLength(4);
+        expect(events).toHaveLength(6);
     });
 });
