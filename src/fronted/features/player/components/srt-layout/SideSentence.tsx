@@ -1,7 +1,6 @@
 import React, { forwardRef, useMemo, useState } from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { motion } from 'framer-motion';
 import { useShallow } from 'zustand/react/shallow';
 import { Play, Repeat1 } from 'lucide-react';
 
@@ -103,10 +102,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
     ) => {
         const { t } = useI18nTranslation('player');
         const playing = usePlayerState((state) => state.playing);
-        const { showEn, syncSide, showSideTranslation } = usePlayerUiState(
+        const { showSideTranslation } = usePlayerUiState(
             useShallow((s) => ({
-                showEn: s.showEn,
-                syncSide: s.syncSide,
                 showSideTranslation: s.showSideTranslation,
             })),
         );
@@ -126,10 +123,6 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
         const secondaryText = (showSideTranslation || isZhSearchMatch) ? sentence.textZH || newTranslation || '' : '';
 
         const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
-        const [hover, setHover] = useState(false);
-        const show = !syncSide ? true : showEn;
-        const concealed = !show && !hover;
-
         const [popEle, setPopEle] = useState<string | null>(null);
 
         const handleRequestPop = (k: string) => {
@@ -184,8 +177,6 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                         onClick(sentence);
                     }
                 }}
-                onMouseEnter={() => setHover(true)}
-                onMouseLeave={() => setHover(false)}
                 className={cn(
                     // 遵循 Astryx Item Stream：左对齐平滑流式行，微内边距，移除厚重卡片外框与左侧彩色竖线
                     'group relative mx-2 my-0.5 px-3 py-2 rounded-lg flex flex-col justify-start items-start cursor-pointer select-none transition-colors duration-150',
@@ -198,8 +189,6 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                     ),
                     // 激活的搜索匹配高亮项
                     isActiveSearchMatch && 'ring-1 ring-amber-500/80 bg-amber-500/10 shadow-xs',
-                    // 随英文字幕隐藏时淡化：
-                    concealed && 'opacity-20 hover:opacity-100',
                     selectionClass,
                 )}
             >
@@ -207,7 +196,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                 <div className="w-full flex items-center justify-between gap-1.5 mb-1 pointer-events-none">
                     <div className="flex items-center gap-1.5">
                         {/* 活跃态声波动效 */}
-                        {isCurrent && !concealed && (
+                        {isCurrent && (
                             playing ? (isRepeat ? <RepeatAudioWave /> : <PlayingAudioWave />) : (
                                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
                             )
@@ -292,12 +281,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                 </div>
 
                 {/* 英文主句文本：坚固的左对齐基线，优化的西文字体与行距 */}
-                <motion.div
-                    className="w-full text-left"
-                    initial={false}
-                    animate={{ opacity: hover || show ? 1 : 0.2 }}
-                    transition={{ duration: 0.15 }}
-                >
+                <div className="w-full text-left">
                     <div
                         className={cn(
                             'w-full text-left font-sans leading-relaxed tracking-normal select-text break-words transition-colors',
@@ -328,7 +312,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                             {highlightSlice(secondaryText, secondaryText, 0, searchQuery, isActiveSearchMatch)}
                         </div>
                     )}
-                </motion.div>
+                </div>
             </div>
         );
     },

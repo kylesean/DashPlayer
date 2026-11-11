@@ -446,6 +446,10 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
         logger.debug('media buffering ended');
       }}
       onEnded={() => {
+        // 媒体到达结尾时浏览器已停止播放，store 不能继续保留 playing=true：
+        // 否则侧栏声波动画、rAF 采样、控制条暂停图标都会把「已经结束」误当成「仍在播放」，
+        // 用户第一次按空格也只会把这份过期状态改成暂停。先收敛播放意图，再交给上层决定是否自动播放下一集。
+        usePlayer.getState().pause();
         onEndedRef.current?.();
       }}
     />
