@@ -15,6 +15,7 @@
     "make": "pnpm run build:mobile && pnpm run download && electron-forge make",
     "publish": "pnpm run build:mobile && pnpm run download && electron-forge publish",
     "lint": "eslint qa src scripts --max-warnings=0",
+    "prepare": "simple-git-hooks",
     "lint:fix": "eslint qa src scripts --fix",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "pnpm run test:base",

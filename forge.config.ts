@@ -71,6 +71,12 @@ const pruneForeignNativeVariants = async (buildPath: string, platform: string, a
             await drop(path.join(sqliteBinRoot, variant));
         }
     }
+
+    // better-sqlite3 的构建源码（deps/sqlite3.c 约 9.5MB）与 node-addon-api 的 C++ 头
+    // 文件只服务于编译期，运行时只需要 .node 产物；不裁的话安装包白白多 ~10MB。
+    await drop(path.join(buildPath, 'node_modules/better-sqlite3/deps'));
+    await drop(path.join(buildPath, 'node_modules/better-sqlite3/src'));
+    await drop(path.join(buildPath, 'node_modules/node-addon-api'));
 };
 
 /**
@@ -109,6 +115,10 @@ const config: ForgeConfig = {
             if (!file) return false;
             if (file.startsWith('/.vite')) return false;
             if (file === '/node_modules') return false;
+
+            // sourcemap 只服务于开发期与错误符号化，符号化用上传到符号服务的 map 即可；
+            // 打进安装包只会白白多 ~35MB（main + renderer 的 sourcesContent 全量）。
+            if (file.endsWith('.map')) return true;
 
             // 仅保留 Vite externalized 的原生依赖与运行时网络代理传递依赖，其余由 Vite 打入 /.vite
             const keptNodeModulePrefixes = [
