@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import Word from './word';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { cn } from '@/fronted/lib/utils';
 import { FONT_SIZE } from '@/fronted/styles/style';
 import type { Sentence } from '@/common/types/SentenceC';
-import hash from 'object-hash';
 import { useTransLineTheme } from './translatable-theme';
+import { renderSentenceTokens } from '@/fronted/features/player/components/srt-layout/sentence-token-renderer';
 
 interface TranslatableSubtitleLineCoreParam {
     sentence: Sentence;
@@ -20,7 +19,7 @@ interface TranslatableSubtitleLineCoreParam {
 }
 
 /**
- * 按后端 wink token 结构渲染字幕，原文间隔由 source text 保持。
+ * 主/全屏字幕的原文行：只负责容器样式与字号，分词与单词交互统一交给 renderSentenceTokens。
  * @param props 字幕句子和显示交互配置。
  */
 const TranslatableLine = ({
@@ -37,7 +36,6 @@ const TranslatableLine = ({
         state.values.get('appearance.fontSize'),
     );
     const [popELe, setPopEle] = useState<string | null>(null);
-    const textHash = hash(text);
 
     /**
      * 记录当前应显示释义弹层的词项。
@@ -74,28 +72,17 @@ const TranslatableLine = ({
             )}
             onMouseDown={handleLineMouseDown}
         >
-            {(() => {
-                let sourceCursor = 0;
-                const parts = sentence.struct.blocks.flatMap((block) => block.blockParts);
-                const rendered = parts.flatMap((part, partIndex) => {
-                    const start = text.indexOf(part.content, sourceCursor);
-                    const gap = start >= sourceCursor ? text.slice(sourceCursor, start) : '';
-                    sourceCursor = start >= sourceCursor ? start + part.content.length : sourceCursor;
-                    const partId = `${textHash}:${partIndex}`;
-                    const gapElement = gap ? <span className={cn('whitespace-pre-wrap', !show && 'text-transparent')} key={`${partId}:gap`}>{gap}</span> : null;
-                if (part.isWord) {
-                    return [gapElement, <Word key={partId} word={part.content} original={part.content} lemma={part.lemma}
-                        sentenceText={text} sentenceIndex={sentence.index} sentenceHash={sentence.key}
-                        pop={popELe === partId} requestPop={() => handleRequestPop(partId)} show={show}
-                        alwaysDark={hoverDark} classNames={wordClassNames} />];
-                }
-                return [gapElement, <span className={cn('whitespace-pre-wrap', !show && 'text-transparent')} key={partId}>{part.content}</span>];
-                });
-                if (sourceCursor < text.length) {
-                    rendered.push(<span className={cn('whitespace-pre-wrap', !show && 'text-transparent')} key={`${textHash}:tail`}>{text.slice(sourceCursor)}</span>);
-                }
-                return rendered;
-            })()}
+            {renderSentenceTokens({
+                sentence,
+                text,
+                popEle: popELe,
+                onRequestPop: handleRequestPop,
+                show,
+                alwaysDark: hoverDark,
+                // 主字幕使用主题默认词样式
+                wordClassNames: wordClassNames ?? {},
+                sentenceHash: sentence.key,
+            })}
         </div>
     );
 };

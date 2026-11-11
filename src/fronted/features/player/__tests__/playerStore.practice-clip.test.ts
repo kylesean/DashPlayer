@@ -54,6 +54,9 @@ describe('playerStore 练习受控区间试听 playPracticeClip', () => {
         expect(usePlayer.getState().playbackRate).toBe(0.75);
         expect(usePlayer.getState().currentSentence?.index).toBe(0);
 
+        // seek 落地：媒体真正到达片段起点后才允许按句尾截停
+        usePlayer.getState().resolveSeek(1.0);
+
         // 先模拟一帧仍在 2.2s（进入片段区间，标记 settled）
         usePlayer.getState().updateExactPlayTime(2.2);
         vi.runAllTimers();
@@ -84,6 +87,7 @@ describe('playerStore 练习受控区间试听 playPracticeClip', () => {
         expect(onEnded).not.toHaveBeenCalled();
 
         // seek 落地进入片段后再到达句尾才正常停下
+        usePlayer.getState().resolveSeek(1.05);
         usePlayer.getState().updateExactPlayTime(1.1);
         vi.runOnlyPendingTimers();
         usePlayer.getState().updateExactPlayTime(3.02);

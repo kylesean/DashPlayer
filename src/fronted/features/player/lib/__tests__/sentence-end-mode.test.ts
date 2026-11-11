@@ -6,12 +6,16 @@ import {
     disableSentenceEndMode,
     enableSentenceEndMode,
     hasSentenceEndModeConflict,
+    resolveSentenceEndStage,
     toggleSentenceEndMode,
+    type SentenceEndStageFlags,
     type SentenceEndModeFlags,
 } from '@/fronted/features/player/lib/sentence-end-mode';
 
 /** 全关闭的标志集合。 */
 const off: SentenceEndModeFlags = { autoPause: false, singleRepeat: false, shadowing: false };
+/** 全关闭（含悬停层）的标志集合。 */
+const stageOff: SentenceEndStageFlags = { ...off, hoverRepeat: false };
 
 describe('句末模式状态机', () => {
     it('无任何模式时推导为 off', () => {
@@ -65,10 +69,6 @@ describe('句末模式状态机', () => {
     });
 
     it('裁决顺序必须与引擎 onTimeUpdate 的分支顺序一致', () => {
-        // 引擎在 playerStore.onTimeUpdate 里按
-        //   sentenceLoop → autoPause → singleRepeat → hoverRepeat → shadowing
-        // 逐段 `if (...) return`，先命中的分支赢。这里把「全部打开」的脏状态
-        // 逐层剥掉，断言 derive 出来的模式与引擎实际会执行的那个一致。
         const all: SentenceEndModeFlags = { autoPause: true, singleRepeat: true, shadowing: true };
 
         // 全开：sentenceLoop 最优先
@@ -80,5 +80,24 @@ describe('句末模式状态机', () => {
         // 只剩 shadowing
         expect(deriveSentenceEndMode({ ...all, autoPause: false, singleRepeat: false }, false))
             .toBe('shadowing');
+    });
+
+    it('执行阶段裁决与 UI 派生共用同一份顺序，且悬停循环压在影子跟读之前', () => {
+        expect(resolveSentenceEndStage(stageOff, false)).toBe('off');
+        expect(resolveSentenceEndStage({ ...stageOff, hoverRepeat: true }, false)).toBe('hoverRepeat');
+        // 悬停层与影子跟读并存时，悬停优先（否则会被跟读暂停打断）
+        expect(resolveSentenceEndStage({ ...stageOff, hoverRepeat: true, shadowing: true }, false))
+            .toBe('hoverRepeat');
+        // 持久模式的优先级仍然高于悬停层
+        expect(resolveSentenceEndStage({ ...stageOff, hoverRepeat: true, singleRepeat: true }, false))
+            .toBe('singleRepeat');
+        // 常开循环最优先
+        expect(resolveSentenceEndStage({ ...stageOff, hoverRepeat: true, autoPause: true }, true))
+            .toBe('sentenceLoop');
+        // 执行阶段与 UI 派生对持久模式给出同一结论
+        const persistent = { ...stageOff, autoPause: true, singleRepeat: true, shadowing: true };
+        expect(resolveSentenceEndStage(persistent, false)).toBe(
+            deriveSentenceEndMode(persistent, false),
+        );
     });
 });

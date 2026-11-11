@@ -43,9 +43,6 @@ const TranslatableLinePodcast = ({
             </div>
             <TranslatableLineWrapper
                 sentence={sentence}
-                adjusted={adjusted}
-                clearAdjust={clearAdjust}
-                variant={'plain'}
             />
             <div className={cn('w-10 h-full')} />
         </div>

@@ -38,7 +38,7 @@ export class PlayerActions {
    * @param opts.target 目标句子（用于高亮锁定）
    * @param opts.play 是否在 seek 后继续播放（默认 true）
    */
-  seekToTarget(opts: { time: number; target?: Sentence; overrideMs?: number; lockMs?: number; play?: boolean }) {
+  seekToTarget(opts: { time: number; target?: Sentence; play?: boolean }) {
     this.s.seekToTarget(opts);
   }
   playPracticeClip(range: { start: number; end: number }, target: Sentence, options?: { rate?: number; onEnded?: () => void }) {

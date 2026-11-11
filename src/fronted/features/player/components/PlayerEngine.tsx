@@ -19,6 +19,11 @@ const logger = getRendererLogger('PlayerEngine');
 
 /** rAF 采样回传精确播放时间的最小间隔（毫秒），对齐 v2 progressInterval=50ms 的粒度。 */
 const EXACT_TIME_SAMPLE_MS = 45;
+/**
+ * seek 落点结算兜底：从请求时刻起最多等这么久。
+ * 正常由原生 seeked 结算；目标时间与当前位置相同时浏览器不会派发 seeked，需靠该兜底收尾。
+ */
+const SEEK_RESOLVE_TIMEOUT_MS = 1500;
 
 /**
  * 播放器引擎组件入参。
@@ -86,6 +91,10 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
   const lastSeekRef = useRef<SeekRequest>({ time: -1, play: true });
   const lastSeekTsRef = useRef<number>(0);
   const pendingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  /** 尚未结算的 seek：用于把原生 seeked 映射回 store 的落点契约。 */
+  const pendingResolveRef = useRef<{ requestId?: number; timer: NodeJS.Timeout | null } | null>(null);
+  /** 最近一次真正写入 currentTime 的 seek 请求号；用于识别迟到的 seeked 属于哪一次请求。 */
+  const appliedSeekIdRef = useRef<number | undefined>(undefined);
   const videoGenerationRef = useRef(0);
 
   // 最新回调引用：避免内联回调导致 effect 反复重建
@@ -135,6 +144,44 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
       onProvideRef.current?.(video);
     }
   }, [recoveryKey]);
+
+  /**
+   * 结算一次 seek：把媒体真实落点（或当前时间）交回 store，解除"在途"状态。
+   * 这是 seek 请求与播放时间驱动之间唯一的同步点。
+   */
+  const settleSeek = useCallback((requestId?: number) => {
+    const pending = pendingResolveRef.current;
+    // 只有结算的是当前登记的那次请求时才注销；迟到的旧 seeked 不能清掉新一轮的登记
+    if (pending && pending.requestId === requestId) {
+      if (pending.timer) {
+        clearTimeout(pending.timer);
+      }
+      pendingResolveRef.current = null;
+    }
+    const actualTime = videoRef.current?.currentTime ?? usePlayer.getState().getExactPlayTime();
+    usePlayer.getState().resolveSeek(actualTime, requestId);
+  }, []);
+
+  // 原生 seeked：seek 真正落地时结算 store 的同步契约
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const handleSeeked = () => {
+      if (!pendingResolveRef.current) return;
+      // seeked 属于最近一次真正写入的请求；若它已被更新的请求取代，store 会忽略这次落点
+      settleSeek(appliedSeekIdRef.current);
+    };
+    video.addEventListener('seeked', handleSeeked);
+    return () => video.removeEventListener('seeked', handleSeeked);
+  }, [src, recoveryKey, settleSeek]);
+
+  // 卸载时若仍有未结算的 seek，先收尾，避免 store 的在途标记永远挡住时间驱动
+  useEffect(() => () => {
+    if (pendingResolveRef.current) {
+      settleSeek(pendingResolveRef.current.requestId);
+    }
+  }, [settleSeek]);
+
 
   // 订阅 store 的播放意图：期望播放则强制原生 play()，期望暂停则原生 pause()
   useEffect(() => {
@@ -203,12 +250,28 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
       pendingTimerRef.current = null;
     }
 
+    // 登记本次 seek 的结算契约：原生 seeked 到达（或兜底超时）时通知 store
+    if (pendingResolveRef.current?.timer) {
+      clearTimeout(pendingResolveRef.current.timer);
+    }
+    pendingResolveRef.current = {
+      requestId: next.requestId,
+      timer: setTimeout(() => {
+        if (pendingResolveRef.current) {
+          settleSeek(pendingResolveRef.current.requestId);
+        }
+      }, SEEK_RESOLVE_TIMEOUT_MS),
+    };
+
     /**
      * 执行一次实际 seek，并根据播放意图决定是否继续播放。
      * @param sec 目标时间（秒）
      * @param shouldPlay 是否在 seek 后继续播放
      */
     const applySeek = (sec: number, shouldPlay: boolean) => {
+      // 目标与当前位置一致时浏览器不会派发 seeked，需要显式结算
+      const samePosition = Math.abs(video.currentTime - sec) < 0.005 && !video.seeking;
+      appliedSeekIdRef.current = next.requestId;
       try {
         video.currentTime = sec;
         // 播放意图为否时在原生层强制暂停；为是时若元素处于暂停则补一次 play
@@ -224,6 +287,11 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
           currentTime: video.currentTime,
           readyState: video.readyState
         });
+        settleSeek(next.requestId);
+        return;
+      }
+      if (samePosition) {
+        setTimeout(() => settleSeek(next.requestId), 0);
       }
     };
 
@@ -244,7 +312,7 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
         pendingTimerRef.current = null;
       }
     };
-  }, [seekTime, nativePlay, src, recoveryKey]);
+  }, [seekTime, nativePlay, src, recoveryKey, settleSeek]);
 
   // source 变化时清除恢复状态与看门狗观察状态，避免旧代际状态残留
   useEffect(() => {
@@ -253,6 +321,7 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
     stallAttemptRef.current = 0;
     lastStallHealAtRef.current = 0;
     lastSeekTsRef.current = 0;
+    appliedSeekIdRef.current = undefined;
   }, [src]);
 
   // 看门狗：独立采样媒体状态，检测播放卡死并自愈
@@ -405,6 +474,10 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
         const video = e.currentTarget;
         if (Number.isFinite(video.duration) && video.duration > 0 && usePlayer.getState().duration <= 0) {
           setDuration(video.duration);
+        }
+        // 窗口被遮挡/最小化时浏览器会暂停 rAF，页面隐藏期间的进度只能由原生 timeupdate（约 250ms）驱动
+        if (document.visibilityState === 'hidden' && usePlayer.getState().playing && !video.seeking) {
+          updateExactPlayTime(video.currentTime);
         }
       }}
       onDurationChange={(e) => {

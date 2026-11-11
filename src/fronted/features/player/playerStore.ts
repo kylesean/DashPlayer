@@ -19,6 +19,7 @@ import {
 import {
   clearSentenceEndModes,
   enableSentenceEndMode,
+  resolveSentenceEndStage,
   type SentenceEndBooleanMode,
 } from '@/fronted/features/player/lib/sentence-end-mode';
 
@@ -30,6 +31,8 @@ export type SeekRequest = {
   time: number;
   /** 是否在 seek 后继续播放；缺省视为 true，false 表示保持暂停。 */
   play?: boolean;
+  /** 请求序号：由 store 生成，PlayerEngine 在 seeked 时原样回传，用于丢弃过期落点。 */
+  requestId?: number;
 };
 
 /**
@@ -64,9 +67,11 @@ type TransientPlan = {
     completed?: boolean;
 };
 
-const OVERDUE_TIME = 600;
-const SEEK_OVERRIDE_MS = 500; // 跳转后的覆盖时间窗口（优先使用目标 seek 时间）
-const CURRENT_LOCK_MS = 500;  // 跳转后的 currentSentence 锁定时长（禁止时间回写高亮）
+/**
+ * seek 落点后的高亮锁宽限：seeked 到达后仍允许目标句保持高亮的时长。
+ * 用于覆盖"目标时间恰在两句边界、getByTime 可能回退到上一句"的一个采样周期。
+ */
+const LOCK_GRACE_MS = 250;
 
 interface TailPreviewState {
   active: boolean;
@@ -77,7 +82,6 @@ interface TailPreviewState {
 interface TimeOverrideState {
   active: boolean;
   time: number;
-  untilTs: number;
 }
 
 interface CurrentLockState {
@@ -89,8 +93,15 @@ interface CurrentLockState {
 interface InternalState {
   exactPlayTime: number;
   onPlaySeekTime: number | null;
-  lastSeekAt: number;
+  /**
+   * 是否有 seek 尚未落地。
+   *
+   * 由 seek 请求置位、由 PlayerEngine 的 seeked 事件（或超时兜底）清除；
+   * 期间 onTimeUpdate 不做任何句末判定，避免把旧播放位置当成新状态。
+   */
+  seekInFlight: boolean;
   tailPreview: TailPreviewState | null;
+  /** seek 在途期间把有效时间钉在目标值；落点到达后立即释放，由真实播放时间接管。 */
   timeOverride: TimeOverrideState | null;
   currentLock: CurrentLockState | null;
   /** 瞬态播放计划；非空时 onTimeUpdate 优先按计划驱动。 */
@@ -195,8 +206,19 @@ interface PlayerState {
   // 基础 seek（保留）：按时间立即匹配高亮（用于进度条等）
   seekTo: (seekTime: SeekAction) => void;
 
-  // 新：带目标句的 seek，立即设定 currentSentence + timeOverride + currentLock（推荐用于上一句/下一句/跳转）
-  seekToTarget: (opts: { time: number; target?: Sentence; overrideMs?: number; lockMs?: number; play?: boolean }) => void;
+  // 新：带目标句的 seek，立即设定 currentSentence 并在落点到达后释放锁定
+  seekToTarget: (opts: { time: number; target?: Sentence; play?: boolean }) => void;
+
+  /**
+   * 通知 store 一次 seek 已经落地（由 PlayerEngine 在原生 seeked 事件或超时兜底时调用）。
+   *
+   * 这是"请求时刻"与"落点时刻"之间唯一的同步点：调用后释放时间覆盖与在途标记，
+   * 由真实播放时间接管高亮；目标锁定再保留一小段宽限后释放。
+   *
+   * @param actualTime 媒体元素的实际落点时间（秒）
+   * @param requestId 发起该 seek 时请求携带的序号；与当前在途请求不一致时忽略（过期落点）
+   */
+  resolveSeek: (actualTime: number, requestId?: number) => void;
 
   /**
    * 练习片段受控播放：仅在 `[range.start, range.end]` 区间内试听当前练习单元，
@@ -281,8 +303,9 @@ interface PlayerState {
 }
 
 // 模块内定时器（不放入 Zustand）
-let timeOverrideTimer: ReturnType<typeof setTimeout> | null = null;
 let currentLockTimer: ReturnType<typeof setTimeout> | null = null;
+// seek 请求序号：每次请求 +1，PlayerEngine 在 seeked 时回传，用于丢弃过期落点
+let seekRequestCounter = 0;
 // 影子跟读：句末暂停后的自动下一句定时器
 let shadowTimer: ReturnType<typeof setTimeout> | null = null;
 // 影子跟读：已给过留白的句子 key；防止留白结束自然续播时，在句间空隙内再次触发暂停（手动跳转/切源/模式开关时重置）
@@ -294,7 +317,7 @@ interface ClipStopBound {
   end: number;
   anchor: Sentence;
   restoreRate: number | null;
-  startedAt: number;
+  /** seek 落点进入区间后才允许按句尾截停；避免旧播放位置误触发。 */
   settled: boolean;
   onEnded?: () => void;
 }
@@ -434,31 +457,28 @@ export const usePlayer = create<PlayerState>((set, get) => {
   const applyTargetedSeek = ({
     time,
     target,
-    overrideMs = SEEK_OVERRIDE_MS,
-    lockMs = CURRENT_LOCK_MS,
     play = true,
   }: {
     time: number;
     target?: Sentence;
-    overrideMs?: number;
-    lockMs?: number;
     play?: boolean;
   }) => {
     clearShadowTimer();
     shadowedSentenceKey = null;
+    const requestId = ++seekRequestCounter;
     set((prev) => ({
       playing: play,
       playRequestId: play ? prev.playRequestId + 1 : prev.playRequestId,
-      seekTime: { time, play },
+      seekTime: { time, play, requestId },
       currentSentence: target ?? prev.currentSentence,
       internal: {
         ...prev.internal,
         onPlaySeekTime: null,
-        lastSeekAt: Date.now(),
+        seekInFlight: true,
       },
     }));
-    activateTimeOverride(time, overrideMs);
-    activateCurrentLock(target, lockMs);
+    pinSeekTime(time);
+    activateCurrentLock(target);
   };
 
   /**
@@ -529,41 +549,68 @@ export const usePlayer = create<PlayerState>((set, get) => {
   // 取导航单元的 seek 目标（虚拟组用代表句）
   const navUnitTarget = (unit: NavUnit): Sentence => unit.type === 'sentence' ? unit.s : unit.repr;
 
-  // 开启"时间覆盖"窗口
-  const activateTimeOverride = (time: number, ms = SEEK_OVERRIDE_MS) => {
-    if (timeOverrideTimer) {
-      clearTimeout(timeOverrideTimer);
-      timeOverrideTimer = null;
-    }
-    const untilTs = Date.now() + ms;
+  /**
+   * 在 seek 在途期间把有效时间钉在目标值。
+   *
+   * 这里不设过期时间：覆盖的释放完全由落点事件（`resolveSeek`）决定，
+   * 避免"从请求时刻起算 500ms"导致落点后窗口缩水。
+   */
+  const pinSeekTime = (time: number) => {
     set((prev) => ({
       internal: {
         ...prev.internal,
         exactPlayTime: time,
-        timeOverride: { active: true, time, untilTs }
+        timeOverride: { active: true, time },
       }
     }));
-    timeOverrideTimer = setTimeout(() => {
-      set((prev) => ({
-        internal: { ...prev.internal, timeOverride: null }
-      }));
-      timeOverrideTimer = null;
-    }, ms);
   };
 
-  // 开启"当前句锁定"窗口：禁止按时间回写 currentSentence
-  const activateCurrentLock = (target: Sentence | undefined, ms = CURRENT_LOCK_MS) => {
+  /**
+   * 设定"当前句锁定"：禁止按时间回写 currentSentence。
+   *
+   * 用于 seek 时不在请求时刻计时，而是在落点到达后由 `releaseCurrentLock` 释放；
+   * 影子跟读等非 seek 场景可传入 `ms` 直接指定锁定时长。
+   * 未指定目标句时（普通进度条拖动）不锁定，落点即可按真实时间回写。
+   */
+  const activateCurrentLock = (target: Sentence | undefined, ms?: number) => {
     if (currentLockTimer) {
       clearTimeout(currentLockTimer);
       currentLockTimer = null;
     }
-    const key = target ? sentenceKey(target) : null;
-    const untilTs = Date.now() + ms;
     set((prev) => ({
       currentSentence: target ?? prev.currentSentence,
       internal: {
         ...prev.internal,
-        currentLock: { active: true, untilTs, key }
+        currentLock: target
+          ? {
+              active: true,
+              untilTs: ms === undefined ? Number.POSITIVE_INFINITY : Date.now() + ms,
+              key: sentenceKey(target),
+            }
+          : null
+      }
+    }));
+    if (target && ms !== undefined) {
+      currentLockTimer = setTimeout(() => {
+        set((prev) => ({
+          internal: { ...prev.internal, currentLock: null }
+        }));
+        currentLockTimer = null;
+      }, ms);
+    }
+  };
+
+  // 落点到达后再保留一小段高亮锁，覆盖两句边界处的查询歧义
+  const releaseCurrentLock = (ms = LOCK_GRACE_MS) => {
+    if (currentLockTimer) {
+      clearTimeout(currentLockTimer);
+    }
+    set((prev) => ({
+      internal: {
+        ...prev.internal,
+        currentLock: prev.internal.currentLock
+          ? { ...prev.internal.currentLock, untilTs: Date.now() + ms }
+          : null
       }
     }));
     currentLockTimer = setTimeout(() => {
@@ -574,12 +621,11 @@ export const usePlayer = create<PlayerState>((set, get) => {
     }, ms);
   };
 
-  // 有效时间：timeOverride 优先
+  // 有效时间：seek 在途时优先使用目标时间
   const getEffectiveTime = (): number => {
     const { internal } = get();
-    const now = Date.now();
     const ov = internal.timeOverride;
-    if (ov?.active && now < ov.untilTs) {
+    if (ov?.active) {
       return ov.time;
     }
     return internal.exactPlayTime;
@@ -657,21 +703,73 @@ export const usePlayer = create<PlayerState>((set, get) => {
   const getLogicalCountInternal = (): number => buildNavUnits().length;
   const getFocusedLogicalIndexInternal = (): number => findFocusedNavIndex();
 
-  // overdue：在覆盖窗口内直接放行
-  const isTimeOverdue = (lastSeekAt: number): boolean => {
-    const { onPlaySeekTime, timeOverride } = get().internal;
-    if (onPlaySeekTime) return false;
-    if (timeOverride?.active && Date.now() < timeOverride.untilTs) return true;
-    return Date.now() - lastSeekAt > OVERDUE_TIME;
+  /**
+   * 循环类模式的句末判定：用一个采样周期的提前量抵消 rAF 45ms 采样带来的"听到下一句开头"的过冲。
+   * 仅用于需要回跳的模式（瞬态计划 / 单句循环 / 悬停循环）；autoPause 与影跟读仍以句尾为准，避免吞字。
+   */
+  const LOOP_END_EPSILON_SEC = 0.06;
+  const reachedLoopEnd = (time: number, end: number, rate: number): boolean =>
+    time >= end - rate * LOOP_END_EPSILON_SEC;
+
+  /**
+   * 句末后处理：影子跟读留白 / 跳过句间空隙。
+   * 返回 true 表示本轮已产生暂停或跳转，不再继续回写高亮。
+   */
+  const handleSentenceTail = (skipGap: boolean): boolean => {
+    const state = get();
+    const { playing, currentSentence, shadowing, srtTender } = state;
+    if (!playing || !currentSentence || !srtTender) return false;
+    const effectiveTime = getEffectiveTime();
+    const { start, end } = srtTender.mapSeekTime(currentSentence);
+    if (effectiveTime <= end) return false;
+
+    if (shadowing && shadowedSentenceKey !== sentenceKey(currentSentence)) {
+      // 影子跟读：原地停在句尾暂停留白（供跟读），留白结束后再过渡到下一句续播
+      state.pause();
+      clearShadowTimer();
+      shadowedSentenceKey = sentenceKey(currentSentence);
+      // 留白时长按本句时长 × 留白倍率（默认 1.5），钳制在 0.5~15s
+      const ratio = useTrainingModeStore.getState().config.shadowingRatio || 1.5;
+      const pauseMs = Math.min(Math.max((end - start) * ratio * 1000, 500), 15000);
+      set({ shadowingPause: { durationMs: pauseMs, untilTs: Date.now() + pauseMs } });
+      // 暂停生效前播放头可能滑入下一句区间并触发一次时间回写，把高亮锁到留白结束以防字幕提前跳句
+      activateCurrentLock(currentSentence, pauseMs + 1500);
+      shadowTimer = setTimeout(() => {
+        shadowTimer = null;
+        set({ shadowingPause: null });
+        const s = get();
+        if (s.shadowing && !s.playing) {
+          if (useTrainingModeStore.getState().skipGap) {
+            // 跳过空隙：直接跳到下一句开头并继续播放
+            s.nextSentence();
+          } else {
+            // 不跳过空隙：原地恢复播放，让句间空隙自然播过去进入下一句
+            // （不走 startPlayback，避免 rewindOnResume 把播放头退回本句开头）
+            set((prev) => ({ playing: true, playRequestId: prev.playRequestId + 1 }));
+          }
+        }
+      }, pauseMs);
+      return true;
+    }
+
+    if (skipGap) {
+      // 正常连播但跳过空隙：已过当前句结尾且尚未到达下一句开头时，直接 seek 过去
+      const next = getNavUnitAtOffset(1);
+      if (next && effectiveTime < next.range.start) {
+        get().seekToTarget({ time: next.range.start, target: navUnitTarget(next.unit) });
+        return true;
+      }
+    }
+    return false;
   };
 
-  // 时间驱动：尾部预览 → 瞬态播放计划 → autoPause → singleRepeat → 悬停临时循环 → 影子跟读/跳过空隙 → 正常回写
+  // 时间驱动：尾部预览 → 练习片段 → 瞬态播放计划 → 句末模式 → 正常回写
   const onTimeUpdate = () => {
     const state = get();
-    const { playing, autoPause, singleRepeat, hoverRepeat, shadowing, sentenceLoop, currentSentence, srtTender, virtualGroup } = state;
+    const { playing, currentSentence, srtTender, sentenceLoop } = state;
     // 跳过句间空隙属于持久化的训练偏好，每轮实时读取以保证弹窗/菜单改动即时生效
     const skipGap = useTrainingModeStore.getState().skipGap;
-    const { lastSeekAt, tailPreview, currentLock, transientPlan } = state.internal;
+    const { seekInFlight, onPlaySeekTime, tailPreview, currentLock, transientPlan } = state.internal;
 
     // 1) 尾部预览优先
     if (tailPreview?.active) {
@@ -691,18 +789,19 @@ export const usePlayer = create<PlayerState>((set, get) => {
       return;
     }
 
-    // 1.5) 练习工坊受控试听区间：跳过 OVERDUE_TIME 阻塞并严格用 exactPlayTime 截断在句末
+    // 1.5) 练习工坊受控试听区间：严格用真实播放时间截断在句末
     if (clipStopBound) {
       if (!playing) {
         return;
       }
-      const now = Date.now();
-      const { start, end, anchor, settled, startedAt } = clipStopBound;
+      const { start, end, anchor } = clipStopBound;
+      // 落点未到达前不做任何截停判定：此时的播放时间仍属于 seek 之前的位置
+      if (seekInFlight) {
+        return;
+      }
       const t = state.internal.exactPlayTime;
-      if (!settled) {
-        const withinClip = t >= start - 0.25 && t < end;
-        const elapsed = now - startedAt;
-        if (withinClip || (elapsed > 220 && t >= start - 0.25 && t <= end + 1.5)) {
+      if (!clipStopBound.settled) {
+        if (t >= start - 0.25 && t < end) {
           clipStopBound.settled = true;
         } else {
           return;
@@ -725,9 +824,12 @@ export const usePlayer = create<PlayerState>((set, get) => {
       return;
     }
 
-    if (!srtTender || !isTimeOverdue(lastSeekAt)) return; // 保留 overdue 门控
+    if (!srtTender) return;
+    // seek 在途 / 自动暂停待续播：播放时间尚不代表"本句已播完"，不做任何句末判定
+    if (seekInFlight || onPlaySeekTime !== null) return;
 
     const effectiveTime = getEffectiveTime();
+    const rate = state.playbackRate || 1;
 
     // 2) 瞬态播放计划：覆盖一切全局模式
     if (transientPlan) {
@@ -762,7 +864,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         }
         return;
       }
-      if (playing && effectiveTime > transientPlan.range.end) {
+      if (playing && reachedLoopEnd(effectiveTime, transientPlan.range.end, rate)) {
         const done = transientPlan.loopDone + 1;
         if (done >= transientPlan.loopTotal) {
           if (sentenceLoop && !skipGap) {
@@ -806,122 +908,105 @@ export const usePlayer = create<PlayerState>((set, get) => {
       return;
     }
 
-    // 2.5) 常开逐句循环：模式开着但没有进行中的计划（切源/进度条拖动后清除），为当前句补开一轮
-    if (sentenceLoop && playing) {
-      beginSentencePlan(sentenceLoop, true);
-      return;
-    }
+    // 3) 句末模式：优先级由 sentence-end-mode 单点裁决，执行分支只负责各自副作用
+    const stage = resolveSentenceEndStage(
+      {
+        autoPause: state.autoPause,
+        singleRepeat: state.singleRepeat,
+        hoverRepeat: state.hoverRepeat,
+        shadowing: state.shadowing,
+      },
+      sentenceLoop !== null,
+    );
+    const { virtualGroup } = state;
 
-    // 3) AutoPause（整句模式在意群末尾暂停，否则基于当前句）
-    if (currentSentence && playing && autoPause) {
-      const block = getCurrentBlock();
-      const { start, end } = block
-        ? calcRangeForSentences(srtTender, block.sentences)
-        : srtTender.mapSeekTime(currentSentence);
-      if (effectiveTime > end) {
-        state.pause();
-        state.onPlaySeek(start);
-      }
-      return;
-    }
-
-    // 4) SingleRepeat：组优先（保留 overdue；单句冻结，虚拟组/意群块内允许高亮随时间移动）
-    if (playing && singleRepeat) {
-      const { start, end } = state.getLoopRange();
-      const focusInGroup = isFocusInVirtualGroup();
-      const block = getCurrentBlock();
-      const focusInBlock = block !== null;
-      if (effectiveTime > end) {
-        if (focusInGroup && virtualGroup.active && virtualGroup.sentences.length > 0) {
-          const first = virtualGroup.sentences.slice().sort((a, b) => a.index - b.index)[0];
-          state.seekToTarget({ time: start, target: first });
-        } else if (focusInBlock) {
-          // 整句模式：回到意群块首句，块内高亮随播放自然流动
-          state.seekToTarget({ time: start, target: block!.repr });
-        } else {
-          state.seekToTarget({ time: start, target: currentSentence ?? undefined });
-        }
-      }
-      // 仅在焦点位于虚拟组内时：允许高亮随时间在组内流动；单句循环保持冻结
-      if (focusInGroup && virtualGroup.active && virtualGroup.sentences.length > 0) {
-        const vgSet = new Set(virtualGroup.sentences.map((s) => `${s.fileHash}-${s.index}`));
-        const next = srtTender.getByTime(effectiveTime);
-        const nextKey = `${next.fileHash}-${next.index}`;
-        if (vgSet.has(nextKey) && next !== currentSentence) {
-          set({ currentSentence: next });
-        }
-      } else if (focusInBlock && block) {
-        const next = srtTender.getByTime(effectiveTime);
-        if (block.sentences.some((s) => s.key === next.key) && next !== currentSentence) {
-          set({ currentSentence: next });
-        }
-      }
-      return; // singleRepeat 分支到此结束（单句冻结 / 组内已更新）
-    }
-
-    // 5) 悬停临时单句循环：鼠标悬停主字幕胶囊区期间只循环当前句本身（不套用虚拟组），
-    //    离开胶囊区即还原；无当前句时不参与（避免反复 seek 0）
-    if (playing && hoverRepeat && currentSentence && srtTender) {
-      const { start, end } = srtTender.mapSeekTime(currentSentence);
-      if (effectiveTime > end) {
-        state.seekToTarget({ time: start, target: currentSentence });
-      }
-      return;
-    }
-
-    // 6) 句末处理：影子跟读 / 跳过句间空隙（均要求播放中且已越过当前句结尾）
-    if (playing && currentSentence) {
-      const { start, end } = srtTender.mapSeekTime(currentSentence);
-      if (effectiveTime > end) {
-        if (shadowing && shadowedSentenceKey !== sentenceKey(currentSentence)) {
-          // 影子跟读：原地停在句尾暂停留白（供跟读），留白结束后再过渡到下一句续播
-          state.pause();
-          clearShadowTimer();
-          shadowedSentenceKey = sentenceKey(currentSentence);
-          // 留白时长按本句时长 × 留白倍率（默认 1.5），钳制在 0.5~15s
-          const ratio = useTrainingModeStore.getState().config.shadowingRatio || 1.5;
-          const pauseMs = Math.min(Math.max((end - start) * ratio * 1000, 500), 15000);
-          set({ shadowingPause: { durationMs: pauseMs, untilTs: Date.now() + pauseMs } });
-          // 暂停生效前播放头可能滑入下一句区间并触发一次时间回写，把高亮锁到留白结束以防字幕提前跳句
-          activateCurrentLock(currentSentence, pauseMs + 1500);
-          shadowTimer = setTimeout(() => {
-            shadowTimer = null;
-            set({ shadowingPause: null });
-            const s = get();
-            if (s.shadowing && !s.playing) {
-              if (useTrainingModeStore.getState().skipGap) {
-                // 跳过空隙：直接跳到下一句开头并继续播放
-                s.nextSentence();
-              } else {
-                // 不跳过空隙：原地恢复播放，让句间空隙自然播过去进入下一句
-                // （不走 startPlayback，避免 rewindOnResume 把播放头退回本句开头）
-                set((prev) => ({ playing: true, playRequestId: prev.playRequestId + 1 }));
-              }
-            }
-          }, pauseMs);
+    switch (stage) {
+      // 常开逐句循环：模式开着但没有进行中的计划（切源/进度条拖动后清除），为当前句补开一轮
+      case 'sentenceLoop': {
+        if (playing) {
+          beginSentencePlan(sentenceLoop!, true);
           return;
         }
-        if (skipGap) {
-          // 正常连播但跳过空隙：已过当前句结尾且尚未到达下一句开头时，直接 seek 过去
-          const next = getNavUnitAtOffset(1);
-          if (next && effectiveTime < next.range.start) {
-            get().seekToTarget({ time: next.range.start, target: navUnitTarget(next.unit) });
-            return;
+        break;
+      }
+      // AutoPause（整句模式在意群末尾暂停，否则基于当前句）
+      case 'autoPause': {
+        if (currentSentence && playing) {
+          const block = getCurrentBlock();
+          const { start, end } = block
+            ? calcRangeForSentences(srtTender, block.sentences)
+            : srtTender.mapSeekTime(currentSentence);
+          if (effectiveTime > end) {
+            state.pause();
+            state.onPlaySeek(start);
           }
         }
+        return;
+      }
+      // SingleRepeat：组优先（单句冻结，虚拟组/意群块内允许高亮随时间移动）
+      case 'singleRepeat': {
+        if (playing) {
+          const { start, end } = state.getLoopRange();
+          const focusInGroup = isFocusInVirtualGroup();
+          const block = getCurrentBlock();
+          const focusInBlock = block !== null;
+          if (reachedLoopEnd(effectiveTime, end, rate)) {
+            if (focusInGroup && virtualGroup.active && virtualGroup.sentences.length > 0) {
+              const first = virtualGroup.sentences.slice().sort((a, b) => a.index - b.index)[0];
+              state.seekToTarget({ time: start, target: first });
+            } else if (focusInBlock) {
+              // 整句模式：回到意群块首句，块内高亮随播放自然流动
+              state.seekToTarget({ time: start, target: block!.repr });
+            } else {
+              state.seekToTarget({ time: start, target: currentSentence ?? undefined });
+            }
+          }
+          // 仅在焦点位于虚拟组内时：允许高亮随时间在组内流动；单句循环保持冻结
+          if (focusInGroup && virtualGroup.active && virtualGroup.sentences.length > 0) {
+            const vgSet = new Set(virtualGroup.sentences.map((s) => `${s.fileHash}-${s.index}`));
+            const next = srtTender.getByTime(effectiveTime);
+            const nextKey = `${next.fileHash}-${next.index}`;
+            if (vgSet.has(nextKey) && next !== currentSentence) {
+              set({ currentSentence: next });
+            }
+          } else if (focusInBlock && block) {
+            const next = srtTender.getByTime(effectiveTime);
+            if (block.sentences.some((s) => s.key === next.key) && next !== currentSentence) {
+              set({ currentSentence: next });
+            }
+          }
+        }
+        return;
+      }
+      // 悬停临时单句循环：鼠标悬停主字幕胶囊区期间只循环当前句本身（不套用虚拟组）
+      case 'hoverRepeat': {
+        if (playing && currentSentence) {
+          const { start, end } = srtTender.mapSeekTime(currentSentence);
+          if (reachedLoopEnd(effectiveTime, end, rate)) {
+            state.seekToTarget({ time: start, target: currentSentence });
+          }
+        }
+        return;
+      }
+      // 影子跟读 / 正常播放：共享"句末后处理 + 跳过空隙 + 回写"路径
+      case 'shadowing':
+      case 'off':
+      default: {
+        if (handleSentenceTail(skipGap)) {
+          return;
+        }
+        break;
       }
     }
 
     // 7) 正常模式：按时间回写 currentSentence（若当前未锁定）
-    if (!singleRepeat && !hoverRepeat && !autoPause) {
-      if (currentLock?.active && Date.now() < currentLock.untilTs) {
-        // 锁定期内，不回写，保持 UI 高亮为用户刚选中的句子
-        return;
-      }
-      const next = srtTender.getByTime(effectiveTime);
-      if (next !== currentSentence) {
-        set({ currentSentence: next });
-      }
+    if (currentLock?.active && Date.now() < currentLock.untilTs) {
+      // 锁定期内，不回写，保持 UI 高亮为用户刚选中的句子
+      return;
+    }
+    const next = srtTender.getByTime(effectiveTime);
+    if (next !== currentSentence) {
+      set({ currentSentence: next });
     }
   };
 
@@ -1051,7 +1136,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     internal: {
       exactPlayTime: 0,
       onPlaySeekTime: null,
-      lastSeekAt: 0,
+      seekInFlight: false,
       tailPreview: null,
       timeOverride: null,
       currentLock: null,
@@ -1061,7 +1146,6 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     // 源与字幕
     setSource: (src) => {
-      if (timeOverrideTimer) { clearTimeout(timeOverrideTimer); timeOverrideTimer = null; }
       if (currentLockTimer) { clearTimeout(currentLockTimer); currentLockTimer = null; }
       clearShadowTimer();
       clearTransientPlan();
@@ -1081,7 +1165,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         internal: {
           exactPlayTime: 0,
           onPlaySeekTime: null,
-          lastSeekAt: 0,
+          seekInFlight: false,
           tailPreview: null,
           timeOverride: null,
           currentLock: null,
@@ -1095,6 +1179,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
       clearTransientPlan();
       clearClipStopBound(false);
       shadowedSentenceKey = null;
+      // 换字幕/换视频意味着上一轮的 seek 契约全部作废，否则残留的在途标记会一直挡住时间驱动
+      if (currentLockTimer) { clearTimeout(currentLockTimer); currentLockTimer = null; }
       const srt = tender ?? new SrtTenderImpl(sentences);
       const indexing = buildIndexingCache(sentences);
 
@@ -1108,6 +1194,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
         virtualGroup: { active: false, sentences: [] },
         internal: {
           ...prev.internal,
+          seekInFlight: false,
+          timeOverride: null,
+          currentLock: null,
           indexing // 构建索引
         }
       }));
@@ -1220,28 +1309,31 @@ export const usePlayer = create<PlayerState>((set, get) => {
       clearTransientPlan();
       clearClipStopBound(true);
       shadowedSentenceKey = null;
+      if (currentLockTimer) { clearTimeout(currentLockTimer); currentLockTimer = null; }
       const srtTender = get().srtTender;
       const currentSeek = get().seekTime;
       const next = typeof seekTime === 'function' ? seekTime(currentSeek) : seekTime;
       const wantPlay = next.play ?? get().playing;
+      const requestId = ++seekRequestCounter;
 
       set((prev) => ({
         playing: wantPlay,
         playRequestId: wantPlay ? prev.playRequestId + 1 : prev.playRequestId,
-        seekTime: next,
+        seekTime: { ...next, requestId },
         currentSentence: srtTender ? srtTender.getByTime(next.time) : prev.currentSentence,
         internal: {
           ...prev.internal,
           onPlaySeekTime: null,
-          lastSeekAt: Date.now()
+          seekInFlight: true,
+          currentLock: null
         }
       }));
 
-      activateTimeOverride(next.time, SEEK_OVERRIDE_MS);
+      pinSeekTime(next.time);
     },
 
     /**
-     * 带目标句的 seek：立即设定 currentSentence + timeOverride + currentLock（上一句/下一句/跳转推荐入口）。
+     * 带目标句的 seek：立即设定 currentSentence + 落点前的时间覆盖 + 高亮锁定（上一句/下一句/跳转推荐入口）。
      * @param time 目标时间（秒）
      * @param target 目标句子，用于高亮锁定
      * @param play 是否在 seek 后继续播放
@@ -1271,12 +1363,47 @@ export const usePlayer = create<PlayerState>((set, get) => {
         end: safeEnd,
         anchor: target,
         restoreRate: options?.rate !== undefined ? restoreRate : null,
-        startedAt: Date.now(),
         settled: false,
         onEnded: options?.onEnded,
       };
-      const lockMs = Math.max((safeEnd - safeStart) * 1000 + 4000, 5000);
-      applyTargetedSeek({ time: safeStart, target, lockMs, play: true });
+      // 立即按目标句高亮；是否能截停由 seek 落点结算（resolveSeek）决定，不依赖请求时刻的墙钟
+      applyTargetedSeek({ time: safeStart, target, play: true });
+    },
+
+    /**
+     * seek 落点结算：唯一的"请求 → 落地"同步点。
+     *
+     * 清除在途标记与时间覆盖，把真实播放时间写回 exactPlayTime；
+     * 目标句锁定再保留一小段宽限，随后由时间回写接管。
+     * 若落在进行中的练习片段内，则结算片段（此后才允许按句尾截停）。
+     */
+    resolveSeek: (actualTime, requestId) => {
+      const state = get();
+      const currentRequestId = state.seekTime?.requestId;
+      // 过期落点（例如上一次 seek 的 seeked 迟到）：忽略，避免提前解除新一轮的覆盖
+      if (requestId !== undefined && currentRequestId !== undefined && requestId !== currentRequestId) {
+        return;
+      }
+      const hadLock = state.internal.currentLock?.active === true;
+      set((prev) => ({
+        internal: {
+          ...prev.internal,
+          seekInFlight: false,
+          timeOverride: null,
+          exactPlayTime: actualTime,
+        }
+      }));
+      if (clipStopBound && !clipStopBound.settled) {
+        if (actualTime >= clipStopBound.start - 0.4 && actualTime <= clipStopBound.end + 0.05) {
+          clipStopBound.settled = true;
+        }
+      }
+      // 锁定中的目标句保持不变，宽限期结束后再交给时间回写；无锁定时立即按落点校正高亮
+      if (hadLock) {
+        releaseCurrentLock();
+      } else {
+        onTimeUpdate();
+      }
     },
 
     clearPracticeClip: () => {
@@ -1755,11 +1882,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       if (currentSentence) return currentSentence;
       if (srtTender) {
         try {
-          const s = srtTender.getByTime(state.internal.timeOverride?.active
-            && Date.now() < (state.internal.timeOverride?.untilTs ?? 0)
-            ? (state.internal.timeOverride?.time ?? state.internal.exactPlayTime)
-            : state.internal.exactPlayTime
-          );
+          const s = srtTender.getByTime(getEffectiveTime());
           return s ?? null;
         } catch {
           return null;

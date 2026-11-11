@@ -11,8 +11,9 @@
  * 不读写 store、不产生副作用，便于单测与复用。`sentenceLoop` 在 store 里是对象
  * （携带遍数、倍速与基准倍速），因此以布尔参数 `loopActive` 参与判定。
  *
- * 注意：`hoverRepeat`（悬停临时循环）不属于本状态机。它是叠加在持久模式之上的
- * 瞬态覆盖层，鼠标离开即还原，不参与互斥。
+ * 注意：`hoverRepeat`（悬停临时循环）不属于「互斥」状态机，它是叠加在持久模式之上
+ * 的瞬态覆盖层，鼠标离开即还原；但它参与「句末先响应谁」的优先级裁决，
+ * 因此与三个持久模式一起列在 `SENTENCE_END_PRIORITY` 中。
  */
 
 /** 持久句末模式；`off` 表示不启用任何句末行为。 */
@@ -37,25 +38,55 @@ export interface SentenceEndModeFlags {
 }
 
 /**
- * 多个标志同时为真时的裁决顺序，**必须与引擎 `onTimeUpdate` 的判定顺序一致**。
+ * 句末处理的完整优先级（含瞬态覆盖层 `hoverRepeat`）。
  *
- * `playerStore.onTimeUpdate` 是唯一决定「句末到底发生什么」的地方，它按
- * 尾部预览 → 瞬态计划 → `sentenceLoop` → `autoPause` → `singleRepeat` →
- * `hoverRepeat` → `shadowing` 逐段 `if (...) return`。也就是说脏状态下
- * **先命中的那个分支赢**，`autoPause` 会压过 `singleRepeat`，而 `singleRepeat`
- * 又压过 `shadowing`。
+ * 这是**唯一一份**顺序定义：`deriveSentenceEndMode`（UI 读取"当前持久模式"）与
+ * `playerStore.onTimeUpdate`（执行）都从它派生，不再各自维护一份 if 链顺序。
  *
- * 本常量此前写成 `shadowing → singleRepeat → autoPause`，与引擎正好相反。
- * 后果不是「显示错一个标签」这么轻：任何按本函数渲染「当前模式」的 UI，
- * 在脏状态下都会显示一个**引擎并不会执行**的模式。既然这份文档把本函数当作
- * 「当前模式的唯一事实源」，顺序就必须跟引擎对齐。
- *
- * 注意 `hoverRepeat` 不在此列：它是叠加在持久模式之上的瞬态覆盖层，不参与互斥。
+ * 为什么 `hoverRepeat` 也在表里：它虽然是叠加在持久模式之上的瞬态覆盖层、
+ * 不参与互斥，但"句末到底先响应谁"仍有固定顺序——悬停循环必须压过影子跟读，
+ * 否则鼠标停在某句上时会被影跟读的暂停打断。
  */
-const MODE_PRIORITY: SentenceEndBooleanMode[] = ['autoPause', 'singleRepeat', 'shadowing'];
+export const SENTENCE_END_PRIORITY = ['autoPause', 'singleRepeat', 'hoverRepeat', 'shadowing'] as const;
+
+/** 句末处理阶段：持久模式、常开循环、瞬态悬停循环，或什么都不做。 */
+export type SentenceEndStage = Exclude<SentenceEndMode, 'off'> | 'hoverRepeat' | 'off';
+
+/** 参与句末裁决的完整标志集合。 */
+export interface SentenceEndStageFlags extends SentenceEndModeFlags {
+    /** 悬停临时单句循环（瞬态覆盖层，不参与互斥）。 */
+    hoverRepeat: boolean;
+}
+
+/**
+ * 由标志推导本轮到哪个阶段执行句末处理。
+ *
+ * `playerStore.onTimeUpdate` 直接消费本函数的结果，其 `switch` 分支只负责各阶段的副作用，
+ * 不再重复表达优先级。
+ *
+ * @param flags 句末处理标志集合。
+ * @param loopActive 常开逐句循环是否开启。
+ * @returns 本轮生效的阶段；无任何模式时为 `off`。
+ */
+export function resolveSentenceEndStage(
+    flags: SentenceEndStageFlags,
+    loopActive: boolean,
+): SentenceEndStage {
+    if (loopActive) {
+        return 'sentenceLoop';
+    }
+    for (const stage of SENTENCE_END_PRIORITY) {
+        if (flags[stage]) {
+            return stage;
+        }
+    }
+    return 'off';
+}
 
 /**
  * 由标志推导当前生效的持久句末模式。
+ *
+ * `hoverRepeat` 是瞬态覆盖层，不作为"当前模式"对外展示，因此在此视图中被跳过。
  *
  * @param flags 句末模式布尔标志。
  * @param loopActive 常开逐句循环是否开启。
@@ -68,8 +99,8 @@ export function deriveSentenceEndMode(
     if (loopActive) {
         return 'sentenceLoop';
     }
-    for (const mode of MODE_PRIORITY) {
-        if (flags[mode]) {
+    for (const mode of SENTENCE_END_PRIORITY) {
+        if (mode !== 'hoverRepeat' && flags[mode]) {
             return mode;
         }
     }
@@ -83,13 +114,15 @@ export function deriveSentenceEndMode(
  *
  * @param flags 句末模式布尔标志。
  * @param loopActive 常开逐句循环是否开启。
- * @returns 同时启用的模式超过一个时返回 true。
+ * @returns 同时启用的持久模式超过一个时返回 true。
  */
 export function hasSentenceEndModeConflict(
     flags: SentenceEndModeFlags,
     loopActive: boolean,
 ): boolean {
-    const enabledCount = MODE_PRIORITY.filter((mode) => flags[mode]).length + (loopActive ? 1 : 0);
+    const enabledCount =
+        SENTENCE_END_PRIORITY.filter((mode) => mode !== 'hoverRepeat' && flags[mode]).length +
+        (loopActive ? 1 : 0);
     return enabledCount > 1;
 }
 

@@ -13,13 +13,17 @@ import type { Sentence } from '@/common/types/SentenceC';
 import SubtitleLearningHints from './SubtitleLearningHints';
 import AdaptiveChineseLine from './AdaptiveChineseLine';
 import SceneCue from './SceneCue';
+import SubtitleLine from '@/fronted/features/player/components/subtitles/SubtitleLine';
 
-export default function MainSubtitle() {
+/** 全屏覆盖层的原文字幕气泡：半透明深色底 + 背景模糊，与面板内纯文本样式区分。 */
+const OVERLAY_LINE_CLASS = 'my-0 mx-10 py-1.5 px-4 bg-media-bg/60 backdrop-blur-xs text-media-fg rounded-lg shadow-lg';
+const OVERLAY_CORE_CLASS = 'text-media-fg media-text-shadow';
+
+export default function MainSubtitle({ variant = 'panel' }: { variant?: 'panel' | 'overlay' }) {
+    const isOverlay = variant === 'overlay';
     const logger = getRendererLogger('MainSubtitle');
     const sentence = usePlayerState((s) => s.currentSentence);
     const sentences = usePlayerState((s) => s.sentences);
-    const srtTender = usePlayerState((s) => s.srtTender);
-    const adjusted = Boolean(sentence && srtTender && srtTender.adjusted(sentence));
 
     const requestTranslation = useTranslation(state => state.requestTranslation);
     const engine = useTranslation(state => state.engine);
@@ -116,31 +120,38 @@ export default function MainSubtitle() {
 
     // 字幕轨道显隐：只在这里订阅展示值，切换入口在视频底部控制条
 
+    /** 中文行渲染器：面板内走理解度自适应中文行，全屏覆盖层走带气泡与来源徽章的字幕行。 */
+    const renderZhLine = (
+        key: string,
+        item: Sentence,
+        text: string,
+        order: 'second' | 'third',
+        source?: 'ai' | 'source',
+    ): ReactElement => isOverlay
+        ? <SubtitleLine key={key} text={text} order={order} source={source} />
+        : <AdaptiveChineseLine key={key} sentence={item} text={text} order={order} source={source} />;
+
     /** 渲染一行字幕的译文与源自带中文（整句模式用），按开关与有无依次输出。 */
     const renderZhLinesForBlock = (item: Sentence): ReactElement[] => {
         const lines: ReactElement[] = [];
         const translation = translations.get(item.translationKey) || '';
         if (showCn && StrUtil.isNotBlank(translation)) {
-            lines.push(
-                <AdaptiveChineseLine
-                    key={`block-translation-${item.key}`}
-                    sentence={item}
-                    text={translation}
-                    order="second"
-                    source={showSourceZh && StrUtil.isNotBlank(item.textZH) ? 'ai' : undefined}
-                />
-            );
+            lines.push(renderZhLine(
+                `block-translation-${item.key}`,
+                item,
+                translation,
+                'second',
+                showSourceZh && StrUtil.isNotBlank(item.textZH) ? 'ai' : undefined,
+            ));
         }
         if (showSourceZh && StrUtil.isNotBlank(item.textZH)) {
-            lines.push(
-                <AdaptiveChineseLine
-                    key={`block-sourceZh-${item.key}`}
-                    sentence={item}
-                    text={item.textZH!}
-                    order={lines.length === 0 ? 'second' : 'third'}
-                    source={showCn && StrUtil.isNotBlank(translation) ? 'source' : undefined}
-                />
-            );
+            lines.push(renderZhLine(
+                `block-sourceZh-${item.key}`,
+                item,
+                item.textZH!,
+                lines.length === 0 ? 'second' : 'third',
+                showCn && StrUtil.isNotBlank(translation) ? 'source' : undefined,
+            ));
         }
         return lines;
     };
@@ -158,14 +169,11 @@ export default function MainSubtitle() {
                 itemLines.push(
                     <div
                         key={`block-first-${item.key}`}
-                        className={cn('w-full shrink-0 transition-opacity', !active && 'opacity-50')}
+                        className={cn('w-full shrink-0 transition-opacity', isOverlay && 'flex justify-center', !active && 'opacity-50')}
                     >
                         <TranslatableLine
-                            variant="plain"
-                            adjusted={active ? adjusted : false}
-                            clearAdjust={active
-                                ? () => { void playerActions.clearAdjust(); }
-                                : () => {}}
+                            className={isOverlay ? OVERLAY_LINE_CLASS : undefined}
+                            coreClassName={isOverlay ? OVERLAY_CORE_CLASS : undefined}
                             sentence={item}
                         />
                     </div>
@@ -203,12 +211,11 @@ export default function MainSubtitle() {
             lines.push(
                 <div
                     key={`first-${sentence.key}`}
-                    className="w-full shrink-0"
+                    className={cn('w-full shrink-0', isOverlay && 'flex justify-center')}
                 >
                     <TranslatableLine
-                        variant="plain"
-                        adjusted={adjusted}
-                        clearAdjust={() => { void playerActions.clearAdjust(); }}
+                        className={isOverlay ? OVERLAY_LINE_CLASS : undefined}
+                        coreClassName={isOverlay ? OVERLAY_CORE_CLASS : undefined}
                         sentence={sentence}
                     />
                 </div>
@@ -219,28 +226,24 @@ export default function MainSubtitle() {
 
         // 2. 机器翻译 (次级，空间不足时优先被挤出/裁切)
         if (showCn && StrUtil.isNotBlank(newTranslation)) {
-            lines.push(
-                <AdaptiveChineseLine
-                    key={`translation-${sentence.key}`}
-                    sentence={sentence}
-                    text={newTranslation}
-                    order="second"
-                    source={hasMultipleZh ? 'ai' : undefined}
-                />
-            );
+            lines.push(renderZhLine(
+                `translation-${sentence.key}`,
+                sentence,
+                newTranslation,
+                'second',
+                hasMultipleZh ? 'ai' : undefined,
+            ));
         }
 
         // 3. 字幕自带中文 (次级)
         if (showSourceZh && StrUtil.isNotBlank(sentence.textZH)) {
-            lines.push(
-                <AdaptiveChineseLine
-                    key={`sourceZh-${sentence.key}`}
-                    sentence={sentence}
-                    text={sentence.textZH}
-                    order={lines.length === 1 ? 'second' : 'third'}
-                    source={hasMultipleZh ? 'source' : undefined}
-                />
-            );
+            lines.push(renderZhLine(
+                `sourceZh-${sentence.key}`,
+                sentence,
+                sentence.textZH!,
+                lines.length === 1 ? 'second' : 'third',
+                hasMultipleZh ? 'source' : undefined,
+            ));
         }
 
         return lines;
@@ -248,18 +251,21 @@ export default function MainSubtitle() {
 
     const render = () => {
         if (!sentence) {
-            return <div className="w-full h-full" />;
+            return <div className={isOverlay ? 'w-full' : 'w-full h-full'} />;
         }
         return (
             /* 场景提示固定在外层，不随字幕滚动；面板高度不够时改为滚动，绝不把最后一行裁掉。
                滚动条隐去，避免字幕区出现一条常驻灰条；内层 min-h-full 保证内容不满一屏时
                仍沿用原来的「中上黄金位置」留白。 */
-            <div className="relative h-full w-full">
-                <SceneCue sentences={sentences} currentSentence={sentence} />
+            <div className={cn('relative w-full', isOverlay ? 'max-h-[46vh] shrink-0' : 'h-full')}>
+                {!isOverlay && <SceneCue sentences={sentences} currentSentence={sentence} />}
                 <div
                     ref={subtitleContainerRef}
                     data-testid="main-subtitle-scroller"
-                    className="h-full w-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    className={cn(
+                        'w-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+                        isOverlay ? 'max-h-[46vh]' : 'h-full',
+                    )}
                 >
                     <div className="flex min-h-full w-full flex-col items-center justify-center px-8 py-3 text-center text-textColor select-none">
                         {/* 字幕内容区：受 py-3 保护，自然居中 */}
@@ -267,10 +273,13 @@ export default function MainSubtitle() {
                             ref={subtitleContentRef}
                             data-testid="main-subtitle-content"
                             data-subtitle-active={block ? undefined : 'true'}
-                            className="group/subtitle flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto"
+                            className={cn(
+                                'group/subtitle flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto',
+                                isOverlay && 'pointer-events-auto',
+                            )}
                         >
                             {ele()}
-                            <SubtitleLearningHints sentence={sentence} />
+                            {!isOverlay && <SubtitleLearningHints sentence={sentence} />}
                         </div>
                     </div>
                 </div>
