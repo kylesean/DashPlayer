@@ -101,6 +101,11 @@ interface ApiDefinition {
     'local-ai/cancel-download': { params: void, return: void };
     'local-ai/delete': { params: { modelId: string }, return: void };
     'local-ai/speed-test': { params: { modelId: string }, return: LocalAiSpeedTestResult };
+    'local-ai/embedding-status': {
+        params: void;
+        return: { ready: boolean; name: string; sizeLabel: string; bytes: number };
+    };
+    'local-ai/embedding-download': { params: void, return: void };
 }
 
 // 定义额外的接口
@@ -664,6 +669,8 @@ export const API_ROUTE_KEYS = [
     'local-ai/cancel-download',
     'local-ai/delete',
     'local-ai/download',
+    'local-ai/embedding-download',
+    'local-ai/embedding-status',
     'local-ai/speed-test',
     'local-ai/status',
     'local-ai/use',

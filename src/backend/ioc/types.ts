@@ -67,6 +67,8 @@ const TYPES = {
     LearningRecapService: Symbol('LearningRecapService'),
     MemoryMapService: Symbol('MemoryMapService'),
     ContentCompassService: Symbol('ContentCompassService'),
+    LocalEmbeddingRuntime: Symbol('LocalEmbeddingRuntime'),
+    TopicEmbeddingService: Symbol('TopicEmbeddingService'),
     DpTaskRepository: Symbol('DpTaskRepository'),
     VideoLearningClipRepository: Symbol('VideoLearningClipRepository'),
     VideoLearningClipWordRepository: Symbol('VideoLearningClipWordRepository'),

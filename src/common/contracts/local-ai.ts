@@ -48,6 +48,25 @@ export const LOCAL_AI_MODELS: readonly LocalAiModelDefinition[] = [
  */
 export const LOCAL_AI_DEFAULT_MODEL_ID = 'qwen3.5-2b-q4_k_m';
 
+/**
+ * 可选的本地语义向量模型。
+ *
+ * 与对话模型分开管理：它只服务于内容推荐的语义相似度，不能切换到聊天/翻译路径，
+ * 也不会出现在「使用中模型」里。未安装时推荐自动降级为词面相似度。
+ */
+export const LOCAL_EMBEDDING_MODEL: LocalAiModelDefinition = {
+    id: 'bge-small-en-v1.5-q8_0',
+    name: 'BGE Small EN v1.5 Q8_0',
+    file: 'bge-small-en-v1.5-q8_0.gguf',
+    bytes: 36806944,
+    sizeLabel: '35 MB',
+    urls: [
+        'https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf/resolve/main/bge-small-en-v1.5-q8_0.gguf',
+    ],
+    sha256: 'ec38e8da142596baa913124ae50550de284b6916bf59577ef2f0cb9660c2f514',
+    source: 'catalog',
+};
+
 /** 自定义模型 id 的固定前缀；后缀为模型目录根下的 GGUF 文件名。 */
 export const CUSTOM_MODEL_ID_PREFIX = 'custom:';
 

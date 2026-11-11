@@ -238,6 +238,10 @@ export const settingsApi = {
     deleteLocalAi: (modelId: string) => backendClient.call('local-ai/delete', { modelId }),
     /** 对指定本地模型执行稳态速度测试（两轮固定批量生成，取热身轮吞吐）。 */
     speedTestLocalAi: (modelId: string) => backendClient.call('local-ai/speed-test', { modelId }),
+    /** 查询可选的本地语义向量模型是否已安装。 */
+    getEmbeddingModelStatus: () => backendClient.call('local-ai/embedding-status'),
+    /** 下载并校验本地语义向量模型。 */
+    downloadEmbeddingModel: () => backendClient.call('local-ai/embedding-download'),
     /**
      * 下载 Sherpa TTS 模型。
      *

@@ -1,6 +1,7 @@
 import { Container } from 'inversify';
 import { LocalAiController } from '@/backend/controllers/LocalAiController';
 import { LocalAiRuntime } from '@/backend/infrastructure/ai/LocalAiRuntime';
+import { LocalEmbeddingRuntime } from '@/backend/infrastructure/ai/LocalEmbeddingRuntime';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import TYPES from './types';
 import type Controller from '@/backend/controllers/Controller';
@@ -122,6 +123,8 @@ import type LearningRecapService from '@/backend/services/LearningRecapService';
 import { LearningRecapServiceImpl } from '@/backend/services/LearningRecapService';
 import type ContentCompassService from '@/backend/services/ContentCompassService';
 import { ContentCompassServiceImpl } from '@/backend/services/ContentCompassService';
+import type TopicEmbeddingService from '@/backend/services/TopicEmbeddingService';
+import { TopicEmbeddingServiceImpl } from '@/backend/services/TopicEmbeddingService';
 import type MemoryMapService from '@/backend/services/MemoryMapService';
 import { MemoryMapServiceImpl } from '@/backend/services/MemoryMapService';
 import type SubtitleComprehensionService from '@/backend/services/SubtitleComprehensionService';
@@ -228,6 +231,8 @@ container.bind<Controller>(TYPES.Controller).to(YoutubeImportController).inSingl
 container.bind<Controller>(TYPES.Controller).to(WhisperCppModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(LocalAiController).inSingletonScope();
 container.bind<LocalAiService>(TYPES.LocalAiService).to(LocalAiRuntime).inSingletonScope();
+container.bind<LocalEmbeddingRuntime>(TYPES.LocalEmbeddingRuntime).to(LocalEmbeddingRuntime).inSingletonScope();
+container.bind<TopicEmbeddingService>(TYPES.TopicEmbeddingService).to(TopicEmbeddingServiceImpl).inSingletonScope();
 container.bind<ResourceFallbackService>(TYPES.ResourceFallbackService).to(ResourceFallbackServiceImpl).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SherpaTtsModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VocabularyController).inSingletonScope();
