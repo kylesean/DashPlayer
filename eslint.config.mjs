@@ -21,6 +21,12 @@ export default tseslint.config(
             '**/*.md',
             'dist/**',
             'build/**',
+            // Playwright 运行产物（trace viewer 等打包脚本），由 E2E 自动生成，不参与源码 lint
+            'qa/playwright-report/**',
+            'qa/playwright-report-packaged/**',
+            'qa/test-results/**',
+            'qa/test-results-packaged/**',
+            'qa/fixtures/media/**',
         ],
     },
     js.configs.recommended,
