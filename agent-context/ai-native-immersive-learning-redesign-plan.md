@@ -896,6 +896,26 @@ context_embeddings
 7. 写默认词表迁移测试与主/右文稿一致性测试。
 8. 用 Playwright 覆盖「新用户不出现默认词表下划线」和「状态切换实时生效」。
 
+#### 8.1 收尾记录（2026-11-12）
+
+上述 8 项已全部具备可验证证据：
+
+- `WordState` 状态机、`source/status` 字段与默认词表迁移由 `defaultVocabularySourceMigrationV1` 及对应测试覆盖。
+- 主字幕与右文稿共用 `Word` 组件与同一注释投影；新增一致性测试锁定「右文稿不得自行判定注释」。
+- 提示强度、认识/忽略动作与词卡说明已落地。
+- 补齐此前从未上报的两类事件：`hover`（按词与句 60 秒节流）与 `replay`（整句重播时只记内容词）。
+- 新增 Playwright 用例 `[SET-VOC-01]` / `[SET-VOC-02]`，覆盖新用户无默认词表下划线与状态切换后重新投影；用例文档见 `qa/test-cases/vocabulary-annotation.md`。
+
+同时修复一处会阻断新用户首次启动的缺陷：`seedDefaultVocabulary` 曾在 better-sqlite3
+同步事务里传入 async 回调，播种阶段直接抛「Transaction function cannot return a promise」，
+主窗口永不出现。现改为同步事务 + 显式 `.run()`，并抽出
+`src/backend/startup/defaultVocabularySeed.ts` 用真实内存库做回归测试。
+
+尚未包含：
+
+- `lookup` 事件仍无独立调用点；当前「打开词卡」与「查词」共用 `open`，避免同一动作重复计数。
+- 悬停节流为进程内状态，跨重启不保留；这是有意的，避免把一次浏览拆成多条长期证据。
+
 ## 9. 指标与实验
 
 ### 9.1 北极星指标

@@ -8,6 +8,12 @@ export interface ContentCompassRankCandidate {
     /** 用于同目录去重的键。 */
     directoryKey: string;
     comprehensionScore: number;
+    /**
+     * 与最近观看主题的相似度。
+     *
+     * 有本地 embedding 时是语义相似度；模型缺失时退化为词面余弦相似度。
+     * 两种来源共用同一个 0-1 区间，排序权重不变。
+     */
     interestScore: number;
     dueWords: string[];
     learningWords: string[];
@@ -22,6 +28,41 @@ export interface ContentCompassRankedCandidate extends ContentCompassRankCandida
 }
 
 const clamp01 = (value: number): number => Math.max(0, Math.min(1, value));
+
+/**
+ * 归一化向量，使余弦相似度退化为点积。
+ *
+ * @param values 原始分量。
+ * @returns L2 范数为 1 的向量；零向量原样返回。
+ */
+export const normalizeVector = (values: readonly number[]): number[] => {
+    let norm = 0;
+    for (const value of values) {
+        norm += value * value;
+    }
+    if (norm === 0) {
+        return values.slice();
+    }
+    const scale = 1 / Math.sqrt(norm);
+    return values.map((value) => value * scale);
+};
+
+/**
+ * 把多部近期视频的相似度合并为一个兴趣分。
+ *
+ * 取均值而不是最大值：只看一部最像的视频会让推荐反复围绕同一个主题，
+ * 均值更接近「最近的观看重心」。
+ *
+ * @param similarities 每部近期视频的相似度。
+ * @returns 0-1 的兴趣分；没有样本时为 0。
+ */
+export const aggregateInterestScore = (similarities: readonly number[]): number => {
+    if (similarities.length === 0) {
+        return 0;
+    }
+    const total = similarities.reduce((sum, value) => sum + clamp01(value), 0);
+    return total / similarities.length;
+};
 
 /**
  * 计算两个归一化词频向量的余弦相似度。

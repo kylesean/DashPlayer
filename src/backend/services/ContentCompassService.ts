@@ -18,6 +18,7 @@ import MatchSrt from '@/backend/utils/MatchSrt';
 import { ObjUtil } from '@/backend/utils/ObjUtil';
 import { analyzeWords } from '@/backend/utils/language/VocabularyMatcher';
 import {
+    aggregateInterestScore,
     lexicalSimilarity,
     rankContentCompassCandidates,
     type ContentCompassRankCandidate,
@@ -177,12 +178,12 @@ export class ContentCompassServiceImpl implements ContentCompassService {
             const otherVectors = recentVectors
                 .filter((entry) => entry.videoPath !== candidate.videoPath)
                 .map((entry) => entry.vector);
-            const interestScore = otherVectors.length === 0
-                ? 0
-                : otherVectors.reduce(
-                    (sum, vector) => sum + lexicalSimilarity(analysis.normalizedFrequency, vector),
-                    0,
-                ) / otherVectors.length;
+            // 兴趣分统一走「多部近期视频相似度的均值」，避免单部视频主导推荐。
+            // 词面向量维度各自独立，因此这里仍用 Map 口径的余弦相似度；
+            // 后续接入同维度 embedding 时，只需把相似度计算替换为 vectorSimilarity。
+            const interestScore = aggregateInterestScore(
+                otherVectors.map((vector) => lexicalSimilarity(analysis.normalizedFrequency, vector)),
+            );
             return {
                 id: candidate.record.id,
                 directoryKey: candidate.record.base_path,

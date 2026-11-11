@@ -23,6 +23,8 @@ export interface SideSentenceProps {
     sentence: Sentence;
     /** 点击行跳转回调。 */
     onClick: (sentence: Sentence) => void;
+    /** 点击「从头重播此句」按钮的回调；缺省时退化为普通跳转。 */
+    onReplay?: (sentence: Sentence) => void;
     /** 是否为当前正在播放的活跃句子。 */
     isCurrent: boolean;
     /** 是否开启单句循环模式。 */
@@ -91,6 +93,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
         {
             sentence,
             onClick,
+            onReplay,
             isCurrent,
             isRepeat,
             selectionState,
@@ -268,7 +271,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                                 type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    onClick(sentence);
+                                    (onReplay ?? onClick)(sentence);
                                 }}
                                 className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface/80 transition-colors cursor-pointer"
                                 title={t('sideSentence.replaySentence', { defaultValue: '从头重播此句' })}

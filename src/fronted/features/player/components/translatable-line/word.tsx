@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
     useFloating,
     autoUpdate,
@@ -37,6 +37,7 @@ import {
     type WordStatus,
 } from '@/common/types/vocabulary';
 import { resolveVocabularyAnnotation } from '@/fronted/features/player/vocabularyAnnotations';
+import { shouldRecordEncounter } from './encounterThrottle';
 
 const logger = getRendererLogger('Word');
 
@@ -144,7 +145,6 @@ export default function Word({
     const [playLoading, setPlayLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [statusSaving, setStatusSaving] = useState(false);
-    const lastOpenEncounterAt = useRef(0);
     // 收藏状态：idle 未收藏；saving 提交中；saved 已加入收藏
     const [favoriteState, setFavoriteState] = useState<'idle' | 'saving' | 'saved'>('idle');
 
@@ -174,13 +174,17 @@ export default function Word({
     /**
      * 记录一次单词遭遇；失败只写日志，不影响查词/播放主流程。
      */
-    const recordEncounter = (action: 'open' | 'save' | 'known' | 'ignore') => {
+    const recordEncounter = (action: 'hover' | 'open' | 'save' | 'known' | 'ignore') => {
         if (action === 'open') {
-            const now = Date.now();
-            if (now - lastOpenEncounterAt.current < 5_000) {
+            if (!shouldRecordEncounter('open', cleanWord)) {
                 return;
             }
-            lastOpenEncounterAt.current = now;
+        }
+        if (action === 'hover') {
+            const hoverKey = `${cleanWord}:${sentenceHash ?? ''}`;
+            if (!shouldRecordEncounter('hover', hoverKey)) {
+                return;
+            }
         }
         const session = usePlaybackSession.getState();
         void videoLearningApi.recordWordEncounter({
@@ -433,6 +437,7 @@ export default function Word({
         role: 'button',
         tabIndex: 0,
         onMouseEnter: (e: React.MouseEvent) => {
+            recordEncounter('hover');
             // 用户开启了悬浮暂停设置或正在按住 Alt 时暂停播放
             if (pauseOnWordHover || e.altKey) {
                 pause();
@@ -459,6 +464,7 @@ export default function Word({
         <span className="inline" data-word="true">
             <span {...referenceProps} data-word="true">
                 <span
+                    data-vocab-annotation={annotationKind ?? undefined}
                     className={cn(
                         'rounded select-text transition-all duration-150',
                         !show && ['text-transparent', Style.word_hover_bg],

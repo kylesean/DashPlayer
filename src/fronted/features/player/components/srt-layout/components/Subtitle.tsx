@@ -27,6 +27,10 @@ import useSetting from '@/fronted/features/settings/settingsStore';
 import useTranslation, { EMPTY_TRANSLATIONS } from '@/fronted/features/player/translationStore';
 import { exitOverlayView } from '@/fronted/features/player/lib/player-view-controller';
 import type { Sentence } from '@/common/types/SentenceC';
+import { splitWords, isWordToken, cleanWord } from '@/common/utils/subtitle';
+import { isContentLemma } from '@/common/learning/contentWords';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
+import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 
 const VIRTUOSO_COMPONENTS = {
     Footer: () => <div className="h-28" />,
@@ -54,6 +58,38 @@ export default function Subtitle() {
         })),
     );
     const { setBoundaryRef } = useBoundary();
+
+    /**
+     * 上报一次整句重播：按句内实际词形记录，供后续「重听」学习信号使用。
+     *
+     * 只记录内容词，虚词重听通常不携带学习价值；失败只影响证据，不影响播放。
+     */
+    const recordReplay = useCallback((target: Sentence) => {
+        const session = usePlaybackSession.getState();
+        const sentenceHash = `${target.fileHash}:${target.index}`;
+        const reported = new Set<string>();
+        for (const token of splitWords(target.text)) {
+            if (!isWordToken(token)) {
+                continue;
+            }
+            const word = cleanWord(token);
+            if (!word || reported.has(word) || !isContentLemma(word)) {
+                continue;
+            }
+            reported.add(word);
+            void videoLearningApi.recordWordEncounter({
+                word,
+                action: 'replay',
+                videoId: session.videoId ?? undefined,
+                fileHash: session.srtHash ?? undefined,
+                sentenceIndex: target.index,
+                sentenceHash,
+                context: target.text,
+            }).catch(() => {
+                // 重播证据属于增强信号，写入失败不打断播放。
+            });
+        }
+    }, []);
 
     const scrollerRef = useRef<HTMLElement | Window | null>(null);
     /** 卸载当前滚动容器上用户输入监听的函数；容器（重）挂载时先卸载旧监听 */
@@ -554,6 +590,17 @@ export default function Subtitle() {
                             delaySetNormal();
                         }
                     }}
+                    onReplay={(targetSentence) => {
+                        recordReplay(targetSentence || item);
+                        playerActions.clearVirtualGroup();
+                        if (useChatPanel.getState().learningVisible) {
+                            exitOverlayView();
+                        }
+                        playerActions.gotoSentence(targetSentence || item);
+                        if (scrollState === 'USER_BROWSING') {
+                            delaySetNormal();
+                        }
+                    }}
                     isCurrent={isCurrent}
                     isRepeat={singleRepeat || hoverRepeat}
                     searchQuery={searchQuery}
@@ -596,6 +643,7 @@ export default function Subtitle() {
         activeMatchedSentenceIndex,
         scrollState,
         delaySetNormal,
+        recordReplay,
     ]);
 
     return (
