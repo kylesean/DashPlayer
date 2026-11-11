@@ -12,7 +12,8 @@ vi.mock('electron', () => ({
 
 import { Workbook } from 'exceljs';
 import type { Worksheet } from 'exceljs';
-import { parseImportedWords, VocabularyServiceImpl } from '@/backend/services/VocabularyService';
+import { parseImportedWords } from '@/backend/services/VocabularySpreadsheet';
+import { VocabularyServiceImpl } from '@/backend/services/VocabularyService';
 import { normalizeCellValue } from '@/backend/utils/spreadsheet-cell';
 import type AiProviderService from '@/backend/services/AiProviderService';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
