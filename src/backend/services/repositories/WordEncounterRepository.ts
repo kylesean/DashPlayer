@@ -1,5 +1,6 @@
 import type { InsertWordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import type { ReviewRating } from '@/common/types/review';
+import type { WordEncounterAction } from '@/common/types/vocabulary';
 
 /**
  * 复习窗口统计所需的一行结果。
@@ -7,6 +8,15 @@ import type { ReviewRating } from '@/common/types/review';
 export interface ReviewOutcome {
     rating: ReviewRating | null;
     score: number | null;
+}
+
+/**
+ * 推荐评分所需的一条轻量行为记录。
+ */
+export interface EncounterActionRow {
+    lemma: string;
+    action: WordEncounterAction;
+    createdAt: string;
 }
 
 /**
@@ -24,4 +34,14 @@ export default interface WordEncounterRepository {
      * 查询某时间之后的复习结果。
      */
     listReviewOutcomesSince(since: string): Promise<ReviewOutcome[]>;
+
+    /**
+     * 查询某时间之后指定动作的轻量行为记录。
+     *
+     * 用于推荐评分中的「之前查过 / 收藏过 / 忽略过」，避免逐词查询事件表。
+     */
+    listActionsSince(
+        since: string,
+        actions: readonly WordEncounterAction[],
+    ): Promise<EncounterActionRow[]>;
 }

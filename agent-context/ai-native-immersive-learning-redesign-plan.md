@@ -1,6 +1,6 @@
 # DashPlayer AI-native 沉浸式学习重构方案
 
-> 状态：R0–R1 已实施，R2–R3 待推进
+> 状态：R0–R1 已完成，R2 第一阶段（上下文建议）已落地，R2 其余项与 R3 待推进
 > 日期：2026-11-12
 > 范围：播放器、字幕、生词、句子学习、跟读/听写、AI 学习页
 > 一句话：把 DashPlayer 从「视频播放器 + 学习工具」重构为「内容 × 上下文 × 学习者记忆」的沉浸式学习系统。
@@ -514,6 +514,36 @@ context_embeddings
 - 关闭 AI/断网时，播放器和本地标注正常工作。
 - 推荐密度不会破坏阅读体验。
 - 每条建议都能说明理由。
+
+#### R2 第一阶段实施记录（2026-11-12）
+
+已落地：
+
+- 每句话生成本地确定性 ContextPack：分词、词表命中、复习到期、历史查词/收藏和考纲标签共同参与候选评分。
+- 教练模式每句最多展示 1 个建议，位于字幕下方而不是正文内；关闭和安静模式不请求建议。
+- 建议展示稳定理由代码，前端按语言渲染「为什么是它」；不使用 LLM，不依赖网络。
+- 密度约束包含最低分数、全局 90 秒冷却、同词 10 分钟冷却、新词忽略后 14 天抑制。
+- 展示、展开、加入学习和忽略都会写入 WordEncounter，作为后续个性化反馈证据。
+- 已在学习清单的词显示「已在学习清单」，不重复提供「加入学习」；「先忽略」只隐藏当前句建议，不改变用户词表状态。
+
+核心实现：
+
+- `src/common/types/contextPack.ts`、`src/common/learning/contextRecommendation.ts`
+- `src/backend/services/ContextPackService.ts`
+- `src/common/api/api-def.ts` 的 `vocabulary/context-pack`
+- `src/fronted/features/player/components/srt-layout/ContextSuggestionChip.tsx`
+
+验证：
+
+- 推荐评分、ContextPack 服务和建议 chip 的定向测试共 16 项通过。
+- R2 涉及文件定向 ESLint 通过。
+
+尚未包含：
+
+- 自适应中文字幕。
+- LLM 词卡增强、摘要与复述。
+- 句子/视频 embedding、内容指南针。
+- 推荐接受率、忽略率和 7 天回忆率的聚合看板；当前先落事件证据，指标聚合留到下一阶段。
 
 ### R3：沉浸式学习 OS（6–8 周）
 

@@ -122,7 +122,7 @@
         "pauseOnWordHover": "Pause on word hover",
         "pauseOnWordHoverHint": "Automatically pause video playback when hovering over a subtitle word. When disabled, holding Alt or clicking still pauses.",
         "vocabularyGuidance": "Vocabulary guidance",
-        "vocabularyGuidanceHint": "Controls how many learning marks appear in the subtitle; system suggestions never paint directly onto the text.",
+        "vocabularyGuidanceHint": "Controls learning marks in the subtitle; Coach shows at most one explained suggestion per sentence, never painted onto the text.",
         "vocabularyGuidanceOff": "Off",
         "vocabularyGuidanceCalm": "Calm",
         "vocabularyGuidanceCoach": "Coach",
@@ -334,6 +334,28 @@
         "loadFailed": "Couldn't load this session's learning data",
         "retry": "Retry",
         "loading": "Summarizing this session…"
+    },
+    "contextSuggestion": {
+        "dismiss": "Dismiss this suggestion",
+        "why": "Why this word",
+        "ignore": "Not now",
+        "favorite": "Add to learning",
+        "favorited": "Added to learning",
+        "alreadyLearning": "Already in learning",
+        "favoriteFailed": "Couldn't add this word",
+        "ignored": "Hidden for this sentence",
+        "ignoreFailed": "Couldn't dismiss this suggestion",
+        "reasons": {
+            "due_now": "Due for review now",
+            "due_soon": "Approaching the forgetting zone",
+            "learning": "Already on your learning list",
+            "needs_reinforcement": "Memory still settling",
+            "previously_looked_up": "You looked it up before",
+            "saved_before": "You saved it before",
+            "exam_core": "High-value exam core word",
+            "stretch_word": "A useful stretch word",
+            "useful_new_word": "Useful word in this sentence"
+        }
     },
     "layout": {
         "resetSplitHint": "Double-click either divider to reset the default split"

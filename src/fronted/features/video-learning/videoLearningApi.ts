@@ -1,6 +1,7 @@
 import type { SimpleClipQuery } from '@/common/api/dto';
 import type { ClipMeta } from '@/common/types/clipMeta';
 import type { ReviewRating } from '@/common/types/review';
+import type { ContextPackParams } from '@/common/types/contextPack';
 import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import { requestVideoThumbnail } from '@/fronted/lib/video-thumbnail';
 
@@ -107,6 +108,15 @@ export const videoLearningApi = {
         score?: number;
         rating?: ReviewRating;
     }) => backendClient.call('vocabulary/record-encounter', params),
+
+    /**
+     * 获取当前句子的上下文建议。
+     *
+     * @param params 句子、播放定位与提示强度。
+     * @returns ContextPack 与唯一建议。
+     */
+    contextPack: (params: ContextPackParams) =>
+        backendClient.call('vocabulary/context-pack', params),
 
     /**
      * 获取当前到期的复习队列与回忆统计。

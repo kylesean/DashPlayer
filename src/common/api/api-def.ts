@@ -21,6 +21,7 @@ import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
 import type {VideoLearningClipPage} from '@/common/types/vo/VideoLearningClipVO';
 import type { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 import type { SentenceVocabularyVO } from '@/common/types/vo/SentenceVocabularyVO';
+import type { ContextPackParams, ContextPackVO } from '@/common/types/contextPack';
 import type {
     WordEncounterAction,
     WordStatus,
@@ -426,6 +427,10 @@ interface VocabularyDef {
     'vocabulary/pick-sentence': {
         params: { text: string },
         return: SentenceVocabularyVO
+    };
+    'vocabulary/context-pack': {
+        params: ContextPackParams,
+        return: ContextPackVO
     };
 }
 

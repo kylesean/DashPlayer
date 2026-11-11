@@ -1,4 +1,4 @@
-import { and, eq, gte } from 'drizzle-orm';
+import { and, eq, gte, inArray } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 
 import type { Db } from '@/backend/infrastructure/db/createDb';
@@ -8,7 +8,11 @@ import {
 } from '@/backend/infrastructure/db/tables/wordEncounter';
 import TYPES from '@/backend/ioc/types';
 import type WordEncounterRepository from '@/backend/services/repositories/WordEncounterRepository';
-import type { ReviewOutcome } from '@/backend/services/repositories/WordEncounterRepository';
+import type {
+    EncounterActionRow,
+    ReviewOutcome,
+} from '@/backend/services/repositories/WordEncounterRepository';
+import type { WordEncounterAction } from '@/common/types/vocabulary';
 
 /**
  * 单词遭遇事件 SQLite 仓储。
@@ -37,6 +41,26 @@ export default class WordEncounterRepositoryImpl implements WordEncounterReposit
             .where(and(
                 eq(wordEncounter.action, 'review'),
                 gte(wordEncounter.created_at, since),
+            ));
+    }
+
+    public async listActionsSince(
+        since: string,
+        actions: readonly WordEncounterAction[],
+    ): Promise<EncounterActionRow[]> {
+        if (actions.length === 0) {
+            return [];
+        }
+        return this.db
+            .select({
+                lemma: wordEncounter.lemma,
+                action: wordEncounter.action,
+                createdAt: wordEncounter.created_at,
+            })
+            .from(wordEncounter)
+            .where(and(
+                gte(wordEncounter.created_at, since),
+                inArray(wordEncounter.action, [...actions]),
             ));
     }
 }

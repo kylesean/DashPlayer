@@ -9,12 +9,15 @@ import {
     type UpdateWordStateParams,
 } from '@/backend/services/VocabularyService';
 import type SentenceVocabularyService from '@/backend/services/SentenceVocabularyService';
+import type ContextPackService from '@/backend/services/ContextPackService';
 import type WordEncounterService from '@/backend/services/WordEncounterService';
 import type { SentenceVocabularyVO } from '@/common/types/vo/SentenceVocabularyVO';
+import type { ContextPackParams } from '@/common/types/contextPack';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import { nonEmptyStringSchema, positiveIntSchema } from '@/backend/controllers/ipc/routeSchemas';
 import {
     WORD_ENCOUNTER_ACTIONS,
+    VOCABULARY_GUIDANCE_LEVELS,
     WORD_STATUSES,
     type WordEncounterInput,
 } from '@/common/types/vocabulary';
@@ -30,11 +33,13 @@ export default class VocabularyController implements Controller {
      *
      * @param vocabularyService 生词本业务服务。
      * @param sentenceVocabularyService 句子生词筛选服务。
+     * @param contextPackService 上下文建议服务。
      * @param wordEncounterService 单词遭遇事件服务。
      */
     constructor(
         @inject(TYPES.VocabularyService) private readonly vocabularyService: VocabularyService,
         @inject(TYPES.SentenceVocabularyService) private readonly sentenceVocabularyService: SentenceVocabularyService,
+        @inject(TYPES.ContextPackService) private readonly contextPackService: ContextPackService,
         @inject(TYPES.WordEncounterService) private readonly wordEncounterService: WordEncounterService,
     ) {}
 
@@ -92,6 +97,16 @@ export default class VocabularyController implements Controller {
      */
     public async pickSentenceVocabulary(params: { text: string }): Promise<SentenceVocabularyVO> {
         return this.sentenceVocabularyService.pick(params.text);
+    }
+
+    /**
+     * 生成一句话的上下文建议。
+     *
+     * @param params 句子、播放定位与提示强度。
+     * @returns 候选评分与唯一建议。
+     */
+    public async buildContextPack(params: ContextPackParams) {
+        return this.contextPackService.build(params);
     }
 
     registerRoutes(): void {
@@ -159,6 +174,14 @@ export default class VocabularyController implements Controller {
         });
         registerRoute('vocabulary/pick-sentence', (p) => this.pickSentenceVocabulary(p), {
             schema: z.object({ text: z.string() }),
+        });
+        registerRoute('vocabulary/context-pack', (p) => this.buildContextPack(p), {
+            schema: z.object({
+                text: z.string().min(1).max(2000),
+                fileHash: z.string().min(1).optional(),
+                sentenceIndex: z.number().int().nonnegative().optional(),
+                guidance: z.enum(VOCABULARY_GUIDANCE_LEVELS),
+            }),
         });
     }
 }
