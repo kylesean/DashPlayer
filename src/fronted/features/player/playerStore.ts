@@ -199,6 +199,18 @@ interface PlayerState {
   // 新：带目标句的 seek，立即设定 currentSentence + timeOverride + currentLock（推荐用于上一句/下一句/跳转）
   seekToTarget: (opts: { time: number; target?: Sentence; overrideMs?: number; lockMs?: number; play?: boolean }) => void;
 
+  /**
+   * 练习片段受控播放：仅在 `[range.start, range.end]` 区间内试听当前练习单元，
+   * 到达句尾时精确暂停并锁死 `currentSentence` 不滑向下一句；中断或结束时自动恢复原倍速。
+   */
+  playPracticeClip: (
+    range: { start: number; end: number },
+    target: Sentence,
+    options?: { rate?: number; onEnded?: () => void },
+  ) => void;
+  /** 取消受控片段播放并恢复暂存倍速。 */
+  clearPracticeClip: () => void;
+
   setDuration: (duration: number) => void;
   setMuted: (muted: boolean) => void;
   setVolume: (volume: number) => void;
@@ -277,6 +289,18 @@ let currentLockTimer: ReturnType<typeof setTimeout> | null = null;
 let shadowTimer: ReturnType<typeof setTimeout> | null = null;
 // 影子跟读：已给过留白的句子 key；防止留白结束自然续播时，在句间空隙内再次触发暂停（手动跳转/切源/模式开关时重置）
 let shadowedSentenceKey: string | null = null;
+
+/** 练习工坊单句/块试听的硬停区间约束。 */
+interface ClipStopBound {
+  start: number;
+  end: number;
+  anchor: Sentence;
+  restoreRate: number | null;
+  startedAt: number;
+  settled: boolean;
+  onEnded?: () => void;
+}
+let clipStopBound: ClipStopBound | null = null;
 
 export const usePlayer = create<PlayerState>((set, get) => {
   // 工具：句子 key
@@ -399,6 +423,44 @@ export const usePlayer = create<PlayerState>((set, get) => {
     if (get().shadowingPause) {
       set({ shadowingPause: null });
     }
+  };
+
+  const clearClipStopBound = (restoreRate = true) => {
+    const activeBound = clipStopBound;
+    clipStopBound = null;
+    if (restoreRate && activeBound && activeBound.restoreRate !== null && get().playbackRate !== activeBound.restoreRate) {
+      set({ playbackRate: activeBound.restoreRate });
+    }
+  };
+
+  const applyTargetedSeek = ({
+    time,
+    target,
+    overrideMs = SEEK_OVERRIDE_MS,
+    lockMs = CURRENT_LOCK_MS,
+    play = true,
+  }: {
+    time: number;
+    target?: Sentence;
+    overrideMs?: number;
+    lockMs?: number;
+    play?: boolean;
+  }) => {
+    clearShadowTimer();
+    shadowedSentenceKey = null;
+    set((prev) => ({
+      playing: play,
+      playRequestId: play ? prev.playRequestId + 1 : prev.playRequestId,
+      seekTime: { time, play },
+      currentSentence: target ?? prev.currentSentence,
+      internal: {
+        ...prev.internal,
+        onPlaySeekTime: null,
+        lastSeekAt: Date.now(),
+      },
+    }));
+    activateTimeOverride(time, overrideMs);
+    activateCurrentLock(target, lockMs);
   };
 
   /**
@@ -627,6 +689,40 @@ export const usePlayer = create<PlayerState>((set, get) => {
           startTime = srtTender.mapSeekTime(target).start;
         }
         state.seekToTarget({ time: startTime, target: target ?? undefined });
+      }
+      return;
+    }
+
+    // 1.5) 练习工坊受控试听区间：跳过 OVERDUE_TIME 阻塞并严格用 exactPlayTime 截断在句末
+    if (clipStopBound) {
+      if (!playing) {
+        return;
+      }
+      const now = Date.now();
+      const { start, end, anchor, settled, startedAt } = clipStopBound;
+      const t = state.internal.exactPlayTime;
+      if (!settled) {
+        const withinClip = t >= start - 0.25 && t < end;
+        const elapsed = now - startedAt;
+        if (withinClip || (elapsed > 220 && t >= start - 0.25 && t <= end + 1.5)) {
+          clipStopBound.settled = true;
+        } else {
+          return;
+        }
+      }
+      if (clipStopBound.settled && t >= end) {
+        const onEnded = clipStopBound.onEnded;
+        clearClipStopBound(true);
+        set((prev) => ({
+          playing: false,
+          currentSentence: anchor,
+          internal: { ...prev.internal, onPlaySeekTime: start },
+        }));
+        onEnded?.();
+        return;
+      }
+      if (currentSentence !== anchor) {
+        set({ currentSentence: anchor });
       }
       return;
     }
@@ -964,6 +1060,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       if (currentLockTimer) { clearTimeout(currentLockTimer); currentLockTimer = null; }
       clearShadowTimer();
       clearTransientPlan();
+      clearClipStopBound(false);
       shadowedSentenceKey = null;
       set({
         src,
@@ -991,6 +1088,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     loadSubtitles: (sentences, tender) => {
       clearTransientPlan();
+      clearClipStopBound(false);
       shadowedSentenceKey = null;
       const srt = tender ?? new SrtTenderImpl(sentences);
       const indexing = buildIndexingCache(sentences);
@@ -1049,6 +1147,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     clearSubtitles: () => {
       clearTransientPlan();
       clearShadowTimer();
+      clearClipStopBound(false);
       shadowedSentenceKey = null;
       set((prev) => ({
         srtTender: null,
@@ -1076,6 +1175,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
      */
     pause: () => {
       clearShadowTimer();
+      clearClipStopBound(true);
       set({ playing: false });
     },
 
@@ -1088,6 +1188,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         startPlayback();
       } else {
         clearShadowTimer();
+        clearClipStopBound(true);
         set({ playing: false });
       }
     },
@@ -1104,6 +1205,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     seekTo: (seekTime) => {
       clearShadowTimer();
       clearTransientPlan();
+      clearClipStopBound(true);
       shadowedSentenceKey = null;
       const srtTender = get().srtTender;
       const currentSeek = get().seekTime;
@@ -1131,22 +1233,41 @@ export const usePlayer = create<PlayerState>((set, get) => {
      * @param target 目标句子，用于高亮锁定
      * @param play 是否在 seek 后继续播放
      */
-    seekToTarget: ({ time, target, overrideMs = SEEK_OVERRIDE_MS, lockMs = CURRENT_LOCK_MS, play = true }) => {
-      clearShadowTimer();
-      shadowedSentenceKey = null;
-      set((prev) => ({
-        playing: play,
-        playRequestId: play ? prev.playRequestId + 1 : prev.playRequestId,
-        seekTime: { time, play },
-        currentSentence: target ?? prev.currentSentence, // 直接设目标句
-        internal: {
-          ...prev.internal,
-          onPlaySeekTime: null,
-          lastSeekAt: Date.now()
-        }
-      }));
-      activateTimeOverride(time, overrideMs);
-      activateCurrentLock(target, lockMs);
+    seekToTarget: (opts) => {
+      clearClipStopBound(true);
+      applyTargetedSeek(opts);
+    },
+
+    playPracticeClip: (range, target, options) => {
+      const safeStart = Math.max(0, range.start);
+      const safeEnd = Math.max(safeStart + 0.15, range.end);
+      const prevRestore = clipStopBound?.restoreRate ?? null;
+      clearTransientPlan();
+      clearTailPreview();
+      // 连按慢速试听时沿用最初保存的正常倍速,避免恢复错基准
+      const restoreRate = options?.rate !== undefined
+        ? (prevRestore ?? get().playbackRate)
+        : prevRestore;
+      if (options?.rate !== undefined) {
+        set({ playbackRate: options.rate });
+      } else if (restoreRate !== null && get().playbackRate !== restoreRate) {
+        set({ playbackRate: restoreRate });
+      }
+      clipStopBound = {
+        start: safeStart,
+        end: safeEnd,
+        anchor: target,
+        restoreRate: options?.rate !== undefined ? restoreRate : null,
+        startedAt: Date.now(),
+        settled: false,
+        onEnded: options?.onEnded,
+      };
+      const lockMs = Math.max((safeEnd - safeStart) * 1000 + 4000, 5000);
+      applyTargetedSeek({ time: safeStart, target, lockMs, play: true });
+    },
+
+    clearPracticeClip: () => {
+      clearClipStopBound(true);
     },
 
     setDuration: (duration) => set({ duration }),

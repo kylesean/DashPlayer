@@ -5,9 +5,9 @@ import PodcastViewer from '@/fronted/features/player/components/subtitles/Podcas
 import MainSubtitle from './MainSubtitle';
 import Subtitle from './components/Subtitle';
 import LearningToolbar from '@/fronted/features/player/components/learning-toolbar/LearningToolbar';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ImperativePanelGroupHandle } from 'react-resizable-panels';
-import { BookOpen, PanelBottomOpen } from 'lucide-react';
+import { BookOpen, EyeOff, PanelBottomOpen } from 'lucide-react';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
@@ -21,7 +21,6 @@ import PlaybackEmptyState from './EmptyState';
 import LearningPage from '@/fronted/features/chat/LearningPage';
 import useChatPanel from '@/fronted/features/chat/chatStore';
 import PracticePanel from '@/fronted/features/practice/PracticePanel';
-import PracticeModeButton from '@/fronted/features/player/components/srt-layout/PracticeModeButton';
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import LearningModeButton from './LearningModeButton';
 import SubtitleGenerationPanel from './SubtitleGenerationPanel';
@@ -51,8 +50,18 @@ const PlaybackLayout = () => {
     const hasLearningContext = useChatPanel((s) => s.hasLearningContext);
     const learningVisible = useChatPanel((s) => s.learningVisible);
     const practiceVisible = usePracticePanel((s) => s.visible);
+    const practiceMode = usePracticePanel((s) => s.mode);
+    const practiceFocusMode = usePracticePanel((s) => s.focusMode);
+    const dictationRevealed = usePracticePanel((s) => s.dictationRevealed);
+    const peekingSpoiler = usePracticePanel((s) => s.peekingSpoiler);
     const showTranscript = useLayout((s) => s.showTranscript);
     const setTranscriptVisible = useLayout((s) => s.setTranscriptVisible);
+    const effectiveShowTranscript = showTranscript && !(practiceVisible && practiceFocusMode);
+    const transcriptSpoilerVeil = practiceVisible
+        && !practiceFocusMode
+        && practiceMode === 'dictation'
+        && !dictationRevealed
+        && !peekingSpoiler;
     // 有会话时保持挂载，切回播放画面只做隐藏，避免回来时对话与滚动状态丢失
     const learningMounted = learningVisible || hasLearningContext;
     const [sizeOa, setSizeOa] = useLocalStorage<number>('split-size-oa', DEFAULT_OUTER_VIDEO_SIZE);
@@ -62,6 +71,8 @@ const PlaybackLayout = () => {
     const [toolbarPinned, setToolbarPinned] = useLocalStorage<boolean>('dashplayer.learning_toolbar_pinned', true);
     const outerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const innerGroupRef = useRef<ImperativePanelGroupHandle>(null);
+    const prePracticeSplitRef = useRef<[number, number] | null>(null);
+    const prevPracticeVisibleRef = useRef(practiceVisible);
     const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
     const fontSize = useSetting((s) => s.values.get('appearance.fontSize'));
     const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
@@ -70,6 +81,35 @@ const PlaybackLayout = () => {
     const { handlePlayerReady, handleAutoPlayNext } = usePlayerBridge(navigate);
 
     const rootContainerRef = useRef<HTMLDivElement>(null);
+
+    // 练习工作台打开/切换专注态时动态保底底栏高度，退出时复原用户原比例而不污染持久化设置
+    useEffect(() => {
+        const wasVisible = prevPracticeVisibleRef.current;
+        prevPracticeVisibleRef.current = practiceVisible;
+        const group = innerGroupRef.current;
+
+        if (!wasVisible && practiceVisible) {
+            prePracticeSplitRef.current = [sizeIa, sizeIb];
+        }
+
+        if (practiceVisible) {
+            if (group && group.getLayout().length === 2) {
+                const [, baseSub] = prePracticeSplitRef.current ?? [sizeIa, sizeIb];
+                const nextDock = practiceFocusMode ? 64 : Math.max(46, baseSub);
+                const nextStage = Math.max(20, 100 - nextDock);
+                group.setLayout([nextStage, nextDock]);
+            }
+            return;
+        }
+
+        if (wasVisible && prePracticeSplitRef.current) {
+            const [restoreStage, restoreSub] = prePracticeSplitRef.current;
+            prePracticeSplitRef.current = null;
+            if (group && group.getLayout().length === 2) {
+                group.setLayout([restoreStage, restoreSub]);
+            }
+        }
+    }, [practiceVisible, practiceFocusMode, sizeIa, sizeIb]);
 
 
     const containerClass = cn(
@@ -141,7 +181,7 @@ const PlaybackLayout = () => {
             onResize={(e) => {
                 // 全屏不记忆；文稿收起时视频面板会被拉到 100%，这是临时形态，
                 // 不能覆盖用户拖出来的比例，否则收起态退出后下次会以 100% 启动。
-                if (fullScreen || !showTranscript) {
+                if (fullScreen || !effectiveShowTranscript) {
                     return;
                 }
                 logger.debug('Outer panel resized', { size: e });
@@ -149,17 +189,17 @@ const PlaybackLayout = () => {
             }}
         >
             <div className="relative w-full h-full overflow-hidden">
-                {/* 视频与主字幕：学习页打开时只隐藏不卸载，切回播放时视频元素、播放进度与滚动位置全部保留 */}
+                {/* 视频与主字幕：学习页打开时隐藏，练习工坊则原位替代底部主字幕区、上方视频保留 */}
                 <ResizablePanelGroup
                     ref={innerGroupRef}
                     direction={'vertical'}
-                    className={cn('relative z-10', (learningVisible || practiceVisible) && 'invisible')}
+                    className={cn('relative z-10', learningVisible && 'invisible')}
                 >
                     <ResizablePanel
                         minSize={10}
                         defaultSize={sizeIa}
                         onResize={(e) => {
-                            if (fullScreen) {
+                            if (fullScreen || practiceVisible) {
                                 return;
                             }
                             setSizeIa(e);
@@ -171,7 +211,7 @@ const PlaybackLayout = () => {
                             onEnded={handleAutoPlayNext}
                         />
                     </ResizablePanel>
-                    {!fullScreen && !podcastMode && (
+                    {(!fullScreen || practiceVisible) && !podcastMode && (
                         <>
                             <ResizableHandle
                                 data-testid="playback-split-handle-inner"
@@ -191,37 +231,39 @@ const PlaybackLayout = () => {
                                 minSize={0}
                                 defaultSize={sizeIb}
                                 onResize={(e) => {
-                                    if (fullScreen) {
+                                    if (fullScreen || practiceVisible) {
                                         return;
                                     }
                                     setSizeIb(e);
                                 }}
                             >
-                                {/* 字幕内容 + 学习台：学习台占布局的一行，任何内容都盖不到它；
-                                    没有字幕时也保留学习台，训练/设置入口不会随字幕一起消失 */}
-                                <div className="group/subtitles relative flex h-full w-full flex-col">
-                                    <div className="min-h-0 flex-1">
-                                        {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
-                                    </div>
-                                    <LearningToolbar
-                                        pinned={toolbarPinned}
-                                        onTogglePinned={() => setToolbarPinned(!toolbarPinned)}
-                                    />
-                                    {!toolbarPinned && (
-                                        <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover/subtitles:opacity-100 transition-opacity duration-200">
-                                            <Tooltip content={t('controlBar.showLearningToolbar', { defaultValue: '展开操作栏' })} placement="above">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setToolbarPinned(true)}
-                                                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface/80 hover:bg-surface text-muted-foreground hover:text-foreground border border-border/60 shadow-xs backdrop-blur-md transition-all cursor-pointer"
-                                                    aria-label={t('controlBar.showLearningToolbar', { defaultValue: '展开操作栏' })}
-                                                >
-                                                    <PanelBottomOpen className="w-3.5 h-3.5" />
-                                                </button>
-                                            </Tooltip>
+                                {practiceVisible ? (
+                                    <PracticePanel />
+                                ) : (
+                                    <div className="group/subtitles relative flex h-full w-full flex-col">
+                                        <div className="min-h-0 flex-1">
+                                            {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
                                         </div>
-                                    )}
-                                </div>
+                                        <LearningToolbar
+                                            pinned={toolbarPinned}
+                                            onTogglePinned={() => setToolbarPinned(!toolbarPinned)}
+                                        />
+                                        {!toolbarPinned && (
+                                            <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover/subtitles:opacity-100 transition-opacity duration-200">
+                                                <Tooltip content={t('controlBar.showLearningToolbar', { defaultValue: '展开操作栏' })} placement="above">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setToolbarPinned(true)}
+                                                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface/80 hover:bg-surface text-muted-foreground hover:text-foreground border border-border/60 shadow-xs backdrop-blur-md transition-all cursor-pointer"
+                                                        aria-label={t('controlBar.showLearningToolbar', { defaultValue: '展开操作栏' })}
+                                                    >
+                                                        <PanelBottomOpen className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </Tooltip>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </ResizablePanel>
                         </>
                     )}
@@ -230,18 +272,6 @@ const PlaybackLayout = () => {
                 {/* 播客模式：作为顶层全屏覆盖层呈现，保留底部的 PlaybackStage 与 Panel 结构完整稳定 */}
                 {podcastMode && (
                     <PodcastViewer className="absolute inset-0 z-30" />
-                )}
-
-                {/* 跟读/听写练习页：占据视频与主字幕的位置，渲染在整句学习页之前（同 z 值，后开者覆盖） */}
-                {practiceVisible && (
-                    <div className="absolute inset-0 z-20">
-                        <PracticePanel/>
-                    </div>
-                )}
-                {practiceVisible && (
-                    <div className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-30 pointer-events-auto', CAPTION_CARD_CLASS)}>
-                        <PracticeModeButton/>
-                    </div>
                 )}
 
                 {/* 整句学习页：占据视频与主字幕的位置，与播放器同一套外壳 */}
@@ -300,7 +330,17 @@ const PlaybackLayout = () => {
                 setSizeOb(e);
             }}
         >
-            <Subtitle />
+            <div className="group/subtitlepanel relative h-full w-full">
+                <Subtitle />
+                {transcriptSpoilerVeil && (
+                    <div className="pointer-events-auto absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-surface/85 backdrop-blur-md transition-opacity duration-150 group-hover/subtitlepanel:opacity-0 group-hover/subtitlepanel:pointer-events-none">
+                        <EyeOff className="h-5 w-5 text-muted-foreground" />
+                        <p className="px-6 text-center text-sm text-muted-foreground">
+                            {t('practice:dictation.spoilerVeilHint', { defaultValue: '听写防剧透保护中 · 鼠标移入或按住 \\ 临时查看原文' })}
+                        </p>
+                    </div>
+                )}
+            </div>
         </ResizablePanel>
     );
 
@@ -339,15 +379,15 @@ const PlaybackLayout = () => {
             >
                 {isLeftTranscript ? (
                     <>
-                        {!fullScreen && showTranscript && subtitlePanel}
-                        {!fullScreen && showTranscript && splitHandle}
+                        {!fullScreen && effectiveShowTranscript && subtitlePanel}
+                        {!fullScreen && effectiveShowTranscript && splitHandle}
                         {videoStagePanel}
                     </>
                 ) : (
                     <>
                         {videoStagePanel}
-                        {!fullScreen && showTranscript && splitHandle}
-                        {!fullScreen && showTranscript && subtitlePanel}
+                        {!fullScreen && effectiveShowTranscript && splitHandle}
+                        {!fullScreen && effectiveShowTranscript && subtitlePanel}
                     </>
                 )}
             </ResizablePanelGroup>

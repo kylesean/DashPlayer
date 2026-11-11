@@ -64,6 +64,21 @@ export interface SentencePracticeRecordVO {
 }
 
 /**
+ * 整片按意群聚合的练习摘要,驱动练习进度条与薄弱句筛选。
+ */
+export interface SentencePracticeSummaryVO {
+    sentenceIndex: number;
+    /** 该意群在跟读与听写中的历史最高分(0-100)。 */
+    bestScore: number;
+    /** 历史总练习次数。 */
+    attemptCount: number;
+    /** 最近一次练习模式。 */
+    lastMode: SentencePracticeMode;
+    /** 最近一次练习时间戳。 */
+    lastPracticedAt: string;
+}
+
+/**
  * practice/score-shadowing 的入参。
  */
 export interface SentencePracticeShadowingParams {

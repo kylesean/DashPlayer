@@ -37,4 +37,15 @@ export default class SentencePracticeRecordRepositoryImpl implements SentencePra
             .orderBy(desc(sentencePracticeRecord.id))
             .limit(limit);
     }
+
+    public async listByFile(fileHash: string, resegmented: boolean): Promise<SentencePracticeRecord[]> {
+        return this.db
+            .select()
+            .from(sentencePracticeRecord)
+            .where(and(
+                eq(sentencePracticeRecord.file_hash, fileHash),
+                eq(sentencePracticeRecord.resegmented, resegmented),
+            ))
+            .orderBy(desc(sentencePracticeRecord.id));
+    }
 }

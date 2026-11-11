@@ -38,5 +38,11 @@ export default class SentencePracticeController implements Controller {
                 resegmented: z.boolean(),
             }),
         });
+        registerRoute('practice/list-by-file', (p) => this.sentencePracticeService.listByFile(p), {
+            schema: z.object({
+                fileHash: nonEmptyStringSchema,
+                resegmented: z.boolean(),
+            }),
+        });
     }
 }

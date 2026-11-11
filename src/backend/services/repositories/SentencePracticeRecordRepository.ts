@@ -20,4 +20,11 @@ export default interface SentencePracticeRecordRepository {
      * @param limit 返回条数上限。
      */
     listBySentence(fileHash: string, sentenceIndex: number, resegmented: boolean, limit?: number): Promise<SentencePracticeRecord[]>;
+    /**
+     * 查询同一字幕文件在指定切分形态下的全部练习记录,供整片进度与薄弱句聚合。
+     *
+     * @param fileHash 字幕内容 hash。
+     * @param resegmented 是否在意群重切分行上产生。
+     */
+    listByFile(fileHash: string, resegmented: boolean): Promise<SentencePracticeRecord[]>;
 }

@@ -220,6 +220,51 @@ describe('句子练习服务', () => {
             });
             expect(history.map((h) => h.transcript)).toEqual(['second try', 'first try']);
         });
+
+        it('整片汇总按意群聚合最高分、练习次数与最近一次模式', async () => {
+            await service.scoreDictation({
+                fileHash: FILE_HASH,
+                sentenceIndex: 1,
+                resegmented: true,
+                typedText: 'hello word today',
+                expectedText: EXPECTED_TEXT,
+            });
+            await service.scoreDictation({
+                fileHash: FILE_HASH,
+                sentenceIndex: 1,
+                resegmented: true,
+                typedText: EXPECTED_TEXT,
+                expectedText: EXPECTED_TEXT,
+            });
+            await service.scoreShadowing({
+                fileHash: FILE_HASH,
+                sentenceIndex: 4,
+                resegmented: true,
+                audio: new Uint8Array([1, 2, 3]),
+                expectedText: EXPECTED_TEXT,
+            });
+
+            const summaries = await service.listByFile({
+                fileHash: FILE_HASH,
+                resegmented: true,
+            });
+
+            expect(summaries).toHaveLength(2);
+            const first = summaries.find((s) => s.sentenceIndex === 1);
+            const second = summaries.find((s) => s.sentenceIndex === 4);
+            expect(first).toMatchObject({
+                sentenceIndex: 1,
+                bestScore: 100,
+                attemptCount: 2,
+                lastMode: 'dictation',
+            });
+            expect(second).toMatchObject({
+                sentenceIndex: 4,
+                bestScore: 100,
+                attemptCount: 1,
+                lastMode: 'shadowing',
+            });
+        });
     });
 
     describe('入参校验', () => {

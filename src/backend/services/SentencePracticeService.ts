@@ -10,6 +10,7 @@ import type {
     SentencePracticeRecordVO,
     SentencePracticeResultVO,
     SentencePracticeShadowingParams,
+    SentencePracticeSummaryVO,
 } from '@/common/contracts/sentence-practice';
 import type FfmpegService from '@/backend/services/FfmpegService';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
@@ -45,6 +46,11 @@ export default interface SentencePracticeService {
      * 查询单个意群的练习历史,按时间倒序。
      */
     listBySentence(params: { fileHash: string; sentenceIndex: number; resegmented: boolean }): Promise<SentencePracticeRecordVO[]>;
+
+    /**
+     * 查询整片各意群的练习摘要(最高分、总次数、最近一次模式)。
+     */
+    listByFile(params: { fileHash: string; resegmented: boolean }): Promise<SentencePracticeSummaryVO[]>;
 }
 
 /**
@@ -108,6 +114,30 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             audioPath: record.audio_file ? await this.resolveAudioPath(record.audio_file) : null,
             createdAt: record.created_at,
         })));
+    }
+
+    public async listByFile(params: { fileHash: string; resegmented: boolean }): Promise<SentencePracticeSummaryVO[]> {
+        const { fileHash, resegmented } = params;
+        this.validateFileKeys(fileHash, resegmented);
+        const records = await this.repository.listByFile(fileHash, resegmented);
+        const byIndex = new Map<number, SentencePracticeSummaryVO>();
+        // 仓储按 id 倒序返回,因此首次遇到的记录就是该意群最近一次练习。
+        for (const record of records) {
+            const existing = byIndex.get(record.sentence_index);
+            if (!existing) {
+                byIndex.set(record.sentence_index, {
+                    sentenceIndex: record.sentence_index,
+                    bestScore: record.score,
+                    attemptCount: 1,
+                    lastMode: record.mode as SentencePracticeMode,
+                    lastPracticedAt: record.created_at,
+                });
+            } else {
+                existing.bestScore = Math.max(existing.bestScore, record.score);
+                existing.attemptCount += 1;
+            }
+        }
+        return Array.from(byIndex.values());
     }
 
     /**
@@ -179,16 +209,20 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         }
     }
 
-    private validateKeys(fileHash: string, sentenceIndex: number, resegmented: boolean): void {
+    private validateFileKeys(fileHash: string, resegmented: boolean): void {
         if (!fileHash || !SAFE_KEY_PATTERN.test(fileHash) || DOT_ONLY_SEGMENT_PATTERN.test(fileHash)) {
             throw new Error(`非法的 fileHash: ${fileHash}`);
-        }
-        if (!Number.isInteger(sentenceIndex) || sentenceIndex < 0) {
-            throw new Error(`非法的 sentenceIndex: ${sentenceIndex}`);
         }
         // IPC 类型只是编译期约束,外部输入进入业务前按约定做运行时校验
         if (typeof resegmented !== 'boolean') {
             throw new Error(`非法的 resegmented: ${resegmented}`);
+        }
+    }
+
+    private validateKeys(fileHash: string, sentenceIndex: number, resegmented: boolean): void {
+        this.validateFileKeys(fileHash, resegmented);
+        if (!Number.isInteger(sentenceIndex) || sentenceIndex < 0) {
+            throw new Error(`非法的 sentenceIndex: ${sentenceIndex}`);
         }
     }
 }

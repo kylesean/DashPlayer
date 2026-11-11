@@ -4,7 +4,6 @@ import {
     CirclePause,
     Gauge,
     Headphones,
-    Mic,
     Play,
     Repeat,
     Repeat1,
@@ -150,8 +149,6 @@ export default function TrainingMenuButton({
 
     const singleRepeat = usePlayer((s) => s.singleRepeat);
     const autoPause = usePlayer((s) => s.autoPause);
-    const shadowing = usePlayer((s) => s.shadowing);
-    const shadowingPause = usePlayer((s) => s.shadowingPause);
     const sentenceLoop = usePlayer((s) => s.sentenceLoop);
     const activePlan = usePlayer((s) => s.activePlan);
     const playbackRate = usePlayerState((s) => s.playbackRate);
@@ -169,10 +166,11 @@ export default function TrainingMenuButton({
     // 两种逐句循环配置互斥：×N 模式不带倍速表，精听模式带倍速表
     const loopTimesActive = sentenceLoop !== null && !sentenceLoop.rates;
     const loopRatesActive = sentenceLoop !== null && !!sentenceLoop.rates;
-    const trainingActive = sentenceLoop !== null || skipGap || shadowing || rewindOnResume;
+    // 被动「影子跟读」已合并进跟读与听写工坊的「节拍流」,精听菜单不再激活影子跟读状态
+    const trainingActive = sentenceLoop !== null || skipGap || rewindOnResume;
 
     const activeSentenceEndMode = deriveSentenceEndMode(
-        { autoPause, singleRepeat, shadowing },
+        { autoPause, singleRepeat, shadowing: false },
         sentenceLoop !== null,
     );
     const trainingLabel = (() => {
@@ -181,8 +179,6 @@ export default function TrainingMenuButton({
                 return t('controlBar.modeSingleRepeat');
             case 'autoPause':
                 return t('controlBar.modeAutoPause');
-            case 'shadowing':
-                return t('controlBar.modeShadowing');
             case 'sentenceLoop':
                 return loopRatesActive
                     ? t('controlBar.modeLoopRates')
@@ -209,8 +205,6 @@ export default function TrainingMenuButton({
                 return `${t('controlBar.tooltipSingleRepeat')}${formatShortcut(repeatShortcut)}`;
             case 'autoPause':
                 return `${t('controlBar.tooltipAutoPause')}${formatShortcut(autoPauseShortcut)}`;
-            case 'shadowing':
-                return `${t('controlBar.tooltipShadowing')}${shadowingPause ? t('controlBar.tooltipShadowingPausing') : ''}`;
             case 'sentenceLoop':
                 return loopRatesActive
                     ? t('controlBar.tooltipLoopRates', {
@@ -239,7 +233,7 @@ export default function TrainingMenuButton({
                             type="button"
                             aria-label={t('controlBar.trainingMenuLabel')}
                             className={cn(
-                                (loopTimesActive || loopRatesActive || shadowing || showLabel)
+                                (loopTimesActive || loopRatesActive || showLabel)
                                     ? TOOLBAR_TEXT_BUTTON
                                     : TOOLBAR_ICON_BUTTON,
                                 trainingActive
@@ -250,22 +244,18 @@ export default function TrainingMenuButton({
                             <Headphones className="w-4 h-4 shrink-0" />
                             {showLabel ? <span className="font-sans">{trainingLabel}</span> : null}
 
-                            {loopTimesActive || loopRatesActive || shadowing ? (
+                            {loopTimesActive || loopRatesActive ? (
                                 <span
                                     className="inline-flex items-center justify-center gap-0.5"
                                     style={{ minWidth: progressSlotWidth }}
                                 >
                                     {loopTimesActive ? (
                                         activePlan ? <span className={cn(TOOLBAR_BADGE, style.badge)}>{loopCountText}</span> : null
-                                    ) : loopRatesActive ? (
-                                        activePlan ? (
-                                            <>
-                                                <span className={cn(TOOLBAR_BADGE, style.badge)}>{playbackRate.toFixed(2)}x</span>
-                                                <span className={cn('font-mono text-xs', tone === 'overlay' ? 'text-media-fg/70' : 'text-muted-foreground')}>{`(${loopCountText})`}</span>
-                                            </>
-                                        ) : null
-                                    ) : shadowingPause ? (
-                                        <ShadowCountdown key={shadowingPause.untilTs} untilTs={shadowingPause.untilTs} tone={tone} />
+                                    ) : activePlan ? (
+                                        <>
+                                            <span className={cn(TOOLBAR_BADGE, style.badge)}>{playbackRate.toFixed(2)}x</span>
+                                            <span className={cn('font-mono text-xs', tone === 'overlay' ? 'text-media-fg/70' : 'text-muted-foreground')}>{`(${loopCountText})`}</span>
+                                        </>
                                     ) : null}
                                 </span>
                             ) : null}
@@ -321,20 +311,6 @@ export default function TrainingMenuButton({
                                     title={autoPauseShortcut ? `${t('controlBar.rowAutoPause')} (${t('controlBar.shortcutHint', { shortcut: autoPauseShortcut })})` : t('controlBar.rowAutoPause')}
                                     onSelect={() => playerActions.setAutoPause(!autoPause)}
                                     testId="training-mode-auto-pause"
-                                />
-                                <ModeOptionRow
-                                    isActive={shadowing}
-                                    icon={<Mic className="w-4 h-4" />}
-                                    label={t('controlBar.rowShadowing')}
-                                    rightContent={(
-                                        <ParamBadge
-                                            label={t('controlBar.shadowingRatioHint', { ratio: trainingConfig.shadowingRatio.toFixed(1) })}
-                                            active={shadowing}
-                                        />
-                                    )}
-                                    title={t('controlBar.shadowingTitle', { ratio: trainingConfig.shadowingRatio.toFixed(1) })}
-                                    onSelect={() => playerActions.setShadowing(!shadowing)}
-                                    testId="training-mode-shadowing"
                                 />
                                 <ModeOptionRow
                                     isActive={loopTimesActive}
@@ -419,25 +395,5 @@ export default function TrainingMenuButton({
 
             <TrainingSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         </>
-    );
-}
-
-/**
- * 影子跟读留白剩余秒数徽章：按 200ms tick 派生渲染剩余时间。
- * @param untilTs 留白结束的时间戳（毫秒）
- * @param tone 徽章所在底色。
- */
-function ShadowCountdown({ untilTs, tone }: { untilTs: number; tone: ToolbarTone }) {
-    const [secondsLeft, setSecondsLeft] = useState(() => Math.max(Math.ceil((untilTs - Date.now()) / 1000), 0));
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            setSecondsLeft(Math.max(Math.ceil((untilTs - Date.now()) / 1000), 0));
-        }, 200);
-        return () => clearInterval(intervalId);
-    }, [untilTs]);
-    return (
-        <span className={cn(TOOLBAR_BADGE, TOOLBAR_TONE[tone].badge, 'animate-pulse')}>
-            {String(secondsLeft).padStart(2, '0')}s
-        </span>
     );
 }

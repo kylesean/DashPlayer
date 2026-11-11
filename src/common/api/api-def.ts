@@ -88,7 +88,7 @@ import type {
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 import type { VideoInfo } from '@/common/types/video-info';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
-import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams } from '@/common/contracts/sentence-practice';
+import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams, SentencePracticeSummaryVO } from '@/common/contracts/sentence-practice';
 
 /** 跨进程请求与返回值契约。 */
 interface ApiDefinition {
@@ -561,6 +561,11 @@ interface PracticeDef {
     'practice/list-by-sentence': {
         params: { fileHash: string; sentenceIndex: number; resegmented: boolean },
         return: SentencePracticeRecordVO[]
+    };
+    /** 查询整片各意群的练习汇总(最高分与次数),驱动进度条与薄弱句筛选。 */
+    'practice/list-by-file': {
+        params: { fileHash: string; resegmented: boolean },
+        return: SentencePracticeSummaryVO[]
     };
 }
 

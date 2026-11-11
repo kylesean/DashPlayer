@@ -7,6 +7,7 @@ import { playerActions } from '@/fronted/features/player/components/PlayerAction
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { formatShortcut } from '@/fronted/features/player/components/formatShortcut';
+import PracticeModeButton from '@/fronted/features/player/components/srt-layout/PracticeModeButton';
 import SubtitleTrackSegmented from './SubtitleTrackSegmented';
 import {
     TOOLBAR_DIVIDER,
@@ -81,6 +82,10 @@ export default function PodcastLearningBar({ className }: { className?: string }
                     <CirclePause className="w-3.5 h-3.5 stroke-[2.2]" />
                 </button>
             </Tooltip>
+
+            <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
+
+            <PracticeModeButton variant="toolbar" />
         </div>
     );
 }

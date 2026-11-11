@@ -41,6 +41,12 @@ export class PlayerActions {
   seekToTarget(opts: { time: number; target?: Sentence; overrideMs?: number; lockMs?: number; play?: boolean }) {
     this.s.seekToTarget(opts);
   }
+  playPracticeClip(range: { start: number; end: number }, target: Sentence, options?: { rate?: number; onEnded?: () => void }) {
+    this.s.playPracticeClip(range, target, options);
+  }
+  clearPracticeClip() {
+    this.s.clearPracticeClip();
+  }
 
   // 基础参数
   setDuration(duration: number) { this.s.setDuration(duration); }

@@ -15,6 +15,7 @@ vi.mock('@/fronted/features/practice/practiceApi', () => ({
         scoreShadowing: vi.fn(),
         scoreDictation: vi.fn(),
         listBySentence: vi.fn().mockResolvedValue([]),
+        listByFile: vi.fn().mockResolvedValue([]),
     },
 }));
 
@@ -25,21 +26,37 @@ vi.mock('@/fronted/features/settings/settingsApi', () => ({
 }));
 
 vi.mock('@/fronted/features/player/components/PlayerActions', () => ({
-    playerActions: { pause: vi.fn(), gotoSentence: vi.fn(), play: vi.fn() },
+    playerActions: {
+        pause: vi.fn(),
+        gotoSentence: vi.fn(),
+        play: vi.fn(),
+        playPracticeClip: vi.fn(),
+        clearPracticeClip: vi.fn(),
+        seekToTarget: vi.fn(),
+        setShadowing: vi.fn(),
+    },
 }));
 
 vi.mock('react-hot-toast', () => ({ default: { error: vi.fn(), success: vi.fn() } }));
 
-vi.mock('react-i18next', () => ({
-    useTranslation: () => ({
-        t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,
-    }),
-}));
+vi.mock('react-i18next', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('react-i18next')>();
+    return {
+        ...actual,
+        useTranslation: () => ({
+            t: (key: string, options?: { defaultValue?: string }) => options?.defaultValue ?? key,
+        }),
+    };
+});
 
 // 面板用 SWR 拉取资源状态与练习历史；这里返回静态数据，避免真实网络与缓存行为干扰。
 vi.mock('swr', () => ({
+    mutate: vi.fn(),
     default: (key: unknown) => {
         if (Array.isArray(key) && String(key[0]).includes('practice/list-by-sentence')) {
+            return { data: [], mutate: vi.fn() };
+        }
+        if (Array.isArray(key) && String(key[0]).includes('practice/list-by-file')) {
             return { data: [], mutate: vi.fn() };
         }
         return { data: { transcription: { ready: true } }, mutate: vi.fn() };

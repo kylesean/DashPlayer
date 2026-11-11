@@ -81,8 +81,8 @@ export default function PlayerShortCut() {
     const singleRepeat = usePlayer((s) => s.singleRepeat);
     const autoPause = usePlayer((s) => s.autoPause);
     const learningVisible = useChatPanel((s) => s.learningVisible);
-    const practiceRecording = usePracticePanel((s) => s.recording);
-    const playbackKeysEnabled = !learningVisible && !practiceRecording;
+    const practiceVisible = usePracticePanel((s) => s.visible);
+    const playbackKeysEnabled = !learningVisible && !practiceVisible;
     const showSideBar = useLayout((s) => s.showSideBar);
     const changeSideBar = useLayout((s) => s.changeSideBar);
 

@@ -6,7 +6,39 @@
         "replay": "Replay",
         "stop": "Pause",
         "tabShadowing": "Shadowing",
-        "tabDictation": "Dictation"
+        "tabDictation": "Dictation",
+        "prevSentence": "Previous sentence (↑)",
+        "nextSentence": "Next sentence (↓)",
+        "nextSentenceEnter": "Next ↵",
+        "reachedFirst": "Already at the first sentence in this queue",
+        "reachedLast": "Already at the last sentence in this queue",
+        "soundOn": "Tactile feedback chimes enabled",
+        "soundOff": "Tactile feedback chimes muted",
+        "soundToggle": "Toggle tactile chimes",
+        "enterFocus": "Focus drill mode: collapse transcript to prevent spoilers (F)",
+        "exitFocus": "Exit focus mode (F)",
+        "focusToggle": "Toggle focus mode",
+        "totalPracticed": "Practiced {{done}}/{{total}}",
+        "audioStageTitle": "Audio Practice Studio",
+        "audioStageHint": "Exiting practice returns cleanly to Podcast view"
+    },
+    "filter": {
+        "all": "All",
+        "unpracticed": "New",
+        "weak": "Weak",
+        "vocab": "Vocab"
+    },
+    "shortcut": {
+        "replay": "Replay",
+        "hintChar": "Hint letter",
+        "peek": "Hold to peek",
+        "verifyWord": "Check word",
+        "submitNext": "Submit / Next",
+        "ptt": "Talk / Toggle",
+        "abCompare": "A/B compare",
+        "next": "Next",
+        "prev": "Prev",
+        "exit": "Exit"
     },
     "recorder": {
         "start": "Record",
@@ -19,13 +51,39 @@
     },
     "shadowing": {
         "hint": "Click to start reading this sentence aloud; click again to stop and score",
-        "asrUnavailable": "Speech recognition model not installed; download it in Settings → Resources to use shadowing"
+        "asrUnavailable": "Speech recognition model not installed; download it in Settings → Resources to use shadowing",
+        "styleRecord": "Record & Compare",
+        "styleBeat": "Beat Shadowing",
+        "beatStart": "Start beat shadowing",
+        "beatWaiting": "Speak along · Pause countdown",
+        "beatSkip": "Skip",
+        "beatRatioLabel": "Pause {{ratio}}×",
+        "beatRatioTooltip": "Auto-pause at sentence end for [duration × {{ratio}}] so you can speak aloud (e.g. 4s clip pauses {{ex}}s)",
+        "ratioDecrease": "Decrease pause ratio",
+        "ratioIncrease": "Increase pause ratio",
+        "vadListening": "Auto-stop on silence",
+        "abOriginal": "Original (A)",
+        "abMine": "My voice (B)",
+        "abButton": "A/B Compare",
+        "abStop": "Stop compare",
+        "speedCompare": "Pace {{ratio}}× ({{mine}}s/{{orig}}s)",
+        "asrOptionalHint": "No ASR model (waveform & A/B only) · Install",
+        "asrDegradedNote": "No speech model installed: record & A/B compare remain available",
+        "installAsrAction": "Get model →",
+        "autoFlow": "Auto-mic after play"
     },
     "dictation": {
         "hiddenHint": "Dictation mode: listen to the sentence first, then type what you hear",
         "placeholder": "Type the sentence you hear…",
         "submit": "Submit",
-        "emptyInput": "Nothing typed yet"
+        "emptyInput": "Nothing typed yet",
+        "styleSlots": "Word Slots",
+        "styleBlind": "Blind Challenge",
+        "hintLetter": "Reveal letter (/)",
+        "hintUsedCount": "{{count}} letter hint(s)",
+        "blindPlaceholder": "Blind dictation: type the whole sentence (Enter to submit, Tab to replay)…",
+        "blindHint": "No word count hints · Shift+Enter for newline",
+        "spoilerVeilHint": "Anti-spoiler protection · Hover or hold \\ to peek"
     },
     "result": {
         "heard": "Heard",
@@ -33,6 +91,8 @@
         "retry": "Try again",
         "history": "Practice history",
         "modeShadowing": "Shadowing",
-        "modeDictation": "Dictation"
+        "modeDictation": "Dictation",
+        "scoreBadge": "Score {{score}}",
+        "extraPrefix": "+ Extra:"
     }
 }

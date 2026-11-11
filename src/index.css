@@ -193,3 +193,25 @@
     opacity: 0.25;
   }
 }
+
+@keyframes practice-shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+.practice-shake {
+  animation: practice-shake 220ms ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .practice-shake {
+    animation: none;
+  }
+}

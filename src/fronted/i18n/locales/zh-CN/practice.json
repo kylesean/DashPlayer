@@ -6,7 +6,39 @@
         "replay": "重播",
         "stop": "暂停",
         "tabShadowing": "跟读",
-        "tabDictation": "听写"
+        "tabDictation": "听写",
+        "prevSentence": "上一句 (↑)",
+        "nextSentence": "下一句 (↓)",
+        "nextSentenceEnter": "下一句 ↵",
+        "reachedFirst": "已是当前队列第一句",
+        "reachedLast": "已是当前队列最后一句",
+        "soundOn": "反馈音效已开启",
+        "soundOff": "反馈音效已静音",
+        "soundToggle": "切换反馈音效",
+        "enterFocus": "专注精练模式：收起右侧文稿防剧透 (F)",
+        "exitFocus": "退出专注模式 (F)",
+        "focusToggle": "切换专注模式",
+        "totalPracticed": "本片已练 {{done}}/{{total}} 句",
+        "audioStageTitle": "音频沉浸练习模式",
+        "audioStageHint": "关闭练习台后将自动回到播客字幕视图"
+    },
+    "filter": {
+        "all": "全部",
+        "unpracticed": "未练",
+        "weak": "低分",
+        "vocab": "生词"
+    },
+    "shortcut": {
+        "replay": "原音",
+        "hintChar": "字母提示",
+        "peek": "按住偷看",
+        "verifyWord": "校验词",
+        "submitNext": "提交/下一句",
+        "ptt": "对讲/启停",
+        "abCompare": "A/B 对比",
+        "next": "下一句",
+        "prev": "上一句",
+        "exit": "退出"
     },
     "recorder": {
         "start": "开始录音",
@@ -19,13 +51,39 @@
     },
     "shadowing": {
         "hint": "点击开始，对着麦克风朗读这句；再次点击结束并评分",
-        "asrUnavailable": "语音识别模型未安装，请到 设置 → 资源 下载后使用跟读"
+        "asrUnavailable": "语音识别模型未安装，请到 设置 → 资源 下载后使用跟读",
+        "styleRecord": "录音对比",
+        "styleBeat": "节拍流",
+        "beatStart": "开始节拍连读",
+        "beatWaiting": "请开口跟读 · 停顿倒计时",
+        "beatSkip": "跳过",
+        "beatRatioLabel": "句末停顿 {{ratio}}×",
+        "beatRatioTooltip": "每句播完自动暂停 [原句时长 × {{ratio}}] 留给你跟读（例：4秒原句停 {{ex}}秒）",
+        "ratioDecrease": "缩短停顿倍率",
+        "ratioIncrease": "延长停顿倍率",
+        "vadListening": "停顿自动停麦",
+        "abOriginal": "原声 (A)",
+        "abMine": "我的录音 (B)",
+        "abButton": "A/B 对比",
+        "abStop": "停止对比",
+        "speedCompare": "语速 {{ratio}}× ({{mine}}s/{{orig}}s)",
+        "asrOptionalHint": "未装识别模型(仅声纹对比) · 去安装",
+        "asrDegradedNote": "未安装语音识别模型：仍可直接录音并对比原音声纹",
+        "installAsrAction": "下载模型 →",
+        "autoFlow": "播完自动开麦"
     },
     "dictation": {
         "hiddenHint": "听写模式：先听原句，把你听到的内容写下来",
         "placeholder": "输入你听到的句子…",
         "submit": "提交评分",
-        "emptyInput": "还没有输入内容"
+        "emptyInput": "还没有输入内容",
+        "styleSlots": "词槽即时",
+        "styleBlind": "整句盲听",
+        "hintLetter": "提示一字母 (/)",
+        "hintUsedCount": "字母提示 {{count}} 次",
+        "blindPlaceholder": "盲听挑战：听到整句后直接写出内容（Enter 提交，Tab 重播）…",
+        "blindHint": "无词数提示 · Shift+Enter 可换行",
+        "spoilerVeilHint": "听写防剧透保护中 · 鼠标移入或按住 \\ 临时查看原文"
     },
     "result": {
         "heard": "识别结果",
@@ -33,6 +91,8 @@
         "retry": "再试一次",
         "history": "练习记录",
         "modeShadowing": "跟读",
-        "modeDictation": "听写"
+        "modeDictation": "听写",
+        "scoreBadge": "得分 {{score}}",
+        "extraPrefix": "+ 多出:"
     }
 }

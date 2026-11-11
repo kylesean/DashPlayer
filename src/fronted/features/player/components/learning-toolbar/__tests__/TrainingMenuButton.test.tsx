@@ -48,7 +48,7 @@ describe('TrainingMenuButton', () => {
         });
     });
 
-    it('renders all training mode radio options and assistant switches when opened', () => {
+    it('renders listening training mode radio options and assistant switches when opened', () => {
         render(<TrainingMenuButton tone="panel" popoverOffset={8} />);
         const trigger = screen.getByRole('button', { name: /controlBar\.trainingMenuLabel/i });
         fireEvent.click(trigger);
@@ -57,7 +57,7 @@ describe('TrainingMenuButton', () => {
         expect(screen.getByTestId('training-mode-off')).toHaveAttribute('aria-checked', 'true');
         expect(screen.getByTestId('training-mode-single-repeat')).toHaveAttribute('aria-checked', 'false');
         expect(screen.getByTestId('training-mode-auto-pause')).toHaveAttribute('aria-checked', 'false');
-        expect(screen.getByTestId('training-mode-shadowing')).toHaveAttribute('aria-checked', 'false');
+        expect(screen.queryByTestId('training-mode-shadowing')).toBeNull();
         expect(screen.getByTestId('training-mode-loop-times')).toHaveAttribute('aria-checked', 'false');
         expect(screen.getByTestId('training-mode-loop-rates')).toHaveAttribute('aria-checked', 'false');
         expect(screen.getByTestId('training-assist-skip-gap')).toBeDefined();
@@ -65,17 +65,17 @@ describe('TrainingMenuButton', () => {
         expect(screen.getByTestId('training-settings-button')).toBeDefined();
     });
 
-    it('switches to shadowing mode and can reset back to continuous playback', () => {
+    it('switches to auto-pause mode and can reset back to continuous playback', () => {
         render(<TrainingMenuButton tone="panel" popoverOffset={8} />);
         fireEvent.click(screen.getByRole('button', { name: /controlBar\.trainingMenuLabel/i }));
 
-        fireEvent.click(screen.getByTestId('training-mode-shadowing'));
-        expect(playerActions.setShadowing).toHaveBeenCalledWith(true);
+        fireEvent.click(screen.getByTestId('training-mode-auto-pause'));
+        expect(playerActions.setAutoPause).toHaveBeenCalledWith(true);
 
         act(() => {
-            usePlayer.setState({ shadowing: true });
+            usePlayer.setState({ autoPause: true });
         });
-        expect(screen.getByTestId('training-mode-shadowing')).toHaveAttribute('aria-checked', 'true');
+        expect(screen.getByTestId('training-mode-auto-pause')).toHaveAttribute('aria-checked', 'true');
         expect(screen.getByTestId('training-mode-off')).toHaveAttribute('aria-checked', 'false');
 
         fireEvent.click(screen.getByTestId('training-mode-off'));
