@@ -103,6 +103,8 @@
         "showSourceZhHint": "字幕文件自带的中文行，不调用 AI；仅在字幕含中文时出现。",
         "adaptiveChinese": "自适应中文",
         "adaptiveChineseHint": "理解度高时弱化中文，悬停字幕可临时查看；关闭后中文始终完整显示。",
+        "sceneCues": "场景提示",
+        "sceneCuesHint": "在字幕上方轻量提示可能的换场或说话人变化。只依据字幕时间与文本推测，不读取画面；默认关闭。",
         "translationEngineMissing": "当前未启用字幕翻译引擎，请到 设置 → 服务与资源 中配置。",
         "displayModeLabel": "字幕排版",
         "sentenceBlockMode": "整句连读模式",
@@ -140,6 +142,11 @@
         "tabGeneral": "常规",
         "tabTiming": "字幕时间",
         "allSettings": "全部播放设置"
+    },
+    "sceneCue": {
+        "newScene": "新场景",
+        "topicShift": "新场景 · 话题切换",
+        "speakerShift": "可能换了说话人"
     },
     "clearAdjust": {
         "button": "清除时间调整",

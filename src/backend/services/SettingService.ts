@@ -285,6 +285,7 @@ export class SettingServiceImpl implements SettingService {
             ['off', 'calm', 'coach'] as const,
             'player.vocabularyGuidance',
         );
+        this.warnInvalidEnum(values['player.sceneCues'], ['true', 'false'] as const, 'player.sceneCues');
         this.warnInvalidEnum(
             values['providers.subtitleTranslation'],
             SUBTITLE_TRANSLATION_ENGINES,
@@ -324,6 +325,7 @@ export class SettingServiceImpl implements SettingService {
             case 'player.autoPlayNext':
             case 'player.pauseOnWordHover':
             case 'player.adaptiveChinese':
+            case 'player.sceneCues':
                 value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
                 break;
             case 'player.vocabularyGuidance':

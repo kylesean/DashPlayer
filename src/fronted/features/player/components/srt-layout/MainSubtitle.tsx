@@ -12,10 +12,12 @@ import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
 import SubtitleLearningHints from './SubtitleLearningHints';
 import AdaptiveChineseLine from './AdaptiveChineseLine';
+import SceneCue from './SceneCue';
 
 export default function MainSubtitle() {
     const logger = getRendererLogger('MainSubtitle');
     const sentence = usePlayerState((s) => s.currentSentence);
+    const sentences = usePlayerState((s) => s.sentences);
     const srtTender = usePlayerState((s) => s.srtTender);
     const adjusted = Boolean(sentence && srtTender && srtTender.adjusted(sentence));
 
@@ -249,23 +251,27 @@ export default function MainSubtitle() {
             return <div className="w-full h-full" />;
         }
         return (
-            /* 面板高度不够时改为滚动，绝不把最后一行裁掉；滚动条隐去，避免字幕区出现一条常驻灰条。
-               内层 min-h-full 保证内容不满一屏时仍沿用原来的「中上黄金位置」留白。 */
-            <div
-                ref={subtitleContainerRef}
-                data-testid="main-subtitle-scroller"
-                className="relative h-full w-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-                <div className="flex min-h-full w-full flex-col items-center justify-center px-8 py-3 text-center text-textColor select-none">
-                    {/* 字幕内容区：受 py-3 保护，自然居中 */}
-                    <div
-                        ref={subtitleContentRef}
-                        data-testid="main-subtitle-content"
-                        data-subtitle-active={block ? undefined : 'true'}
-                        className="group/subtitle flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto"
-                    >
-                        {ele()}
-                        <SubtitleLearningHints sentence={sentence} />
+            /* 场景提示固定在外层，不随字幕滚动；面板高度不够时改为滚动，绝不把最后一行裁掉。
+               滚动条隐去，避免字幕区出现一条常驻灰条；内层 min-h-full 保证内容不满一屏时
+               仍沿用原来的「中上黄金位置」留白。 */
+            <div className="relative h-full w-full">
+                <SceneCue sentences={sentences} currentSentence={sentence} />
+                <div
+                    ref={subtitleContainerRef}
+                    data-testid="main-subtitle-scroller"
+                    className="h-full w-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                    <div className="flex min-h-full w-full flex-col items-center justify-center px-8 py-3 text-center text-textColor select-none">
+                        {/* 字幕内容区：受 py-3 保护，自然居中 */}
+                        <div
+                            ref={subtitleContentRef}
+                            data-testid="main-subtitle-content"
+                            data-subtitle-active={block ? undefined : 'true'}
+                            className="group/subtitle flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto"
+                        >
+                            {ele()}
+                            <SubtitleLearningHints sentence={sentence} />
+                        </div>
                     </div>
                 </div>
             </div>

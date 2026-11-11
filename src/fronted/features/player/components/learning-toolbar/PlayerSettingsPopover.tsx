@@ -67,6 +67,7 @@ export default function PlayerSettingsPopover({
     const pauseOnWordHover = useSetting((s) => s.values.get('player.pauseOnWordHover')) === 'true';
     const vocabularyGuidance = useSetting((s) => s.values.get('player.vocabularyGuidance') ?? 'calm');
     const adaptiveChinese = useSetting((s) => s.values.get('player.adaptiveChinese') ?? 'true') === 'true';
+    const sceneCues = useSetting((s) => s.values.get('player.sceneCues') ?? 'false') === 'true';
     const setSetting = useSetting((s) => s.setSetting);
 
     const autoPlayNext = useSetting((s) => s.values.get('player.autoPlayNext')) === 'true';
@@ -92,6 +93,10 @@ export default function PlayerSettingsPopover({
 
     const changeAdaptiveChinese = async (next: boolean) => {
         await setSetting('player.adaptiveChinese', next ? 'true' : 'false');
+    };
+
+    const changeSceneCues = async (next: boolean) => {
+        await setSetting('player.sceneCues', next ? 'true' : 'false');
     };
 
     return (
@@ -199,6 +204,13 @@ export default function PlayerSettingsPopover({
                                     testId="player-setting-adaptive-chinese"
                                 />
                             )}
+                            <PopoverSwitchRow
+                                label={t('controlBox.sceneCues')}
+                                labelTooltip={t('controlBox.sceneCuesHint')}
+                                checked={sceneCues}
+                                onChange={(next) => { void changeSceneCues(next); }}
+                                testId="player-setting-scene-cues"
+                            />
                         </VStack>
 
                         <div className="flex items-center justify-between gap-2 px-2 py-1">

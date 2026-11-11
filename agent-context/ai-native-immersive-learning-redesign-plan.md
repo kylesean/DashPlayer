@@ -1,6 +1,6 @@
 # DashPlayer AI-native 沉浸式学习重构方案
 
-> 状态：R0–R2 已完成，R3 已落地暂停微回忆、场景化角色扮演、跟读节奏反馈、个人记忆图谱与推荐→复习联动，仅剩可选本地多模态
+> 状态：R0–R2 已完成，R3 已落地暂停微回忆、场景化角色扮演、跟读节奏反馈、个人记忆图谱、推荐→复习联动与可选本地场景切分
 > 日期：2026-11-12
 > 范围：播放器、字幕、生词、句子学习、跟读/听写、AI 学习页
 > 一句话：把 DashPlayer 从「视频播放器 + 学习工具」重构为「内容 × 上下文 × 学习者记忆」的沉浸式学习系统。
@@ -852,6 +852,38 @@ context_embeddings
 - 「推荐 → 打开视频 → 视频内复习 → 次日回忆」的完整因果归因；当前只记录推荐到复习的点击。
 - 按复习结果反向调整推荐权重；当前排序仍使用到期词数量与理解度等本地信号。
 - 非首页场景（播放器内推荐、移动端）的复习联动入口。
+
+#### R3 第六阶段实施记录（2026-11-12）
+
+已落地：
+
+- 新增纯本地的确定性场景切分 `segmentScenes()`：只用字幕时间与文本，不请求模型、不读取画面。
+- 三类边界信号：静默间隔 ≥ 2.5s（`time-gap`）、左右各 3 句窗口的内容词 Jaccard ≤ 0.02（`topic-shift`）、问句后紧跟短回应（`speaker-shift`）。
+- 置信度 0–1 只表达本地信号强弱，不代表模型判断；两侧内容词不足 3 个时不做话题判断，避免把正常换句误判成换场。
+- 主字幕区新增极轻提示：仅当开关开启且当前句正好落在边界上时，在字幕上方出现一枚胶囊标签；绝对定位、不参与排版，不改变中英文字幕的居中位置，也不因提示出现/消失产生抖动。
+- 新增设置键 `player.sceneCues`，默认 `false`；在播放控制快速面板中可即时开关，无需重启。
+- 提示文案区分「新场景 · 话题切换」与「可能换了说话人」；后者是启发式推测，措辞上不声称已完成说话人识别。
+
+核心实现：
+
+- `src/common/learning/sceneSegmentation.ts`
+- `src/fronted/features/player/components/srt-layout/SceneCue.tsx`
+- `src/fronted/features/player/components/srt-layout/MainSubtitle.tsx`
+- `src/common/types/store_schema.ts`
+- `src/common/contracts/runtime-settings.ts`
+- `src/backend/services/SettingService.ts`
+- `src/fronted/features/player/components/learning-toolbar/PlayerSettingsPopover.tsx`
+
+验证：
+
+- 场景切分定向测试 5 项、场景提示组件测试 3 项、播放面板测试 6 项，共 14 项通过。
+
+尚未包含：
+
+- 视频帧理解与画面场景识别；当前完全不用图像信号。
+- 声纹分离与精确 diarization；现有字幕数据没有 speaker 元数据，只能给出「可能换了说话人」。
+- 语音韵律（重音、语调）作为场景信号；当前只覆盖跟读环节的节奏反馈。
+- 场景切分结果的持久化与跨会话复用；当前按当前字幕数组在渲染进程内计算。
 
 ### 8.1 第一个 Sprint 的具体任务
 

@@ -103,6 +103,8 @@
         "showSourceZhHint": "Chinese lines already present in the subtitle file, not AI translation. Shown only when the file contains them.",
         "adaptiveChinese": "Adaptive Chinese",
         "adaptiveChineseHint": "Weakens Chinese when the sentence looks easy to understand. Hover the subtitle to reveal it; turn this off to always show full Chinese.",
+        "sceneCues": "Scene cues",
+        "sceneCuesHint": "A subtle hint above the subtitle when a scene or speaker may have changed. Inferred from subtitle timing and text only, never video frames; off by default.",
         "translationEngineMissing": "No subtitle translation engine is enabled. Configure one in Settings → Services & Resources.",
         "displayModeLabel": "Subtitle layout",
         "sentenceBlockMode": "Full-sentence flow",
@@ -140,6 +142,11 @@
         "tabGeneral": "General",
         "tabTiming": "Subtitle Timing",
         "allSettings": "All Playback Settings"
+    },
+    "sceneCue": {
+        "newScene": "New scene",
+        "topicShift": "New scene · Topic shift",
+        "speakerShift": "Speaker may have changed"
     },
     "clearAdjust": {
         "button": "Clear timing adjustments",

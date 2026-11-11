@@ -57,6 +57,7 @@ export const SettingKeyObj = {
     'player.pauseOnWordHover': 'false',
     'player.vocabularyGuidance': 'calm',
     'player.adaptiveChinese': 'true',
+    'player.sceneCues': 'false',
     'storage.path': '',
     'storage.collection': 'default',
     'proxy.mode': 'system',
