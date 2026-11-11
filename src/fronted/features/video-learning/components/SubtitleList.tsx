@@ -90,16 +90,7 @@ export default function SubtitleList({
             ref={(r) => {
               itemRefs.current[idx] = r;
             }}
-            onClick={() => onPickLine?.(idx)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onPickLine?.(idx);
-              }
-            }}
-            className={`p-2.5 rounded-xl text-sm cursor-pointer transition-all ${
+            className={`p-2.5 rounded-xl text-sm transition-all ${
               idx === activeIndex
                 ? 'bg-accent-bg/10 border border-accent-bg/20 text-foreground shadow-2xs font-medium'
                 : line.isClip
@@ -108,7 +99,18 @@ export default function SubtitleList({
             }`}
           >
             <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => onPickLine?.(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onPickLine?.(idx);
+                  }
+                }}
+                className="flex-1 min-w-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
                 <div className="text-sm leading-relaxed text-foreground">
                   {renderHighlightedText(line.contentEn, `${idx}-${line.index}`)}
                 </div>

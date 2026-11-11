@@ -422,8 +422,8 @@ const ServiceResourceSetting: React.FC = () => {
                                 onCancelDownload={cancelLocalAiDownload}
                                 onDeleteModel={(modelId) => {
                                     const model = localAiStatus?.models.find((item) => item.modelId === modelId);
-                                    if (!model) return;
-                                    void runLocalAiAction(
+                                    if (!model) return Promise.resolve(true);
+                                    return runLocalAiAction(
                                         model,
                                         () => settingsApi.deleteLocalAi(modelId),
                                         t('serviceCredentials.localAi.deleteSuccess'),
@@ -609,9 +609,11 @@ const ServiceResourceSetting: React.FC = () => {
                                             cancelLabel={t('common.cancel', { defaultValue: '取消' })}
                                             actionVariant="destructive"
                                             isActionLoading={clearingCache}
-                                            onAction={() => {
-                                                setCacheConfirmOpen(false);
-                                                void clearCaches();
+                                            onAction={async () => {
+                                                if (clearingCache) return;
+                                                if (await clearCaches()) {
+                                                    setCacheConfirmOpen(false);
+                                                }
                                             }}
                                         />
                                     </SettingField>

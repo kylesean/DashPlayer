@@ -1,4 +1,5 @@
-import { useState } from 'react';
+/* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
+import { useCallback, useState } from 'react';
 import { ChevronRight, Eraser, Settings2, SlidersHorizontal } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -9,8 +10,9 @@ import { Divider } from '@astryxdesign/core/Divider';
 import { VStack } from '@astryxdesign/core/VStack';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 
+import { usePopover } from '@astryxdesign/core/Popover';
+
 import { cn } from '@/fronted/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import {
     CONTROL_POPOVER_PANEL,
 } from '@/fronted/features/player/components/ControlPopover';
@@ -53,8 +55,23 @@ export default function PlayerSettingsPopover({
 }) {
     const { t } = useI18nTranslation('player');
     const navigate = useNavigate();
-    const [open, setOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'settings' | 'timing'>('settings');
+
+    const handlePopoverShow = useCallback(() => {
+        onMenuOpenChange?.(true);
+    }, [onMenuOpenChange]);
+    const handlePopoverHide = useCallback(() => {
+        setActiveTab('settings');
+        onMenuOpenChange?.(false);
+    }, [onMenuOpenChange]);
+    const popover = usePopover({
+        className: cn('w-[280px] p-2.5', CONTROL_POPOVER_PANEL),
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('controlBox.title'),
+        onShow: handlePopoverShow,
+        onHide: handlePopoverHide,
+    });
 
     const showCn = usePlayerUi((s) => s.showCn);
     const showSourceZh = usePlayerUi((s) => s.showSourceZh);
@@ -100,36 +117,24 @@ export default function PlayerSettingsPopover({
     };
 
     return (
-        <Popover
-            open={open}
-            onOpenChange={(next) => {
-                setOpen(next);
-                if (!next) {
-                    setActiveTab('settings');
-                }
-                onMenuOpenChange?.(next);
-            }}
-        >
+        <>
             <Tooltip content={t('controlBox.title')} placement="above">
-                <PopoverTrigger asChild>
-                    <button
-                        type="button"
-                        aria-label={t('controlBox.title')}
-                        className={cn(
-                            TOOLBAR_ICON_BUTTON,
-                            style.idle
-                        )}
-                    >
-                        <SlidersHorizontal className="w-4 h-4" />
-                    </button>
-                </PopoverTrigger>
+                <button
+                    type="button"
+                    ref={popover.triggerRef}
+                    onClick={popover.toggle}
+                    {...popover.triggerProps}
+                    aria-label={t('controlBox.title')}
+                    className={cn(
+                        TOOLBAR_ICON_BUTTON,
+                        style.idle
+                    )}
+                >
+                    <SlidersHorizontal className="w-4 h-4" />
+                </button>
             </Tooltip>
-            <PopoverContent
-                side="top"
-                align="end"
-                sideOffset={popoverOffset}
-                className={cn('w-[280px] p-2.5', CONTROL_POPOVER_PANEL)}
-            >
+            {popover.render(
+                <>
                 {/* 顶部分段切换器：精简文案为 常规 / 字幕时间 */}
                 <div className="pb-2">
                     <SegmentedControl
@@ -247,7 +252,7 @@ export default function PlayerSettingsPopover({
                         <button
                             type="button"
                             onClick={() => {
-                                setOpen(false);
+                                popover.hide();
                                 navigate('/settings/appearance');
                             }}
                             className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground cursor-pointer"
@@ -286,7 +291,9 @@ export default function PlayerSettingsPopover({
                         />
                     </div>
                 )}
-            </PopoverContent>
-        </Popover>
+                </>,
+                { placement: 'above', alignment: 'end', offset: popoverOffset },
+            )}
+        </>
     );
 }

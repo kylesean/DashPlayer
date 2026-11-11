@@ -146,18 +146,20 @@ export default function WordSidebar({
   };
 
   /** 用户确认删除某个单词。 */
-  const handleDeleteConfirmed = async (word: WordItem) => {
+  const handleDeleteConfirmed = async (word: WordItem): Promise<boolean> => {
     setDeletingId(word.id);
     try {
       const result = await videoLearningApi.deleteWord(word.word);
       if (result.success) {
         toast.success(t('wordDeleted'));
         onWordDeleted(word);
-      } else {
-        toast.error(result.error || t('wordDeleteFailed'));
+        return true;
       }
+      toast.error(result.error || t('wordDeleteFailed'));
+      return false;
     } catch {
       toast.error(t('wordDeleteFailed'));
+      return false;
     } finally {
       setDeletingId(null);
     }
@@ -256,92 +258,93 @@ export default function WordSidebar({
               const active = selectedWord?.id === word.id;
               return (
                 <div
-                  role="button"
-                  tabIndex={0}
                   className={[
-                    'group px-3 py-2 rounded-xl cursor-pointer transition-all text-sm mb-1.5 flex flex-col gap-0.5',
+                    'group px-3 py-2 rounded-xl transition-all text-sm mb-1.5 flex items-start gap-1.5',
                     active
                       ? 'bg-accent-bg text-on-accent font-medium shadow-2xs'
                       : 'hover:bg-muted/60 text-foreground'
                   ].join(' ')}
-                  onClick={() => onWordClick(word)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      onWordClick(word);
-                    }
-                  }}
                 >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <div className="font-semibold text-sm tracking-tight truncate">{word.word}</div>
-                    {statusLabel(word) && (
-                      <span
-                        className={cn(
-                          'shrink-0 rounded-md px-1.5 py-0.5 text-metadata',
-                          active
-                            ? 'bg-on-accent/15 text-on-accent/80'
-                            : word.status === 'known'
-                              ? 'bg-success-muted text-success-text'
-                              : 'bg-muted text-muted-foreground'
-                        )}
-                      >
-                        {statusLabel(word)}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-0.5 shrink-0 ml-auto">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditWord(word);
-                        }}
-                        className={cn(
-                          'p-1 rounded-md transition-all cursor-pointer shrink-0',
-                          active
-                            ? 'text-on-accent/70 hover:text-on-accent hover:bg-on-accent/10'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted/80 opacity-0 group-hover:opacity-100'
-                        )}
-                        title={t('editWord')}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <ConfirmDeleteButton
-                        title={t('deleteWord')}
-                        confirmLabel={t('confirmDelete')}
-                        deleting={deletingId === word.id}
-                        onConfirm={() => handleDeleteConfirmed(word)}
-                        triggerClassName={
-                          active
-                            ? 'text-on-accent/70 hover:text-on-accent'
-                            : 'opacity-0 group-hover:opacity-100'
-                        }
-                      />
-                      {!!word.videoCount && word.videoCount > 0 && (
-                        <div
-                          className={[
-                            'text-metadata px-1.5 py-0.5 rounded-md font-medium shrink-0 tabular-nums',
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className="flex-1 min-w-0 flex flex-col gap-0.5 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    onClick={() => onWordClick(word)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onWordClick(word);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <div className="font-semibold text-sm tracking-tight truncate">{word.word}</div>
+                      {statusLabel(word) && (
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-md px-1.5 py-0.5 text-metadata',
                             active
-                              ? 'bg-on-accent/20 text-on-accent'
-                              : 'bg-muted text-muted-foreground'
-                          ].join(' ')}
+                              ? 'bg-on-accent/15 text-on-accent/80'
+                              : word.status === 'known'
+                                ? 'bg-success-muted text-success-text'
+                                : 'bg-muted text-muted-foreground'
+                          )}
                         >
-                          {t('videoCount', { count: word.videoCount })}
-                        </div>
+                          {statusLabel(word)}
+                        </span>
+                      )}
+                    </div>
+                    <div className={['flex items-center gap-1.5 text-metadata', active ? 'text-on-accent/80' : 'text-muted-foreground'].join(' ')}>
+                      <span className="truncate">{word.translate || t('noDefinition')}</span>
+                      {word.lastClipAddedAt && (
+                        <span
+                          className={[
+                            'shrink-0 text-metadata tabular-nums',
+                            active ? 'text-on-accent/60' : 'text-muted-foreground/80'
+                          ].join(' ')}
+                          title={t('sortByRecentVideo')}
+                        >
+                          {t('videoAddedAt', { time: TimeUtil.dateToRelativeTime(TimeUtil.isoToDate(word.lastClipAddedAt)) })}
+                        </span>
                       )}
                     </div>
                   </div>
-                  <div className={['flex items-center gap-1.5 text-metadata', active ? 'text-on-accent/80' : 'text-muted-foreground'].join(' ')}>
-                    <span className="truncate">{word.translate || t('noDefinition')}</span>
-                    {word.lastClipAddedAt && (
-                      <span
+                  <div className="flex items-center gap-0.5 shrink-0 mt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => onEditWord(word)}
+                      className={cn(
+                        'p-1 rounded-md transition-all cursor-pointer shrink-0',
+                        active
+                          ? 'text-on-accent/70 hover:text-on-accent hover:bg-on-accent/10'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/80 opacity-0 group-hover:opacity-100'
+                      )}
+                      title={t('editWord')}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <ConfirmDeleteButton
+                      title={t('deleteWord')}
+                      confirmLabel={t('confirmDelete')}
+                      deleting={deletingId === word.id}
+                      onConfirm={() => handleDeleteConfirmed(word)}
+                      triggerClassName={
+                        active
+                          ? 'text-on-accent/70 hover:text-on-accent'
+                          : 'opacity-0 group-hover:opacity-100'
+                      }
+                    />
+                    {!!word.videoCount && word.videoCount > 0 && (
+                      <div
                         className={[
-                          'shrink-0 text-metadata tabular-nums',
-                          active ? 'text-on-accent/60' : 'text-muted-foreground/80'
+                          'text-metadata px-1.5 py-0.5 rounded-md font-medium shrink-0 tabular-nums',
+                          active
+                            ? 'bg-on-accent/20 text-on-accent'
+                            : 'bg-muted text-muted-foreground'
                         ].join(' ')}
-                        title={t('sortByRecentVideo')}
                       >
-                        {t('videoAddedAt', { time: TimeUtil.dateToRelativeTime(TimeUtil.isoToDate(word.lastClipAddedAt)) })}
-                      </span>
+                        {t('videoCount', { count: word.videoCount })}
+                      </div>
                     )}
                   </div>
                 </div>

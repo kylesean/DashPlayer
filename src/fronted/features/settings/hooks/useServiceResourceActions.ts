@@ -73,8 +73,10 @@ export function useServiceResourceActions({
             toast.success(t('resources.preference.clearCacheDone', {
                 count: subtitle.deleted + dictionary.deleted,
             }));
+            return true;
         } catch (error) {
             toast.error(error instanceof Error ? error.message : String(error));
+            return false;
         } finally {
             setClearingCache(false);
         }
@@ -88,8 +90,10 @@ export function useServiceResourceActions({
         try {
             await action();
             toast.success(`${localAiDisplayName(model)}: ${successMessage}`);
+            return true;
         } catch (error) {
             toast.error(`${localAiDisplayName(model)}: ${error instanceof Error ? error.message : String(error)}`);
+            return false;
         } finally {
             setLocalAiBusy(false);
             await refreshResourceStatus();

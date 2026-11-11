@@ -29,6 +29,7 @@ export default function ImportedDictionaryCard() {
     const [busy, setBusy] = useState(false);
     /** 待确认删除的词典；null 表示没有打开确认弹窗。 */
     const [pendingDelete, setPendingDelete] = useState<ImportedDictionaryVO | null>(null);
+    const [removing, setRemoving] = useState(false);
 
     /** 选择文件并导入。 */
     const importDictionary = async (): Promise<void> => {
@@ -51,14 +52,16 @@ export default function ImportedDictionaryCard() {
     };
 
     /** 删除词典；确认由 AlertDialog 统一承担。 */
-    const removeDictionary = async (dictionary: ImportedDictionaryVO): Promise<void> => {
+    const removeDictionary = async (dictionary: ImportedDictionaryVO): Promise<boolean> => {
         try {
             await dictionaryImportApi.remove(dictionary.id);
             await mutate();
+            return true;
         } catch (error) {
             toast.error(t('resources.dictionaryPack.removeFailed', {
                 message: error instanceof Error ? error.message : String(error),
             }));
+            return false;
         }
     };
 
@@ -134,11 +137,17 @@ export default function ImportedDictionaryCard() {
                 actionLabel={t('resources.dictionaryPack.remove')}
                 cancelLabel={t('cancel', { defaultValue: '取消' })}
                 actionVariant="destructive"
-                onAction={() => {
+                isActionLoading={removing}
+                onAction={async () => {
                     const target = pendingDelete;
-                    setPendingDelete(null);
-                    if (target) {
-                        void removeDictionary(target);
+                    if (!target || removing) return;
+                    setRemoving(true);
+                    try {
+                        if (await removeDictionary(target)) {
+                            setPendingDelete(null);
+                        }
+                    } finally {
+                        setRemoving(false);
                     }
                 }}
             />

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
 import { useEffect, useState } from 'react';
 import {
     ChevronRight,
@@ -10,6 +11,7 @@ import {
     SlidersHorizontal,
 } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { usePopover } from '@astryxdesign/core/Popover';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { Divider } from '@astryxdesign/core/Divider';
 import { Kbd } from '@astryxdesign/core/Kbd';
@@ -17,7 +19,6 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { RadioIndicator } from '@astryxdesign/core/Indicator';
 
 import { cn } from '@/fronted/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import { CONTROL_POPOVER_PANEL } from '@/fronted/features/player/components/ControlPopover';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
@@ -140,8 +141,14 @@ export default function TrainingMenuButton({
     showLabel?: boolean;
 }) {
     const { t } = useI18nTranslation('player');
-    const [trainingMenuOpen, setTrainingMenuOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const popover = usePopover({
+        className: cn('w-[280px] p-2.5', CONTROL_POPOVER_PANEL),
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('controlBar.trainingMenuLabel'),
+    });
+    const trainingMenuOpen = popover.isOpen;
 
     useEffect(() => {
         onMenuOpenChange?.(trainingMenuOpen || settingsOpen);
@@ -226,48 +233,44 @@ export default function TrainingMenuButton({
 
     return (
         <>
-            <Popover open={trainingMenuOpen} onOpenChange={setTrainingMenuOpen}>
-                <Tooltip content={trainingTooltipContent} placement="above">
-                    <PopoverTrigger asChild>
-                        <button
-                            type="button"
-                            aria-label={t('controlBar.trainingMenuLabel')}
-                            className={cn(
-                                (loopTimesActive || loopRatesActive || showLabel)
-                                    ? TOOLBAR_TEXT_BUTTON
-                                    : TOOLBAR_ICON_BUTTON,
-                                trainingActive
-                                    ? style.accent.emerald
-                                    : style.idle
-                            )}
-                        >
-                            <Headphones className="w-4 h-4 shrink-0" />
-                            {showLabel ? <span className="font-sans">{trainingLabel}</span> : null}
-
-                            {loopTimesActive || loopRatesActive ? (
-                                <span
-                                    className="inline-flex items-center justify-center gap-0.5"
-                                    style={{ minWidth: progressSlotWidth }}
-                                >
-                                    {loopTimesActive ? (
-                                        activePlan ? <span className={cn(TOOLBAR_BADGE, style.badge)}>{loopCountText}</span> : null
-                                    ) : activePlan ? (
-                                        <>
-                                            <span className={cn(TOOLBAR_BADGE, style.badge)}>{playbackRate.toFixed(2)}x</span>
-                                            <span className={cn('font-mono text-xs', tone === 'overlay' ? 'text-media-fg/70' : 'text-muted-foreground')}>{`(${loopCountText})`}</span>
-                                        </>
-                                    ) : null}
-                                </span>
-                            ) : null}
-                        </button>
-                    </PopoverTrigger>
-                </Tooltip>
-                <PopoverContent
-                    side="top"
-                    align="end"
-                    sideOffset={popoverOffset}
-                    className={cn('w-[280px] p-2.5', CONTROL_POPOVER_PANEL)}
+            <Tooltip content={trainingTooltipContent} placement="above">
+                <button
+                    type="button"
+                    ref={popover.triggerRef}
+                    onClick={popover.toggle}
+                    {...popover.triggerProps}
+                    aria-label={t('controlBar.trainingMenuLabel')}
+                    className={cn(
+                        (loopTimesActive || loopRatesActive || showLabel)
+                            ? TOOLBAR_TEXT_BUTTON
+                            : TOOLBAR_ICON_BUTTON,
+                        trainingActive
+                            ? style.accent.emerald
+                            : style.idle
+                    )}
                 >
+                    <Headphones className="w-4 h-4 shrink-0" />
+                    {showLabel ? <span className="font-sans">{trainingLabel}</span> : null}
+
+                    {loopTimesActive || loopRatesActive ? (
+                        <span
+                            className="inline-flex items-center justify-center gap-0.5"
+                            style={{ minWidth: progressSlotWidth }}
+                        >
+                            {loopTimesActive ? (
+                                activePlan ? <span className={cn(TOOLBAR_BADGE, style.badge)}>{loopCountText}</span> : null
+                            ) : activePlan ? (
+                                <>
+                                    <span className={cn(TOOLBAR_BADGE, style.badge)}>{playbackRate.toFixed(2)}x</span>
+                                    <span className={cn('font-mono text-xs', tone === 'overlay' ? 'text-media-fg/70' : 'text-muted-foreground')}>{`(${loopCountText})`}</span>
+                                </>
+                            ) : null}
+                        </span>
+                    ) : null}
+                </button>
+            </Tooltip>
+            {popover.render(
+                <>
                     {/* 标题栏 */}
                     <div className="flex items-center justify-between px-2 pb-2">
                         <div className="flex items-center gap-2">
@@ -377,7 +380,7 @@ export default function TrainingMenuButton({
                         <button
                             type="button"
                             onClick={() => {
-                                setTrainingMenuOpen(false);
+                                popover.hide();
                                 setSettingsOpen(true);
                             }}
                             data-testid="training-settings-button"
@@ -390,8 +393,9 @@ export default function TrainingMenuButton({
                             <ChevronRight className="h-3.5 w-3.5 text-secondary group-hover:text-foreground transition-colors" />
                         </button>
                     </div>
-                </PopoverContent>
-            </Popover>
+                </>,
+                { placement: 'above', alignment: 'end', offset: popoverOffset },
+            )}
 
             <TrainingSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         </>

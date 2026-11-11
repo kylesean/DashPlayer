@@ -1,11 +1,12 @@
+/* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
 import { useState } from 'react';
 import { Activity, ChevronRight, Loader2, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
+import { usePopover } from '@astryxdesign/core/Popover';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 
 import { cn } from '@/fronted/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import { CONTROL_POPOVER_PANEL } from '@/fronted/features/player/components/ControlPopover';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { useLearningSessionSince } from '@/fronted/features/player/learningSessionStore';
@@ -89,8 +90,14 @@ export default function LearningSessionDock({
 }) {
     const { t, i18n } = useTranslation('player');
     const { t: tRecap } = useTranslation('recap');
-    const [open, setOpen] = useState(false);
     const [recapOpen, setRecapOpen] = useState(false);
+    const popover = usePopover({
+        className: cn('w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden', CONTROL_POPOVER_PANEL),
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('learningSummary.title'),
+    });
+    const open = popover.isOpen;
     const videoId = usePlaybackSession((state) => state.videoId);
     const fileHash = usePlaybackSession((state) => state.srtHash);
     const { since } = useLearningSessionSince(videoId, fileHash);
@@ -124,26 +131,21 @@ export default function LearningSessionDock({
 
     return (
         <>
-            <Popover open={open} onOpenChange={setOpen}>
             <Tooltip content={t('learningSummary.trigger')} placement="above">
-                <PopoverTrigger asChild>
-                    <button
-                        type="button"
-                        data-testid="learning-session-trigger"
-                        aria-label={t('learningSummary.trigger')}
-                        className={cn(TOOLBAR_ICON_BUTTON, style.idle)}
-                    >
-                        <Activity className="h-4 w-4 stroke-[1.9]" />
-                    </button>
-                </PopoverTrigger>
+                <button
+                    type="button"
+                    ref={popover.triggerRef}
+                    onClick={popover.toggle}
+                    {...popover.triggerProps}
+                    data-testid="learning-session-trigger"
+                    aria-label={t('learningSummary.trigger')}
+                    className={cn(TOOLBAR_ICON_BUTTON, style.idle)}
+                >
+                    <Activity className="h-4 w-4 stroke-[1.9]" />
+                </button>
             </Tooltip>
-            <PopoverContent
-                side="top"
-                align="end"
-                sideOffset={popoverOffset}
-                className={cn('w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden', CONTROL_POPOVER_PANEL)}
-                data-testid="learning-session-panel"
-            >
+            {popover.render(
+                <div data-testid="learning-session-panel">
                 <div className="flex items-start justify-between gap-3 px-1 pb-2 pt-1">
                     <div className="min-w-0">
                         <div className="text-sm font-semibold text-foreground">
@@ -251,8 +253,9 @@ export default function LearningSessionDock({
                         )}
                     </div>
                 ) : null}
-                </PopoverContent>
-            </Popover>
+                </div>,
+                { placement: 'above', alignment: 'end', offset: popoverOffset },
+            )}
             {since && (
                 <LearningRecapDialog
                     open={recapOpen}

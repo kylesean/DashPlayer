@@ -1,9 +1,10 @@
-import { useState } from 'react';
+/* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
+import { useCallback, useEffect, useState } from 'react';
 import { Brain, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { usePopover } from '@astryxdesign/core/Popover';
 
 import { cn } from '@/fronted/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import type { LearningMomentCandidate } from '@/common/learning/learningMoment';
 
 export interface LearningMomentChipProps {
@@ -32,12 +33,30 @@ export default function LearningMomentChip({
     const { t } = useTranslation('moment');
     const [revealed, setRevealed] = useState(false);
 
-    const handleOpenChange = (next: boolean): void => {
-        if (!next) {
-            setRevealed(false);
+    const handlePopoverShow = useCallback(() => {
+        onOpenChange(true);
+    }, [onOpenChange]);
+    const handlePopoverHide = useCallback(() => {
+        setRevealed(false);
+        onOpenChange(false);
+    }, [onOpenChange]);
+    const popover = usePopover({
+        className: 'w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-border/60 bg-popover p-3 shadow-lg',
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('title'),
+        onShow: handlePopoverShow,
+        onHide: handlePopoverHide,
+    });
+
+    // open 由父级驱动（暂停时自动展开），与浮层手势关闭双向同步。
+    useEffect(() => {
+        if (open && !popover.isOpen) {
+            popover.show();
+        } else if (!open && popover.isOpen) {
+            popover.hide();
         }
-        onOpenChange(next);
-    };
+    }, [open, popover]);
 
     const statusLabel = candidate.status === 'familiar'
         ? t('statusFamiliar')
@@ -48,44 +67,40 @@ export default function LearningMomentChip({
             data-testid="learning-moment-slot"
             className="flex h-7 w-full items-center justify-center"
         >
-            <Popover open={open} onOpenChange={handleOpenChange}>
-                <div
-                    className={cn(
-                        'inline-flex h-6 max-w-full items-center rounded-full border border-primary/30 bg-primary/5',
-                        'pl-2 pr-1 text-metadata text-muted-foreground',
-                    )}
+            <div
+                className={cn(
+                    'inline-flex h-6 max-w-full items-center rounded-full border border-primary/30 bg-primary/5',
+                    'pl-2 pr-1 text-metadata text-muted-foreground',
+                )}
+            >
+                <button
+                    type="button"
+                    ref={popover.triggerRef}
+                    onClick={popover.toggle}
+                    {...popover.triggerProps}
+                    data-testid="learning-moment"
+                    className="inline-flex min-w-0 items-center gap-1.5 pr-1.5 cursor-pointer transition-colors hover:text-foreground"
                 >
-                    <PopoverTrigger asChild>
-                        <button
-                            type="button"
-                            data-testid="learning-moment"
-                            className="inline-flex min-w-0 items-center gap-1.5 pr-1.5 cursor-pointer transition-colors hover:text-foreground"
-                        >
-                            <Brain className="h-3 w-3 shrink-0 text-primary" />
-                            <span className="shrink-0 font-medium text-foreground">
-                                {candidate.surface}
-                            </span>
-                            <span className="max-w-[18rem] truncate">
-                                {t('prompt')}
-                            </span>
-                        </button>
-                    </PopoverTrigger>
-                    <button
-                        type="button"
-                        aria-label={t('dismiss')}
-                        title={t('dismiss')}
-                        onClick={onDismiss}
-                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground cursor-pointer"
-                    >
-                        <X className="h-3 w-3" />
-                    </button>
-                </div>
-                <PopoverContent
-                    side="top"
-                    align="center"
-                    sideOffset={6}
-                    className="w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-border/60 bg-popover p-3 shadow-lg"
+                    <Brain className="h-3 w-3 shrink-0 text-primary" />
+                    <span className="shrink-0 font-medium text-foreground">
+                        {candidate.surface}
+                    </span>
+                    <span className="max-w-[18rem] truncate">
+                        {t('prompt')}
+                    </span>
+                </button>
+                <button
+                    type="button"
+                    aria-label={t('dismiss')}
+                    title={t('dismiss')}
+                    onClick={onDismiss}
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground cursor-pointer"
                 >
+                    <X className="h-3 w-3" />
+                </button>
+            </div>
+            {popover.render(
+                <>
                     <div className="flex items-center justify-between gap-2">
                         <span className="text-metadata font-semibold uppercase tracking-wider text-primary">
                             {t('title')}
@@ -156,8 +171,9 @@ export default function LearningMomentChip({
                             {t('reveal')}
                         </button>
                     )}
-                </PopoverContent>
-            </Popover>
+                </>,
+                { placement: 'above', alignment: 'center', offset: 6 },
+            )}
         </div>
     );
 }

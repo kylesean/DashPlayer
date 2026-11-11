@@ -23,6 +23,7 @@
         "audioStageHint": "Exiting practice returns cleanly to Podcast view"
     },
     "filter": {
+        "title": "Sentence filter",
         "all": "All",
         "unpracticed": "New",
         "weak": "Weak",

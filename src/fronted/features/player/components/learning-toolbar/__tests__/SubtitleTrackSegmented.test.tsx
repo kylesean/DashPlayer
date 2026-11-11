@@ -43,8 +43,8 @@ const arrange = (options: {
     });
 };
 
-/** 按可访问名称取分段按钮。 */
-const trackButton = (name: string): HTMLElement => screen.getByRole('button', { name });
+/** 按可访问名称取分段单选按钮。 */
+const trackButton = (name: string): HTMLElement => screen.getByRole('radio', { name });
 
 describe('SubtitleTrackSegmented', () => {
     beforeEach(() => {
@@ -82,7 +82,7 @@ describe('SubtitleTrackSegmented', () => {
             trackButton('controlBar.tracksEnglish'),
             trackButton('controlBar.tracksChinese'),
             trackButton('controlBar.tracksBilingual'),
-        ].map((button) => button.getAttribute('aria-pressed'));
+        ].map((button) => button.getAttribute('aria-checked'));
 
         expect(pressed.filter((value) => value === 'true')).toHaveLength(0);
 
@@ -92,9 +92,9 @@ describe('SubtitleTrackSegmented', () => {
             trackButton('controlBar.tracksEnglish'),
             trackButton('controlBar.tracksChinese'),
             trackButton('controlBar.tracksBilingual'),
-        ].map((button) => button.getAttribute('aria-pressed'));
+        ].map((button) => button.getAttribute('aria-checked'));
 
         expect(after.filter((value) => value === 'true')).toHaveLength(1);
-        expect(trackButton('controlBar.tracksChinese').getAttribute('aria-pressed')).toBe('true');
+        expect(trackButton('controlBar.tracksChinese').getAttribute('aria-checked')).toBe('true');
     });
 });

@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import React, { useMemo } from 'react';
 import {
     Boxes,
@@ -66,7 +66,6 @@ const SETTING_ITEMS: SettingNavDef[] = [
 const SettingLayout: React.FC = () => {
     const { t } = useI18nTranslation('settings');
     const location = useLocation();
-    const navigate = useNavigate();
 
     const currentKey = useMemo<SettingType>(() => {
         const segments = location.pathname.split('/');
@@ -105,7 +104,6 @@ const SettingLayout: React.FC = () => {
                                         }
                                         isSelected={currentKey === item.key}
                                         href={`/settings/${item.key}`}
-                                        onClick={() => navigate(`/settings/${item.key}`)}
                                     />
                                 ))}
                             </SideNav>

@@ -392,10 +392,10 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                 actionVariant="destructive"
                 onAction={() => {
                     const target = pendingDeleteModel;
-                    setPendingDeleteModel(null);
                     if (target) {
                         handleDeleteModel(target);
                     }
+                    setPendingDeleteModel(null);
                 }}
             />
         </VStack>

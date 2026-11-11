@@ -1,5 +1,5 @@
 import {cn} from "@/fronted/lib/utils";
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/fronted/components/ui/resizable';
+import { SplitHandle, SplitLayout, SplitPane } from '@/fronted/components/layout/SplitLayout';
 import PlaybackStage from './Stage';
 import PodcastViewer from '@/fronted/features/player/components/subtitles/PodcastViewer';
 import MainSubtitle from './MainSubtitle';
@@ -178,7 +178,7 @@ const PlaybackLayout = () => {
     };
 
     const videoStagePanel = (
-        <ResizablePanel
+        <SplitPane
             key="video-stage-panel"
             defaultSize={sizeOa}
             onResize={(e) => {
@@ -193,12 +193,12 @@ const PlaybackLayout = () => {
         >
             <div className="relative w-full h-full overflow-hidden">
                 {/* 视频与主字幕：学习页打开时隐藏，练习工坊则原位替代底部主字幕区、上方视频保留 */}
-                <ResizablePanelGroup
+                <SplitLayout
                     ref={innerGroupRef}
                     direction={'vertical'}
                     className={cn('relative z-10', learningVisible && 'invisible')}
                 >
-                    <ResizablePanel
+                    <SplitPane
                         minSize={10}
                         defaultSize={sizeIa}
                         onResize={(e) => {
@@ -213,10 +213,10 @@ const PlaybackLayout = () => {
                             onReady={handlePlayerReady}
                             onEnded={handleAutoPlayNext}
                         />
-                    </ResizablePanel>
+                    </SplitPane>
                     {(!fullScreen || practiceVisible) && !podcastMode && (
                         <>
-                            <ResizableHandle
+                            <SplitHandle
                                 data-testid="playback-split-handle-inner"
                                 onDoubleClick={resetSplitLayout}
                                 title={t('layout.resetSplitHint')}
@@ -228,8 +228,8 @@ const PlaybackLayout = () => {
                                 )}
                             >
                                 <div className="w-10 h-1 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:w-14 transition-all duration-200" />
-                            </ResizableHandle>
-                            <ResizablePanel
+                            </SplitHandle>
+                            <SplitPane
                                 className={cn('overflow-hidden bg-surface/70 backdrop-blur-2xl')}
                                 minSize={0}
                                 defaultSize={sizeIb}
@@ -267,10 +267,10 @@ const PlaybackLayout = () => {
                                         )}
                                     </div>
                                 )}
-                            </ResizablePanel>
+                            </SplitPane>
                         </>
                     )}
-                </ResizablePanelGroup>
+                </SplitLayout>
 
                 {/* 播客模式：作为顶层全屏覆盖层呈现，保留底部的 PlaybackStage 与 Panel 结构完整稳定 */}
                 {podcastMode && (
@@ -312,11 +312,11 @@ const PlaybackLayout = () => {
                     </div>
                 )}
             </div>
-        </ResizablePanel>
+        </SplitPane>
     );
 
     const subtitlePanel = (
-        <ResizablePanel
+        <SplitPane
             key="subtitle-script-panel"
             className={cn(
                 'relative overflow-hidden backdrop-blur-2xl transition-colors duration-300',
@@ -344,11 +344,11 @@ const PlaybackLayout = () => {
                     </div>
                 )}
             </div>
-        </ResizablePanel>
+        </SplitPane>
     );
 
     const splitHandle = (
-        <ResizableHandle
+        <SplitHandle
             key="outer-split-handle"
             data-testid="playback-split-handle-outer"
             onDoubleClick={resetSplitLayout}
@@ -361,7 +361,7 @@ const PlaybackLayout = () => {
             )}
         >
             <div className="w-1 h-12 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:h-16 transition-all duration-200" />
-        </ResizableHandle>
+        </SplitHandle>
     );
 
     return (
@@ -372,7 +372,7 @@ const PlaybackLayout = () => {
                     {t('mediaError.hint', { code: mediaErrorCode })}
                 </div>
             )}
-            <ResizablePanelGroup
+            <SplitLayout
                 ref={outerGroupRef}
                 key={`layout-group-${transcriptPosition}`}
                 className={cn(
@@ -393,7 +393,7 @@ const PlaybackLayout = () => {
                         {!fullScreen && effectiveShowTranscript && subtitlePanel}
                     </>
                 )}
-            </ResizablePanelGroup>
+            </SplitLayout>
         </div>
     );
 }

@@ -1,12 +1,13 @@
-import { useState } from 'react';
+/* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
+import { useCallback, useEffect, useState } from 'react';
 import { BookOpenCheck, Check, Loader2, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
+import { usePopover } from '@astryxdesign/core/Popover';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 
 import { cn } from '@/fronted/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import { CONTROL_POPOVER_PANEL } from '@/fronted/features/player/components/ControlPopover';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { REVIEW_QUEUE_SWR_KEY } from '@/fronted/features/video-learning/reviewQueue';
@@ -212,7 +213,6 @@ export default function ReviewDock({
     popoverOffset: number;
 }) {
     const { t, i18n } = useTranslation('player');
-    const [open, setOpen] = useState(false);
     const requestId = useReviewDockStore((state) => state.requestId);
     const consumedId = useReviewDockStore((state) => state.consumedId);
     const consumeRequest = useReviewDockStore((state) => state.consume);
@@ -222,6 +222,17 @@ export default function ReviewDock({
         rating: ReviewRating;
         dueAt: string;
     } | null>(null);
+    const handlePopoverHide = useCallback(() => {
+        setRevealedFor(null);
+        setLastRated(null);
+    }, []);
+    const popover = usePopover({
+        className: cn('w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden', CONTROL_POPOVER_PANEL),
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('reviewDock.title'),
+        onHide: handlePopoverHide,
+    });
 
     const { data, error, isLoading, mutate } = useSWR(
         REVIEW_QUEUE_SWR_KEY,
@@ -242,8 +253,15 @@ export default function ReviewDock({
     const hasRetentionSample = (data?.stats.last7Days.reviewed ?? 0) > 0
         || (data?.stats.last30Days.reviewed ?? 0) > 0;
 
-    // 首页请求打开时直接派生打开态，避免 effect 内 setState 多渲染一轮。
-    const isOpen = open || requestId > consumedId;
+    // 首页请求打开：消费请求并显式展开，避免在渲染期派生打开态。
+    useEffect(() => {
+        if (requestId > consumedId) {
+            consumeRequest(requestId);
+            if (!popover.isOpen) {
+                popover.show();
+            }
+        }
+    }, [requestId, consumedId, consumeRequest, popover]);
 
     const rate = async (rating: ReviewRating) => {
         if (!card || pending) return;
@@ -267,50 +285,34 @@ export default function ReviewDock({
     };
 
     return (
-        <Popover
-            open={isOpen}
-            onOpenChange={(next) => {
-                setOpen(next);
-                if (requestId > consumedId) {
-                    consumeRequest(requestId);
-                }
-                if (!next) {
-                    setRevealedFor(null);
-                    setLastRated(null);
-                }
-            }}
-        >
+        <>
             <Tooltip content={t('reviewDock.trigger')} placement="above">
-                <PopoverTrigger asChild>
-                    <button
-                        type="button"
-                        data-testid="review-dock-trigger"
-                        aria-label={t('reviewDock.trigger')}
-                        className={cn(
-                            TOOLBAR_ICON_BUTTON,
-                            'relative',
-                            dueCount > 0 ? 'bg-primary/10 text-primary hover:bg-primary/15' : style.idle,
-                        )}
-                    >
-                        <BookOpenCheck className="h-4 w-4 stroke-[1.9]" />
-                        {dueCount > 0 && (
-                            <span
-                                aria-hidden
-                                className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
-                            >
-                                {dueCount > 99 ? '99+' : dueCount}
-                            </span>
-                        )}
-                    </button>
-                </PopoverTrigger>
+                <button
+                    type="button"
+                    ref={popover.triggerRef}
+                    onClick={popover.toggle}
+                    {...popover.triggerProps}
+                    data-testid="review-dock-trigger"
+                    aria-label={t('reviewDock.trigger')}
+                    className={cn(
+                        TOOLBAR_ICON_BUTTON,
+                        'relative',
+                        dueCount > 0 ? 'bg-primary/10 text-primary hover:bg-primary/15' : style.idle,
+                    )}
+                >
+                    <BookOpenCheck className="h-4 w-4 stroke-[1.9]" />
+                    {dueCount > 0 && (
+                        <span
+                            aria-hidden
+                            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+                        >
+                            {dueCount > 99 ? '99+' : dueCount}
+                        </span>
+                    )}
+                </button>
             </Tooltip>
-            <PopoverContent
-                side="top"
-                align="end"
-                sideOffset={popoverOffset}
-                className={cn('w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden', CONTROL_POPOVER_PANEL)}
-                data-testid="review-dock-panel"
-            >
+            {popover.render(
+                <div data-testid="review-dock-panel">
                 <div className="flex items-start justify-between gap-3 px-1 pb-2 pt-1">
                     <div className="min-w-0">
                         <div className="text-sm font-semibold text-foreground">{t('reviewDock.title')}</div>
@@ -383,7 +385,9 @@ export default function ReviewDock({
                         </span>
                     </div>
                 )}
-            </PopoverContent>
-        </Popover>
+                </div>,
+                { placement: 'above', alignment: 'end', offset: popoverOffset },
+            )}
+        </>
     );
 }

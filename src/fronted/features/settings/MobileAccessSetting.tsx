@@ -200,12 +200,10 @@ const MobileAccessSetting: React.FC = () => {
                             isIntegerOnly
                             value={port}
                             onChange={(nextPort) => {
-                                if (nextPort !== port && nextPort >= MIN_PORT && nextPort <= MAX_PORT) {
-                                    setValue('port', nextPort, {
-                                        shouldDirty: true,
-                                        shouldTouch: true,
-                                    });
-                                }
+                                setValue('port', nextPort, {
+                                    shouldDirty: true,
+                                    shouldTouch: true,
+                                });
                             }}
                         />
                     </SettingField>

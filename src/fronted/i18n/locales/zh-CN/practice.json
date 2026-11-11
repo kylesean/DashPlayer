@@ -23,6 +23,7 @@
         "audioStageHint": "关闭练习台后将自动回到播客字幕视图"
     },
     "filter": {
+        "title": "句子筛选",
         "all": "全部",
         "unpracticed": "未练",
         "weak": "低分",

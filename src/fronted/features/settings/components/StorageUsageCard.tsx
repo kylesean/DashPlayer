@@ -1,15 +1,9 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cell, Pie, PieChart } from 'recharts';
 import { RefreshCw, HardDriveDownload } from 'lucide-react';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Skeleton } from '@astryxdesign/core/Skeleton';
-import {
-    type ChartConfig,
-    ChartContainer,
-    ChartTooltip,
-    ChartTooltipContent,
-} from '@/fronted/components/ui/chart';
+import StorageUsageDonutChart from './StorageUsageDonutChart';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';
@@ -19,16 +13,6 @@ import type {
     StorageUsageCategory,
     StorageUsageVO,
 } from '@/common/contracts/storage-usage-vo';
-
-/** 各用量分类在图表中的 Astryx token 色值映射。 */
-const USAGE_CHART_COLORS: Record<StorageUsageCategory, string> = {
-    videos: 'var(--color-border-blue)',
-    favorite_clips: 'var(--color-border-orange)',
-    word_clips: 'var(--color-border-green)',
-    models: 'var(--color-border-purple)',
-    temp: 'var(--color-border-gray)',
-    other: 'var(--color-border-pink)',
-};
 
 const CATEGORY_TOKEN_COLOR: Record<StorageUsageCategory, 'blue' | 'orange' | 'green' | 'purple' | 'gray' | 'pink'> = {
     videos: 'blue',
@@ -118,25 +102,18 @@ const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
 }) => {
     const { t } = useTranslation('settings');
 
-    const chartConfig = React.useMemo<ChartConfig>(() => {
-        const config: ChartConfig = {};
-        for (const category of Object.keys(USAGE_CHART_COLORS) as StorageUsageCategory[]) {
-            config[category] = {
-                label: t(`storage.usage.categories.${category}`),
-                color: USAGE_CHART_COLORS[category],
-            };
-        }
-        return config;
-    }, [t]);
-
-    const chartData = React.useMemo(
+    const chartSegments = React.useMemo(
         () =>
             (usage?.items ?? []).map((item) => ({
                 category: item.category,
                 bytes: item.bytes,
-                fill: `var(--color-${item.category})`,
             })),
         [usage],
+    );
+
+    const labelForCategory = React.useCallback(
+        (category: StorageUsageCategory) => t(`storage.usage.categories.${category}`),
+        [t],
     );
 
     const totalBytes = usage?.totalBytes ?? 0;
@@ -183,49 +160,13 @@ const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
                 </VStack>
             ) : (
                 <HStack gap={6} padding={4} align="center" wrap="wrap" width="100%">
-                    <ChartContainer
-                        config={chartConfig}
+                    <StorageUsageDonutChart
+                        segments={chartSegments}
+                        totalBytes={totalBytes}
+                        formatBytes={formatBytes}
+                        labelFor={labelForCategory}
                         className="mx-auto aspect-square h-44 w-44 shrink-0"
-                    >
-                        <PieChart>
-                            <ChartTooltip
-                                cursor={false}
-                                content={
-                                    <ChartTooltipContent
-                                        hideLabel
-                                        formatter={(value, name) => (
-                                            <div className="flex min-w-32 items-center justify-between gap-4 leading-none">
-                                                <span className="text-muted-foreground">
-                                                    {chartConfig[name as string]?.label ?? name}
-                                                </span>
-                                                <span className="font-mono font-medium tabular-nums text-foreground">
-                                                    {formatBytes(Number(value))}
-                                                    {totalBytes > 0 && (
-                                                        <span className="ml-2 text-muted-foreground">
-                                                            {((Number(value) / totalBytes) * 100).toFixed(1)}%
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            </div>
-                                        )}
-                                    />
-                                }
-                            />
-                            <Pie
-                                data={chartData}
-                                dataKey="bytes"
-                                nameKey="category"
-                                innerRadius={50}
-                                outerRadius={78}
-                                paddingAngle={2}
-                                strokeWidth={2}
-                            >
-                                {chartData.map((entry) => (
-                                    <Cell key={entry.category} fill={entry.fill} />
-                                ))}
-                            </Pie>
-                        </PieChart>
-                    </ChartContainer>
+                    />
 
                     <VStack gap={2} width="100%">
                         {(usage?.items ?? []).map((item) => {

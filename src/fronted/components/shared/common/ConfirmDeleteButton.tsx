@@ -11,8 +11,8 @@ type Props = {
   confirmLabel: string;
   /** 删除请求是否进行中。 */
   deleting: boolean;
-  /** 确认后触发。 */
-  onConfirm: () => void;
+  /** 确认后触发；返回 false 表示删除失败，确认弹窗会保持打开。 */
+  onConfirm: () => void | Promise<boolean | void>;
   /** 常态触发器的自定义样式；用于适配列表行、图片覆盖层等不同宿主。 */
   triggerClassName?: string;
   /** 确认弹窗的后果说明；缺省使用通用不可撤销提示。 */
@@ -36,6 +36,8 @@ export default function ConfirmDeleteButton({
 }: Props) {
   const { t } = useI18nTranslation('common');
   const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isLoading = deleting || isSubmitting;
 
   return (
     <>
@@ -43,20 +45,20 @@ export default function ConfirmDeleteButton({
         type="button"
         onClick={(event) => {
           event.stopPropagation();
-          if (!deleting) {
+          if (!isLoading) {
             setOpen(true);
           }
         }}
-        disabled={deleting}
+        disabled={isLoading}
         className={cn(
           'p-1 rounded-md transition-all cursor-pointer shrink-0',
           'text-muted-foreground hover:text-destructive hover:bg-destructive/10',
-          deleting && 'opacity-60 cursor-not-allowed',
+          isLoading && 'opacity-60 cursor-not-allowed',
           triggerClassName
         )}
         title={title}
       >
-        {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+        {isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
       </button>
       <AlertDialog
         isOpen={open}
@@ -66,10 +68,20 @@ export default function ConfirmDeleteButton({
         actionLabel={confirmLabel}
         cancelLabel={t('cancel', { defaultValue: '取消' })}
         actionVariant="destructive"
-        isActionLoading={deleting}
-        onAction={() => {
-          setOpen(false);
-          onConfirm();
+        isActionLoading={isLoading}
+        onAction={async () => {
+          if (isLoading) return;
+          setIsSubmitting(true);
+          try {
+            const succeeded = await onConfirm();
+            if (succeeded !== false) {
+              setOpen(false);
+            }
+          } catch {
+            // 失败时保持弹窗打开；具体提示由调用方负责。
+          } finally {
+            setIsSubmitting(false);
+          }
         }}
       />
     </>

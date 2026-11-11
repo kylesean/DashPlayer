@@ -1,12 +1,13 @@
+/* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Lightbulb, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
+import { usePopover } from '@astryxdesign/core/Popover';
 import { Button } from '@astryxdesign/core/Button';
 
 import { cn } from '@/fronted/lib/utils';
-import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { useVocabularyStore } from '@/fronted/features/player/vocabularyStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
@@ -87,6 +88,34 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
         }).catch(() => undefined);
     }, [sentence.fileHash, sentence.index, sentence.text, sentenceKey]);
 
+    const handleOpenChange = useCallback((next: boolean): void => {
+        setOpenForKey(next ? sentenceKey : null);
+        if (next && suggestion && !openedRef.current.has(sentenceKey)) {
+            openedRef.current.add(sentenceKey);
+            recordEncounter('open', suggestion.word);
+        }
+    }, [recordEncounter, sentenceKey, suggestion]);
+
+    const handlePopoverShow = useCallback(() => handleOpenChange(true), [handleOpenChange]);
+    const handlePopoverHide = useCallback(() => handleOpenChange(false), [handleOpenChange]);
+    const popover = usePopover({
+        className: 'w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-border/60 bg-popover p-3 shadow-lg',
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: suggestion?.word ?? t('contextSuggestion.why'),
+        onShow: handlePopoverShow,
+        onHide: handlePopoverHide,
+    });
+
+    // 外部状态（收藏/忽略/切句/关闭）驱动显隐，与浮层自身的手势关闭保持同步。
+    useEffect(() => {
+        if (open && !popover.isOpen) {
+            popover.show();
+        } else if (!open && popover.isOpen) {
+            popover.hide();
+        }
+    }, [open, popover]);
+
     useEffect(() => {
         if (guidance !== 'coach' || !visible || !suggestion) {
             return;
@@ -101,14 +130,6 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
     if (guidance !== 'coach') {
         return null;
     }
-
-    const handleOpenChange = (next: boolean): void => {
-        setOpenForKey(next ? sentenceKey : null);
-        if (next && suggestion && !openedRef.current.has(sentenceKey)) {
-            openedRef.current.add(sentenceKey);
-            recordEncounter('open', suggestion.word);
-        }
-    };
 
     const handleFavorite = async (): Promise<void> => {
         if (!suggestion || saving) {
@@ -162,28 +183,29 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
             className="flex h-7 w-full items-center justify-center"
         >
             {visible ? (
-                <Popover open={open} onOpenChange={handleOpenChange}>
+                <>
                     <div
                         className={cn(
                             'inline-flex h-6 max-w-full items-center rounded-full border border-border/50 bg-surface/60',
                             'pl-2 pr-1 text-metadata text-muted-foreground',
                         )}
                     >
-                        <PopoverTrigger asChild>
-                            <button
-                                type="button"
-                                data-testid="context-suggestion"
-                                className="inline-flex min-w-0 items-center gap-1.5 pr-1.5 cursor-pointer transition-colors hover:text-foreground"
-                            >
-                                <Lightbulb className="h-3 w-3 shrink-0 text-accent" />
-                                <span className="shrink-0 font-medium text-foreground">
-                                    {suggestion.word}
-                                </span>
-                                <span className="max-w-[18rem] truncate">
-                                    {reasonLabel(suggestion.reasons[0] ?? 'useful_new_word', t)}
-                                </span>
-                            </button>
-                        </PopoverTrigger>
+                        <button
+                            type="button"
+                            ref={popover.triggerRef}
+                            onClick={popover.toggle}
+                            {...popover.triggerProps}
+                            data-testid="context-suggestion"
+                            className="inline-flex min-w-0 items-center gap-1.5 pr-1.5 cursor-pointer transition-colors hover:text-foreground"
+                        >
+                            <Lightbulb className="h-3 w-3 shrink-0 text-accent" />
+                            <span className="shrink-0 font-medium text-foreground">
+                                {suggestion.word}
+                            </span>
+                            <span className="max-w-[18rem] truncate">
+                                {reasonLabel(suggestion.reasons[0] ?? 'useful_new_word', t)}
+                            </span>
+                        </button>
                         <button
                             type="button"
                             aria-label={t('contextSuggestion.dismiss')}
@@ -194,12 +216,8 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                             <X className="h-3 w-3" />
                         </button>
                     </div>
-                    <PopoverContent
-                        side="top"
-                        align="center"
-                        sideOffset={6}
-                        className="w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-border/60 bg-popover p-3 shadow-lg"
-                    >
+                    {popover.render(
+                        <>
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                                 <div className="flex items-baseline gap-2">
@@ -272,8 +290,10 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                                 />
                             )}
                         </div>
-                    </PopoverContent>
-                </Popover>
+                        </>,
+                        { placement: 'above', alignment: 'center', offset: 6 },
+                    )}
+                </>
             ) : null}
         </div>
     );

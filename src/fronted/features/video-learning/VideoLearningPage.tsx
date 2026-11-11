@@ -460,15 +460,15 @@ export default function VideoLearningPage() {
    *
    * @param index 被删除片段在当前页列表中的下标。
    */
-  const handleClipDeleted = useCallback(async (index: number) => {
+  const handleClipDeleted = useCallback(async (index: number): Promise<boolean> => {
     const clip = clips[index];
-    if (!clip || deletingClipKey) return;
+    if (!clip || deletingClipKey) return false;
     setDeletingClipKey(clip.key);
     try {
       const result = await videoLearningApi.deleteClip(clip.key);
       if (!result?.success) {
         toast.error(t('vocabularyStudio.clipDeleteFailed'));
-        return;
+        return false;
       }
 
       setCurrentClipIndex((prev) => {
@@ -500,9 +500,11 @@ export default function VideoLearningPage() {
         setPage(newTotalPages);
       }
       await fetchWords();
+      return true;
     } catch (error) {
       logger.error('删除片段失败', { error });
       toast.error(t('vocabularyStudio.clipDeleteFailed'));
+      return false;
     } finally {
       setDeletingClipKey(null);
     }

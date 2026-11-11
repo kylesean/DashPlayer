@@ -17,7 +17,6 @@ import { toast } from 'react-hot-toast';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
 import { Captions, Laptop, Moon, Palette, PanelLeft, PanelRight, SlidersHorizontal, Sun } from 'lucide-react';
-import { SelectableCard } from '@astryxdesign/core/SelectableCard';
 import { Grid } from '@astryxdesign/core/Grid';
 import { Selector } from '@astryxdesign/core/Selector';
 import { Switch } from '@astryxdesign/core/Switch';
@@ -31,6 +30,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Text } from '@astryxdesign/core/Text';
 import { Icon } from '@astryxdesign/core/Icon';
+import { CardRadio, CardRadioGroup } from '@/fronted/components/shared/common/CardRadioGroup';
 import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
 
 const logger = getRendererLogger('AppearanceSetting');
@@ -40,7 +40,7 @@ type AppearanceFormValues = AppearanceSettingVO;
  * 外观偏好设置组件。
  *
  * 全面迁移至 Astryx UI 体系：
- * - 主题选择：采用 SelectableCard 网格单选卡片。
+ * - 主题选择：采用 CardRadioGroup 卡片单选组，保留色点预览与选中描边。
  * - 界面语言：采用 Selector 下拉单选组件。
  * - 字号档位与预览模式：采用 SegmentedControl 分段切换。
  * - 预览容器与布局：采用 Card、VStack、HStack、Text 等 Astryx 原语。
@@ -180,7 +180,7 @@ const AppearanceSetting: React.FC = () => {
         },
     ];
 
-    /** 当前选中的主题；用于在网格下方展示一行说明，避免每张卡都塞说明导致高度不一。 */
+    /** 当前选中的主题；用于在单选列表下方展示一行说明，避免每项都塞说明导致高度不一。 */
     const selectedThemeFamily = themeFamilyOptions.find(
         (opt) => opt.value === (currentThemeFamily || 'neutral'),
     );
@@ -211,7 +211,7 @@ const AppearanceSetting: React.FC = () => {
                 title={t('appearance.title')}
                 description={t('appearance.description')}
             >
-                {/* ① 主题：视觉风格是看一眼就能选的东西，保留卡片式预览 */}
+                {/* ① 主题：视觉风格是看一眼就能选的东西，颜色圆点保留预览 */}
                 <SettingSection
                     title={t('appearance.sections.theme')}
                     description={t('appearance.sections.themeDesc')}
@@ -224,46 +224,39 @@ const AppearanceSetting: React.FC = () => {
                                 {t('appearance.themeFamilyDescription')}
                             </Text>
                         </VStack>
-                        <Grid
-                            columns={{ minWidth: 120, max: 4 }}
-                            gap={2}
-                            width="100%"
+                        <CardRadioGroup
+                            label={t('appearance.themeFamilyTitle')}
+                            value={currentThemeFamily || 'neutral'}
+                            onChange={(val) => {
+                                setValue('themeFamily', val as AppearanceFormValues['themeFamily'], {
+                                    shouldDirty: true,
+                                    shouldTouch: true,
+                                });
+                            }}
                         >
-                            {themeFamilyOptions.map((opt) => {
-                                const isSelected = (currentThemeFamily || 'neutral') === opt.value;
-                                return (
-                                    <SelectableCard
-                                        key={opt.value}
-                                        label={opt.label}
-                                        isSelected={isSelected}
-                                        height={64}
-                                        padding={2}
-                                        onChange={() => {
-                                            if (!isSelected) {
-                                                setValue('themeFamily', opt.value, {
-                                                    shouldDirty: true,
-                                                    shouldTouch: true,
-                                                });
-                                            }
-                                        }}
-                                    >
-                                        <HStack vAlign="center" justify="center" gap={2} height="100%">
-                                            <span
-                                                className="h-3.5 w-3.5 shrink-0 rounded-[50%] shadow-xs ring-1 ring-border"
-                                                style={{ backgroundColor: opt.previewColor }}
-                                            />
-                                            <Text
-                                                type="body"
-                                                weight={isSelected ? 'bold' : 'medium'}
-                                                color={isSelected ? 'primary' : 'secondary'}
-                                            >
-                                                {opt.label}
-                                            </Text>
-                                        </HStack>
-                                    </SelectableCard>
-                                );
-                            })}
-                        </Grid>
+                            <Grid columns={{ minWidth: 120, max: 4 }} gap={2} width="100%">
+                                {themeFamilyOptions.map((opt) => {
+                                    const isSelected = (currentThemeFamily || 'neutral') === opt.value;
+                                    return (
+                                        <CardRadio key={opt.value} value={opt.value} className="h-16">
+                                            <HStack vAlign="center" justify="center" gap={2} height="100%">
+                                                <span
+                                                    className="h-3.5 w-3.5 shrink-0 rounded-[50%] shadow-xs ring-1 ring-border"
+                                                    style={{ backgroundColor: opt.previewColor }}
+                                                />
+                                                <Text
+                                                    type="body"
+                                                    weight={isSelected ? 'bold' : 'medium'}
+                                                    color={isSelected ? 'primary' : 'secondary'}
+                                                >
+                                                    {opt.label}
+                                                </Text>
+                                            </HStack>
+                                        </CardRadio>
+                                    );
+                                })}
+                            </Grid>
+                        </CardRadioGroup>
                         {selectedThemeFamily && (
                             <Text type="supporting" color="secondary">
                                 {selectedThemeFamily.desc}
@@ -366,69 +359,51 @@ const AppearanceSetting: React.FC = () => {
                         description={t('appearance.transcriptPositionDescription')}
                         alignTop
                     >
-                        <Grid
-                            columns={{ minWidth: 120, max: 2 }}
-                            gap={2}
-                            width={320}
+                        <CardRadioGroup
+                            label={t('appearance.transcriptPositionTitle')}
+                            value={transcriptPosition}
+                            onChange={(val) => {
+                                setValue('transcriptPosition', val as AppearanceFormValues['transcriptPosition'], {
+                                    shouldDirty: true,
+                                    shouldTouch: true,
+                                });
+                            }}
                         >
-                            <SelectableCard
-                                label={t('appearance.transcriptPositionRight')}
-                                isSelected={transcriptPosition === 'right'}
-                                padding={2}
-                                onChange={() => {
-                                    if (transcriptPosition !== 'right') {
-                                        setValue('transcriptPosition', 'right', {
-                                            shouldDirty: true,
-                                            shouldTouch: true,
-                                        });
-                                    }
-                                }}
-                            >
-                                <VStack gap={1.5} align="center" justify="center">
-                                    <Icon
-                                        icon={PanelRight as unknown as Parameters<typeof Icon>[0]['icon']}
-                                        size="sm"
-                                        color={transcriptPosition === 'right' ? 'accent' : 'secondary'}
-                                    />
-                                    <Text
-                                        type="supporting"
-                                        weight={transcriptPosition === 'right' ? 'semibold' : undefined}
-                                        color={transcriptPosition === 'right' ? 'primary' : 'secondary'}
-                                    >
-                                        {t('appearance.transcriptPositionRight')}
-                                    </Text>
-                                </VStack>
-                            </SelectableCard>
-
-                            <SelectableCard
-                                label={t('appearance.transcriptPositionLeft')}
-                                isSelected={transcriptPosition === 'left'}
-                                padding={2}
-                                onChange={() => {
-                                    if (transcriptPosition !== 'left') {
-                                        setValue('transcriptPosition', 'left', {
-                                            shouldDirty: true,
-                                            shouldTouch: true,
-                                        });
-                                    }
-                                }}
-                            >
-                                <VStack gap={1.5} align="center" justify="center">
-                                    <Icon
-                                        icon={PanelLeft as unknown as Parameters<typeof Icon>[0]['icon']}
-                                        size="sm"
-                                        color={transcriptPosition === 'left' ? 'accent' : 'secondary'}
-                                    />
-                                    <Text
-                                        type="supporting"
-                                        weight={transcriptPosition === 'left' ? 'semibold' : undefined}
-                                        color={transcriptPosition === 'left' ? 'primary' : 'secondary'}
-                                    >
-                                        {t('appearance.transcriptPositionLeft')}
-                                    </Text>
-                                </VStack>
-                            </SelectableCard>
-                        </Grid>
+                            <Grid columns={{ minWidth: 120, max: 2 }} gap={2} width={320}>
+                                <CardRadio value="right">
+                                    <VStack gap={1.5} align="center" justify="center">
+                                        <Icon
+                                            icon={PanelRight as unknown as Parameters<typeof Icon>[0]['icon']}
+                                            size="sm"
+                                            color={transcriptPosition === 'right' ? 'accent' : 'secondary'}
+                                        />
+                                        <Text
+                                            type="supporting"
+                                            weight={transcriptPosition === 'right' ? 'semibold' : undefined}
+                                            color={transcriptPosition === 'right' ? 'primary' : 'secondary'}
+                                        >
+                                            {t('appearance.transcriptPositionRight')}
+                                        </Text>
+                                    </VStack>
+                                </CardRadio>
+                                <CardRadio value="left">
+                                    <VStack gap={1.5} align="center" justify="center">
+                                        <Icon
+                                            icon={PanelLeft as unknown as Parameters<typeof Icon>[0]['icon']}
+                                            size="sm"
+                                            color={transcriptPosition === 'left' ? 'accent' : 'secondary'}
+                                        />
+                                        <Text
+                                            type="supporting"
+                                            weight={transcriptPosition === 'left' ? 'semibold' : undefined}
+                                            color={transcriptPosition === 'left' ? 'primary' : 'secondary'}
+                                        >
+                                            {t('appearance.transcriptPositionLeft')}
+                                        </Text>
+                                    </VStack>
+                                </CardRadio>
+                            </Grid>
+                        </CardRadioGroup>
                     </SettingField>
 
                     <Divider variant="subtle" />

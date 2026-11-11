@@ -48,7 +48,8 @@ export interface LocalLlmCardProps {
     onTestModel: (modelId: string) => void;
     onDownloadModel: (modelId: string) => void;
     onCancelDownload: () => void;
-    onDeleteModel: (modelId: string) => void;
+    /** 删除模型；返回 false 表示删除失败，确认弹窗会保持打开。 */
+    onDeleteModel: (modelId: string) => void | Promise<boolean | void>;
     onOpenFolder: (path?: string) => void;
     onCopy: (text: string) => void;
     /** 打开外部下载链接（手动下载教程用）。 */
@@ -80,6 +81,7 @@ export const LocalLlmCard: React.FC<LocalLlmCardProps> = ({
 }) => {
     const { t } = useTranslation('settings');
     const [modelToDelete, setModelToDelete] = React.useState<string | null>(null);
+    const [deletingModel, setDeletingModel] = React.useState(false);
 
     /** 官方目录中的内置模型；手动下载教程以它为示例。 */
     const builtinModel = status?.models.find((model) => !model.custom);
@@ -261,10 +263,18 @@ export const LocalLlmCard: React.FC<LocalLlmCardProps> = ({
                 actionLabel={t('serviceCredentials.localAi.confirmDelete')}
                 cancelLabel={t('serviceCredentials.localAi.cancelDelete')}
                 actionVariant="destructive"
-                onAction={() => {
-                    if (modelToDelete) {
-                        onDeleteModel(modelToDelete);
-                        setModelToDelete(null);
+                isActionLoading={deletingModel}
+                onAction={async () => {
+                    if (!modelToDelete || deletingModel) return;
+                    const target = modelToDelete;
+                    setDeletingModel(true);
+                    try {
+                        const result = await onDeleteModel(target);
+                        if (result !== false) {
+                            setModelToDelete(null);
+                        }
+                    } finally {
+                        setDeletingModel(false);
                     }
                 }}
             />

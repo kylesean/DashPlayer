@@ -17,11 +17,10 @@ import { cn } from '@/fronted/lib/utils';
  * 在紧凑弹层作用域内覆盖 --text-label-size 为 supporting-size，使内部所有 Astryx
  * Switch / FieldLabel 与 Button size="sm"、SegmentedControl size="sm"、自定义列表项保持完全一致的字号。
  *
- * 开启保留 150ms 淡入，关闭则立即隐藏：Radix 在关闭动画播完前不会卸载浮层，
- * 而相邻的两个菜单各自持有浮层，留着淡出会让「旧菜单渐隐 + 新菜单渐显」同时在屏。
+ * 开启保留 150ms 淡入；关闭由原生 popover 即时移除，不会出现「旧菜单渐隐 + 新菜单渐显」同屏。
  */
 export const CONTROL_POPOVER_PANEL =
-    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)] animate-in fade-in-0 zoom-in-95 duration-150 data-[state=closed]:invisible';
+    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)] animate-in fade-in-0 zoom-in-95 duration-150';
 
 /** 弹窗内的分组标题。 */
 export const CONTROL_POPOVER_LABEL = 'px-2 py-1.5 text-sm font-semibold text-secondary';
@@ -30,7 +29,7 @@ export const CONTROL_POPOVER_LABEL = 'px-2 py-1.5 text-sm font-semibold text-sec
 export const CONTROL_POPOVER_SEPARATOR = '-mx-2 my-1 h-px bg-border/60';
 
 /**
- * 弹窗底边到触发按钮顶边的间距（Radix sideOffset）。
+ * 弹窗底边到触发按钮顶边的间距（Astryx usePopover 的 offset）。
  *
  * 控制条上的弹窗一律向上生长，必须让开宿主控制条自己上方的内容，否则会压住本条的进度条。
  * 按宿主形状取值，不要用一个数字凑两种控制条：
@@ -91,26 +90,30 @@ export function ControlPopoverRow({
 }: ControlPopoverRowProps) {
     return (
         <div
-            role="button"
-            tabIndex={0}
-            aria-pressed={checked}
-            title={title}
-            onClick={onActivate}
-            onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onActivate();
-                }
-            }}
-            className={cn(CONTROL_POPOVER_ROW_BASE, emphasize ? ROW_EMPHASIZED : CONTROL_POPOVER_ROW_IDLE, className)}
+            className={cn(
+                CONTROL_POPOVER_ROW_BASE,
+                emphasize ? ROW_EMPHASIZED : CONTROL_POPOVER_ROW_IDLE,
+                emphasize
+                    ? 'has-[:focus-visible]:text-primary'
+                    : 'has-[:focus-visible]:bg-muted has-[:focus-visible]:text-primary',
+                className,
+            )}
         >
-            <div className="flex items-center gap-2 min-w-0">
+            {/* 行点击语义放在原生 button 上；right 作为兄弟节点渲染，
+                避免可点击控件嵌套在可点击容器内导致 Enter/Space 双动作。 */}
+            <button
+                type="button"
+                aria-pressed={checked}
+                title={title}
+                onClick={onActivate}
+                className="flex flex-1 items-center gap-2 min-w-0 bg-transparent text-left outline-none rounded-md"
+            >
                 <span className="w-3.5 shrink-0 flex items-center justify-center">
                     {checked && <Check className="w-3.5 h-3.5 text-primary stroke-[2.5]" />}
                 </span>
                 {icon}
                 <span className="truncate">{label}</span>
-            </div>
+            </button>
             {right}
         </div>
     );

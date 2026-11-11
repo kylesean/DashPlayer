@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
@@ -26,7 +27,7 @@ import type {
 import UrlUtil from '@/common/utils/UrlUtil';
 import { cn } from '@/fronted/lib/utils';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
-import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
+import { usePopover } from '@astryxdesign/core/Popover';
 import { CONTROL_POPOVER_PANEL } from '@/fronted/features/player/components/ControlPopover';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
@@ -163,8 +164,18 @@ export default function PracticeDock() {
 
     const [result, setResult] = useState<SentencePracticeResultVO | null>(null);
     const [attemptNonce, setAttemptNonce] = useState(0);
-    const [filterOpen, setFilterOpen] = useState(false);
-    const [historyOpen, setHistoryOpen] = useState(false);
+    const filterPopover = usePopover({
+        className: cn('w-48 p-1.5', CONTROL_POPOVER_PANEL),
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('filter.title', { defaultValue: '句子筛选' }),
+    });
+    const historyPopover = usePopover({
+        className: cn('w-64 p-2', CONTROL_POPOVER_PANEL),
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('result.history'),
+    });
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -408,13 +419,13 @@ export default function PracticeDock() {
                 : false;
 
             if (e.key === 'Escape') {
-                if (filterOpen || historyOpen) return;
+                if (filterPopover.isOpen || historyPopover.isOpen) return;
                 e.preventDefault();
                 exitOverlayView();
                 return;
             }
             if (e.key === 'Tab') {
-                if (filterOpen || historyOpen) return;
+                if (filterPopover.isOpen || historyPopover.isOpen) return;
                 e.preventDefault();
                 if (e.shiftKey) handleSlowReplay();
                 else handleReplay();
@@ -452,11 +463,11 @@ export default function PracticeDock() {
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [
-        filterOpen,
+        filterPopover.isOpen,
         focusMode,
         handleReplay,
         handleSlowReplay,
-        historyOpen,
+        historyPopover.isOpen,
         mode,
         navigateOffset,
         result,
@@ -550,43 +561,42 @@ export default function PracticeDock() {
                         <Tooltip content={t('panel.prevSentence', { defaultValue: '上一句 (↑)' })} placement="below">
                             <button
                                 type="button"
-                                disabled={recording}
-                                onClick={() => navigateOffset(-1, true)}
+                                aria-disabled={recording}
+                                onClick={() => {
+                                    if (recording) return;
+                                    navigateOffset(-1, true);
+                                }}
                                 aria-label={t('panel.prevSentence', { defaultValue: '上一句 (↑)' })}
-                                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/70 disabled:opacity-40 cursor-pointer"
+                                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/70 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
                             >
                                 <ChevronLeft className="h-3.5 w-3.5" />
                             </button>
                         </Tooltip>
 
-                        <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-                            <PopoverTrigger asChild>
-                                <button
-                                    type="button"
-                                    className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono tabular-nums text-foreground hover:bg-muted/60 cursor-pointer"
-                                >
-                                    <span>
-                                        {currentFilteredPos >= 0 ? currentFilteredPos + 1 : 1}/{Math.max(1, filteredUnits.length)}
-                                    </span>
-                                    <span className="inline-flex items-center gap-0.5 font-sans text-muted-foreground">
-                                        <Filter className="h-3 w-3" />
-                                        {filterLabelMap[sentenceFilter]}
-                                    </span>
-                                </button>
-                            </PopoverTrigger>
-                            <PopoverContent
-                                side="bottom"
-                                align="end"
-                                sideOffset={6}
-                                className={cn('w-48 p-1.5', CONTROL_POPOVER_PANEL)}
-                            >
+                        <button
+                            type="button"
+                            ref={filterPopover.triggerRef}
+                            onClick={filterPopover.toggle}
+                            {...filterPopover.triggerProps}
+                            className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono tabular-nums text-foreground hover:bg-muted/60 cursor-pointer"
+                        >
+                            <span>
+                                {currentFilteredPos >= 0 ? currentFilteredPos + 1 : 1}/{Math.max(1, filteredUnits.length)}
+                            </span>
+                            <span className="inline-flex items-center gap-0.5 font-sans text-muted-foreground">
+                                <Filter className="h-3 w-3" />
+                                {filterLabelMap[sentenceFilter]}
+                            </span>
+                        </button>
+                        {filterPopover.render(
+                            <>
                                 {(['all', 'unpracticed', 'weak', 'vocab'] as PracticeSentenceFilter[]).map((key) => (
                                     <button
                                         key={key}
                                         type="button"
                                         onClick={() => {
                                             setSentenceFilter(key);
-                                            setFilterOpen(false);
+                                            filterPopover.hide();
                                         }}
                                         className={cn(
                                             'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer',
@@ -601,16 +611,20 @@ export default function PracticeDock() {
                                         </span>
                                     </button>
                                 ))}
-                            </PopoverContent>
-                        </Popover>
+                            </>,
+                            { placement: 'below', alignment: 'end', offset: 6 },
+                        )}
 
                         <Tooltip content={t('panel.nextSentence', { defaultValue: '下一句 (↓)' })} placement="below">
                             <button
                                 type="button"
-                                disabled={recording}
-                                onClick={() => navigateOffset(1, true)}
+                                aria-disabled={recording}
+                                onClick={() => {
+                                    if (recording) return;
+                                    navigateOffset(1, true);
+                                }}
                                 aria-label={t('panel.nextSentence', { defaultValue: '下一句 (↓)' })}
-                                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/70 disabled:opacity-40 cursor-pointer"
+                                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/70 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
                             >
                                 <ChevronRight className="h-3.5 w-3.5" />
                             </button>
@@ -619,66 +633,65 @@ export default function PracticeDock() {
 
                     {/* 单句历史角标弹出层 */}
                     {history && history.length > 0 && (
-                        <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
-                            <PopoverTrigger asChild>
-                                <button
-                                    type="button"
-                                    className={cn(
-                                        'inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-xs font-mono tabular-nums transition-colors cursor-pointer',
-                                        summary && summary.bestScore >= PRACTICE_PASS_SCORE
-                                            ? 'bg-success/10 text-success-text border-success/30'
-                                            : 'bg-muted/40 text-muted-foreground hover:text-foreground',
-                                    )}
-                                >
-                                    <History className="h-3 w-3" />
-                                    <span>{summary ? Math.round(summary.bestScore) : history.length}</span>
-                                </button>
-                            </PopoverTrigger>
-                            <PopoverContent
-                                side="bottom"
-                                align="end"
-                                sideOffset={6}
-                                className={cn('w-64 p-2', CONTROL_POPOVER_PANEL)}
+                        <>
+                            <button
+                                type="button"
+                                ref={historyPopover.triggerRef}
+                                onClick={historyPopover.toggle}
+                                {...historyPopover.triggerProps}
+                                className={cn(
+                                    'inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-xs font-mono tabular-nums transition-colors cursor-pointer',
+                                    summary && summary.bestScore >= PRACTICE_PASS_SCORE
+                                        ? 'bg-success/10 text-success-text border-success/30'
+                                        : 'bg-muted/40 text-muted-foreground hover:text-foreground',
+                                )}
                             >
-                                <div className="mb-1.5 px-1 text-xs font-semibold text-muted-foreground">
-                                    {t('result.history')} ({history.length})
-                                </div>
-                                <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
-                                    {history.slice(0, 12).map((record) => (
-                                        <div key={record.id} className="flex items-center justify-between gap-2 py-1.5 px-1 text-xs">
-                                            <span className="text-muted-foreground">
-                                                {record.mode === 'shadowing' ? t('result.modeShadowing') : t('result.modeDictation')}
-                                            </span>
-                                            <div className="flex items-center gap-1.5">
-                                                {record.audioPath && (
-                                                    <button
-                                                        type="button"
-                                                        aria-label={t('result.playMine')}
-                                                        onClick={() => handlePlayHistoryAudio(record.audioPath!)}
-                                                        className="text-muted-foreground hover:text-foreground cursor-pointer"
-                                                    >
-                                                        <Volume2 className="h-3.5 w-3.5" />
-                                                    </button>
-                                                )}
-                                                <span
-                                                    className={cn(
-                                                        'font-mono font-semibold tabular-nums',
-                                                        record.score >= 80
-                                                            ? 'text-success-text'
-                                                            : record.score >= 50
-                                                                ? 'text-warning-text'
-                                                                : 'text-error-text',
-                                                    )}
-                                                >
-                                                    {Math.round(record.score)}
+                                <History className="h-3 w-3" />
+                                <span>{summary ? Math.round(summary.bestScore) : history.length}</span>
+                            </button>
+                            {historyPopover.render(
+                                <>
+                                    <div className="mb-1.5 px-1 text-xs font-semibold text-muted-foreground">
+                                        {t('result.history')} ({history.length})
+                                    </div>
+                                    <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
+                                        {history.slice(0, 12).map((record) => (
+                                            <div key={record.id} className="flex items-center justify-between gap-2 py-1.5 px-1 text-xs">
+                                                <span className="text-muted-foreground">
+                                                    {record.mode === 'shadowing' ? t('result.modeShadowing') : t('result.modeDictation')}
                                                 </span>
+                                                <div className="flex items-center gap-1.5">
+                                                    {record.audioPath && (
+                                                        <button
+                                                            type="button"
+                                                            aria-label={t('result.playMine')}
+                                                            onClick={() => handlePlayHistoryAudio(record.audioPath!)}
+                                                            className="text-muted-foreground hover:text-foreground cursor-pointer"
+                                                        >
+                                                            <Volume2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                    <span
+                                                        className={cn(
+                                                            'font-mono font-semibold tabular-nums',
+                                                            record.score >= 80
+                                                                ? 'text-success-text'
+                                                                : record.score >= 50
+                                                                    ? 'text-warning-text'
+                                                                    : 'text-error-text',
+                                                        )}
+                                                    >
+                                                        {Math.round(record.score)}
+                                                    </span>
+                                                </div>
+                                                <span className="font-mono text-muted-foreground/70">{record.createdAt.slice(5, 16)}</span>
                                             </div>
-                                            <span className="font-mono text-muted-foreground/70">{record.createdAt.slice(5, 16)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </PopoverContent>
-                        </Popover>
+                                        ))}
+                                    </div>
+                                </>,
+                                { placement: 'below', alignment: 'end', offset: 6 },
+                            )}
+                        </>
                     )}
 
                     <Tooltip

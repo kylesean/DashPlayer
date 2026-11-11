@@ -28,6 +28,7 @@ export default function DictionaryEnhancementCard() {
     const [progress, setProgress] = useState<string | null>(null);
     /** 删除增强包的确认弹窗是否打开。 */
     const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+    const [removing, setRemoving] = useState(false);
 
     /** 启动安装并订阅任务进度。 */
     const install = async (): Promise<void> => {
@@ -64,14 +65,16 @@ export default function DictionaryEnhancementCard() {
     };
 
     /** 删除已安装的增强包；确认由 AlertDialog 统一承担。 */
-    const remove = async (): Promise<void> => {
+    const remove = async (): Promise<boolean> => {
         try {
             await englishDictionaryApi.remove();
             await mutate();
+            return true;
         } catch (error) {
             toast.error(t('resources.dictionaryEnhancement.removeFailed', {
                 message: error instanceof Error ? error.message : String(error),
             }));
+            return false;
         }
     };
 
@@ -126,9 +129,17 @@ export default function DictionaryEnhancementCard() {
                 actionLabel={t('resources.dictionaryEnhancement.remove')}
                 cancelLabel={t('common.cancel', { defaultValue: '取消' })}
                 actionVariant="destructive"
-                onAction={() => {
-                    setRemoveConfirmOpen(false);
-                    void remove();
+                isActionLoading={removing}
+                onAction={async () => {
+                    if (removing) return;
+                    setRemoving(true);
+                    try {
+                        if (await remove()) {
+                            setRemoveConfirmOpen(false);
+                        }
+                    } finally {
+                        setRemoving(false);
+                    }
                 }}
             />
         </VStack>

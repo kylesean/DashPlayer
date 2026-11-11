@@ -187,7 +187,11 @@ const SideBar: React.FC<SideBarProps> = ({
                         />
                     }
                     isSelected={isHome}
-                    onClick={navigateHome}
+                    // href 由 Astryx 渲染为 Router Link，导航交给链接本身；
+                    // 这里只补媒体库窗口尺寸切换，避免与链接各导航一次。
+                    onClick={() => {
+                        void fileBrowserApi.changeWindowSize('home');
+                    }}
                 />
 
                 <YoutubeImportSidebarItem compact={isCompact} />
@@ -208,13 +212,6 @@ const SideBar: React.FC<SideBarProps> = ({
                         />
                     }
                     isSelected={isPlayer}
-                    onClick={() => {
-                        if (videoId && videoId !== 'undefined') {
-                            navigate(`/player/${videoId}?sideBarAnimation=false`);
-                        } else {
-                            navigate('/player?sideBarAnimation=false');
-                        }
-                    }}
                 />
 
                 <SideNavItem
@@ -229,7 +226,6 @@ const SideBar: React.FC<SideBarProps> = ({
                         />
                     }
                     isSelected={isVocabulary}
-                    onClick={() => navigate('/vocabulary')}
                 />
 
                 <SideNavItem
@@ -244,7 +240,6 @@ const SideBar: React.FC<SideBarProps> = ({
                         />
                     }
                     isSelected={isSettings}
-                    onClick={() => navigate('/settings')}
                 />
             </VStack>
         </SideNav>

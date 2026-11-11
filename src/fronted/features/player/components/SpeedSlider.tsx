@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+/* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
+import { useEffect, useRef } from 'react';
 import { cn } from "@/fronted/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from '@/fronted/components/ui/popover';
+import { usePopover } from '@astryxdesign/core/Popover';
 import { Button } from '@astryxdesign/core/Button';
 import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import useSetting from '@/fronted/features/settings/settingsStore';
@@ -34,17 +35,22 @@ const SPEED_PRESETS = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, popoverOffset }: SpeedSliderProps) => {
     const { t } = useI18nTranslation('player');
     const logger = getRendererLogger('SpeedSlider');
-    const [open, setOpen] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    const popover = usePopover({
+        className: cn('w-52', CONTROL_POPOVER_PANEL),
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('speedSlider.title', { defaultValue: '播放速度' }),
+    });
 
     useEffect(() => {
-        if (open) {
+        if (popover.isOpen) {
             setTimeout(() => {
                 inputRef.current?.focus();
                 inputRef.current?.select();
             }, 50);
         }
-    }, [open]);
+    }, [popover.isOpen]);
 
     // 订阅 settingMap 变化，确保勾选状态即时响应
     const rawStack = useSetting((s) => s.setting('userSelect.playbackRateStack'));
@@ -71,32 +77,27 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
         if (s > 20) s = 20;
         if (s < 0.25) s = 0.25;
         onSpeedChange(s);
-        setOpen(false);
+        popover.hide();
         onSelectFinish?.();
     };
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    role="combobox"
-                    aria-expanded={open}
-                    size="sm"
-                    variant="ghost"
-                    label={`${speed.toFixed(2)}x`}
-                    className={cn(
-                        // 默认 hover 跟随应用主题（亮色宿主）；深色控制条由 triggerClassName 覆盖
-                        'h-8 px-2.5 rounded-lg text-sm font-mono text-inherit hover:bg-foreground/10 transition-colors',
-                        triggerClassName
-                    )}
-                />
-            </PopoverTrigger>
-            <PopoverContent
-                side="top"
-                align="center"
-                sideOffset={popoverOffset}
-                className={cn('w-52', CONTROL_POPOVER_PANEL)}
-            >
+        <>
+            <Button
+                ref={popover.triggerRef}
+                onClick={popover.toggle}
+                {...popover.triggerProps}
+                size="sm"
+                variant="ghost"
+                label={`${speed.toFixed(2)}x`}
+                className={cn(
+                    // 默认 hover 跟随应用主题（亮色宿主）；深色控制条由 triggerClassName 覆盖
+                    'h-8 px-2.5 rounded-lg text-sm font-mono text-inherit hover:bg-foreground/10 transition-colors',
+                    triggerClassName
+                )}
+            />
+            {popover.render(
+                <>
                 <div className="flex flex-col max-h-72 overflow-y-auto pr-0.5 media-scrollbar [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-media-fg/20">
                     {SPEED_PRESETS.map((num) => {
                         const isSelected = Math.abs(speed - num) < 0.001;
@@ -109,7 +110,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                                 className="font-mono"
                                 label={`${num.toFixed(2)}x`}
                                 onActivate={() => {
-                                    setOpen(false);
+                                    popover.hide();
                                     onSpeedChange(num);
                                     onSelectFinish?.();
                                 }}
@@ -171,8 +172,10 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                         <span className="text-sm text-secondary font-mono">x</span>
                     </div>
                 </div>
-            </PopoverContent>
-        </Popover>
+                </>,
+                { placement: 'above', alignment: 'center', offset: popoverOffset },
+            )}
+        </>
     );
 };
 
