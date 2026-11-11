@@ -1,7 +1,8 @@
 import useSWR from 'swr';
 import React from 'react';
 import { SWR_KEY, swrApiMutate } from '@/fronted/lib/swr-util';
-import { Film, ListVideo, Trash2 } from 'lucide-react';
+import { Film, Folder, ListVideo, Trash2 } from 'lucide-react';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { Text } from '@astryxdesign/core/Text';
@@ -17,6 +18,7 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import useInView from '@/fronted/hooks/useInView';
 import i18n from '@/fronted/i18n';
+import { toast } from 'react-hot-toast';
 
 const logger = getRendererLogger('ProjectListCard');
 
@@ -47,6 +49,23 @@ const ProjectListCard = ({
 
     const [hover, setHover] = React.useState(false);
     const [contextMenu, setContextMenu] = React.useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+    const [isDeleting, setIsDeleting] = React.useState(false);
+
+    const handleDelete = async () => {
+        try {
+            setIsDeleting(true);
+            logger.debug('Deleting video from watch history', { id: video.id });
+            await fileBrowserApi.deleteWatchHistoryGroup(video.id);
+            await swrApiMutate('watch-history/list');
+            setDeleteConfirmOpen(false);
+        } catch (error) {
+            logger.error('Failed to delete video from watch history', { error, id: video.id });
+            toast.error(error instanceof Error ? error.message : String(error));
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const percent = showDuration
         ? Math.floor(((video?.current_position || 0) / (video?.duration || 1)) * 100)
@@ -66,9 +85,8 @@ const ProjectListCard = ({
                 {
                     label: i18n.t('common:delete'),
                     variant: 'destructive',
-                    onClick: async () => {
-                        await fileBrowserApi.deleteWatchHistoryGroup(video.id);
-                        await swrApiMutate('watch-history/list');
+                    onClick: () => {
+                        setDeleteConfirmOpen(true);
                     },
                 },
             ]}
@@ -93,6 +111,13 @@ const ProjectListCard = ({
                     onClick={onSelected}
                 >
                     <div className="relative w-full rounded-2xl overflow-hidden bg-card border border-border/60 shadow-2xs transition-shadow duration-200 group-hover:shadow-md group-hover:border-border">
+                        {/* 文件夹标记 */}
+                        {video.isFolder && (
+                            <div className="absolute top-2.5 left-2.5 z-10 text-media-fg/95 bg-media-bg/75 backdrop-blur-md rounded-lg px-2 py-0.5 text-xs font-medium flex items-center gap-1 shadow-2xs">
+                                <Folder className="w-3.5 h-3.5" />
+                                <span>{i18n.t('common:folderBadge', { defaultValue: '文件夹' })}</span>
+                            </div>
+                        )}
                         {/* 3. 判断如果是 mp3，优先展示 Music 图标，否则还是原先逻辑 */}
                         {isAudio ? (
                             <MusicCard fileName={video.fileName} />
@@ -142,17 +167,16 @@ const ProjectListCard = ({
 
                         {/* 悬浮时展示删除按钮 */}
                         {hover && (
-                            <div className="absolute top-2.5 right-2.5">
+                            <div className="absolute top-2.5 right-2.5 z-10">
                                 <IconButton
                                     label={i18n.t('common:delete')}
                                     icon={<Trash2 className="w-3.5 h-3.5" />}
                                     variant="ghost"
                                     size="sm"
-                                    onClick={async (e) => {
+                                    className="text-media-fg/90 bg-media-bg/60 hover:bg-media-bg/90 backdrop-blur-md rounded-lg"
+                                    onClick={(e) => {
                                         e.stopPropagation();
-                                        logger.debug('Deleting video from watch history', { id: video.id });
-                                        await fileBrowserApi.deleteWatchHistoryGroup(video.id);
-                                        await swrApiMutate('watch-history/list');
+                                        setDeleteConfirmOpen(true);
                                     }}
                                 />
                             </div>
@@ -165,10 +189,31 @@ const ProjectListCard = ({
                             weight="medium"
                             maxLines={2}
                         >
-                            {video.fileName}
+                            {video.displayFileName ?? video.fileName}
                         </Text>
+                        {video.isFolder && (
+                            <Text type="supporting" color="secondary" maxLines={1}>
+                                {i18n.t('common:recentPlayedVideo', {
+                                    name: video.fileName,
+                                    defaultValue: `最近播放：${video.fileName}`,
+                                })}
+                            </Text>
+                        )}
                     </VStack>
                 </div>
+            <AlertDialog
+                isOpen={deleteConfirmOpen}
+                onOpenChange={setDeleteConfirmOpen}
+                title={i18n.t('common:deleteConfirmTitle', { defaultValue: '移除观看记录？' })}
+                description={i18n.t('common:deleteConfirmDesc', {
+                    defaultValue: '此操作仅从播放历史中移除该项记录，不会删除磁盘上的本地文件。',
+                })}
+                actionLabel={i18n.t('common:delete')}
+                actionVariant="destructive"
+                cancelLabel={i18n.t('common:cancel', { defaultValue: '取消' })}
+                isActionLoading={isDeleting}
+                onAction={handleDelete}
+            />
         </ContextMenu>
     );
 };

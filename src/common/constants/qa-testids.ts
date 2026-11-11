@@ -8,6 +8,7 @@
 
 /** 主导航条目。 */
 export const NAV_TESTIDS = {
+    home: 'nav-home',
     player: 'nav-player',
     vocabulary: 'nav-vocabulary',
     settings: 'nav-settings',

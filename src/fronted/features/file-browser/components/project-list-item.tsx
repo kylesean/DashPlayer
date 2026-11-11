@@ -1,11 +1,11 @@
-import useSWR from 'swr';
 import React from 'react';
+import useSWR from 'swr';
 import { SWR_KEY, swrApiMutate } from '@/fronted/lib/swr-util';
-import { Film, ListVideo, Trash2 } from 'lucide-react';
+import { Film, Folder, ListVideo, Trash2 } from 'lucide-react';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { Text } from '@astryxdesign/core/Text';
-import { HStack } from '@astryxdesign/core/HStack';
 import { VStack } from '@astryxdesign/core/VStack';
 import { StackItem } from '@astryxdesign/core/Stack';
 import TimeUtil from '@/common/utils/TimeUtil';
@@ -18,6 +18,7 @@ import MusicCard from '@/fronted/features/file-browser/components/music-card';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import useInView from '@/fronted/hooks/useInView';
 import i18n from '@/fronted/i18n';
+import { toast } from 'react-hot-toast';
 
 const ProjectListItem = ({
     video,
@@ -45,6 +46,21 @@ const ProjectListItem = ({
 
     const [hover, setHover] = React.useState(false);
     const [contextMenu, setContextMenu] = React.useState(false);
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+    const [isDeleting, setIsDeleting] = React.useState(false);
+
+    const handleDelete = async () => {
+        try {
+            setIsDeleting(true);
+            await fileBrowserApi.deleteWatchHistoryGroup(video.id);
+            await swrApiMutate('watch-history/list');
+            setDeleteConfirmOpen(false);
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : String(error));
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const percent = showDuration
         ? Math.floor(((video?.current_position || 0) / (video?.duration || 1)) * 100)
@@ -64,9 +80,8 @@ const ProjectListItem = ({
                 {
                     label: i18n.t('common:delete'),
                     variant: 'destructive',
-                    onClick: async () => {
-                        await fileBrowserApi.deleteWatchHistoryGroup(video.id);
-                        await swrApiMutate('watch-history/list');
+                    onClick: () => {
+                        setDeleteConfirmOpen(true);
                     },
                 },
             ]}
@@ -93,6 +108,12 @@ const ProjectListItem = ({
                     }`}
                 >
                     <div className="relative w-36 sm:w-44 shrink-0 rounded-xl overflow-hidden bg-card border border-border/50 shadow-2xs">
+                        {video.isFolder && (
+                            <div className="absolute top-2 left-2 z-10 text-media-fg/95 bg-media-bg/75 backdrop-blur-md rounded-md px-1.5 py-0.5 text-metadata font-medium flex items-center gap-1 shadow-2xs">
+                                <Folder className="w-3 h-3" />
+                                <span>{i18n.t('common:folderBadge', { defaultValue: '文件夹' })}</span>
+                            </div>
+                        )}
                         {isAudio ? (
                             <MusicCard fileName={video.fileName} />
                         ) : url ? (
@@ -148,7 +169,12 @@ const ProjectListItem = ({
                                 color="secondary"
                                 maxLines={1}
                             >
-                                {TimeUtil.dateToRelativeTime(video?.updatedAt ?? new Date())}
+                                {video.isFolder
+                                    ? i18n.t('common:recentPlayedVideo', {
+                                        name: video.fileName,
+                                        defaultValue: `最近播放：${video.fileName}`,
+                                    })
+                                    : TimeUtil.dateToRelativeTime(video?.updatedAt ?? new Date())}
                             </Text>
                         </VStack>
                     </StackItem>
@@ -159,15 +185,27 @@ const ProjectListItem = ({
                                 icon={<Trash2 className="w-4 h-4" />}
                                 variant="ghost"
                                 size="sm"
-                                onClick={async (e) => {
+                                onClick={(e) => {
                                     e.stopPropagation();
-                                    await fileBrowserApi.deleteWatchHistoryGroup(video.id);
-                                    await swrApiMutate('watch-history/list');
+                                    setDeleteConfirmOpen(true);
                                 }}
                             />
                         </div>
                     )}
                 </div>
+            <AlertDialog
+                isOpen={deleteConfirmOpen}
+                onOpenChange={setDeleteConfirmOpen}
+                title={i18n.t('common:deleteConfirmTitle', { defaultValue: '移除观看记录？' })}
+                description={i18n.t('common:deleteConfirmDesc', {
+                    defaultValue: '此操作仅从播放历史中移除该项记录，不会删除磁盘上的本地文件。',
+                })}
+                actionLabel={i18n.t('common:delete')}
+                actionVariant="destructive"
+                cancelLabel={i18n.t('common:cancel', { defaultValue: '取消' })}
+                isActionLoading={isDeleting}
+                onAction={handleDelete}
+            />
         </ContextMenu>
     );
 };

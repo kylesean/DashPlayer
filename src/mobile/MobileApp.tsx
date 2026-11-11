@@ -39,7 +39,7 @@ const MobileApp = () => {
     }, []);
 
     return (
-        <HashRouter>
+        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <PageChrome />
             <Routes>
                 <Route path="/" element={<RecentPage />} />

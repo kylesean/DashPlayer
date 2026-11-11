@@ -14,15 +14,13 @@ import { Grid } from '@astryxdesign/core/Grid';
 import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { Center } from '@astryxdesign/core/Center';
-import { Icon, type IconType } from '@astryxdesign/core/Icon';
-import { SideNav, SideNavItem } from '@astryxdesign/core/SideNav';
+import SideBar from '@/fronted/components/layout/SideBar';
 import useSWR from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
 import {
-    BookOpen,
     ChevronsDown,
     Clock,
-    Settings,
+    Play,
 } from 'lucide-react';
 import FolderSelector, { FolderSelectAction } from '@/fronted/features/file-browser/components/FolderSelector';
 import FileSelector, { FileAction } from '@/fronted/features/file-browser/components/FileSelector';
@@ -31,7 +29,6 @@ import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import YoutubeImportButton from '@/fronted/features/youtube-import/YoutubeImportButton';
 import YoutubeImportHero from '@/fronted/features/youtube-import/YoutubeImportHero';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import { NAV_TESTIDS } from '@/common/constants/qa-testids';
 
 const logger = getRendererLogger('HomePage');
 
@@ -39,10 +36,10 @@ const logger = getRendererLogger('HomePage');
  * 应用主页：展示最近观看记录、快速文件导入入口与功能导航。
  */
 const HomePage = () => {
-    const { t } = useI18nTranslation('nav');
     const { t: tc } = useI18nTranslation('common');
     const navigate = useNavigate();
     const changeSideBar = useLayout((s) => s.changeSideBar);
+    const sidebarCollapsed = useLayout((s) => s.sidebarCollapsed);
 
     async function handleClickById(vId: string) {
         await fileBrowserApi.changeWindowSize('player');
@@ -90,11 +87,6 @@ const HomePage = () => {
         };
     }, []);
 
-    const navItems = [
-        { title: t('vocabularyStudio'), path: '/vocabulary', icon: BookOpen, testId: NAV_TESTIDS.vocabulary },
-        { title: t('settingsCenter'), path: '/settings', icon: Settings, testId: NAV_TESTIDS.settings },
-    ];
-
     const hasHistory = vps && vps.length > 0;
 
     return (
@@ -106,32 +98,13 @@ const HomePage = () => {
                 </LayoutHeader>
             }
             start={
-                <LayoutPanel width={220} padding={3} hasDivider={false}>
-                    <VStack gap={6} height="100%" justify="between">
-                        <VStack gap={4}>
-                            {/* 品牌字标固定用正文字体：主题标题字体（如 Matcha 的 Playwrite）
-                                字宽很大，放进 220px 侧栏会折成两行 */}
-                            <Heading level={1} weight="bold" className="font-sans px-2">
-                                DashPlayer
-                            </Heading>
-                            {/* SideNav 默认固定 260px，而侧栏内容区只有 196px，
-                                直接用会撑出横向滚动条；这里让导航填满侧栏宽度 */}
-                            <div className="w-full [&_.astryx-side-nav]:!w-full">
-                                <SideNav>
-                                    {navItems.map((item) => (
-                                        <SideNavItem
-                                            key={item.path}
-                                            data-testid={item.testId}
-                                            label={item.title}
-                                            icon={<Icon icon={item.icon as unknown as IconType} size="sm" />}
-                                            href={item.path}
-                                            onClick={() => fileBrowserApi.changeWindowSize('player')}
-                                        />
-                                    ))}
-                                </SideNav>
-                            </div>
-                        </VStack>
-                    </VStack>
+                <LayoutPanel
+                    width={sidebarCollapsed ? 56 : 208}
+                    padding={0}
+                    hasDivider={false}
+                    className="h-full overflow-hidden transition-[width] duration-200"
+                >
+                    <SideBar compact={sidebarCollapsed} />
                 </LayoutPanel>
             }
             content={
@@ -179,9 +152,15 @@ const HomePage = () => {
                                             {tc('recentWatch')}
                                         </Heading>
                                     </HStack>
-                                    <Text type="supporting" color="secondary">
-                                        {tc('pickUpWhereLeftOff')}
-                                    </Text>
+                                    {vps && vps.length > 0 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon={<Play className="h-3.5 w-3.5 fill-current" />}
+                                            onClick={() => handleClickById(vps[0].id)}
+                                            label={tc('pickUpWhereLeftOff')}
+                                        />
+                                    )}
                                 </HStack>
 
                                 <Grid columns={{ minWidth: 240, max: 4 }} gap={5}>

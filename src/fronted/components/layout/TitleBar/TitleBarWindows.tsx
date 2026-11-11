@@ -6,6 +6,9 @@ import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import type { WindowState } from '@/common/types/Types';
 import { Minus, X } from 'lucide-react';
+import { TitleBarNavigation } from './TitleBarNavigation';
+import { TitleBarTitle } from './TitleBarTitle';
+import { TitleBarRightNavigation } from './TitleBarRightNavigation';
 
 /**
  * Windows / Linux 标题栏控制属性。
@@ -64,13 +67,22 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
 
     return (
         <div className={cn('w-full h-full flex items-center justify-between select-none', className)}>
+            {/* 左侧导航控制（仅在播放器等需要导航时渲染） */}
+            <div className="flex items-center h-full pl-2 shrink-0">
+                <TitleBarNavigation />
+            </div>
+
             {/* 可拖拽标题栏主体，双击响应最大化与还原 */}
             <div
-                className="drag flex-1 h-full min-w-0"
+                className="drag flex-1 h-full min-w-0 flex items-center justify-center px-4"
                 onDoubleClick={handleToggleMaximize}
-            />
+            >
+                <TitleBarTitle />
+            </div>
+
             {/* 右侧窗口控制按钮组 */}
             <div className="no-drag flex items-center h-full shrink-0">
+                <TitleBarRightNavigation />
                 <button
                     onClick={handleMinimize}
                     className="inline-flex items-center justify-center w-11 h-full text-muted-foreground/80 hover:text-foreground hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer"

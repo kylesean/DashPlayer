@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import React, { useMemo } from 'react';
-import { BookOpen, PanelLeftClose, PanelLeftOpen, Settings, Video } from 'lucide-react';
+import { BookOpen, LayoutGrid, PanelLeftClose, PanelLeftOpen, Settings, Video } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Center } from '@astryxdesign/core/Center';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
@@ -15,6 +15,7 @@ import useSetting from '@/fronted/features/settings/settingsStore';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { cn } from '@/fronted/lib/utils';
 import { NAV_TESTIDS } from '@/common/constants/qa-testids';
+import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 
 /**
  * 左侧主导航栏属性定义。
@@ -64,13 +65,23 @@ const SideBar: React.FC<SideBarProps> = ({
         return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
     }, [theme]);
 
+    const isHome = location.pathname === '/' || location.pathname === '/home';
     const isPlayer = location.pathname.startsWith('/player');
     const isVocabulary = location.pathname.startsWith('/vocabulary');
     const isSettings = location.pathname.startsWith('/settings');
 
+    const navigateHome = () => {
+        void fileBrowserApi.changeWindowSize('home');
+        navigate('/');
+    };
+
     /** 折叠状态由外层 AppShell 控制，切换动作统一走这里。 */
     const handleToggleCollapse = () => {
         if (collapseDisabled) return;
+        if (inPlayer) {
+            changeSideBar(false);
+            return;
+        }
         if (onToggleCollapse) {
             onToggleCollapse();
         } else {
@@ -90,14 +101,32 @@ const SideBar: React.FC<SideBarProps> = ({
             header={
                 isCompact ? (
                     <Center width="100%" paddingBlock={2}>
-                        <img
-                            className="user-drag-none w-8 h-8 rounded-lg shadow-xs transition-transform duration-200 hover:scale-105"
-                            src={isDark ? logoDark : logoLight}
-                            alt="DashPlayer Logo"
-                        />
+                        <button
+                            type="button"
+                            onClick={navigateHome}
+                            className="focus:outline-none cursor-pointer"
+                            aria-label={t('home', { defaultValue: '首页' })}
+                        >
+                            <img
+                                className="user-drag-none w-8 h-8 rounded-lg shadow-xs transition-transform duration-200 hover:scale-105"
+                                src={isDark ? logoDark : logoLight}
+                                alt={t('appTitle', { defaultValue: 'DashPlayer' })}
+                            />
+                        </button>
                     </Center>
                 ) : (
-                    <div className="flex items-center gap-2.5 px-3 py-2.5 w-full select-none">
+                    <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={navigateHome}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                navigateHome();
+                            }
+                        }}
+                        className="flex items-center gap-2.5 px-3 py-2.5 w-full select-none cursor-pointer rounded-xl hover:bg-muted/40 transition-colors duration-150 focus:outline-none"
+                    >
                         <img
                             className="user-drag-none w-8 h-8 rounded-lg shadow-xs shrink-0"
                             src={isDark ? logoDark : logoLight}
@@ -115,39 +144,52 @@ const SideBar: React.FC<SideBarProps> = ({
                 )
             }
             footerIcons={
-                <div
-                    className={cn(
-                        'flex items-center w-full select-none border-t border-border/30 pt-1',
-                        isCompact ? 'justify-center' : 'justify-between px-2',
-                    )}
-                >
-                    <IconButton
-                        label={isCompact ? t('expandSidebar', { defaultValue: '展开导航栏' }) : t('collapseSidebar', { defaultValue: '收起导航栏' })}
-                        tooltip={collapseDisabled
-                            ? t('sidebarFixedCompact', { defaultValue: '窗口较窄时固定为图标导航' })
-                            : isCompact
-                                ? t('expandSidebar', { defaultValue: '展开导航栏' })
-                                : t('collapseSidebar', { defaultValue: '收起导航栏' })}
-                        icon={<Icon icon={isCompact ? PanelLeftOpen : PanelLeftClose} size="sm" />}
-                        variant="ghost"
-                        size="sm"
-                        isDisabled={collapseDisabled}
-                        onClick={handleToggleCollapse}
-                    />
-
-                    {inPlayer && !isCompact && (
+                inPlayer ? undefined : (
+                    <div
+                        className={cn(
+                            'flex items-center w-full select-none border-t border-border/30 pt-1',
+                            isCompact ? 'justify-center' : 'justify-between px-2',
+                        )}
+                    >
                         <IconButton
-                            label={t('hideSidebar', { defaultValue: '完全收起侧栏' })}
-                            icon={<Icon icon="close" size="sm" />}
+                            label={
+                                isCompact
+                                    ? t('expandSidebar', { defaultValue: '展开导航栏' })
+                                    : t('collapseSidebar', { defaultValue: '收起导航栏' })
+                            }
+                            tooltip={
+                                collapseDisabled
+                                    ? t('sidebarFixedCompact', { defaultValue: '窗口较窄时固定为图标导航' })
+                                    : isCompact
+                                        ? t('expandSidebar', { defaultValue: '展开导航栏' })
+                                        : t('collapseSidebar', { defaultValue: '收起导航栏' })
+                            }
+                            icon={<Icon icon={isCompact ? PanelLeftOpen : PanelLeftClose} size="sm" />}
                             variant="ghost"
                             size="sm"
-                            onClick={() => changeSideBar(false)}
+                            isDisabled={collapseDisabled}
+                            onClick={handleToggleCollapse}
                         />
-                    )}
-                </div>
+                    </div>
+                )
             }
         >
             <VStack gap={1} width="100%">
+                <SideNavItem
+                    data-testid={NAV_TESTIDS.home}
+                    label={t('mediaLibrary', { defaultValue: '媒体库' })}
+                    href="/"
+                    icon={
+                        <Icon
+                            icon={LayoutGrid as unknown as IconType}
+                            size="sm"
+                            color={isHome ? 'primary' : 'secondary'}
+                        />
+                    }
+                    isSelected={isHome}
+                    onClick={navigateHome}
+                />
+
                 <YoutubeImportSidebarItem compact={isCompact} />
 
                 <SideNavItem

@@ -17,7 +17,7 @@ import ProxySetting from '@/fronted/features/settings/ProxySetting';
 import MobileAccessSetting from '@/fronted/features/settings/MobileAccessSetting';
 import YoutubeImportSetting from '@/fronted/features/settings/YoutubeImportSetting';
 import ServiceResourceSetting from '@/fronted/features/settings/ServiceResourceSetting';
-import toast, { Toaster as HotToaster, type Toast } from 'react-hot-toast';
+import { toast, Toaster as HotToaster, type Toast } from 'react-hot-toast';
 
 import GlobalShortCut from '@/fronted/components/shared/shortcuts/GlobalShortCut';
 import Eb from '@/fronted/components/shared/common/Eb';
@@ -91,8 +91,8 @@ export const App = () => {
     const { t } = useI18nTranslation('toast');
     const theme = useSetting((s) => s.values.get('appearance.theme'));
     const themeFamily = useSetting((s) => s.values.get('appearance.themeFamily')) || 'neutral';
-    // 主题家族由后端枚举校验过；这里显式收窄，非法值在渲染前直接失败
-    const themeSlug = THEME_SLUG_BY_FAMILY[themeFamily as AppearanceThemeFamily];
+    // 主题家族由后端枚举校验过；未识别时优雅回退 dp-neutral，杜绝渲染期抛错导致白屏死锁
+    const themeSlug: ThemeSlug = THEME_SLUG_BY_FAMILY[themeFamily as AppearanceThemeFamily] ?? 'dp-neutral';
     // 深色专用主题（如 Gothic）无视保存的浅色/跟随系统设置，强制 dark
     const isDarkOnlyTheme = themeSlug !== undefined && DARK_ONLY_THEME_SLUGS.has(themeSlug);
     const languageSetting = useSetting((s) => s.values.get('i18n.language'));
@@ -190,10 +190,7 @@ export const App = () => {
     const effectiveThemeMode: 'light' | 'dark' | 'system' = isDarkOnlyTheme
         ? 'dark'
         : theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'system';
-    if (!themeSlug) {
-        throw new Error(`未知的主题家族：${themeFamily}`);
-    }
-    const activeTheme = themes[themeSlug];
+    const activeTheme = themes[themeSlug] ?? themes['dp-neutral'];
 
     return (
         <Theme theme={activeTheme} mode={effectiveThemeMode}>
@@ -205,7 +202,7 @@ export const App = () => {
                     <OnboardingView onCompleted={() => setGate({ kind: 'main' })} />
                 )}
                 {gate?.kind === 'main' && (
-                    <HashRouter>
+                    <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                         <LinkProvider component={RouterLinkAdapter}>
                             <Routes>
                             <Route path="/" element={<Eb key="home-root"><HomePage /></Eb>} />
