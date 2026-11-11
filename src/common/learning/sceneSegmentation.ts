@@ -1,9 +1,35 @@
-import type { Sentence } from '@/common/types/SentenceC';
 import { isContentLemma } from '@/common/learning/contentWords';
 import { cleanWord, isWordToken, splitWords } from '@/common/utils/subtitle/tokenize';
 
+/**
+ * 场景切分实际需要的字幕字段。
+ *
+ * 只声明真正参与判定的字段，而不是复用完整的 `Sentence`：切分不读译文、
+ * 不读翻译分组，跨进程传输时也就不必把这些大字段带过来。
+ */
+export interface SceneSentence {
+    /** 字幕内容哈希；同一份字幕的所有句子一致。 */
+    fileHash: string;
+    /** 句在字幕中的序号。 */
+    index: number;
+    /** 开始秒数。 */
+    start: number;
+    /** 结束秒数。 */
+    end: number;
+    /** 英文原文。 */
+    text: string;
+}
+
 /** 场景边界类型。 */
 export type SceneBoundaryKind = 'time-gap' | 'topic-shift' | 'speaker-shift';
+
+/**
+ * 场景切分算法版本。
+ *
+ * 阈值、信号或输出结构变化时递增：持久化索引按 `fileHash + 版本` 唯一，
+ * 版本变了旧结果自然失效并重算，不会读到旧阈值的结果却以为是最新。
+ */
+export const SCENE_SEGMENTATION_VERSION = 1;
 
 /** 一个本地推测的场景边界。 */
 export interface SceneBoundary {
@@ -61,7 +87,7 @@ const jaccard = (left: Set<string>, right: Set<string>): number => {
     return intersection / (left.size + right.size - intersection);
 };
 
-const unionLemmas = (sentences: Sentence[]): Set<string> => {
+const unionLemmas = (sentences: readonly SceneSentence[]): Set<string> => {
     const result = new Set<string>();
     for (const sentence of sentences) {
         for (const lemma of contentLemmasOf(sentence.text)) {
@@ -86,7 +112,7 @@ const unionLemmas = (sentences: Sentence[]): Set<string> => {
  * @returns 场景边界列表；没有边界时为空数组。
  */
 export const segmentScenes = (
-    sentences: Sentence[],
+    sentences: readonly SceneSentence[],
     options: SceneSegmentationOptions = {},
 ): SceneBoundary[] => {
     if (sentences.length < 2) {

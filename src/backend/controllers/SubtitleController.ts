@@ -10,6 +10,8 @@ import type SubtitleService from '@/backend/services/SubtitleService';
 import { type SubtitleVocabularyMatchResult } from '@/backend/services/SubtitleService';
 import type SubtitleComprehensionService from '@/backend/services/SubtitleComprehensionService';
 import type { SubtitleComprehensionParams } from '@/common/types/subtitleComprehension';
+import type SceneIndexService from '@/backend/services/SceneIndexService';
+import type { SceneBoundary, SceneSentence } from '@/common/learning/sceneSegmentation';
 
 
 /**
@@ -27,6 +29,8 @@ export default class SubtitleController implements Controller {
         @inject(TYPES.SubtitleService) private readonly subtitleService: SubtitleService,
         @inject(TYPES.SubtitleComprehensionService)
         private readonly subtitleComprehensionService: SubtitleComprehensionService,
+        @inject(TYPES.SceneIndexService)
+        private readonly sceneIndexService: SceneIndexService,
     ) {}
 
     /**
@@ -86,6 +90,21 @@ export default class SubtitleController implements Controller {
     }
 
     /**
+     * 读取或计算字幕的场景边界。
+     *
+     * 切分是纯本地的确定性启发式，后端缓存结果，前端不必每次进入播放页都
+     * 重新遍历整份字幕。
+     *
+     * @param params 参与切分的字幕句（只需影响边界的字段）。
+     * @returns 场景边界列表。
+     */
+    public async getSceneBoundaries(params: {
+        sentences: SceneSentence[];
+    }): Promise<SceneBoundary[]> {
+        return this.sceneIndexService.getBoundaries(params.sentences);
+    }
+
+    /**
      * 注册字幕相关 IPC 路由。
      */
     registerRoutes(): void {
@@ -111,6 +130,17 @@ export default class SubtitleController implements Controller {
                 text: z.string().min(1).max(2000),
                 fileHash: z.string().min(1).optional(),
                 sentenceIndex: z.number().int().nonnegative().optional(),
+            }),
+        });
+        registerRoute('subtitle/scene-boundaries', (p) => this.getSceneBoundaries(p), {
+            schema: z.object({
+                sentences: z.array(z.object({
+                    fileHash: z.string().min(1),
+                    index: z.number().int().nonnegative(),
+                    start: z.number(),
+                    end: z.number(),
+                    text: z.string(),
+                })).min(2).max(20000),
             }),
         });
     }

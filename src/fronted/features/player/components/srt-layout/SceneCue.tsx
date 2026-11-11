@@ -1,18 +1,22 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
-    segmentScenes,
     type SceneBoundary,
+    type SceneSentence,
 } from '@/common/learning/sceneSegmentation';
 import type { Sentence } from '@/common/types/SentenceC';
 import useSetting from '@/fronted/features/settings/settingsStore';
+import { playerApi } from '@/fronted/features/player/playerApi';
 
 /**
  * 主字幕上方的轻量场景提示。
  *
  * 只在当前句命中本地场景边界时出现，绝对定位、不参与字幕排版，
  * 因此不会改变中英文字幕的居中位置，也不会因提示出现/消失造成抖动。
+ *
+ * 边界由后端按「字幕哈希 + 算法版本」持久化：首次进入某部视频时计算一次，
+ * 之后直接命中索引，不必每次重新遍历整份字幕。
  */
 export default function SceneCue({
     sentences,
@@ -24,16 +28,61 @@ export default function SceneCue({
     const { t } = useTranslation('player');
     const enabled = useSetting((state) => state.values.get('player.sceneCues') ?? 'false') === 'true';
 
+    // 只把影响切分的字段发给后端；译文与翻译分组不参与判定，也不必跨进程传输。
+    const sceneSentences = useMemo<SceneSentence[]>(() => sentences.map((sentence) => ({
+        fileHash: sentence.fileHash,
+        index: sentence.index,
+        start: sentence.start,
+        end: sentence.end,
+        text: sentence.text,
+    })), [sentences]);
+
+    const fileHash = sceneSentences[0]?.fileHash ?? null;
+
+    // 请求键与结果绑定：键变化时旧结果自动失效，无需在 effect 里同步清空状态。
+    const requestKey = enabled && sceneSentences.length >= 2 && fileHash
+        ? `${fileHash}:${sceneSentences.length}`
+        : null;
+    const [loaded, setLoaded] = useState<{ key: string; boundaries: SceneBoundary[] } | null>(null);
+    const boundaries = useMemo<SceneBoundary[]>(
+        () => (requestKey && loaded?.key === requestKey ? loaded.boundaries : []),
+        [requestKey, loaded],
+    );
+
+    useEffect(() => {
+        if (!requestKey) {
+            return;
+        }
+        let cancelled = false;
+        playerApi.getSceneBoundaries(sceneSentences)
+            .then((result) => {
+                if (!cancelled) {
+                    setLoaded({ key: requestKey, boundaries: result });
+                }
+            })
+            .catch(() => {
+                // 场景提示是可选增强，取不到就静默隐藏，不回退到前端重算。
+                if (!cancelled) {
+                    setLoaded({ key: requestKey, boundaries: [] });
+                }
+            });
+        return () => {
+            cancelled = true;
+        };
+        // 同一字幕内切换当前句不应重新请求；键已覆盖字幕与句数变化。
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [requestKey]);
+
     const boundaryByIndex = useMemo(() => {
-        if (!enabled || sentences.length < 2) {
+        if (!enabled || boundaries.length === 0) {
             return new Map<number, SceneBoundary>();
         }
         const map = new Map<number, SceneBoundary>();
-        for (const boundary of segmentScenes(sentences)) {
+        for (const boundary of boundaries) {
             map.set(boundary.sentenceIndex, boundary);
         }
         return map;
-    }, [enabled, sentences]);
+    }, [enabled, boundaries]);
 
     const boundary = currentSentence
         ? boundaryByIndex.get(currentSentence.index)

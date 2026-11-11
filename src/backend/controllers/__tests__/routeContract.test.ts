@@ -81,7 +81,7 @@ function registerAllControllers(): void {
     new SherpaTtsModelController(stub()).registerRoutes();
     new SrtTimeAdjustController(stub()).registerRoutes();
     new StorageController(stub()).registerRoutes();
-    new SubtitleController(stub(), stub()).registerRoutes();
+    new SubtitleController(stub(), stub(), stub()).registerRoutes();
     new SubtitleGenerationController(stub()).registerRoutes();
     new SystemController(stub(), stub()).registerRoutes();
     new VideoLearningApiController(stub()).registerRoutes();

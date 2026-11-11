@@ -4,6 +4,7 @@ import type { SubtitleTimestampAdjustmentInput } from '@/common/contracts/subtit
 import { SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY } from '@/common/constants/systemConfigKeys';
 import type { SubtitleComprehensionParams } from '@/common/types/subtitleComprehension';
 import type { WordContextInsightParams } from '@/common/types/wordInsight';
+import type { SceneSentence } from '@/common/learning/sceneSegmentation';
 
 /**
  * 播放器功能调用的后端接口。
@@ -200,6 +201,17 @@ export const playerApi = {
         videoId: string;
         playbackSessionId: string;
     }) => backendClient.call('subtitle/srt/match-vocabulary', params),
+
+    /**
+     * 读取或计算字幕的场景边界。
+     *
+     * 结果按字幕哈希与算法版本在后端持久化，重复进入同一视频不会重新遍历整份字幕。
+     *
+     * @param sentences 参与切分的字幕句（只需影响边界的字段）。
+     * @returns 场景边界列表。
+     */
+    getSceneBoundaries: (sentences: SceneSentence[]) =>
+        backendClient.call('subtitle/scene-boundaries', { sentences }),
 
     /**
      * 将任意英文文本解析为单词级展示结构（分词、lemma、词性）。

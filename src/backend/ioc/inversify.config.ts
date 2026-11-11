@@ -123,6 +123,12 @@ import type ContentCompassService from '@/backend/services/ContentCompassService
 import { ContentCompassServiceImpl } from '@/backend/services/ContentCompassService';
 import type TopicEmbeddingService from '@/backend/services/TopicEmbeddingService';
 import { TopicEmbeddingServiceImpl } from '@/backend/services/TopicEmbeddingService';
+import type TopicVectorRepository from '@/backend/services/repositories/TopicVectorRepository';
+import TopicVectorRepositoryImpl from '@/backend/infrastructure/db/repositories/TopicVectorRepositoryImpl';
+import type SceneIndexRepository from '@/backend/services/repositories/SceneIndexRepository';
+import SceneIndexRepositoryImpl from '@/backend/infrastructure/db/repositories/SceneIndexRepositoryImpl';
+import type SceneIndexService from '@/backend/services/SceneIndexService';
+import { SceneIndexServiceImpl } from '@/backend/services/SceneIndexService';
 import type MemoryMapService from '@/backend/services/MemoryMapService';
 import { MemoryMapServiceImpl } from '@/backend/services/MemoryMapService';
 import type SubtitleComprehensionService from '@/backend/services/SubtitleComprehensionService';
@@ -231,7 +237,10 @@ container.bind<Controller>(TYPES.Controller).to(WhisperCppModelController).inSin
 container.bind<Controller>(TYPES.Controller).to(LocalAiController).inSingletonScope();
 container.bind<LocalAiService>(TYPES.LocalAiService).to(LocalAiRuntime).inSingletonScope();
 container.bind<LocalEmbeddingRuntime>(TYPES.LocalEmbeddingRuntime).to(LocalEmbeddingRuntime).inSingletonScope();
+container.bind<TopicVectorRepository>(TYPES.TopicVectorRepository).to(TopicVectorRepositoryImpl).inSingletonScope();
 container.bind<TopicEmbeddingService>(TYPES.TopicEmbeddingService).to(TopicEmbeddingServiceImpl).inSingletonScope();
+container.bind<SceneIndexRepository>(TYPES.SceneIndexRepository).to(SceneIndexRepositoryImpl).inSingletonScope();
+container.bind<SceneIndexService>(TYPES.SceneIndexService).to(SceneIndexServiceImpl).inSingletonScope();
 container.bind<ResourceFallbackService>(TYPES.ResourceFallbackService).to(ResourceFallbackServiceImpl).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SherpaTtsModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VocabularyController).inSingletonScope();

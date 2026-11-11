@@ -964,6 +964,49 @@ context_embeddings
 - 音频文件本体的搬迁；跟读录音只保留相对路径，换机恢复后需自行拷贝 practice 目录才能回放。
 - 备份的加密与签名；当前是明文 JSON，不含任何密钥。
 
+#### R3 第八阶段实施记录（2026-11-12）
+
+已落地：
+
+- 新增持久化主题向量索引表 `dp_topic_vector`：按 `video_id + model` 唯一，向量以 Float32 BLOB 存储（768 维约 3 KB，而 JSON 约 9 KB）。
+- 主题向量检索改为三级命中：进程内缓存 → 持久化索引 → 批量推理。重启后不再对同一视频重复推理。
+- 索引键包含主题文本哈希：字幕重新切分或时间轴校准导致文本变化时，旧向量自动失效并重算，不会按 `video_id` 盲目复用。
+- 不同模型的向量按 `model` 隔离；维度不一致的条目在读取时被拒绝，绝不让两个向量空间的向量互相比较。
+- 索引按「当前候选 + 近期视频」自愈：观看记录被删除或视频被移走后的陈旧条目会在下一次推荐时清理，不必在删除路径上追加跨服务调用。
+- 索引读写失败都只降级为「下次重新推理」，不影响推荐结果，也不阻断播放。
+- 新增场景切分持久化表 `dp_scene_index`：按 `file_hash + algorithm_version` 唯一，存输入指纹与边界 JSON。
+- 场景切分从「每次渲染在前端重算」改为「后端按指纹复用」：首次进入某部视频计算一次，之后直接命中索引。
+- 输入指纹只包含影响判定的字段（序号、起止时间、文本），译文与翻译分组变化不会造成无谓失效。
+- 算法版本参与唯一键：调整阈值后旧结果自动失效，不会读到旧阈值的结果却以为是最新。
+- 场景切分输入类型收敛为 `SceneSentence`（5 个字段），跨进程传输不再携带译文与翻译分组。
+- 场景索引损坏或读取失败时静默重算；前端请求失败则静默隐藏提示，不回退到前端重算，避免两条实现逐渐漂移。
+
+核心实现：
+
+- `src/backend/infrastructure/db/tables/topicVector.ts`、`sceneIndex.ts`
+- `src/backend/infrastructure/db/repositories/TopicVectorRepositoryImpl.ts`、`SceneIndexRepositoryImpl.ts`
+- `src/backend/services/TopicEmbeddingService.ts`（三级命中与自愈清理）
+- `src/backend/services/SceneIndexService.ts`
+- `src/common/learning/vectorCodec.ts`、`sceneIndexKey.ts`
+- `src/fronted/features/player/components/srt-layout/SceneCue.tsx`
+- 迁移 `0019_calm_norrin_radd.sql`、`0020_steep_raider.sql`
+
+验证：
+
+- 向量仓储 BLOB 往返、唯一键更新、模型隔离、批量读取与范围删除 5 项通过。
+- 场景索引仓储读写、版本隔离与按文件删除 3 项通过。
+- 主题向量三级命中、文本变化失效、维度不符重算、`forget` 清理 8 项通过。
+- 场景索引缓存命中、指纹失效、坏 JSON 重算、读取失败降级、哈希不一致跳过 7 项通过。
+- 场景提示组件改为异步后端调用后的 5 项组件测试通过。
+- 全量单元/组件测试：1045 项通过，9 项跳过。
+- TypeScript 全量检查通过，全量 ESLint 零告警。
+
+尚未包含：
+
+- 向量索引的 ANN 近似检索；当前样本量是最近若干视频，线性扫描足够，未引入 `sqlite-vec` 或 HNSW。
+- 场景切分使用视频帧与声纹；仍只用字幕时间与文本，属于确定性启发式。
+- 向量索引随学习数据备份导出/恢复；向量可由字幕重新生成，未纳入备份。
+
 ### 8.1 第一个 Sprint 的具体任务
 
 1. 明确 `WordState` 状态机与迁移策略。

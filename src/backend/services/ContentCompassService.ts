@@ -186,6 +186,13 @@ export class ContentCompassServiceImpl implements ContentCompassService {
         }
 
         const recentProfiles = await this.loadRecentTopicProfiles(records);
+        // 观看记录可能已被删除或视频被移走；索引按当前候选 + 近期集合自愈，
+        // 避免向量表随着历史视频无限增长。
+        const activeVideoIds = new Set<string>([
+            ...candidateDetails.map(({ candidate }) => candidate.videoPath),
+            ...recentProfiles.map((profile) => profile.videoPath),
+        ]);
+        void this.topicEmbeddingService.pruneExcept([...activeVideoIds]);
         const semanticVectors = await this.loadSemanticVectors(candidateDetails, recentProfiles);
         const interestOf = semanticVectors
             ? this.semanticInterestProvider(semanticVectors)

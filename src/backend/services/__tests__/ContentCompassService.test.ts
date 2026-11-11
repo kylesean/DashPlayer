@@ -57,8 +57,14 @@ interface Harness {
 }
 
 const buildHarness = async (
-    embedding: { embed: (items: ReadonlyArray<{ id: string; text: string }>) => Promise<Array<{ id: string; vector: number[] }> | null> } = {
+    embedding: {
+        embed: (items: ReadonlyArray<{ id: string; text: string }>) => Promise<Array<{ id: string; vector: number[] }> | null>;
+        forget: (videoIds: readonly string[]) => Promise<number>;
+        pruneExcept: (activeVideoIds: readonly string[]) => Promise<number>;
+    } = {
         embed: async () => null,
+        forget: async () => 0,
+        pruneExcept: async () => 0,
     },
 ): Promise<Harness> => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-compass-'));
@@ -244,6 +250,8 @@ My grandmother baked a lemon cake in the kitchen.
                             : [0, 1, 0],
                 }));
             },
+            forget: async () => 0,
+            pruneExcept: async () => 0,
         });
         const watched = `1
 00:00:01,000 --> 00:00:04,000

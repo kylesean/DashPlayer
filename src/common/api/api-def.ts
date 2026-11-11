@@ -30,6 +30,7 @@ import type {
     SubtitleComprehensionParams,
     SubtitleComprehensionVO,
 } from '@/common/types/subtitleComprehension';
+import type { SceneBoundary, SceneSentence } from '@/common/learning/sceneSegmentation';
 import type {
     WordEncounterAction,
     WordStatus,
@@ -296,6 +297,11 @@ interface SubtitleControllerDef {
     'subtitle/comprehension': {
         params: SubtitleComprehensionParams;
         return: SubtitleComprehensionVO;
+    };
+    /** 读取或计算字幕场景边界；结果按字幕哈希与算法版本持久化。 */
+    'subtitle/scene-boundaries': {
+        params: { sentences: SceneSentence[] };
+        return: SceneBoundary[];
     };
 }
 
@@ -741,6 +747,7 @@ export const API_ROUTE_KEYS = [
     'subtitle-timestamp/delete/by-key',
     'subtitle-timestamp/update',
     'subtitle/comprehension',
+    'subtitle/scene-boundaries',
     'subtitle/srt/match-vocabulary',
     'subtitle/srt/parse-to-sentences',
     'subtitle/text/parse-structs',
