@@ -1,6 +1,6 @@
 # DashPlayer AI-native 沉浸式学习重构方案
 
-> 状态：R0–R1 已完成，R2 上下文建议、自适应中文字幕、AI 复盘与内容指南针已落地，R3 待推进
+> 状态：R0–R2 已完成，R3 首版暂停微回忆已落地，R3 其余项待推进
 > 日期：2026-11-12
 > 范围：播放器、字幕、生词、句子学习、跟读/听写、AI 学习页
 > 一句话：把 DashPlayer 从「视频播放器 + 学习工具」重构为「内容 × 上下文 × 学习者记忆」的沉浸式学习系统。
@@ -692,6 +692,38 @@ context_embeddings
 - 学习行为不是靠弹窗和打卡驱动。
 - 关键路径本地可用，云端只做增强。
 - 每个 AI 功能都有明确的关闭开关和降级路径。
+
+#### R3 第一阶段实施记录（2026-11-12）
+
+已落地：
+
+- 主字幕下方新增「学习时刻」提示位，与原有的上下文词建议共用同一个位置，二者不同时出现，避免字幕下方堆叠操作。
+- 只在用户暂停并停留至少 5 秒后检测；播放中、安静/关闭模式或当前句没有到期学习词时完全不出现。
+- 到期词来自现有 ContextPack 候选，要求状态为 `learning / familiar`、已到期且掌握度低于 0.6；优先选择最早到期的词。
+- 微回忆遵循「先回忆、再揭示」：先展示单词与音标，用户主动揭示释义后，用「想起来了 / 没想起来」二档反馈映射到 `good / again`，复用现有复习调度与掌握度证据链。
+- 密度约束全在本地：同一句 30 分钟内不重复、任意两次至少间隔 5 分钟、单次播放会话最多 3 次；限频记忆按播放会话持久化，不因组件重挂载而重置。
+- 缓存键与 ContextPack 建议一致，暂停检测不会额外发起重复分析；所有决策不调用模型、不访问网络，也不改变用户词表状态。
+- 新增独立 `moment` i18n 命名空间，中英文案完整对齐。
+
+核心实现：
+
+- `src/common/learning/learningMoment.ts`
+- `src/fronted/features/player/components/srt-layout/SubtitleLearningHints.tsx`
+- `src/fronted/features/player/components/srt-layout/LearningMomentChip.tsx`
+- `src/fronted/features/player/components/srt-layout/MainSubtitle.tsx`
+- `src/fronted/i18n/locales/{zh-CN,en-US}/moment.json`
+
+验证：
+
+- 学习时刻决策、提示 chip、暂停接入与中英文案 parity 定向测试 42 项通过。
+- 全量单元/组件测试：880 项通过，9 项跳过。
+- TypeScript 全量检查通过，全量 ESLint 零告警。
+
+尚未包含：
+
+- 回听、打开词卡、跟读失败等更多学习时刻信号；首版只使用「暂停停留 + 到期词」。
+- 跟读重音/节奏与场景化角色扮演；这两项仍属于 R3 后续阶段。
+- 学习时刻曝光与忽略的独立分析事件；当前限频在本地完成，先不做服务端归因。
 
 ### 8.1 第一个 Sprint 的具体任务
 

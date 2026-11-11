@@ -10,7 +10,7 @@ import { playerActions } from '@/fronted/features/player/components/PlayerAction
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
-import ContextSuggestionChip from './ContextSuggestionChip';
+import SubtitleLearningHints from './SubtitleLearningHints';
 import AdaptiveChineseLine from './AdaptiveChineseLine';
 
 export default function MainSubtitle() {
@@ -265,7 +265,7 @@ export default function MainSubtitle() {
                         className="group/subtitle flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto"
                     >
                         {ele()}
-                        <ContextSuggestionChip sentence={sentence} />
+                        <SubtitleLearningHints sentence={sentence} />
                     </div>
                 </div>
             </div>

@@ -1,0 +1,14 @@
+{
+    "title": "Learning moment",
+    "prompt": "Paused here — recall this word",
+    "recallHint": "Try to recall what it means before revealing the answer.",
+    "reveal": "Reveal meaning",
+    "remembered": "I remembered",
+    "forgotten": "I forgot",
+    "dismiss": "Not now",
+    "statusLearning": "Learning",
+    "statusFamiliar": "Familiar",
+    "ratedGood": "Scheduled for later review",
+    "ratedAgain": "Scheduled to come back soon",
+    "rateFailed": "Failed to record review"
+}

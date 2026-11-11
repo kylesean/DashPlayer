@@ -27,6 +27,8 @@ import zhRecap from '@/fronted/i18n/locales/zh-CN/recap.json';
 import enRecap from '@/fronted/i18n/locales/en-US/recap.json';
 import zhCompass from '@/fronted/i18n/locales/zh-CN/compass.json';
 import enCompass from '@/fronted/i18n/locales/en-US/compass.json';
+import zhMoment from '@/fronted/i18n/locales/zh-CN/moment.json';
+import enMoment from '@/fronted/i18n/locales/en-US/moment.json';
 
 export type AppLocale = 'zh-CN' | 'en-US';
 export type AppLanguageSetting = 'system' | AppLocale;
@@ -48,6 +50,7 @@ export const resources = {
         practice: zhPractice,
         recap: zhRecap,
         compass: zhCompass,
+        moment: zhMoment,
     },
     'en-US': {
         nav: enNav,
@@ -63,6 +66,7 @@ export const resources = {
         practice: enPractice,
         recap: enRecap,
         compass: enCompass,
+        moment: enMoment,
     },
 };
 
@@ -102,7 +106,7 @@ void i18nextUse(initReactI18next)
         interpolation: {
             escapeValue: false,
         },
-        ns: ['nav', 'settings', 'toast', 'errors', 'player', 'pages', 'common', 'onboarding', 'migration', 'youtubeImport', 'practice', 'recap', 'compass'],
+        ns: ['nav', 'settings', 'toast', 'errors', 'player', 'pages', 'common', 'onboarding', 'migration', 'youtubeImport', 'practice', 'recap', 'compass', 'moment'],
         defaultNS: 'settings',
         returnNull: false,
         debug: import.meta.env.DEV,

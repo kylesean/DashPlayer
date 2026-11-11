@@ -1,0 +1,14 @@
+{
+    "title": "学习时刻",
+    "prompt": "暂停一下，回忆这个词",
+    "recallHint": "先在脑海里回想它的意思，再揭示答案。",
+    "reveal": "揭示释义",
+    "remembered": "想起来了",
+    "forgotten": "没想起来",
+    "dismiss": "稍后再说",
+    "statusLearning": "学习中",
+    "statusFamiliar": "已熟悉",
+    "ratedGood": "已安排更晚复习",
+    "ratedAgain": "已安排在近期重见",
+    "rateFailed": "记录复习失败"
+}
