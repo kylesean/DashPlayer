@@ -28,6 +28,7 @@
         "prevSentence": "上一句",
         "pause": "暂停",
         "play": "播放",
+        "progressLabel": "播放进度",
         "nextSentence": "下一句",
         "modeSingleRepeat": "单句循环",
         "modeAutoPause": "句末自动暂停",
@@ -76,8 +77,10 @@
         "pinTooltipIdle": "钉住控制条（不再自动隐藏）"
     },
     "hardsubMask": {
-        "label": "挡字幕",
-        "patchAria": "遮挡字幕的贴片"
+        "label": "硬字幕遮挡",
+        "hint": "遮挡烧录在画面里的字幕，不会修改视频文件；开启后拖动黑块对齐，双击黑块复位。",
+        "firstUseHint": "硬字幕遮挡已开启：拖动画面中的黑块对齐字幕，双击黑块可复位。",
+        "patchAria": "硬字幕遮挡贴片"
     },
     "trainingSettings": {
         "title": "精听与训练模式参数配置",

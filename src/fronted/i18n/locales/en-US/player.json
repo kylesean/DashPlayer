@@ -28,6 +28,7 @@
         "prevSentence": "Previous",
         "pause": "Pause",
         "play": "Play",
+        "progressLabel": "Playback progress",
         "nextSentence": "Next",
         "modeSingleRepeat": "Loop sentence",
         "modeAutoPause": "Auto-pause at end",
@@ -76,8 +77,10 @@
         "pinTooltipIdle": "Pin control bar (keep visible)"
     },
     "hardsubMask": {
-        "label": "Mask subs",
-        "patchAria": "Subtitle masking patch"
+        "label": "Hard-subtitle mask",
+        "hint": "Covers subtitles burned into the video without changing the file. Drag the black block to align it; double-click to reset.",
+        "firstUseHint": "Hard-subtitle mask on: drag the black block over the burned-in subtitles. Double-click it to reset.",
+        "patchAria": "Hard-subtitle mask patch"
     },
     "trainingSettings": {
         "title": "Training Parameters",

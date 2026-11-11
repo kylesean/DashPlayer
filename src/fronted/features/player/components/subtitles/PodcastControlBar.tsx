@@ -69,9 +69,6 @@ export default function PodcastControlBar({
                         }}
                         onScrubCommit={handleScrubCommit}
                         className="cursor-pointer py-1"
-                        trackClassName="bg-border/60"
-                        rangeClassName="bg-accent-bg"
-                        thumbClassName="border-border bg-surface shadow-sm"
                     />
                 </div>
 
@@ -112,9 +109,6 @@ export default function PodcastControlBar({
                             onMutedChange={(nextMuted) => playerActions.setMuted(nextMuted)}
                             volume={volume}
                             onVolumeChange={(nextVolume) => playerActions.setVolume(nextVolume)}
-                            sliderTrackClassName="bg-border/60"
-                            sliderRangeClassName="bg-accent-bg"
-                            sliderThumbClassName="border-border bg-surface shadow-sm"
                         />
                         <span aria-hidden="true" className="h-4 w-px bg-border" />
                         {/* 播客模式会盖住视频条与学习台，这里必须留一个常显的出口，

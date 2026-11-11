@@ -8,14 +8,18 @@ import FullscreenToggleButton from './FullscreenToggleButton';
 import ControlBarPinButton from './ControlBarPinButton';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { cn } from '@/fronted/lib/utils';
+import PlaybackBarShell from '@/fronted/features/player/components/PlaybackBarShell';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import {
     DARK_BAR_BUTTON_HOVER,
+    MEDIA_BAR_DIVIDER,
+    MEDIA_BAR_GROUP,
     PlaybackNavControls
 } from '@/fronted/features/player/components/PlaybackGlobalControls';
 import HardsubMaskButton from '@/fronted/features/player/components/HardsubMaskButton';
+import PodcastModeButton from '@/fronted/features/player/components/PodcastModeButton';
 import TrainingMenuButton from '@/fronted/features/player/components/learning-toolbar/TrainingMenuButton';
 import SubtitleTrackSegmented from '@/fronted/features/player/components/learning-toolbar/SubtitleTrackSegmented';
 import PlayerSettingsPopover from '@/fronted/features/player/components/learning-toolbar/PlayerSettingsPopover';
@@ -130,71 +134,75 @@ export default function OverlayControlBar({
                 paddingBottom: `calc(0.5rem + ${maskAdjust.liftPx}px)`,
             }}
         >
-            {/*
-              玻璃拟态药丸胶囊：
-              - 限制最大宽度（max-w-4xl），超宽屏居中好看
-              - 幽灵态（用户拖贴片盖住本条但未抬起）降透明度让位给贴片，提示用户控制条还在
-            */}
-            <div
-                className={cn(
-                    'w-full max-w-4xl px-3.5 py-1.5 rounded-xl border transition-all duration-300 shadow-2xl backdrop-blur-md',
-                    // 未激活时半透明，激活时常亮
-                    'bg-media-bg/70 hover:bg-media-bg/85 border-media-fg/15',
-                    barVisible ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none translate-y-2',
-                    maskAdjust.ghost && 'opacity-25 pointer-events-none'
-                )}
-            >
-                <div className="flex items-center gap-2">
-                    <div className="flex gap-2 items-center shrink-0">
-                        {/* 上一句 / 播放暂停 / 下一句：与普通控制条共用同一份控件 */}
+            <PlaybackBarShell
+                tone="overlay"
+                visible={barVisible}
+                ghost={maskAdjust.ghost}
+                leading={(
+                    <>
+                        {/* 上一句 / 播放暂停 / 下一句：与窗口内控制条共用同一份控件 */}
                         <PlaybackNavControls />
                         <PlaybackTimeReadout previewTime={previewTime} />
-                    </div>
-                    <div className="flex-1 px-2 flex items-center">
-                        <PlaybackProgressSlider
-                            previewTime={previewTime}
-                            onPreviewTimeChange={setPreviewTime}
-                            onScrubValueChange={() => playerActions.pause()}
-                            onScrubCommit={handleScrubCommit}
-                        />
-                    </div>
-                    {/* 右侧按钮组：与普通控制条保持同样的间隙收紧策略（xl 以下 gap-1），两条条子不能长得不一样 */}
-                    <div className="flex justify-center items-center gap-1 xl:gap-2 shrink-0">
-                        {/* 与窗口内同一套控件：设置项只有一份实现，两条控制条不再各写一遍 */}
-                        <TrainingMenuButton
-                            tone="overlay"
-                            popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
-                            onMenuOpenChange={setTrainingMenuOpen}
-                        />
-                        <SubtitleTrackSegmented tone="overlay" />
-                        <HardsubMaskButton />
-                        <SpeedSlider
-                            speed={playbackRate}
-                            popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
-                            triggerClassName={DARK_BAR_BUTTON_HOVER}
-                            onSpeedChange={(speed) => playerActions.setPlaybackRate(speed)}
-                            onSelectFinish={() => {
-                                setMouseOver(false);
-                            }}
-                        />
-                        <VolumeSlider
-                            muted={muted}
-                            onMutedChange={(nextMuted) => playerActions.setMuted(nextMuted)}
-                            volume={volume}
-                            onVolumeChange={(nextVolume) => playerActions.setVolume(nextVolume)}
-                            triggerClassName={DARK_BAR_BUTTON_HOVER}
-                            collapseSliderBelowXl
-                        />
-                        <ControlBarPinButton />
-                        <PlayerSettingsPopover
-                            tone="overlay"
-                            popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
-                            onMenuOpenChange={setSettingsMenuOpen}
-                        />
-                        <FullscreenToggleButton fullScreen={fullScreen} changeFullScreen={changeFullScreen} />
-                    </div>
-                </div>
-            </div>
+                    </>
+                )}
+                progress={(
+                    <PlaybackProgressSlider
+                        tone="media"
+                        previewTime={previewTime}
+                        onPreviewTimeChange={setPreviewTime}
+                        onScrubValueChange={() => playerActions.pause()}
+                        onScrubCommit={handleScrubCommit}
+                    />
+                )}
+                trailing={(
+                    <>
+                        {/* 学习工具成组：训练 / 字幕轨道 / 设置 */}
+                        <div className={MEDIA_BAR_GROUP}>
+                            <TrainingMenuButton
+                                tone="overlay"
+                                popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
+                                onMenuOpenChange={setTrainingMenuOpen}
+                            />
+                            <SubtitleTrackSegmented tone="overlay" />
+                            <PlayerSettingsPopover
+                                tone="overlay"
+                                popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
+                                onMenuOpenChange={setSettingsMenuOpen}
+                            />
+                        </div>
+                        <span className={MEDIA_BAR_DIVIDER} aria-hidden />
+                        {/* 「看画面」的模式开关成组：硬字幕遮挡 / 播客 */}
+                        <div className={MEDIA_BAR_GROUP}>
+                            <HardsubMaskButton />
+                            <PodcastModeButton />
+                        </div>
+                        <span className={MEDIA_BAR_DIVIDER} aria-hidden />
+                        {/* 播放工具成组：倍速 / 音量 / 钉住 / 全屏 */}
+                        <div className={MEDIA_BAR_GROUP}>
+                            <SpeedSlider
+                                speed={playbackRate}
+                                popoverOffset={CONTROL_POPOVER_OFFSET_SINGLE_ROW_BAR}
+                                triggerClassName={DARK_BAR_BUTTON_HOVER}
+                                onSpeedChange={(speed) => playerActions.setPlaybackRate(speed)}
+                                onSelectFinish={() => {
+                                    setMouseOver(false);
+                                }}
+                            />
+                            <VolumeSlider
+                                tone="media"
+                                muted={muted}
+                                onMutedChange={(nextMuted) => playerActions.setMuted(nextMuted)}
+                                volume={volume}
+                                onVolumeChange={(nextVolume) => playerActions.setVolume(nextVolume)}
+                                triggerClassName={DARK_BAR_BUTTON_HOVER}
+                                collapseSliderBelowXl
+                            />
+                            <ControlBarPinButton />
+                            <FullscreenToggleButton fullScreen={fullScreen} changeFullScreen={changeFullScreen} />
+                        </div>
+                    </>
+                )}
+            />
         </div>
     );
 }

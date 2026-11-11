@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { Slider } from '@astryxdesign/core/Slider';
+import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { usePlayerState } from '@/fronted/features/player/playerState';
+import { MEDIA_SLIDER_STYLE } from '@/fronted/features/player/components/mediaSurface';
 import TimeUtil from '@/common/utils/TimeUtil';
 
 /** 进度条提交跳转后保留显示目标时间的缓冲时长（毫秒），避免 seek 落地前滑块回弹一帧。 */
@@ -62,12 +64,8 @@ export interface PlaybackProgressSliderProps {
     disableWhenEmpty?: boolean;
     /** 滑块根容器样式。 */
     className?: string;
-    /** 轨道样式。 */
-    trackClassName?: string;
-    /** 已播区间样式。 */
-    rangeClassName?: string;
-    /** 手柄样式。 */
-    thumbClassName?: string;
+    /** 滑杆配色：媒体层保持中性白，主题宿主跟随应用主题。 */
+    tone?: 'media' | 'theme';
     /** 滑块步长。 */
     step?: number;
 }
@@ -82,8 +80,10 @@ export const PlaybackProgressSlider = memo(function PlaybackProgressSlider({
     onScrubCommit,
     disableWhenEmpty = true,
     className = 'w-full',
+    tone = 'theme',
     step = 0.1,
 }: PlaybackProgressSliderProps) {
+    const { t } = useI18nTranslation('player');
     const playTime = usePlayerState((s) => s.internal.exactPlayTime);
     const duration = usePlayerState((s) => s.duration);
     const [draggingTime, setDraggingTime] = useState<number | null>(null);
@@ -102,9 +102,9 @@ export const PlaybackProgressSlider = memo(function PlaybackProgressSlider({
         : rawValue;
 
     return (
-        <div className={className}>
+        <div className={className} style={tone === 'media' ? MEDIA_SLIDER_STYLE : undefined}>
             <Slider
-                label="播放进度"
+                label={t('controlBar.progressLabel')}
                 isLabelHidden
                 valueDisplay="none"
                 max={safeMax}

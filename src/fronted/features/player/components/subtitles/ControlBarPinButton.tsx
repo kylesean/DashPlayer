@@ -5,7 +5,10 @@ import { cn } from '@/fronted/lib/utils';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import { DARK_BAR_BUTTON_HOVER } from '@/fronted/features/player/components/PlaybackGlobalControls';
+import {
+    DARK_BAR_BUTTON_HOVER,
+    MEDIA_BAR_ACTIVE,
+} from '@/fronted/features/player/components/PlaybackGlobalControls';
 
 /** 训练提醒动效时长（毫秒）：进度类训练模式开启且未钉住时，轻轻呼吸几秒后自行收起。 */
 const PIN_NUDGE_DURATION_MS = 4000;
@@ -69,7 +72,7 @@ export default function ControlBarPinButton() {
                 className={cn(
                     'relative w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors',
                     pinned
-                        ? 'text-media-fg bg-media-fg/20 hover:bg-media-fg/25'
+                        ? cn(MEDIA_BAR_ACTIVE, 'hover:bg-media-fg/25')
                         : nudging
                         ? 'text-warning-text hover:bg-media-fg/15'
                         : cn('text-media-fg/80', DARK_BAR_BUTTON_HOVER)

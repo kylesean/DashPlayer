@@ -1,15 +1,20 @@
 import { SquareDashedBottom } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
+import { useLocalStorage } from '@uidotdev/usehooks';
+import { toast } from 'react-hot-toast';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 
 import { cn } from '@/fronted/lib/utils';
 import useLayout from '@/fronted/app/stores/layoutStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
-import { DARK_BAR_BUTTON_HOVER } from '@/fronted/features/player/components/PlaybackGlobalControls';
+import {
+    DARK_BAR_BUTTON_HOVER,
+    MEDIA_BAR_ACTIVE,
+    MEDIA_BAR_TEXT_BUTTON,
+} from '@/fronted/features/player/components/PlaybackGlobalControls';
 
-/** 带文字/徽章的按钮：与视频控制条同一行的图标按钮同高同圆角。 */
-const TEXT_BUTTON_CLASS =
-    'flex items-center gap-1 h-8 px-2 rounded-lg text-xs font-medium leading-none transition-colors shrink-0';
+/** 首次开启遮挡时只提示一次。 */
+const HARDSUB_HINT_SEEN_KEY = 'dashplayer.hardsub_mask_hint_seen';
 
 /**
  * 硬字幕遮挡开关：视频控制条上的一键开关。
@@ -29,25 +34,35 @@ export default function HardsubMaskButton() {
     const maskOn = usePlayerUi((s) => s.hardsubMaskOn);
     const toggleMask = usePlayerUi((s) => s.toggleHardsubMask);
     const podcastMode = useLayout((s) => s.podcastMode);
+    const [hintSeen, setHintSeen] = useLocalStorage<boolean>(HARDSUB_HINT_SEEN_KEY, false);
 
     if (podcastMode) {
         return null;
     }
 
+    const handleToggle = () => {
+        if (!maskOn && !hintSeen) {
+            toast(t('hardsubMask.firstUseHint'), { duration: 6000 });
+            setHintSeen(true);
+        }
+        toggleMask();
+    };
+
     return (
-        <Tooltip content={t('hardsubMask.label')} placement="above">
+        <Tooltip content={t('hardsubMask.hint')} placement="above">
             <button
-                onClick={toggleMask}
+                type="button"
+                onClick={handleToggle}
                 aria-pressed={maskOn}
                 aria-label={t('hardsubMask.label')}
                 className={cn(
-                    TEXT_BUTTON_CLASS,
+                    MEDIA_BAR_TEXT_BUTTON,
                     maskOn
-                        ? 'bg-media-fg/20 text-media-fg ring-1 ring-media-fg/30'
+                        ? MEDIA_BAR_ACTIVE
                         : cn('text-media-fg/80', DARK_BAR_BUTTON_HOVER)
                 )}
             >
-                <SquareDashedBottom className="w-3.5 h-3.5" />
+                <SquareDashedBottom className="w-4 h-4" />
                 <span className="font-sans hidden lg:inline">{t('hardsubMask.label')}</span>
             </button>
         </Tooltip>

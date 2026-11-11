@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 /**
  * 媒体层（视频画面、遮幅、画面上的浮层）配色。
  *
@@ -26,3 +28,15 @@ export const MEDIA_VIGNETTE_CLASS = 'bg-gradient-to-b from-media-bg/15 via-media
  */
 export const MEDIA_AMBIENT_CANVAS_CLASS =
     'absolute inset-0 h-full w-full pointer-events-none z-0 blur-[80px] saturate-[1.05] brightness-[0.45] dark:brightness-[0.35]';
+
+/**
+ * Astryx Slider 默认跟随主题的 accent / track 色。
+ *
+ * 视频控制条属于媒体层，浅色主题下仍是深色银幕，进度与音量必须保持中性白，
+ * 不能随主题变成绿/紫/棕。这里只在滑杆宿主上局部覆盖两个 CSS 变量，
+ * 不改全局主题，也不会影响设置页里跟随主题的滑杆。
+ */
+export const MEDIA_SLIDER_STYLE = {
+    '--color-accent': 'var(--color-media-fg)',
+    '--color-track': 'color-mix(in srgb, var(--color-media-fg) 22%, transparent)',
+} as CSSProperties;

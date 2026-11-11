@@ -13,9 +13,13 @@ import FullscreenToggleButton from '@/fronted/features/player/components/subtitl
 import ControlBarPinButton from '@/fronted/features/player/components/subtitles/ControlBarPinButton';
 import {
     DARK_BAR_BUTTON_HOVER,
+    MEDIA_BAR_DIVIDER,
+    MEDIA_BAR_GROUP,
     PlaybackNavControls
 } from '@/fronted/features/player/components/PlaybackGlobalControls';
+import PlaybackBarShell from '@/fronted/features/player/components/PlaybackBarShell';
 import HardsubMaskButton from '@/fronted/features/player/components/HardsubMaskButton';
+import PodcastModeButton from '@/fronted/features/player/components/PodcastModeButton';
 import { CONTROL_POPOVER_OFFSET_STACKED_BAR } from '@/fronted/features/player/components/ControlPopover';
 import {
     CONTROL_BAR_GAP_PX,
@@ -131,38 +135,35 @@ export default function PlaybackControlBar({
                 className
             )}
         >
-            <div
-                className={cn(
-                    'relative z-20 w-full px-2 lg:px-4 py-3 rounded-2xl border border-media-fg/10 bg-media-bg/60 backdrop-blur-md shadow-2xl transition-opacity duration-200 ease-out pointer-events-auto',
-                    maskAdjust.ghost
-                        ? 'opacity-40 pointer-events-none'
-                        : barVisible
-                        ? 'opacity-100'
-                        : 'opacity-0 pointer-events-none'
+            <PlaybackBarShell
+                tone="inline"
+                visible={barVisible}
+                ghost={maskAdjust.ghost}
+                leading={(
+                    <>
+                        {/* 上一句 / 播放暂停 / 下一句：与全屏控制条共用同一份控件 */}
+                        <PlaybackNavControls />
+                        <PlaybackTimeReadout previewTime={previewTime} />
+                    </>
                 )}
-                onMouseMove={(e) => {
-                    e.stopPropagation();
-                    handleMouseMoveIn();
-                }}
-            >
-                <div className="flex flex-col items-center justify-between w-full gap-2.5">
+                progress={(
                     <PlaybackProgressSlider
+                        tone="media"
                         previewTime={previewTime}
                         onPreviewTimeChange={setPreviewTime}
                         onScrubCommit={handleScrubCommit}
                     />
-                    <div className="w-full flex justify-between items-center">
-                        <div className="flex gap-2 items-center">
-                            {/* 上一句 / 播放暂停 / 下一句：与全屏控制条共用同一份控件 */}
-                            <PlaybackNavControls />
-                            <PlaybackTimeReadout previewTime={previewTime} />
-                        </div>
-                        <div className="h-full flex-1" />
-                        {/* 右侧按钮组：xl 以下收紧间隙。窄窗时这一排摆不下，gap-2 的间隙白花掉十几像素，
-                            最右那颗图标就会被容器边缘切掉一半；缩小间隙比藏掉控件代价小得多 */}
-                        <div className="flex justify-center items-center gap-1 xl:gap-2">
-                            {/* 只看画面的一键开关；训练/字幕/设置都在字幕学习台里，不在这条上 */}
+                )}
+                trailing={(
+                    <>
+                        {/* 「看画面」的模式开关成组：硬字幕遮挡 / 播客 */}
+                        <div className={MEDIA_BAR_GROUP}>
                             <HardsubMaskButton />
+                            <PodcastModeButton />
+                        </div>
+                        <span className={MEDIA_BAR_DIVIDER} aria-hidden />
+                        {/* 播放工具成组：倍速 / 音量 / 钉住 / 全屏 */}
+                        <div className={MEDIA_BAR_GROUP}>
                             <SpeedSlider
                                 speed={playbackRate}
                                 popoverOffset={CONTROL_POPOVER_OFFSET_STACKED_BAR}
@@ -170,6 +171,7 @@ export default function PlaybackControlBar({
                                 onSpeedChange={(speed) => playerActions.setPlaybackRate(speed)}
                             />
                             <VolumeSlider
+                                tone="media"
                                 muted={muted}
                                 onMutedChange={(nextMuted) => playerActions.setMuted(nextMuted)}
                                 volume={volume}
@@ -180,9 +182,13 @@ export default function PlaybackControlBar({
                             <ControlBarPinButton />
                             <FullscreenToggleButton fullScreen={fullScreen} changeFullScreen={changeFullScreen} />
                         </div>
-                    </div>
-                </div>
-            </div>
+                    </>
+                )}
+                onMouseMove={(e) => {
+                    e.stopPropagation();
+                    handleMouseMoveIn();
+                }}
+            />
         </div>
     );
 }
