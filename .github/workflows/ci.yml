@@ -31,6 +31,10 @@ jobs:
     steps:
       - name: Github checkout
         uses: actions/checkout@v5
+        # 补丁覆盖率门禁要对基线做 merge-base diff，需要完整历史；浅克隆下
+        # origin/main...HEAD 可能解不出共同祖先。
+        with:
+          fetch-depth: 0
       - name: Enable Corepack
         run: corepack enable
       - name: Use Node.js
@@ -68,6 +72,13 @@ jobs:
         # vitest 通过 ELECTRON_RUN_AS_NODE=1 以纯 Node 运行，不需要显示环境。
         # 带 --coverage 运行以执行 vitest.config 里的覆盖率阈值门禁（基线见该文件注释）。
         run: pnpm run test:coverage
+      - name: Patch coverage
+        # 补丁覆盖率门禁：本次变更触碰的控制器文件必须达到分层覆盖率底线，
+        # 新增控制器不接入 routeContract 契约测试会在这里直接报红。
+        # PR 以目标分支为基线；push 以上一个 main 提交为基线（首次推送时脚本自行跳过）。
+        env:
+          PATCH_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: pnpm run qa:patch-coverage -- --base "$PATCH_BASE"
 
   e2e-smoke:
     # PR 门禁：只跑少量跨进程冒烟，避免每次推送都等待全量 7 分钟

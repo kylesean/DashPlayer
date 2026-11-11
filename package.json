@@ -28,6 +28,7 @@
     "test:e2e:smoke": "playwright test -c qa/playwright.config.ts --grep @smoke",
     "test:e2e:packaged": "node qa/support/package-app.mjs && playwright test -c qa/playwright.packaged.config.ts",
     "qa:check-locators": "node qa/tools/check-locators.mjs",
+    "qa:patch-coverage": "node scripts/check-patch-coverage.mjs",
     "drizzle-kit": "cross-env ELECTRON_RUN_AS_NODE=1 electron node_modules/drizzle-kit/bin.cjs"
   },
   "keywords": [],
