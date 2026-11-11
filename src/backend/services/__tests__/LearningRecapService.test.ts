@@ -25,6 +25,7 @@ import type LearningDataService from '@/backend/services/LearningDataService';
 import {
     buildLearningRecapPrompt,
     buildRetellPrompt,
+    buildRolePlayFeedbackPrompt,
     LearningRecapServiceImpl,
 } from '@/backend/services/LearningRecapService';
 import type LocalAiService from '@/backend/services/LocalAiService';
@@ -165,6 +166,80 @@ describe('LearningRecapService', () => {
         expect(recap.speakingTask).toContain('长途出行');
     });
 
+    it('本地复盘用真实字幕句生成场景回应开场白', async () => {
+        const { service } = buildService({});
+
+        const recap = await service.buildRecap(RECAP_PARAMS);
+
+        expect(recap.rolePlay).toEqual({
+            scenario: '',
+            openingLine: 'It was a long journey home.',
+            prompt: '',
+            targetExpressions: [],
+        });
+    });
+
+    it('AI 场景回应只接受真实开场白与逐字出现的表达', async () => {
+        vi.mocked(generateObject).mockResolvedValue({
+            object: {
+                headline: '一次安静的复盘。',
+                words: [{ word: 'journey', note: '旅程' }],
+                sentence: { text: 'It was a long journey home.', note: '本句回顾' },
+                speakingTask: '复述这句话。',
+                rolePlay: {
+                    scenario: '和朋友聊回家的路。',
+                    openingLine: 'It was a long journey home.',
+                    prompt: '回应朋友，说说你的感受。',
+                    targetExpressions: [
+                        { text: 'long journey', meaning: '漫长的旅程' },
+                        { text: 'home', meaning: '家' },
+                        { text: 'invented phrase', meaning: '编造的表达' },
+                        { text: 'long journey', meaning: '重复表达' },
+                    ],
+                },
+            },
+        } as never);
+        const { service } = buildService({ cloudModel: CLOUD_MODEL });
+
+        const recap = await service.buildRecap(RECAP_PARAMS);
+
+        expect(recap.rolePlay).toMatchObject({
+            scenario: '和朋友聊回家的路。',
+            openingLine: 'It was a long journey home.',
+            prompt: '回应朋友，说说你的感受。',
+        });
+        expect(recap.rolePlay?.targetExpressions.map((item) => item.text))
+            .toEqual(['long journey', 'home']);
+    });
+
+    it('AI 场景开场白越界时回退本地场景，不阻断整份复盘', async () => {
+        vi.mocked(generateObject).mockResolvedValue({
+            object: {
+                headline: '一次安静的复盘。',
+                words: [{ word: 'journey', note: '旅程' }],
+                sentence: { text: 'It was a long journey home.', note: '本句回顾' },
+                speakingTask: '复述这句话。',
+                rolePlay: {
+                    scenario: '编造的场景。',
+                    openingLine: 'This sentence never appeared.',
+                    prompt: '编造的提示。',
+                    targetExpressions: [{ text: 'never appeared', meaning: '不存在' }],
+                },
+            },
+        } as never);
+        const { service } = buildService({ cloudModel: CLOUD_MODEL });
+
+        const recap = await service.buildRecap(RECAP_PARAMS);
+
+        expect(recap.source).toBe('ai');
+        expect(recap.rolePlay).toEqual({
+            scenario: '',
+            openingLine: 'It was a long journey home.',
+            prompt: '',
+            targetExpressions: [],
+        });
+    });
+
     it('复盘命中缓存时不重复调用模型', async () => {
         vi.mocked(generateObject).mockResolvedValue({
             object: {
@@ -283,6 +358,55 @@ describe('LearningRecapService', () => {
         expect(generateObject).toHaveBeenCalledTimes(1);
     });
 
+    it('场景回应在本地计算目标表达使用情况', async () => {
+        const { service } = buildService({});
+
+        const great = await service.evaluateRolePlay({
+            openingLine: 'It was a long journey home.',
+            response: 'It really was a long journey, but coming home felt wonderful.',
+            targetExpressions: ['long journey', 'coming home'],
+        });
+        expect(great.source).toBe('local');
+        expect(great.level).toBe('great');
+        expect(great.usedExpressions).toEqual(['long journey', 'coming home']);
+
+        const retry = await service.evaluateRolePlay({
+            openingLine: 'It was a long journey home.',
+            response: 'Okay.',
+        });
+        expect(retry.level).toBe('retry');
+        expect(retry.usedExpressions).toEqual([]);
+    });
+
+    it('AI 场景点评保留本地表达信号，并在第二次命中缓存', async () => {
+        vi.mocked(generateObject).mockResolvedValue({
+            object: {
+                level: 'good',
+                feedback: '回应很自然，可以再补充一点感受。',
+                improved: 'It was a long journey, but I was glad to be home.',
+            },
+        } as never);
+        const { service } = buildService({ cloudModel: CLOUD_MODEL });
+        const params = {
+            openingLine: 'It was a long journey home.',
+            response: 'It was a long journey, and I was tired.',
+            targetExpressions: ['long journey'],
+            locale: 'zh-CN' as const,
+        };
+
+        const first = await service.evaluateRolePlay(params);
+        const second = await service.evaluateRolePlay(params);
+
+        expect(first).toMatchObject({
+            source: 'ai',
+            level: 'good',
+            usedExpressions: ['long journey'],
+        });
+        expect(first.improved).toBe('It was a long journey, but I was glad to be home.');
+        expect(second.cached).toBe(true);
+        expect(generateObject).toHaveBeenCalledTimes(1);
+    });
+
     it('提示词把会话词、真实句子与本地覆盖信号作为 grounding', () => {
         const recapPrompt = buildLearningRecapPrompt({
             summary,
@@ -307,5 +431,18 @@ describe('LearningRecapService', () => {
         expect(retellPrompt).toContain('decided');
         expect(retellPrompt).toContain('English');
         expect(retellPrompt).toContain('Do not require exact wording');
+
+        const rolePlayPrompt = buildRolePlayFeedbackPrompt({
+            scenario: '和朋友聊回家的路。',
+            openingLine: 'It was a long journey home.',
+            response: 'It was long, but I was happy.',
+            targetExpressions: ['long journey'],
+            usedExpressions: [],
+            locale: 'en-US',
+        });
+        expect(rolePlayPrompt).toContain('It was a long journey home.');
+        expect(rolePlayPrompt).toContain('long journey');
+        expect(rolePlayPrompt).toContain('English');
+        expect(rolePlayPrompt).toContain('Stay inside the role-play situation');
     });
 });

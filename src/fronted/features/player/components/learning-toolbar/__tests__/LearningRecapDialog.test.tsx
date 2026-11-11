@@ -3,7 +3,11 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { LearningRecapContent } from '../LearningRecapDialog';
 import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
-import type { LearningRecapVO, RetellEvaluationVO } from '@/common/types/learningRecap';
+import type {
+    LearningRecapVO,
+    RetellEvaluationVO,
+    RolePlayFeedbackVO,
+} from '@/common/types/learningRecap';
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -21,6 +25,7 @@ vi.mock('@/fronted/features/learning-data/learningDataApi', () => ({
     learningDataApi: {
         getRecap: vi.fn(),
         evaluateRetell: vi.fn(),
+        evaluateRolePlay: vi.fn(),
     },
 }));
 
@@ -41,6 +46,12 @@ const aiRecap: LearningRecapVO = {
     },
     expression: { text: 'long journey', meaning: '漫长的旅程' },
     speakingTask: '用 30 秒讲讲你最近一次长途出行。',
+    rolePlay: {
+        scenario: '和朋友聊回家的路。',
+        openingLine: 'It was a long journey home.',
+        prompt: '回应朋友，说说你的感受。',
+        targetExpressions: [{ text: 'long journey', meaning: '漫长的旅程' }],
+    },
     counts: { encountered: 3, mastered: 1, due: 0, practice: 1 },
 };
 
@@ -65,8 +76,8 @@ describe('LearningRecapContent', () => {
         expect(await screen.findByText('这次你真正带走了三个词。')).toBeDefined();
         expect(screen.getByText('journey')).toBeDefined();
         expect(screen.getByText('记住那条回家的长路')).toBeDefined();
-        expect(screen.getByText('It was a long journey home.')).toBeDefined();
-        expect(screen.getByText('long journey')).toBeDefined();
+        expect(screen.getAllByText('It was a long journey home.').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('long journey').length).toBeGreaterThan(0);
         expect(screen.getByText('用 30 秒讲讲你最近一次长途出行。')).toBeDefined();
         expect(screen.getByText('aiBadge')).toBeDefined();
     });
@@ -111,12 +122,54 @@ describe('LearningRecapContent', () => {
             words: aiRecap.words.map((word) => ({ ...word, note: null })),
             sentence: { text: 'It was a long journey home.', note: null },
             expression: null,
+            rolePlay: {
+                scenario: '',
+                openingLine: 'It was a long journey home.',
+                prompt: '',
+                targetExpressions: [],
+            },
         });
         renderContent('video-local');
 
         expect(await screen.findByText('localHeadline')).toBeDefined();
         expect(screen.getByText('localBadge')).toBeDefined();
         expect(screen.getByText('localSpeakingTask')).toBeDefined();
+        expect(screen.getByText('rolePlayScenarioFallback')).toBeDefined();
+        expect(screen.getByText('rolePlayPromptFallback')).toBeDefined();
+    });
+
+    it('提交场景回应后展示等级、表达与更自然的回应', async () => {
+        const feedback: RolePlayFeedbackVO = {
+            level: 'great',
+            feedback: '回应自然，而且接住了这个场景。',
+            improved: 'It was a long journey, but I was glad to be home.',
+            usedExpressions: ['long journey'],
+            source: 'ai',
+            cached: false,
+        };
+        vi.mocked(learningDataApi.getRecap).mockResolvedValue(aiRecap);
+        vi.mocked(learningDataApi.evaluateRolePlay).mockResolvedValue(feedback);
+        renderContent('video-role-play');
+
+        expect(await screen.findByText('和朋友聊回家的路。')).toBeDefined();
+        expect(screen.getByText('回应朋友，说说你的感受。')).toBeDefined();
+        expect(screen.getAllByText('long journey').length).toBeGreaterThan(0);
+
+        const input = screen.getByTestId('learning-role-play-input');
+        fireEvent.change(input, { target: { value: 'It was a long journey, but I was glad to be home.' } });
+        fireEvent.click(screen.getByTestId('learning-role-play-submit'));
+
+        expect(await screen.findByTestId('learning-role-play-feedback')).toBeDefined();
+        expect(screen.getByText('rolePlayLevelGreat')).toBeDefined();
+        expect(screen.getByText('回应自然，而且接住了这个场景。')).toBeDefined();
+        expect(screen.getByText('rolePlayUsedExpressions: long journey')).toBeDefined();
+        expect(learningDataApi.evaluateRolePlay).toHaveBeenCalledWith({
+            scenario: '和朋友聊回家的路。',
+            openingLine: 'It was a long journey home.',
+            response: 'It was a long journey, but I was glad to be home.',
+            targetExpressions: ['long journey'],
+            locale: 'zh-CN',
+        });
     });
 
     it('加载失败时展示重试入口', async () => {

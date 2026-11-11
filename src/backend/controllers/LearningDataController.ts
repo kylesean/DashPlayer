@@ -14,6 +14,7 @@ import type { LearningDataExportResultVO } from '@/common/types/learningData';
 import type {
     LearningRecapParams,
     RetellEvaluationParams,
+    RolePlayFeedbackParams,
 } from '@/common/types/learningRecap';
 
 /**
@@ -45,6 +46,13 @@ export default class LearningDataController implements Controller {
      */
     public async evaluateRetell(params: RetellEvaluationParams) {
         return this.learningRecapService.evaluateRetell(params);
+    }
+
+    /**
+     * 检查用户对场景开场白的书面回应。
+     */
+    public async evaluateRolePlay(params: RolePlayFeedbackParams) {
+        return this.learningRecapService.evaluateRolePlay(params);
     }
 
     /**
@@ -106,6 +114,16 @@ export default class LearningDataController implements Controller {
             schema: z.object({
                 original: z.string().min(1).max(1_000),
                 response: z.string().min(1).max(2_000),
+                locale: z.enum(['zh-CN', 'en-US']).optional(),
+                forceRefresh: z.boolean().optional(),
+            }),
+        });
+        registerRoute('learning-data/role-play-feedback', (p) => this.evaluateRolePlay(p), {
+            schema: z.object({
+                scenario: z.string().max(500).optional(),
+                openingLine: z.string().min(1).max(1_000),
+                response: z.string().min(1).max(2_000),
+                targetExpressions: z.array(z.string().min(1).max(120)).max(3).optional(),
                 locale: z.enum(['zh-CN', 'en-US']).optional(),
                 forceRefresh: z.boolean().optional(),
             }),

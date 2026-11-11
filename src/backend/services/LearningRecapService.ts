@@ -16,12 +16,16 @@ import type LearningDataRepository from '@/backend/services/repositories/Learnin
 import { isContentLemma } from '@/common/learning/contentWords';
 import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
 import type {
+    LearningRecapExpressionVO,
     LearningRecapParams,
+    LearningRecapRolePlayVO,
     LearningRecapVO,
     LearningRecapWordVO,
     RetellEvaluationParams,
     RetellEvaluationVO,
     RetellLevel,
+    RolePlayFeedbackParams,
+    RolePlayFeedbackVO,
 } from '@/common/types/learningRecap';
 import type {
     LearningSessionSummaryVO,
@@ -29,9 +33,10 @@ import type {
 } from '@/common/types/learningSession';
 
 /** 提示词或输出契约变化时递增，使旧缓存自然失效。 */
-const PROMPT_VERSION = 'learning-recap-v1';
+const PROMPT_VERSION = 'learning-recap-v2';
 const RECAP_CACHE_TTL_MS = 60 * 60 * 1000;
 const RETELL_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const ROLE_PLAY_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CLOUD_TIMEOUT_MS = 30_000;
 const LOCAL_TIMEOUT_MS = 60_000;
 const MAX_CONTEXTS = 6;
@@ -39,6 +44,9 @@ const MAX_RECAP_WORDS = 3;
 const MAX_CONTEXT_CHARS = 400;
 const MAX_RESPONSE_CHARS = 2_000;
 const MAX_EXPRESSION_WORDS = 6;
+const MAX_ROLE_PLAY_SCENARIO_CHARS = 500;
+const MAX_ROLE_PLAY_OPENING_CHARS = 1_000;
+const MAX_ROLE_PLAY_EXPRESSIONS = 3;
 
 /** 复盘中的一条真实字幕语境。 */
 export interface RecapContext {
@@ -68,12 +76,30 @@ const recapSchema = z.object({
         meaning: z.string().min(1).max(160),
     }).optional(),
     speakingTask: z.string().min(1).max(200),
+    rolePlay: z.object({
+        scenario: z.string().max(MAX_ROLE_PLAY_SCENARIO_CHARS).optional(),
+        openingLine: z.string().min(1).max(MAX_CONTEXT_CHARS),
+        prompt: z.string().max(200).optional(),
+        targetExpressions: z.array(z.object({
+            text: z.string().min(1).max(120),
+            meaning: z.string().min(1).max(160),
+        })).max(MAX_ROLE_PLAY_EXPRESSIONS).optional(),
+    }).optional(),
 });
 
 /**
  * AI 复述点评的结构化输出契约。
  */
 const retellSchema = z.object({
+    level: z.enum(['great', 'good', 'retry']),
+    feedback: z.string().min(1).max(300),
+    improved: z.string().max(300).optional(),
+});
+
+/**
+ * AI 场景回应点评的结构化输出契约。
+ */
+const rolePlayFeedbackSchema = z.object({
     level: z.enum(['great', 'good', 'retry']),
     feedback: z.string().min(1).max(300),
     improved: z.string().max(300).optional(),
@@ -96,6 +122,13 @@ export default interface LearningRecapService {
      * 关键词覆盖率始终由本地计算；AI 只在同等事实基础上补充点评与改写。
      */
     evaluateRetell(params: RetellEvaluationParams): Promise<RetellEvaluationVO>;
+
+    /**
+     * 检查用户对场景开场白的书面回应。
+     *
+     * 目标表达使用情况始终由本地逐字匹配；AI 只补充点评与更自然的回应。
+     */
+    evaluateRolePlay(params: RolePlayFeedbackParams): Promise<RolePlayFeedbackVO>;
 }
 
 /**
@@ -108,6 +141,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
     private readonly logger = getMainLogger('LearningRecapService');
     private readonly recapInFlight = new Map<string, Promise<LearningRecapVO>>();
     private readonly retellInFlight = new Map<string, Promise<RetellEvaluationVO>>();
+    private readonly rolePlayInFlight = new Map<string, Promise<RolePlayFeedbackVO>>();
 
     constructor(
         @inject(TYPES.LearningDataService) private readonly learningDataService: LearningDataService,
@@ -238,6 +272,63 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         return task;
     }
 
+    public async evaluateRolePlay(params: RolePlayFeedbackParams): Promise<RolePlayFeedbackVO> {
+        const scenario = params.scenario?.trim().slice(0, MAX_ROLE_PLAY_SCENARIO_CHARS) ?? '';
+        const openingLine = params.openingLine?.trim().slice(0, MAX_ROLE_PLAY_OPENING_CHARS) ?? '';
+        const response = params.response?.trim().slice(0, MAX_RESPONSE_CHARS) ?? '';
+        if (!openingLine) {
+            throw new Error('场景开场白不能为空');
+        }
+        if (!response) {
+            throw new Error('回应内容不能为空');
+        }
+        const targetExpressions = this.normalizeRolePlayExpressions(params.targetExpressions);
+
+        const localResult = this.buildLocalRolePlay(response, targetExpressions);
+        const cloudModel = this.resolveCloudModel();
+        const localModelId = await this.resolveLocalModelId();
+        if (!cloudModel && !localModelId) {
+            return localResult;
+        }
+
+        const cacheKey = this.buildRolePlayCacheKey({
+            params,
+            scenario,
+            openingLine,
+            response,
+            targetExpressions,
+            cloudModelId: this.modelIdOf(cloudModel),
+            localModelId: localModelId ?? '',
+        });
+        if (!params.forceRefresh) {
+            const cached = this.cacheService.get('cache:role-play-feedback', cacheKey);
+            if (cached) {
+                return { ...cached, cached: true };
+            }
+        }
+
+        const existing = this.rolePlayInFlight.get(cacheKey);
+        if (existing) {
+            return existing;
+        }
+
+        const task = this.generateRolePlay({
+            params,
+            scenario,
+            openingLine,
+            response,
+            targetExpressions,
+            localResult,
+            cacheKey,
+            cloudModel,
+            localModelId,
+        }).finally(() => {
+            this.rolePlayInFlight.delete(cacheKey);
+        });
+        this.rolePlayInFlight.set(cacheKey, task);
+        return task;
+    }
+
     /**
      * 从会话事件中提取去重后的真实字幕语境，按关联词数与最近时间排序。
      */
@@ -313,6 +404,14 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         const sentence = sentenceContext
             ? { text: sentenceContext.text, note: null }
             : null;
+        const rolePlay: LearningRecapRolePlayVO | null = sentence
+            ? {
+                scenario: '',
+                openingLine: sentence.text,
+                prompt: '',
+                targetExpressions: [],
+            }
+            : null;
         return {
             since,
             source: 'local',
@@ -322,6 +421,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             sentence,
             expression: null,
             speakingTask: '',
+            rolePlay,
             counts: summary.counts,
         };
     }
@@ -475,6 +575,8 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             }
         }
 
+        const rolePlay = this.groundRolePlay(raw.rolePlay, contexts, localRecap.rolePlay);
+
         return {
             since: localRecap.since,
             source,
@@ -484,7 +586,62 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             sentence,
             expression,
             speakingTask: raw.speakingTask.trim(),
+            rolePlay,
             counts: summary.counts,
+        };
+    }
+
+    /**
+     * 校验 AI 场景回应：开场白必须是真实字幕句，目标表达必须逐字出现在开场白里。
+     *
+     * 越界时整段回退本地场景，不因一个可选练习阻断整份复盘。
+     */
+    private groundRolePlay(
+        raw: z.infer<typeof recapSchema>['rolePlay'],
+        contexts: RecapContext[],
+        fallback: LearningRecapRolePlayVO | null | undefined,
+    ): LearningRecapRolePlayVO | null {
+        if (!raw) {
+            return fallback ?? null;
+        }
+        const opening = raw.openingLine.trim().slice(0, MAX_ROLE_PLAY_OPENING_CHARS);
+        const matched = contexts.find(
+            (context) => this.normalizeForMatch(context.text) === this.normalizeForMatch(opening),
+        );
+        if (!matched) {
+            return fallback ?? null;
+        }
+
+        const normalizedOpening = this.normalizeForMatch(matched.text);
+        const used = new Set<string>();
+        const targetExpressions: LearningRecapExpressionVO[] = [];
+        for (const item of raw.targetExpressions ?? []) {
+            if (targetExpressions.length >= MAX_ROLE_PLAY_EXPRESSIONS) {
+                break;
+            }
+            const text = item.text.trim();
+            const key = this.normalizeForMatch(text);
+            if (!text || used.has(key)) {
+                continue;
+            }
+            if (text.split(/\s+/u).length > MAX_EXPRESSION_WORDS) {
+                continue;
+            }
+            if (!normalizedOpening.includes(key)) {
+                continue;
+            }
+            used.add(key);
+            targetExpressions.push({
+                text,
+                meaning: item.meaning.trim(),
+            });
+        }
+
+        return {
+            scenario: raw.scenario?.trim().slice(0, MAX_ROLE_PLAY_SCENARIO_CHARS) ?? '',
+            openingLine: matched.text,
+            prompt: raw.prompt?.trim().slice(0, 200) ?? '',
+            targetExpressions,
         };
     }
 
@@ -535,6 +692,33 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             matchedKeywords,
             totalKeywords,
             missingWords: missingWords.slice(0, 5),
+            source: 'local',
+            cached: false,
+        };
+    }
+
+    /**
+     * 本地场景回应检查：以回应长度与目标表达使用为可解释信号，不做语义打分。
+     */
+    private buildLocalRolePlay(response: string, targetExpressions: string[]): RolePlayFeedbackVO {
+        const normalizedResponse = this.normalizeForMatch(response);
+        const usedExpressions = targetExpressions.filter(
+            (expression) => normalizedResponse.includes(this.normalizeForMatch(expression)),
+        );
+        const wordCount = analyzeWords(response)
+            .filter((token) => token.type === 'word')
+            .length;
+        let level: RetellLevel = 'retry';
+        if (wordCount >= 8 && (targetExpressions.length === 0 || usedExpressions.length > 0)) {
+            level = 'great';
+        } else if (wordCount >= 3) {
+            level = 'good';
+        }
+        return {
+            level,
+            feedback: '',
+            improved: '',
+            usedExpressions,
             source: 'local',
             cached: false,
         };
@@ -639,6 +823,104 @@ export class LearningRecapServiceImpl implements LearningRecapService {
     }
 
     /**
+     * 依次尝试云端与本地模型；两者都失败时保留本地长度/表达信号。
+     */
+    private async generateRolePlay(args: {
+        params: RolePlayFeedbackParams;
+        scenario: string;
+        openingLine: string;
+        response: string;
+        targetExpressions: string[];
+        localResult: RolePlayFeedbackVO;
+        cacheKey: string;
+        cloudModel: LanguageModel | null;
+        localModelId: string | null;
+    }): Promise<RolePlayFeedbackVO> {
+        const prompt = buildRolePlayFeedbackPrompt({
+            scenario: args.scenario,
+            openingLine: args.openingLine,
+            response: args.response,
+            targetExpressions: args.targetExpressions,
+            usedExpressions: args.localResult.usedExpressions,
+            locale: this.resolveLocale(args.params.locale),
+        });
+
+        if (args.cloudModel) {
+            try {
+                const result = await concurrency.withRateLimit('gpt', () => generateObject({
+                    model: args.cloudModel!,
+                    schema: rolePlayFeedbackSchema,
+                    prompt,
+                    maxRetries: 0,
+                    abortSignal: AbortSignal.timeout(CLOUD_TIMEOUT_MS),
+                }));
+                return this.finishRolePlay(result.object, args.localResult, args.cacheKey, 'ai', args.response);
+            } catch (error) {
+                this.logger.warn('role play feedback cloud failed, trying local model', {
+                    error: this.errorMessage(error),
+                });
+            }
+        }
+
+        if (args.localModelId) {
+            try {
+                const output = await this.localAiService.generate(
+                    prompt,
+                    z.toJSONSchema(rolePlayFeedbackSchema),
+                    args.localModelId,
+                    AbortSignal.timeout(LOCAL_TIMEOUT_MS),
+                );
+                const parsed = rolePlayFeedbackSchema.safeParse(parseMaybeJson(output));
+                if (!parsed.success) {
+                    this.logger.error('role play feedback local output invalid', {
+                        issues: parsed.error.issues,
+                        rawText: JSON.stringify(output)?.slice(0, 500),
+                    });
+                    throw new Error('本地模型场景回应输出不符合契约');
+                }
+                return this.finishRolePlay(parsed.data, args.localResult, args.cacheKey, 'local', args.response);
+            } catch (error) {
+                this.logger.error('role play feedback local model failed', {
+                    error: this.errorMessage(error),
+                });
+            }
+        }
+
+        return args.localResult;
+    }
+
+    /**
+     * 归一化 AI 场景点评并合并本地表达使用信号。
+     */
+    private finishRolePlay(
+        raw: z.infer<typeof rolePlayFeedbackSchema>,
+        localResult: RolePlayFeedbackVO,
+        cacheKey: string,
+        source: 'ai' | 'local',
+        response: string,
+    ): RolePlayFeedbackVO {
+        const feedback = raw.feedback.trim();
+        if (!feedback) {
+            throw new Error('模型未返回有效的场景回应点评');
+        }
+        const improved = raw.improved?.trim().slice(0, 300) ?? '';
+        const normalizedImproved = improved
+            && this.normalizeForMatch(improved) !== this.normalizeForMatch(response)
+            ? improved
+            : '';
+        const result: RolePlayFeedbackVO = {
+            level: raw.level,
+            feedback,
+            improved: normalizedImproved,
+            usedExpressions: localResult.usedExpressions,
+            source,
+            cached: false,
+        };
+        this.cacheService.set('cache:role-play-feedback', cacheKey, result, ROLE_PLAY_CACHE_TTL_MS);
+        return result;
+    }
+
+    /**
      * 复盘缓存键：会话定位、词句事实、模型与提示词版本任一变化都重新生成。
      */
     private buildRecapCacheKey(args: {
@@ -682,6 +964,55 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             cloudModelId: args.cloudModelId,
             localModelId: args.localModelId,
         });
+    }
+
+    /**
+     * 场景回应缓存键：场景、开场白、回应、目标表达、语言与模型任一变化都重新检查。
+     */
+    private buildRolePlayCacheKey(args: {
+        params: RolePlayFeedbackParams;
+        scenario: string;
+        openingLine: string;
+        response: string;
+        targetExpressions: string[];
+        cloudModelId: string;
+        localModelId: string;
+    }): string {
+        return ObjUtil.hash({
+            mode: 'role-play-feedback',
+            version: PROMPT_VERSION,
+            scenario: args.scenario,
+            openingLine: this.normalizeForMatch(args.openingLine),
+            response: args.response.trim(),
+            targetExpressions: args.targetExpressions,
+            locale: this.resolveLocale(args.params.locale),
+            cloudModelId: args.cloudModelId,
+            localModelId: args.localModelId,
+        });
+    }
+
+    /**
+     * 归一化目标表达：去空、去重、限制数量，并保留用户可读写法。
+     */
+    private normalizeRolePlayExpressions(expressions: string[] | undefined): string[] {
+        const result: string[] = [];
+        const seen = new Set<string>();
+        for (const expression of expressions ?? []) {
+            const text = expression.trim();
+            if (!text) {
+                continue;
+            }
+            const key = this.normalizeForMatch(text);
+            if (seen.has(key)) {
+                continue;
+            }
+            seen.add(key);
+            result.push(text);
+            if (result.length >= MAX_ROLE_PLAY_EXPRESSIONS) {
+                break;
+            }
+        }
+        return result;
     }
 
     /**
@@ -814,14 +1145,15 @@ export const buildLearningRecapPrompt = (input: LearningRecapPromptInput): strin
         ...contextLines,
         '',
         'Return JSON with this shape:',
-        '{"headline":"one warm sentence about this session","words":[{"word":"exact word from the list","note":"one concrete memory hook"}],"sentence":{"text":"exact sentence copied from the list","note":"why this sentence is worth remembering"},"expression":{"text":"2-4 word expression appearing verbatim in a sentence","meaning":"short meaning"},"speakingTask":"one 20-60 second speaking task"}',
+        '{"headline":"one warm sentence about this session","words":[{"word":"exact word from the list","note":"one concrete memory hook"}],"sentence":{"text":"exact sentence copied from the list","note":"why this sentence is worth remembering"},"expression":{"text":"2-4 word expression appearing verbatim in a sentence","meaning":"short meaning"},"speakingTask":"one 20-60 second speaking task","rolePlay":{"scenario":"one short real-life situation inspired by the sentence","openingLine":"exact sentence copied from the list","prompt":"what the learner should reply, in one sentence","targetExpressions":[{"text":"2-4 word expression appearing verbatim in openingLine","meaning":"short meaning"}]}}',
         '',
         'Rules:',
         '1. Use 2-3 words, only from the target word list. Never invent a word.',
         '2. sentence.text must be copied exactly from the provided sentences.',
         '3. expression must appear verbatim in one of the provided sentences; omit the field when none is useful.',
-        '4. Keep headline, notes and speakingTask short and concrete. No emoji, no grammar lectures.',
-        '5. Output valid JSON only, without markdown fences.',
+        '4. rolePlay.openingLine must be copied exactly from the provided sentences. rolePlay.targetExpressions must appear verbatim in that line; use at most 3.',
+        '5. Keep headline, notes, speakingTask, rolePlay.scenario and rolePlay.prompt short and concrete. No emoji, no grammar lectures.',
+        '6. Output valid JSON only, without markdown fences.',
     ].join('\n');
 };
 
@@ -856,6 +1188,43 @@ export const buildRetellPrompt = (input: {
         'Rules:',
         '1. great = meaning is complete and easy to follow; good = main idea is there but something important is missing or unclear; retry = meaning is substantially off or too vague.',
         '2. improved must be a natural paraphrase, not a copy of the original sentence.',
+        '3. Output valid JSON only, without markdown fences.',
+    ].join('\n');
+};
+
+/**
+ * 构建场景回应点评提示词。
+ *
+ * @param input 场景、开场白、用户回应、目标表达、本地已用表达与输出语言。
+ * @returns 完整提示词。
+ */
+export const buildRolePlayFeedbackPrompt = (input: {
+    scenario: string;
+    openingLine: string;
+    response: string;
+    targetExpressions: string[];
+    usedExpressions: string[];
+    locale: 'zh-CN' | 'en-US';
+}): string => {
+    const language = input.locale === 'en-US' ? 'English' : 'Simplified Chinese';
+    return [
+        'You are a friendly English conversation partner giving written feedback on one role-play reply.',
+        `Write feedback in ${language}.`,
+        '',
+        `Situation: ${input.scenario || '(a real-life situation from the video)'}`,
+        `The other person says: "${input.openingLine}"`,
+        `Learner's reply: "${input.response}"`,
+        `Expressions we hoped to see: ${input.targetExpressions.join(', ') || 'none'}`,
+        `Expressions the learner actually used: ${input.usedExpressions.join(', ') || 'none'}`,
+        '',
+        'Stay inside the role-play situation. Judge whether the reply works as a natural spoken response. Do not interrupt the conversation for small grammar slips unless they block understanding.',
+        '',
+        'Return JSON:',
+        '{"level":"great|good|retry","feedback":"one or two specific, encouraging sentences","improved":"a natural spoken reply, 1-3 sentences"}',
+        '',
+        'Rules:',
+        '1. great = natural, on-topic and easy to continue; good = understandable but one thing weakens it; retry = off-topic, too vague, or does not respond to the opening line.',
+        '2. improved must be a natural spoken reply, not a copy of the learner\'s reply.',
         '3. Output valid JSON only, without markdown fences.',
     ].join('\n');
 };

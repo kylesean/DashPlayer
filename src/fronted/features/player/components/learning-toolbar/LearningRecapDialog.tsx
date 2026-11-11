@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
-import { Loader2, Mic, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
+import { Loader2, MessageCircle, Mic, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
@@ -10,6 +10,7 @@ import type {
     LearningRecapVO,
     RetellEvaluationVO,
     RetellLevel,
+    RolePlayFeedbackVO,
 } from '@/common/types/learningRecap';
 import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
 import { cn } from '@/fronted/lib/utils';
@@ -90,6 +91,10 @@ export function LearningRecapContent({
     const [retellResult, setRetellResult] = useState<RetellEvaluationVO | null>(null);
     const [retellLoading, setRetellLoading] = useState(false);
     const [retellError, setRetellError] = useState<string | null>(null);
+    const [rolePlayDraft, setRolePlayDraft] = useState('');
+    const [rolePlayResult, setRolePlayResult] = useState<RolePlayFeedbackVO | null>(null);
+    const [rolePlayLoading, setRolePlayLoading] = useState(false);
+    const [rolePlayError, setRolePlayError] = useState<string | null>(null);
 
     const enabled = Boolean(videoId || fileHash);
     const summaryKey = enabled
@@ -127,6 +132,9 @@ export function LearningRecapContent({
             setDraft('');
             setRetellResult(null);
             setRetellError(null);
+            setRolePlayDraft('');
+            setRolePlayResult(null);
+            setRolePlayError(null);
         } catch {
             toast.error(t('loadFailed'));
         } finally {
@@ -164,6 +172,38 @@ export function LearningRecapContent({
         if (retellError) setRetellError(null);
     };
 
+    /**
+     * 提交场景回应；答案或场景变化后旧反馈立即失效。
+     */
+    const handleCheckRolePlay = async () => {
+        const rolePlay = data?.rolePlay;
+        if (!rolePlay || !rolePlayDraft.trim() || rolePlayLoading) {
+            return;
+        }
+        setRolePlayLoading(true);
+        setRolePlayError(null);
+        try {
+            const result = await learningDataApi.evaluateRolePlay({
+                scenario: rolePlay.scenario,
+                openingLine: rolePlay.openingLine,
+                response: rolePlayDraft.trim(),
+                targetExpressions: rolePlay.targetExpressions.map((item) => item.text),
+                locale,
+            });
+            setRolePlayResult(result);
+        } catch {
+            setRolePlayError(t('rolePlayFailed'));
+        } finally {
+            setRolePlayLoading(false);
+        }
+    };
+
+    const handleRolePlayDraftChange = (value: string) => {
+        setRolePlayDraft(value);
+        if (rolePlayResult) setRolePlayResult(null);
+        if (rolePlayError) setRolePlayError(null);
+    };
+
     return (
         <div className="flex w-full flex-col gap-3">
             <div className="-mr-1 max-h-[68vh] overflow-y-auto pr-1">
@@ -190,6 +230,12 @@ export function LearningRecapContent({
                         retellError={retellError}
                         onDraftChange={handleDraftChange}
                         onCheckRetell={() => { void handleCheckRetell(); }}
+                        rolePlayDraft={rolePlayDraft}
+                        rolePlayResult={rolePlayResult}
+                        rolePlayLoading={rolePlayLoading}
+                        rolePlayError={rolePlayError}
+                        onRolePlayDraftChange={handleRolePlayDraftChange}
+                        onCheckRolePlay={() => { void handleCheckRolePlay(); }}
                         refreshing={refreshing}
                         onRefresh={() => { void handleRefresh(); }}
                     />
@@ -220,6 +266,12 @@ function RecapBody({
     retellError,
     onDraftChange,
     onCheckRetell,
+    rolePlayDraft,
+    rolePlayResult,
+    rolePlayLoading,
+    rolePlayError,
+    onRolePlayDraftChange,
+    onCheckRolePlay,
     refreshing,
     onRefresh,
 }: {
@@ -230,6 +282,12 @@ function RecapBody({
     retellError: string | null;
     onDraftChange: (value: string) => void;
     onCheckRetell: () => void;
+    rolePlayDraft: string;
+    rolePlayResult: RolePlayFeedbackVO | null;
+    rolePlayLoading: boolean;
+    rolePlayError: string | null;
+    onRolePlayDraftChange: (value: string) => void;
+    onCheckRolePlay: () => void;
     refreshing: boolean;
     onRefresh: () => void;
 }) {
@@ -371,6 +429,73 @@ function RecapBody({
                     )}
                 </section>
             )}
+
+            {recap.rolePlay && (
+                <section className="rounded-xl border border-border/60 bg-card px-3.5 py-3">
+                    <div className="flex items-center gap-1.5">
+                        <MessageCircle className="h-3.5 w-3.5 text-accent" />
+                        <SectionTitle>{t('rolePlayTitle')}</SectionTitle>
+                    </div>
+                    <p className="mt-1.5 text-metadata leading-relaxed text-muted-foreground">
+                        {recap.rolePlay.scenario || t('rolePlayScenarioFallback')}
+                    </p>
+                    <blockquote className="mt-2 rounded-lg border-l-2 border-accent-bg/50 bg-muted/30 px-3 py-2 text-sm leading-relaxed text-foreground select-text">
+                        {recap.rolePlay.openingLine}
+                    </blockquote>
+                    <p className="mt-1.5 text-metadata leading-relaxed text-muted-foreground">
+                        {recap.rolePlay.prompt || t('rolePlayPromptFallback')}
+                    </p>
+                    {recap.rolePlay.targetExpressions.length > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            {recap.rolePlay.targetExpressions.map((item) => (
+                                <span
+                                    key={item.text}
+                                    title={item.meaning}
+                                    className="rounded-md bg-accent-muted/40 px-1.5 py-0.5 text-metadata font-medium text-accent"
+                                >
+                                    {item.text}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    <textarea
+                        value={rolePlayDraft}
+                        rows={3}
+                        data-testid="learning-role-play-input"
+                        placeholder={t('rolePlayPlaceholder')}
+                        onChange={(event) => onRolePlayDraftChange(event.currentTarget.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                                event.preventDefault();
+                                onCheckRolePlay();
+                            }
+                        }}
+                        className="mt-2 min-h-20 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-accent-bg/50"
+                    />
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                        <span className="text-metadata text-muted-foreground/70">
+                            {rolePlayError ?? ''}
+                        </span>
+                        <button
+                            type="button"
+                            data-testid="learning-role-play-submit"
+                            disabled={rolePlayLoading || rolePlayDraft.trim().length === 0}
+                            onClick={onCheckRolePlay}
+                            className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-accent-bg px-3 text-sm font-medium text-on-accent transition-colors hover:bg-accent-bg/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+                        >
+                            {rolePlayLoading ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                                <Sparkles className="h-3.5 w-3.5" />
+                            )}
+                            {rolePlayLoading ? t('checkingRolePlay') : t('checkRolePlay')}
+                        </button>
+                    </div>
+                    {rolePlayResult && (
+                        <RolePlayFeedback result={rolePlayResult} />
+                    )}
+                </section>
+            )}
         </div>
     );
 }
@@ -426,6 +551,59 @@ function RetellFeedback({ result }: { result: RetellEvaluationVO }) {
                 <div className="mt-2 rounded-lg border border-border/50 bg-background/60 px-2.5 py-2">
                     <div className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
                         {t('improvedTitle')}
+                    </div>
+                    <p className="mt-0.5 text-sm leading-relaxed text-foreground select-text">
+                        {result.improved}
+                    </p>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/**
+ * 场景回应反馈：等级、点评、用上的表达与更自然的回应。
+ */
+function RolePlayFeedback({ result }: { result: RolePlayFeedbackVO }) {
+    const { t } = useTranslation('recap');
+    const levelLabel = result.level === 'great'
+        ? t('rolePlayLevelGreat')
+        : result.level === 'good'
+            ? t('rolePlayLevelGood')
+            : t('rolePlayLevelRetry');
+    const localFeedback = result.level === 'great'
+        ? t('rolePlayLocalFeedbackGreat')
+        : result.level === 'good'
+            ? t('rolePlayLocalFeedbackGood')
+            : t('rolePlayLocalFeedbackRetry');
+
+    return (
+        <div
+            data-testid="learning-role-play-feedback"
+            className="mt-3 rounded-xl border border-border/60 bg-muted/25 px-3 py-2.5"
+        >
+            <div className="flex flex-wrap items-center gap-1.5">
+                <RetellLevelBadge level={result.level} label={levelLabel} />
+                <span className="text-metadata text-muted-foreground">
+                    {result.source === 'ai'
+                        ? t('rolePlaySourceAi')
+                        : result.feedback
+                            ? t('rolePlaySourceLocalModel')
+                            : t('rolePlaySourceLocal')}
+                </span>
+            </div>
+            <p className="mt-1.5 text-sm leading-relaxed text-foreground select-text">
+                {result.feedback || localFeedback}
+            </p>
+            {result.usedExpressions.length > 0 && (
+                <p className="mt-1 text-metadata leading-relaxed text-muted-foreground">
+                    {t('rolePlayUsedExpressions')}: {result.usedExpressions.join(' · ')}
+                </p>
+            )}
+            {result.improved && (
+                <div className="mt-2 rounded-lg border border-border/50 bg-background/60 px-2.5 py-2">
+                    <div className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
+                        {t('rolePlayImprovedTitle')}
                     </div>
                     <p className="mt-0.5 text-sm leading-relaxed text-foreground select-text">
                         {result.improved}

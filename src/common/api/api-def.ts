@@ -46,6 +46,8 @@ import type {
     LearningRecapVO,
     RetellEvaluationParams,
     RetellEvaluationVO,
+    RolePlayFeedbackParams,
+    RolePlayFeedbackVO,
 } from '@/common/types/learningRecap';
 import type {
     ContentCompassEventParams,
@@ -486,6 +488,11 @@ interface LearningDataDef {
     'learning-data/retell-feedback': {
         params: RetellEvaluationParams,
         return: RetellEvaluationVO
+    };
+    /** 检查用户对场景开场白的书面回应；目标表达使用始终由本地计算。 */
+    'learning-data/role-play-feedback': {
+        params: RolePlayFeedbackParams,
+        return: RolePlayFeedbackVO
     };
 }
 

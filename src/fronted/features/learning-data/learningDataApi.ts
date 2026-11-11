@@ -3,6 +3,7 @@ import type { LearningSessionSummaryParams } from '@/common/types/learningSessio
 import type {
     LearningRecapParams,
     RetellEvaluationParams,
+    RolePlayFeedbackParams,
 } from '@/common/types/learningRecap';
 
 /**
@@ -26,6 +27,12 @@ export const learningDataApi = {
      */
     evaluateRetell: (params: RetellEvaluationParams) =>
         backendClient.call('learning-data/retell-feedback', params),
+
+    /**
+     * 检查用户对场景开场白的书面回应。
+     */
+    evaluateRolePlay: (params: RolePlayFeedbackParams) =>
+        backendClient.call('learning-data/role-play-feedback', params),
 
     /**
      * 打开保存对话框并导出学习数据 JSON。
