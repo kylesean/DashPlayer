@@ -6,6 +6,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { Stats } from 'node:fs';
 
 import type { MobileRecentItem, MobileWatchDetail } from '@/common/contracts/mobile-web';
+import { MOBILE_CONTENT_SECURITY_POLICY } from '@/common/constants/mobile-content-security-policy';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 
@@ -48,26 +49,6 @@ export interface MobileWebServerOptions {
      */
     token: string;
 }
-
-/**
- * 手机页的 Content-Security-Policy。
- *
- * 手机页只跟同源的后端接口打交道，不加载任何外部资源，因此可以收得很紧。
- * `style-src` 允许 unsafe-inline 是因为页面大量使用行内 style 属性。
- */
-const MOBILE_CONTENT_SECURITY_POLICY = [
-    "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob:",
-    "font-src 'self' data:",
-    "media-src 'self' blob:",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'none'",
-    "form-action 'none'",
-    "frame-ancestors 'none'",
-].join('; ');
 
 /**
  * 访问令牌的传递方式，按优先级排列：
@@ -626,7 +607,7 @@ export default class MobileWebServer {
             });
             if (!response.headersSent && !response.destroyed) {
                 try {
-                    this.sendJson(response, 500, { error: message });
+                    this.sendJson(response, 500, { error: '服务器内部错误' });
                     return;
                 } catch {
                     // 连接已断时继续走 destroy，避免抛回上层变成未处理异常。

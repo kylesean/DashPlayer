@@ -227,7 +227,14 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
                 );
             const item = await this.buildFolderItem(folderHistories, buildItem);
             if (item) {
-                folderItems.push(item);
+                // 如果当前目录项展示的代表性视频（及其路径）已经在单文件列表 fileItems 中单独存在，
+                // 则不应在同一最近列表中展示重合项，避免同一视频的单文件和所属文件夹同时并排挤在最近列表中
+                const isDuplicateWithSingleFile = fileItems.some(
+                    (f) => f.basePath === item.basePath && f.fileName === item.fileName,
+                );
+                if (!isDuplicateWithSingleFile) {
+                    folderItems.push(item);
+                }
             }
         }
 
@@ -250,7 +257,12 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         for (const history of histories) {
             const item = await buildItem(history);
             if (item) {
-                return { ...item, isFolder: true };
+                const folderName = path.basename(history.base_path.replace(/[\\/]+$/, ''));
+                return {
+                    ...item,
+                    isFolder: true,
+                    displayFileName: folderName || item.fileName,
+                };
             }
         }
         return null;
