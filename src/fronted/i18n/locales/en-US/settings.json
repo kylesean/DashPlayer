@@ -375,7 +375,9 @@
             "learningDataDesc": "Portable backup and learning history governance",
             "danger": "Danger Zone",
             "dangerDesc": "These actions cannot be undone"
-        }
+        },
+        "descriptionLine1": "Manage the media library folder and its disk usage.",
+        "descriptionLine2": "Changing the folder requires re-syncing saved clips and vocabulary indexes."
     },
     "serviceCredentials": {
         "openai": {

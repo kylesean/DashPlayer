@@ -15,5 +15,6 @@
     "expandSidebar": "Expand Navigation",
     "hideSidebar": "Hide Sidebar",
     "home": "Home",
-    "appTitle": "DashPlayer"
+    "appTitle": "DashPlayer",
+    "sidebarFixedCompact": "Pinned to icon navigation when the window is narrow"
 }

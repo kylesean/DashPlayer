@@ -18,7 +18,9 @@
         "cancel": "取消",
         "cancelled": "已取消",
         "failed": "导入失败",
-        "noSubtitle": "未找到字幕，可在播放页用 AI 字幕生成"
+        "noSubtitle": "未找到字幕，可在播放页用 AI 字幕生成",
+        "completed": "已完成",
+        "inProgress": "下载中"
     },
     "settings": {
         "title": "YouTube 导入",

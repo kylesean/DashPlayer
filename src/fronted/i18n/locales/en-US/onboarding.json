@@ -41,7 +41,9 @@
             "skip": "Skip",
             "etaSeconds": "about {{seconds}}s left",
             "etaMinutes": "about {{minutes}}m {{seconds}}s left",
-            "etaLong": "over 1 hour left"
+            "etaLong": "over 1 hour left",
+            "finishing": "Finishing setup…",
+            "progressLabel": "Download progress"
         },
         "manual": {
             "title": "Manual download",

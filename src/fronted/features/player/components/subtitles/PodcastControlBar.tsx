@@ -76,7 +76,7 @@ export default function PodcastControlBar({
                 <div className="w-full flex justify-between items-center text-secondary">
                     <div className="flex gap-3.5 items-center">
                         <IconButton
-                            label={playing ? '暂停' : '播放'}
+                            label={playing ? t('controlBar.pause') : t('controlBar.play')}
                             variant="ghost"
                             size="sm"
                             icon={playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}

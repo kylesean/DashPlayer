@@ -15,5 +15,6 @@
     "expandSidebar": "展开导航栏",
     "hideSidebar": "完全收起侧栏",
     "home": "首页",
-    "appTitle": "DashPlayer"
+    "appTitle": "DashPlayer",
+    "sidebarFixedCompact": "窗口较窄时固定为图标导航"
 }

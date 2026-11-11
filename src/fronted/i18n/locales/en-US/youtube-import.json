@@ -18,7 +18,9 @@
         "cancel": "Cancel",
         "cancelled": "Cancelled",
         "failed": "Import failed",
-        "noSubtitle": "No subtitles found; generate AI subtitles in the player"
+        "noSubtitle": "No subtitles found; generate AI subtitles in the player",
+        "completed": "Completed",
+        "inProgress": "Downloading"
     },
     "settings": {
         "title": "YouTube Import",

@@ -187,5 +187,9 @@
     "aiContextInsightRetry": "Retry",
     "englishSenses": "English definitions",
     "englishSynonyms": "Synonyms",
-    "englishAntonyms": "Antonyms"
+    "englishAntonyms": "Antonyms",
+    "selectFileFailed": "Failed to select file",
+    "wordDeleted": "Word deleted",
+    "loadingWords": "Loading words…",
+    "wordListEmpty": "Your word list is empty. Save a few words from the subtitles first."
 }

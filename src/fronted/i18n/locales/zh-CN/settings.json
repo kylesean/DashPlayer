@@ -375,7 +375,9 @@
             "learningDataDesc": "可移植备份与学习记录治理",
             "danger": "危险操作",
             "dangerDesc": "以下操作不可撤销"
-        }
+        },
+        "descriptionLine1": "管理媒体库所在目录与占用空间。",
+        "descriptionLine2": "更换目录后需要重新同步收藏与词汇索引。"
     },
     "serviceCredentials": {
         "openai": {

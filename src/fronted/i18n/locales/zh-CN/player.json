@@ -22,7 +22,8 @@
     },
     "volumeSlider": {
         "mute": "静音",
-        "unmute": "取消静音"
+        "unmute": "取消静音",
+        "title": "音量"
     },
     "controlBar": {
         "prevSentence": "上一句",

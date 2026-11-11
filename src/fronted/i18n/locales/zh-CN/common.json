@@ -187,5 +187,9 @@
     "aiContextInsightRetry": "重试",
     "englishSenses": "英英释义",
     "englishSynonyms": "近义",
-    "englishAntonyms": "反义"
+    "englishAntonyms": "反义",
+    "selectFileFailed": "选择文件失败",
+    "wordDeleted": "单词已删除",
+    "loadingWords": "正在加载单词…",
+    "wordListEmpty": "词表还是空的，先从字幕里收藏几个词吧"
 }
