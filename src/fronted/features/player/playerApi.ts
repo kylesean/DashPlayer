@@ -2,6 +2,7 @@ import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import { requestVideoThumbnail } from '@/fronted/lib/video-thumbnail';
 import type { SubtitleTimestampAdjustmentInput } from '@/common/contracts/subtitle-timestamp-adjustment';
 import { SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY } from '@/common/constants/systemConfigKeys';
+import type { SubtitleComprehensionParams } from '@/common/types/subtitleComprehension';
 
 /**
  * 播放器功能调用的后端接口。
@@ -83,6 +84,15 @@ export const playerApi = {
         demandId,
         rendererSessionId,
     }),
+
+    /**
+     * 估算当前句子的理解度，用于自适应中文字幕。
+     *
+     * @param params 句子文本与可选播放定位。
+     * @returns 本地可解释的理解度快照。
+     */
+    subtitleComprehension: (params: SubtitleComprehensionParams) =>
+        backendClient.call('subtitle/comprehension', params),
 
     /**
      * 释放指定字幕文件的后端翻译会话。

@@ -8,6 +8,8 @@ import TYPES from '@/backend/ioc/types';
 import type Controller from '@/backend/controllers/Controller';
 import type SubtitleService from '@/backend/services/SubtitleService';
 import { type SubtitleVocabularyMatchResult } from '@/backend/services/SubtitleService';
+import type SubtitleComprehensionService from '@/backend/services/SubtitleComprehensionService';
+import type { SubtitleComprehensionParams } from '@/common/types/subtitleComprehension';
 
 
 /**
@@ -19,9 +21,12 @@ export default class SubtitleController implements Controller {
      * 构造字幕控制器。
      *
      * @param subtitleService 字幕业务服务。
+     * @param subtitleComprehensionService 句子理解度服务。
      */
     constructor(
         @inject(TYPES.SubtitleService) private readonly subtitleService: SubtitleService,
+        @inject(TYPES.SubtitleComprehensionService)
+        private readonly subtitleComprehensionService: SubtitleComprehensionService,
     ) {}
 
     /**
@@ -71,6 +76,16 @@ export default class SubtitleController implements Controller {
     }
 
     /**
+     * 估算一句话的直接理解概率，用于自适应中文字幕。
+     *
+     * @param params 句子文本与可选播放定位。
+     * @returns 本地可解释的理解度快照。
+     */
+    public async buildComprehension(params: SubtitleComprehensionParams) {
+        return this.subtitleComprehensionService.build(params);
+    }
+
+    /**
      * 注册字幕相关 IPC 路由。
      */
     registerRoutes(): void {
@@ -90,6 +105,13 @@ export default class SubtitleController implements Controller {
         });
         registerRoute('subtitle/text/parse-structs', (p) => this.parseStructs(p), {
             schema: z.array(z.string()),
+        });
+        registerRoute('subtitle/comprehension', (p) => this.buildComprehension(p), {
+            schema: z.object({
+                text: z.string().min(1).max(2000),
+                fileHash: z.string().min(1).optional(),
+                sentenceIndex: z.number().int().nonnegative().optional(),
+            }),
         });
     }
 }

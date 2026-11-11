@@ -58,6 +58,7 @@ export default function PlayerSettingsPopover({
     const [open, setOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'settings' | 'timing'>('settings');
 
+    const showCn = usePlayerUi((s) => s.showCn);
     const showSourceZh = usePlayerUi((s) => s.showSourceZh);
     const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
     const changeShowSourceZh = usePlayerUi((s) => s.changeShowSourceZh);
@@ -67,6 +68,7 @@ export default function PlayerSettingsPopover({
 
     const pauseOnWordHover = useSetting((s) => s.values.get('player.pauseOnWordHover')) === 'true';
     const vocabularyGuidance = useSetting((s) => s.values.get('player.vocabularyGuidance') ?? 'calm');
+    const adaptiveChinese = useSetting((s) => s.values.get('player.adaptiveChinese') ?? 'true') === 'true';
     const setSetting = useSetting((s) => s.setSetting);
 
     const autoPlayNext = usePlayer((s) => s.autoPlayNext);
@@ -89,6 +91,10 @@ export default function PlayerSettingsPopover({
 
     const changeVocabularyGuidance = async (next: string) => {
         await setSetting('player.vocabularyGuidance', next);
+    };
+
+    const changeAdaptiveChinese = async (next: boolean) => {
+        await setSetting('player.adaptiveChinese', next ? 'true' : 'false');
     };
 
     return (
@@ -185,6 +191,15 @@ export default function PlayerSettingsPopover({
                                     checked={showSourceZh}
                                     onChange={() => changeShowSourceZh()}
                                     testId="player-setting-show-source-zh"
+                                />
+                            )}
+                            {(showCn || showSourceZh) && (
+                                <PopoverSwitchRow
+                                    label={t('controlBox.adaptiveChinese')}
+                                    labelTooltip={t('controlBox.adaptiveChineseHint')}
+                                    checked={adaptiveChinese}
+                                    onChange={(next) => { void changeAdaptiveChinese(next); }}
+                                    testId="player-setting-adaptive-chinese"
                                 />
                             )}
                         </VStack>

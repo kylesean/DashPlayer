@@ -63,6 +63,8 @@ export const runtimeSettingSaveSchema: z.ZodType<RuntimeSettingSaveRequest> = z.
         'appearance.transcriptPosition',
         'player.autoPlayNext',
         'player.pauseOnWordHover',
+        'player.vocabularyGuidance',
+        'player.adaptiveChinese',
         'userSelect.playbackRateStack',
     ]),
     value: z.string(),

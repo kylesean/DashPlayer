@@ -106,6 +106,8 @@
         "showChinese": "AI translation",
         "showSourceZh": "Source-file Chinese",
         "showSourceZhHint": "Chinese lines already present in the subtitle file, not AI translation. Shown only when the file contains them.",
+        "adaptiveChinese": "Adaptive Chinese",
+        "adaptiveChineseHint": "Weakens Chinese when the sentence looks easy to understand. Hover the subtitle to reveal it; turn this off to always show full Chinese.",
         "translationEngineMissing": "No subtitle translation engine is enabled. Configure one in Settings → Services & Resources.",
         "displayModeLabel": "Subtitle layout",
         "sentenceBlockMode": "Full-sentence flow",

@@ -23,6 +23,10 @@ import type { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } 
 import type { SentenceVocabularyVO } from '@/common/types/vo/SentenceVocabularyVO';
 import type { ContextPackParams, ContextPackVO } from '@/common/types/contextPack';
 import type {
+    SubtitleComprehensionParams,
+    SubtitleComprehensionVO,
+} from '@/common/types/subtitleComprehension';
+import type {
     WordEncounterAction,
     WordStatus,
 } from '@/common/types/vocabulary';
@@ -252,6 +256,10 @@ interface SubtitleControllerDef {
     'subtitle/text/parse-structs': {
         params: string[];
         return: SentenceStruct[];
+    };
+    'subtitle/comprehension': {
+        params: SubtitleComprehensionParams;
+        return: SubtitleComprehensionVO;
     };
 }
 

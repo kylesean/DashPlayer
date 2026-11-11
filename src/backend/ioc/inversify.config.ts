@@ -116,6 +116,8 @@ import type SentenceVocabularyService from '@/backend/services/SentenceVocabular
 import { SentenceVocabularyServiceImpl } from '@/backend/services/SentenceVocabularyService';
 import type ContextPackService from '@/backend/services/ContextPackService';
 import { ContextPackServiceImpl } from '@/backend/services/ContextPackService';
+import type SubtitleComprehensionService from '@/backend/services/SubtitleComprehensionService';
+import { SubtitleComprehensionServiceImpl } from '@/backend/services/SubtitleComprehensionService';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import RendererGatewayImpl from '@/backend/infrastructure/renderer/RendererGatewayImpl';
 import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
@@ -302,4 +304,5 @@ container.bind<WordMatchService>(TYPES.WordMatchService).to(WordMatchServiceImpl
 container.bind<VocabularyService>(TYPES.VocabularyService).to(VocabularyServiceImpl).inSingletonScope();
 container.bind<SentenceVocabularyService>(TYPES.SentenceVocabularyService).to(SentenceVocabularyServiceImpl).inSingletonScope();
 container.bind<ContextPackService>(TYPES.ContextPackService).to(ContextPackServiceImpl).inSingletonScope();
+container.bind<SubtitleComprehensionService>(TYPES.SubtitleComprehensionService).to(SubtitleComprehensionServiceImpl).inSingletonScope();
 export default container;

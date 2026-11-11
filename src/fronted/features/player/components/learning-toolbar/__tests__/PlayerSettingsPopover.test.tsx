@@ -85,4 +85,12 @@ describe('PlayerSettingsPopover', () => {
 
         expect(screen.getByTestId('player-setting-podcast-mode')).toBeInTheDocument();
     });
+
+    it('中文可见时显示自适应中文字幕开关', () => {
+        render(<PlayerSettingsPopover tone="panel" popoverOffset={8} />);
+        const trigger = screen.getByRole('button', { name: /controlBox\.title/i });
+        fireEvent.click(trigger);
+
+        expect(screen.getByTestId('player-setting-adaptive-chinese')).toBeInTheDocument();
+    });
 });

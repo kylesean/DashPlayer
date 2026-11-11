@@ -1,6 +1,6 @@
 # DashPlayer AI-native 沉浸式学习重构方案
 
-> 状态：R0–R1 已完成，R2 第一阶段（上下文建议）已落地，R2 其余项与 R3 待推进
+> 状态：R0–R1 已完成，R2 上下文建议与首版自适应中文字幕已落地，R2 其余项与 R3 待推进
 > 日期：2026-11-12
 > 范围：播放器、字幕、生词、句子学习、跟读/听写、AI 学习页
 > 一句话：把 DashPlayer 从「视频播放器 + 学习工具」重构为「内容 × 上下文 × 学习者记忆」的沉浸式学习系统。
@@ -540,10 +540,38 @@ context_embeddings
 
 尚未包含：
 
-- 自适应中文字幕。
 - LLM 词卡增强、摘要与复述。
 - 句子/视频 embedding、内容指南针。
 - 推荐接受率、忽略率和 7 天回忆率的聚合看板；当前先落事件证据，指标聚合留到下一阶段。
+
+#### R2 第二阶段实施记录（2026-11-12）
+
+已落地：
+
+- 自适应中文字幕首版：本地估算句子理解度，不调用模型、不访问网络。
+- 理解度特征包括内容词已知率、句长、从句标记与长词比例；用户 `known / familiar / learning` 状态与掌握度优先于词典难度。
+- `high` 只把中文透明度降到 50%，`medium` 降到 72%，`low` 保持 100%；不隐藏文本、不改变布局，悬停字幕或键盘聚焦时立即恢复完整显示。
+- 新增「自适应中文」运行时开关，默认开启；关闭后始终完整展示中文，不发起理解度请求。
+- 同时修复运行时设置保存白名单遗漏 `player.vocabularyGuidance` 与 `player.adaptiveChinese` 的问题。
+
+核心实现：
+
+- `src/common/learning/comprehension.ts`
+- `src/common/learning/contentWords.ts`
+- `src/backend/services/SubtitleComprehensionService.ts`
+- `src/backend/controllers/SubtitleController.ts` 的 `subtitle/comprehension`
+- `src/fronted/features/player/components/srt-layout/AdaptiveChineseLine.tsx`
+
+验证：
+
+- 完整单元/组件测试：825 项通过，9 项跳过。
+- TypeScript 全量检查通过。
+
+尚未包含：
+
+- 上下文向量与真实学习者水平校准；当前只使用本地确定性特征。
+- 用户手动切换后自动学习偏好；当前由显式开关控制。
+- 完全隐藏中文；首版只做可逆的视觉弱化。
 
 ### R3：沉浸式学习 OS（6–8 周）
 

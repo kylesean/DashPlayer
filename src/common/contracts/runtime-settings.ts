@@ -39,6 +39,7 @@ export const runtimeSettingKeys = [
     'player.autoPlayNext',
     'player.pauseOnWordHover',
     'player.vocabularyGuidance',
+    'player.adaptiveChinese',
 ] as const satisfies readonly SettingKey[];
 
 /**
@@ -56,6 +57,7 @@ export type RuntimeWritableSettingKey =
     | 'player.autoPlayNext'
     | 'player.pauseOnWordHover'
     | 'player.vocabularyGuidance'
+    | 'player.adaptiveChinese'
     | 'userSelect.playbackRateStack';
 
 /**

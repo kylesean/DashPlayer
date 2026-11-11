@@ -37,6 +37,7 @@ const TYPES = {
     VocabularyService: Symbol('VocabularyService'),
     SentenceVocabularyService: Symbol('SentenceVocabularyService'),
     ContextPackService: Symbol('ContextPackService'),
+    SubtitleComprehensionService: Symbol('SubtitleComprehensionService'),
     RendererGateway: Symbol('RendererGateway'),
     RendererEvents: Symbol('RendererEvents'),
     AiFuncService: Symbol('AiFuncService'),

@@ -323,6 +323,7 @@ export class SettingServiceImpl implements SettingService {
                 break;
             case 'player.autoPlayNext':
             case 'player.pauseOnWordHover':
+            case 'player.adaptiveChinese':
                 value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
                 break;
             case 'player.vocabularyGuidance':

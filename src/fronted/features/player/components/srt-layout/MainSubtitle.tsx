@@ -1,6 +1,5 @@
 import React, { type ReactElement, useEffect, useLayoutEffect } from 'react';
 import TranslatableLine from '@/fronted/features/player/components/subtitles/TranslatableLineWrapper';
-import NormalLine from './NormalLine';
 import useTranslation from '@/fronted/features/player/translationStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
@@ -12,6 +11,7 @@ import { usePlayer } from '@/fronted/features/player/playerStore';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
 import ContextSuggestionChip from './ContextSuggestionChip';
+import AdaptiveChineseLine from './AdaptiveChineseLine';
 
 export default function MainSubtitle() {
     const logger = getRendererLogger('MainSubtitle');
@@ -120,24 +120,24 @@ export default function MainSubtitle() {
         const translation = translations.get(item.translationKey) || '';
         if (showCn && StrUtil.isNotBlank(translation)) {
             lines.push(
-                <div key={`block-translation-${item.key}`} className="w-full min-h-0">
-                    <NormalLine
-                        text={translation}
-                        order="second"
-                        source={showSourceZh && StrUtil.isNotBlank(item.textZH) ? 'ai' : undefined}
-                    />
-                </div>
+                <AdaptiveChineseLine
+                    key={`block-translation-${item.key}`}
+                    sentence={item}
+                    text={translation}
+                    order="second"
+                    source={showSourceZh && StrUtil.isNotBlank(item.textZH) ? 'ai' : undefined}
+                />
             );
         }
         if (showSourceZh && StrUtil.isNotBlank(item.textZH)) {
             lines.push(
-                <div key={`block-sourceZh-${item.key}`} className="w-full min-h-0">
-                    <NormalLine
-                        text={item.textZH!}
-                        order={lines.length === 0 ? 'second' : 'third'}
-                        source={showCn && StrUtil.isNotBlank(translation) ? 'source' : undefined}
-                    />
-                </div>
+                <AdaptiveChineseLine
+                    key={`block-sourceZh-${item.key}`}
+                    sentence={item}
+                    text={item.textZH!}
+                    order={lines.length === 0 ? 'second' : 'third'}
+                    source={showCn && StrUtil.isNotBlank(translation) ? 'source' : undefined}
+                />
             );
         }
         return lines;
@@ -218,32 +218,26 @@ export default function MainSubtitle() {
         // 2. 机器翻译 (次级，空间不足时优先被挤出/裁切)
         if (showCn && StrUtil.isNotBlank(newTranslation)) {
             lines.push(
-                <div
+                <AdaptiveChineseLine
                     key={`translation-${sentence.key}`}
-                    className="w-full min-h-0"
-                >
-                    <NormalLine
-                        text={newTranslation}
-                        order="second"
-                        source={hasMultipleZh ? 'ai' : undefined}
-                    />
-                </div>
+                    sentence={sentence}
+                    text={newTranslation}
+                    order="second"
+                    source={hasMultipleZh ? 'ai' : undefined}
+                />
             );
         }
 
         // 3. 字幕自带中文 (次级)
         if (showSourceZh && StrUtil.isNotBlank(sentence.textZH)) {
             lines.push(
-                <div
+                <AdaptiveChineseLine
                     key={`sourceZh-${sentence.key}`}
-                    className="w-full min-h-0"
-                >
-                    <NormalLine
-                        text={sentence.textZH!}
-                        order={lines.length === 1 ? 'second' : 'third'}
-                        source={hasMultipleZh ? 'source' : undefined}
-                    />
-                </div>
+                    sentence={sentence}
+                    text={sentence.textZH}
+                    order={lines.length === 1 ? 'second' : 'third'}
+                    source={hasMultipleZh ? 'source' : undefined}
+                />
             );
         }
 
@@ -268,7 +262,7 @@ export default function MainSubtitle() {
                         ref={subtitleContentRef}
                         data-testid="main-subtitle-content"
                         data-subtitle-active={block ? undefined : 'true'}
-                        className="flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto"
+                        className="group/subtitle flex flex-col justify-center items-center gap-2 w-full min-w-0 shrink-0 my-auto"
                     >
                         {ele()}
                         <ContextSuggestionChip sentence={sentence} />

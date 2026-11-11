@@ -106,6 +106,8 @@
         "showChinese": "AI 翻译",
         "showSourceZh": "源字幕中文",
         "showSourceZhHint": "字幕文件自带的中文行，不调用 AI；仅在字幕含中文时出现。",
+        "adaptiveChinese": "自适应中文",
+        "adaptiveChineseHint": "理解度高时弱化中文，悬停字幕可临时查看；关闭后中文始终完整显示。",
         "translationEngineMissing": "当前未启用字幕翻译引擎，请到 设置 → 服务与资源 中配置。",
         "displayModeLabel": "字幕排版",
         "sentenceBlockMode": "整句连读模式",
