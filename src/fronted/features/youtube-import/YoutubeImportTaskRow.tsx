@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { CircleX, PlayCircle } from 'lucide-react';
 import { Card } from '@astryxdesign/core/Card';

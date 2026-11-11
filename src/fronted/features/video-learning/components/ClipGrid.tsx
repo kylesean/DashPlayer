@@ -1,4 +1,3 @@
-import React from 'react';
 import { Play, Info } from 'lucide-react';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import ConfirmDeleteButton from '@/fronted/components/shared/common/ConfirmDeleteButton';

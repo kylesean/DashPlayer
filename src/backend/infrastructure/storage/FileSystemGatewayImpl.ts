@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import jschardet from 'jschardet';
+import { detect as jschardetDetect } from 'jschardet';
 import iconv from 'iconv-lite';
 import { injectable } from 'inversify';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
@@ -75,7 +75,7 @@ export default class FileSystemGatewayImpl implements FileSystemGateway {
      */
     public async readTextFile(filePath: string): Promise<string> {
         const buffer = await fs.readFile(filePath);
-        const detected = jschardet.detect(buffer);
+        const detected = jschardetDetect(buffer);
         const encoding = detected.encoding || 'utf-8';
         return iconv.decode(buffer, encoding);
     }

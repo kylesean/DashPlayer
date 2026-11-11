@@ -1,6 +1,6 @@
 import React from 'react';
 import useSWR from 'swr';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { FileText, SquarePlay } from 'lucide-react';
 

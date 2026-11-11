@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { Link2 } from 'lucide-react';
 import useSWR from 'swr';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';

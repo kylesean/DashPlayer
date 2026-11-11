@@ -1,4 +1,3 @@
-import React from 'react';
 import useYoutubeImportUi from './youtubeImportUiStore';
 import YoutubeImportDialog from './YoutubeImportDialog';
 

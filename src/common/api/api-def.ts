@@ -9,14 +9,14 @@ import type { SubtitleResolution } from '@/common/contracts/subtitle-resolution'
 import type { ImportedDictionaryVO } from '@/common/contracts/imported-dictionary';
 import type { EnglishDictionaryStatusVO } from '@/common/contracts/english-dictionary';
 import type {OpenAIDictionaryResult} from '@/common/types/DictionaryResult';
-import type {SrtSentence, Sentence} from '@/common/types/SentenceC';
+import type {SrtSentence} from '@/common/types/SentenceC';
 import type {SentenceStruct} from '@/common/types/SentenceStruct';
 import type {WindowState} from '@/common/types/Types';
 import type {SubtitleTimestampAdjustmentInput} from '@/common/contracts/subtitle-timestamp-adjustment';
 import type { UpdateCheckResult } from '@/common/types/update-check';
 
-import type {ClipQuery, SimpleClipQuery} from '@/common/api/dto';
-import type {ClipMeta, OssBaseMeta} from '@/common/types/clipMeta';
+import type {SimpleClipQuery} from '@/common/api/dto';
+import type {ClipMeta} from '@/common/types/clipMeta';
 import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
 import type {VideoLearningClipPage} from '@/common/types/vo/VideoLearningClipVO';
 import type { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';

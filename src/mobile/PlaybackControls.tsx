@@ -1,4 +1,3 @@
-import React from 'react';
 import { RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 import { t } from './lib';
 

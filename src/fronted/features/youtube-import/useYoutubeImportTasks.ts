@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { useSWRConfig } from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';

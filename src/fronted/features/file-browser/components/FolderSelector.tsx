@@ -1,7 +1,6 @@
 import { SWR_KEY, swrApiMutate, swrMutate } from '@/fronted/lib/swr-util';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { Button } from '@astryxdesign/core/Button';
-import React from 'react';
 import { emptyFunc } from '@/common/utils/Util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';

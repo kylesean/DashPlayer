@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import useChatPanel from '@/fronted/features/chat/chatStore';
 import { chatApi } from '@/fronted/features/chat/chatApi';
 import { useSentenceLearningChat } from '@/fronted/features/chat/useSentenceLearningChat';

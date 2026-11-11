@@ -7,7 +7,9 @@ import AboutSetting from '../AboutSetting';
 import { settingsApi } from '../settingsApi';
 
 vi.mock('../settingsStore', () => ({
-    default: (selector: any) => selector({ values: new Map([['appearance.theme', 'dark']]) }),
+    // 桩只需覆盖被测组件读取的 values 字段；选择器签名在测试侧无跨模块校验，收紧为具体形状即可
+    default: (selector: (state: { values: Map<string, string> }) => unknown) =>
+        selector({ values: new Map([['appearance.theme', 'dark']]) }),
 }));
 
 vi.mock('../settingsApi', () => ({

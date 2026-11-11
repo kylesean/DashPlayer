@@ -1,12 +1,8 @@
 import type LocalTtsService from '@/backend/services/LocalTtsService';
-import type DpTaskService from '@/backend/services/DpTaskService';
 import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import UrlUtil from '@/common/utils/UrlUtil';
 import { inject, injectable } from 'inversify';
-import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
-import type ParakeetModelService from '@/backend/services/ParakeetModelService';
-import type WhisperCppModelService from '@/backend/services/WhisperCppModelService';
 
 /**
  * AiFuncService 的业务契约。

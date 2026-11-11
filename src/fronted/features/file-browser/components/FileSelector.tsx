@@ -1,4 +1,3 @@
-import React from 'react';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { Button } from '@astryxdesign/core/Button';
 import MediaUtil, {

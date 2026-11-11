@@ -1,5 +1,4 @@
 import { Button } from '@astryxdesign/core/Button';
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 interface ModeSwitchToastProps {

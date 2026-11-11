@@ -1,4 +1,4 @@
-import React, { useEffect, memo, useRef, useCallback } from 'react';
+import { useEffect, memo, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import UrlUtil from '@/common/utils/UrlUtil';
 import SubtitleList from './SubtitleList';

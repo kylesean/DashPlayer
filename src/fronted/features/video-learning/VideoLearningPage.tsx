@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { apiPath } from '@/fronted/lib/swr-util';
 import type { VideoLearningClipPage } from '@/common/types/vo/VideoLearningClipVO';
@@ -16,8 +16,7 @@ import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
-import toast from 'react-hot-toast';
-import { cn } from '@/fronted/lib/utils';
+import { toast } from 'react-hot-toast';
 
 const logger = getRendererLogger('VideoLearning');
 import PageHeader from '@/fronted/components/shared/common/PageHeader';
@@ -88,34 +87,9 @@ export default function VideoLearningPage() {
   const displayedPage = page;
   const isPageSwitching = isValidating && loadedPage !== displayedPage;
 
-  const canPrev = displayedPage > 1;
-  const canNext = displayedPage < totalPages;
   const clipRangeStart = totalClips === 0 ? 0 : (loadedPage - 1) * PAGE_SIZE + 1;
   const clipRangeEnd = totalClips === 0 ? 0 : Math.min(loadedPage * PAGE_SIZE, totalClips);
 
-  const {
-    pages: pageNumbers,
-    hasPrevGap,
-    hasNextGap,
-    safeTotalPages
-  } = useMemo(() => {
-    const maxButtons = 5;
-    const safeTotal = Math.max(totalPages, 1);
-    const half = Math.floor(maxButtons / 2);
-    let startPage = Math.max(1, displayedPage - half);
-    const endPage = Math.min(safeTotal, startPage + maxButtons - 1);
-    startPage = Math.max(1, endPage - maxButtons + 1);
-    const pages: number[] = [];
-    for (let i = startPage; i <= endPage; i++) {
-      pages.push(i);
-    }
-    return {
-      pages,
-      hasPrevGap: startPage > 1,
-      hasNextGap: endPage < safeTotal,
-      safeTotalPages: safeTotal
-    };
-  }, [displayedPage, totalPages]);
 
   const handlePageChange = useCallback((nextPage: number, options?: { targetIndex?: PendingClipTarget }) => {
     if (nextPage < 1 || nextPage > totalPages) {

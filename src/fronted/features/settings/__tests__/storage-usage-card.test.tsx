@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import React from 'react';
 import StorageUsageCard from '@/fronted/features/settings/components/StorageUsageCard';
 import type { StorageUsageVO } from '@/common/contracts/storage-usage-vo';
 

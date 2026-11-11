@@ -1,7 +1,6 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { Clapperboard, Download, PlayCircle } from 'lucide-react';
 import useSWR from 'swr';
 import { Button } from '@astryxdesign/core/Button';

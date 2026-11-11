@@ -17,7 +17,7 @@ import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { ChartPie, FolderOpen, HardDrive, RefreshCw, TriangleAlert, Trash2 } from 'lucide-react';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
 import {
     SETTINGS_DETAIL_SWR_OPTIONS,

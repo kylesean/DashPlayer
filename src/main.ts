@@ -6,7 +6,7 @@ import squirrelStartup from 'electron-squirrel-startup';
 import { spawn } from 'node:child_process';
 import fs from 'fs';
 import path from 'path';
-import installExtension, { REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
+import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import registerHandler from '@/backend/dispatcher';
 import { setConcurrencyLogger } from '@/backend/utils/concurrency';
 import { seedDefaultVocabularyIfNeeded } from '@/backend/startup/seedDefaultVocabulary';

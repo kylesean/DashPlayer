@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { ClipSrtLine } from '@/common/types/clipMeta';
 import { Play, Pause, CirclePause, Repeat } from 'lucide-react';

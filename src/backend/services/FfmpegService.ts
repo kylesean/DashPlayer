@@ -1,6 +1,5 @@
 import { inject, injectable } from 'inversify';
 import { WithSemaphore } from '@/backend/utils/concurrency/decorators';
-import { randomUUID } from 'crypto';
 import path from 'path';
 import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';

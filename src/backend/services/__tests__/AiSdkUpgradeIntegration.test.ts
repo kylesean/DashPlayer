@@ -43,7 +43,6 @@ import { BuiltinDictionaryStoreImpl } from '@/backend/infrastructure/translate/B
 import { createBuiltinDictionaryFixture } from '@/test/builtinDictionaryFixture';
 import { AiProviderServiceImpl } from '../AiProviderService';
 import { ModelRoutingServiceImpl } from '../ModelRoutingService';
-import type DpTaskService from '../DpTaskService';
 import type AiProviderService from '../AiProviderService';
 import type SettingService from '../SettingService';
 import type LocalAiService from '../LocalAiService';
@@ -103,20 +102,6 @@ const buildMockTextModel = (text: string): LanguageModel => {
         doStream: async () => ({
             stream: convertArrayToReadableStream(streamParts),
         }),
-    }) as unknown as LanguageModel;
-};
-
-/**
- * 构造一个建立流时直接抛错的 mock 模型，用于验证任务失败路径。
- *
- * @param error 建流时要抛出的错误。
- * @returns 可直接传给 streamText 的 LanguageModel。
- */
-const buildErrorModel = (error: Error): LanguageModel => {
-    return new MockLanguageModelV4({
-        doStream: async () => {
-            throw error;
-        },
     }) as unknown as LanguageModel;
 };
 

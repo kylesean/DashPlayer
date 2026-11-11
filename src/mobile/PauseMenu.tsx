@@ -1,4 +1,3 @@
-import React from 'react';
 import { ChevronLeft, Settings } from 'lucide-react';
 import { t } from './lib';
 

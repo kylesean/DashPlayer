@@ -70,6 +70,7 @@ const Playable = ({ className, children, showIcon = true }: PlayableProps) => {
     };
 
     return (
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 行内正文单词的按压发音是文本增强而非按钮；逐词加 tab 停靠会毁掉键盘阅读动线，与 word.tsx 的取词口径一致
         <span
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}

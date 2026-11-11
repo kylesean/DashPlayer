@@ -1,6 +1,5 @@
 import { protocol } from 'electron';
 import fs, { type ReadStream } from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { getMainLogger, type MainLogger } from '@/backend/infrastructure/logger';

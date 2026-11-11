@@ -18,7 +18,7 @@ const BackNavItem = ({ root, currentPath, onClick }: BackNavItemProps) => {
         }
         try {
             return PathUtil.parse(currentPath).base;
-        } catch (error) {
+        } catch {
             return '';
         }
     }, [currentPath, root]);

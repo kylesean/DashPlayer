@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';

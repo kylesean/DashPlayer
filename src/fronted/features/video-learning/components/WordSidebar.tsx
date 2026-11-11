@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { Selector } from '@astryxdesign/core/Selector';
 import { IconButton } from '@astryxdesign/core/IconButton';
@@ -6,7 +6,7 @@ import { Text } from '@astryxdesign/core/Text';
 import { HStack } from '@astryxdesign/core/HStack';
 import { VStack } from '@astryxdesign/core/VStack';
 import { Upload, Download, List, LocateFixed, Pencil } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { cn } from '@/fronted/lib/utils';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
 import ConfirmDeleteButton from '@/fronted/components/shared/common/ConfirmDeleteButton';

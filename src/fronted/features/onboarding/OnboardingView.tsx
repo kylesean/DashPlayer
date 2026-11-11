@@ -4,8 +4,6 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { create as createConfetti } from 'canvas-confetti';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
-import { Center } from '@astryxdesign/core/Center';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { ProgressBar } from '@astryxdesign/core/ProgressBar';
@@ -21,7 +19,6 @@ import {
     Folder,
     FolderOpen,
     HelpCircle,
-    Loader2,
     ArrowLeft,
     ArrowRight,
     Check,
@@ -32,7 +29,7 @@ import { markOnboardingCompleted } from '@/fronted/features/onboarding/onboardin
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { CURRENT_ONBOARDING_VERSION } from '@/common/constants/onboarding';
 import {
     isFinishing,

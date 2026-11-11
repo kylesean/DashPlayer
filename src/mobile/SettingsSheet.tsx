@@ -1,4 +1,3 @@
-import React from 'react';
 import type { AppTheme } from './theme';
 import { SPEED_OPTIONS, t } from './lib';
 

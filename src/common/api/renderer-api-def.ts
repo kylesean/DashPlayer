@@ -2,7 +2,6 @@ import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import type { RendererTranslationItem } from '@/common/types/TranslationResult';
 import type { ChatStreamEvent } from '@/common/types/chat';
 import type { AnalysisStreamEvent } from '@/common/types/analysis';
-import type { Sentence } from '@/common/types/SentenceC';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 
 /**

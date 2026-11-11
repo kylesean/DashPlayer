@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import { SWRConfig } from 'swr';
-import React from 'react';
 import ProxySetting from '@/fronted/features/settings/ProxySetting';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -1,6 +1,5 @@
 'use client';
 
-import * as React from 'react';
 import { cn } from '@/fronted/lib/utils';
 
 export interface SeparatorProps {

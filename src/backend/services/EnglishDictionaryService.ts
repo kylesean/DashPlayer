@@ -5,7 +5,7 @@ import type { ClientRequest } from 'node:http';
 import zlib from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { pipeline } from 'node:stream/promises';
-import tar from 'tar-fs';
+import { extract as tarExtract } from 'tar-fs';
 import Database from 'better-sqlite3';
 import { inject, injectable } from 'inversify';
 import { getMainLogger } from '@/backend/infrastructure/logger';
@@ -223,7 +223,7 @@ export default class EnglishDictionaryService {
             await pipeline(
                 fs.createReadStream(archivePath),
                 zlib.createGunzip(),
-                tar.extract(extractDir),
+                tarExtract(extractDir),
             );
             this.dpTaskService.checkCancel(taskId);
 
