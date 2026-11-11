@@ -889,7 +889,12 @@ export class LocalAiRuntime implements LocalAiService {
                 this.logger.error('local generation failed', { error, model: model.id, durationMs: Date.now() - startedAt });
                 // 单个调用方取消（如滚动窗口切换）或单槽位输出触顶时，不能杀掉共享的 llama-server 进程，
                 // 否则会导致其余 3 个并行推理槽位连坐 ECONNRESET。
-                if (!callerAborted && !isSemanticError) {
+                //
+                // busy > 1 同理：还有别的请求正在同一个子进程上解码。一次 HTTP 5xx 或一次 zod 校验失败
+                // 只说明「这一个请求」出问题，杀掉进程会让健康请求一起失败、整批字幕重试。
+                // 进程是否真的坏了交给下一次 start()/健康检查判断，不在这里连坐。
+                const hasSiblingRequests = this.busy > 1;
+                if (!callerAborted && !isSemanticError && !hasSiblingRequests) {
                     await this.stop();
                 }
                 throw error;

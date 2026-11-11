@@ -21,6 +21,14 @@ const config = {
  */
 const runMigrate = async (): Promise<void> => {
     try {
+        // 迁移目录的列举也放进 try：目录缺失或不可读同样是启动期故障，
+        // 必须走恢复模式，而不是在模块求值期把主进程打崩。
+        const logger = getMainLogger('db-migrate');
+        logger.debug('runMigrate config', { config });
+        logger.debug('runMigrate resourcesPath', { resourcesPath: process.resourcesPath });
+        fs.readdirSync(config.migrationsFolder).forEach((file) => {
+            logger.debug('migration file', { file });
+        });
         migrate(db, config);
     } catch (error) {
         getMainLogger('db-migrate').error('run migrate failed', { error });
@@ -28,10 +36,4 @@ const runMigrate = async (): Promise<void> => {
     }
 }
 
-const logger = getMainLogger('db-migrate');
-logger.debug('runMigrate config', { config });
-logger.debug('runMigrate resourcesPath', { resourcesPath: process.resourcesPath });
-fs.readdirSync(config.migrationsFolder).forEach((file) => {
-    logger.debug('migration file', { file });
-});
 export default runMigrate;

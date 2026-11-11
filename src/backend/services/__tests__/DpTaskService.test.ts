@@ -149,4 +149,24 @@ describe('后台任务保留策略', () => {
         await waitUntil(() => deleteTerminalBefore.mock.calls.length >= 1);
         expect(deleteTerminalBefore).toHaveBeenCalledTimes(1);
     });
+
+    it('刚创建的任务在 detail 里带 result: null，而不是缺字段的 undefined', async () => {
+        const taskId = await service.create();
+
+        const detail = await service.detail(taskId);
+
+        // 跨进程契约要求 result: string | null；缺键会让 result === null 的判断失配
+        expect(detail).not.toBeNull();
+        expect(Object.prototype.hasOwnProperty.call(detail, 'result')).toBe(true);
+        expect(detail?.result).toBeNull();
+    });
+
+    it('更新过 result 的任务在 detail 里返回该值', async () => {
+        const taskId = await service.create();
+        service.finish(taskId, { result: '{"ok":true}' });
+
+        const detail = await service.detail(taskId);
+
+        expect(detail?.result).toBe('{"ok":true}');
+    });
 });

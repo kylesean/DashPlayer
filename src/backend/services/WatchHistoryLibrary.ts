@@ -17,6 +17,9 @@ import type FileSystemGateway from '@/backend/services/gateways/storage/FileSyst
  * 该类只处理“磁盘文件与数据库记录如何同步”，不负责展示数据构建或 IPC 编排。
  */
 export default class WatchHistoryLibrary {
+    /** 进行中的全量扫描；并发调用复用同一个 Promise，避免重复扫描与主键冲突。 */
+    private syncInFlight: Promise<void> | null = null;
+
     /**
      * 创建媒体库同步器。
      *
@@ -129,8 +132,28 @@ export default class WatchHistoryLibrary {
 
     /**
      * 扫描视频库根目录和一级子目录，补建缺失的观看记录。
+     *
+     * 单飞：启动时的 `cleanDeletedRecords().then(sync)` 与首屏 `list()` 里的 sync
+     * 会重叠，两次全量扫描同时走「查不到 → 插入」会撞同一个确定性主键。
+     * 复用进行中的 Promise，既避免重复扫描，也让并发调用拿到同一结果。
      */
     public async sync(): Promise<void> {
+        if (this.syncInFlight) {
+            return this.syncInFlight;
+        }
+        const task = this.runSync().finally(() => {
+            if (this.syncInFlight === task) {
+                this.syncInFlight = null;
+            }
+        });
+        this.syncInFlight = task;
+        return task;
+    }
+
+    /**
+     * 执行一次完整扫描；由 {@link sync} 负责并发去重。
+     */
+    private async runSync(): Promise<void> {
         const libraryPath = await this.storageDirectoryProvider.provideDirectory(
             StorageDirectoryTarget.VIDEOS,
         );

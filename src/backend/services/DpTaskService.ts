@@ -125,10 +125,34 @@ export class DpTaskServiceImpl implements DpTaskService {
 
         if (this.cache.has(id)) {
             this.logger.debug('returning cached task', { taskId: id });
-            return this.cache.get(id) as DpTask;
+            const cached = this.cache.get(id);
+            if (cached) {
+                return this.toDpTask(cached);
+            }
         }
 
         return await this.dpTaskRepository.findById(id);
+    }
+
+    /**
+     * 把缓存里的增量更新补成完整的 `DpTask`。
+     *
+     * 缓存类型是 `DpTaskUpdate`（部分字段），直接 `as DpTask` 会让刚创建、还没被
+     * 更新过的任务缺 `result` 键——运行时是 undefined，而跨进程契约要求 `string | null`。
+     * 任何 `result === null` 的判断都会因此失配。
+     *
+     * @param update 缓存中的任务增量。
+     * @returns 补齐可选字段后的任务详情。
+     */
+    private toDpTask(update: DpTaskUpdate): DpTask {
+        return {
+            id: update.id as number,
+            status: update.status as DpTaskState,
+            progress: update.progress ?? null,
+            result: update.result ?? null,
+            created_at: update.created_at as string,
+            updated_at: update.updated_at as string,
+        };
     }
 
 
@@ -142,6 +166,7 @@ export class DpTaskServiceImpl implements DpTaskService {
             id: taskId,
             status: DpTaskState.INIT,
             progress: '任务创建成功',
+            result: null,
             created_at: TimeUtil.timeUtc(),
             updated_at: TimeUtil.timeUtc()
         });

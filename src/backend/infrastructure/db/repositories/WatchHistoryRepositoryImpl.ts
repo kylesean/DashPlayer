@@ -180,6 +180,11 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
     /**
      * 新增观看记录。
      *
+     * 记录 id 由 `base_path + file_name + project_type` 确定性哈希得到，两条并发链路
+     * （启动清理后的 sync 与首屏 list 的 sync）可能都先查到空、再插同一个 id。
+     * 这里按主键冲突忽略并回读已存在的行，让「同时建档」收敛成同一条记录，
+     * 而不是把 SQLITE_CONSTRAINT_UNIQUE 抛给渲染层。
+     *
      * @param values 待写入的业务记录字段。
      * @returns 写入后的观看记录。
      */
@@ -187,12 +192,23 @@ export default class WatchHistoryRepositoryImpl implements WatchHistoryRepositor
         const rows: WatchHistory[] = await this.db
             .insert(watchHistory)
             .values(values)
+            .onConflictDoNothing({ target: watchHistory.id })
             .returning();
         const row = rows[0];
-        if (!row) {
+        if (row) {
+            return this.toRecord(row);
+        }
+        // 冲突被忽略：说明另一条链路已经插入了同 id 的记录，回读它。
+        const existing = await this.db
+            .select()
+            .from(watchHistory)
+            .where(eq(watchHistory.id, values.id as string))
+            .limit(1);
+        const found = existing[0];
+        if (!found) {
             throw new Error('insert watch history failed');
         }
-        return this.toRecord(row);
+        return this.toRecord(found);
     }
 
     /**

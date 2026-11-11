@@ -155,6 +155,14 @@ const MEDIA_CONTENT_TYPES: Record<string, string> = {
 const MAX_JSON_BODY_BYTES = 16 * 1024;
 
 /**
+ * 单次翻译请求的文本总字节上限。
+ *
+ * 必须与 {@link MAX_JSON_BODY_BYTES} 同一口径（UTF-8 字节），且留出 JSON 外壳的余量，
+ * 否则「按字符数达标」的请求会先被请求体上限拒绝，提示与实际原因对不上。
+ */
+const MAX_TRANSLATE_TEXT_BYTES = 10 * 1024;
+
+/**
  * 把文件扩展名转换为浏览器可识别的 Content-Type。
  *
  * @param filePath 媒体文件路径。
@@ -211,11 +219,28 @@ const parseRange = (header: string, size: number): { start: number; end: number 
 };
 
 /**
+ * 客户端请求错误：请求体过大、格式非法等。
+ *
+ * 与「服务端内部错误」区分开，才能回 4xx 而不是把用户输入问题记成 500。
+ * 手机页据此显示可操作的提示，日志也不会被误判成服务端故障。
+ */
+class ClientRequestError extends Error {
+    /** 对应的 HTTP 状态码。 */
+    public readonly status: number;
+
+    constructor(message: string, status = 400) {
+        super(message);
+        this.name = 'ClientRequestError';
+        this.status = status;
+    }
+}
+
+/**
  * 读取 JSON 请求体。
  *
  * @param request HTTP 请求。
  * @returns 解析后的对象。
- * @throws 请求体过大或不是合法 JSON 时抛出。
+ * @throws {ClientRequestError} 请求体过大（413）或不是合法 JSON（400）时抛出。
  */
 const readJsonBody = (request: IncomingMessage): Promise<Record<string, unknown>> => {
     return new Promise((resolve, reject) => {
@@ -238,7 +263,7 @@ const readJsonBody = (request: IncomingMessage): Promise<Record<string, unknown>
             total += chunk.length;
             if (total > MAX_JSON_BODY_BYTES) {
                 // 不立刻 destroy 连接：让调用方能正常回一个 JSON 错误，浏览器也拿得到原因。
-                fail(new Error('请求体过大'));
+                fail(new ClientRequestError('请求体过大', 413));
                 return;
             }
             chunks.push(chunk);
@@ -256,12 +281,12 @@ const readJsonBody = (request: IncomingMessage): Promise<Record<string, unknown>
             try {
                 const parsed: unknown = JSON.parse(text);
                 if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-                    reject(new Error('请求体必须是 JSON 对象'));
+                    reject(new ClientRequestError('请求体必须是 JSON 对象'));
                     return;
                 }
                 resolve(parsed as Record<string, unknown>);
             } catch {
-                reject(new Error('请求体不是合法 JSON'));
+                reject(new ClientRequestError('请求体不是合法 JSON'));
             }
         });
         request.on('error', (error) => fail(error));
@@ -538,8 +563,10 @@ export default class MobileWebServer {
                     return;
                 }
                 const texts = body.texts as string[];
-                const totalLength = texts.reduce((sum, text) => sum + text.length, 0);
-                if (totalLength > 10_000) {
+                // 用 UTF-8 字节数而不是 UTF-16 字符数：请求体上限是按字节算的，
+                // 用字符数会让「符合上限的请求」先被 readJsonBody 的字节上限拒掉。
+                const totalBytes = texts.reduce((sum, text) => sum + Buffer.byteLength(text, 'utf8'), 0);
+                if (totalBytes > MAX_TRANSLATE_TEXT_BYTES) {
                     this.sendJson(response, 400, { error: '待翻译内容过长' });
                     return;
                 }
@@ -600,14 +627,21 @@ export default class MobileWebServer {
             this.sendJson(response, 404, { error: '页面不存在' });
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
+            // 客户端输入问题（非法 JSON、请求体过大）回 4xx 并原样说明原因，
+            // 不要伪装成 500：手机页会据此提示用户，日志也不该被当成服务端故障。
+            const status = error instanceof ClientRequestError ? error.status : 500;
+            const isClientError = error instanceof ClientRequestError;
             this.logger.warn('mobile web request failed', {
                 method: request.method,
                 path: (request.url ?? '').split('?')[0],
+                status,
                 error: message,
             });
             if (!response.headersSent && !response.destroyed) {
                 try {
-                    this.sendJson(response, 500, { error: '服务器内部错误' });
+                    this.sendJson(response, status, {
+                        error: isClientError ? message : '服务器内部错误',
+                    });
                     return;
                 } catch {
                     // 连接已断时继续走 destroy，避免抛回上层变成未处理异常。

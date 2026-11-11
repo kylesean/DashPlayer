@@ -97,10 +97,18 @@ let isFlushingWriteFailure = false;
 
 /**
  * 校准当前主文件路径与字节数；跨天时重新定位到新文件。
+ *
+ * 除跨天外还要处理「主文件被外部删掉」：用户清理磁盘、EDR 工具、或另一个进程
+ * 移走文件时，路径没变但文件已经不在。此时必须把 liveBytes 复位为 0，
+ * 否则后续每次写入都会认为需要轮转，而 rotateLiveFile 的 rename 对已删文件
+ * 必然失败，日志会永久丢失到跨天为止。
  */
 function ensureLiveFile(): void {
     const filePath = todayFile();
     if (filePath === liveFilePath) {
+        if (liveBytes > 0 && !fs.existsSync(filePath)) {
+            liveBytes = 0;
+        }
         return;
     }
     liveFilePath = filePath;
@@ -134,6 +142,12 @@ function loggerSelfRecord(level: SimpleLevel, msg: string, data: unknown): strin
  * @throws 重命名失败时透传文件系统异常。
  */
 function rotateLiveFile(): void {
+    // 主文件可能已被外部删除（磁盘清理、EDR、用户手删）：此时没有可归档的内容，
+    // 直接复位计数，让后续写入在同一个路径上重建文件即可。
+    if (!fs.existsSync(liveFilePath)) {
+        liveBytes = 0;
+        return;
+    }
     const parsed = path.parse(liveFilePath);
     let seq = 1;
     let archivedPath = path.join(parsed.dir, `${parsed.name}.${seq}${parsed.ext}`);
@@ -501,7 +515,14 @@ let uncaughtLoggingStarted = false;
  * 注册 main 进程未捕获异常与未处理拒绝的落盘兜底。
  *
  * 这些异常不经过任何业务日志点，不接住就永远消失；与 electron 进程事件看门狗互补：
- * 看门狗管"进程级死亡"，这里管"JS 层未处理异常"。只记录、不改变进程行为。
+ * 看门狗管"进程级死亡"，这里管"JS 层未处理异常"。
+ *
+ * **注意：注册监听器本身会改变进程行为。** Node 的默认语义是「未捕获异常打印堆栈后退出」，
+ * 一旦存在 `uncaughtException` 监听器，进程会带着可能已损坏的状态继续运行。
+ * 这是一个有意的取舍：桌面应用直接退出对用户是"闪退且无提示"，比留在界面上更糟；
+ * 因此这里明确选择「记录 + 保活」，并在日志里标注这是被接住的异常，
+ * 排障时不要把它当成正常路径。
+ *
  * 幂等：重复调用不会重复注册监听。
  */
 export function startUncaughtErrorLogging(): void {
@@ -511,10 +532,11 @@ export function startUncaughtErrorLogging(): void {
     uncaughtLoggingStarted = true;
 
     process.on('uncaughtException', (error) => {
-        getMainLogger('MainUncaught').error('main uncaught exception', { error });
+        // 显式标注：进程被保留下来了，这个异常没有走 Node 的默认退出路径。
+        getMainLogger('MainUncaught').error('main uncaught exception (process kept alive)', { error });
     });
     process.on('unhandledRejection', (reason) => {
-        getMainLogger('MainUncaught').error('main unhandled rejection', { reason });
+        getMainLogger('MainUncaught').error('main unhandled rejection (process kept alive)', { reason });
     });
 }
 

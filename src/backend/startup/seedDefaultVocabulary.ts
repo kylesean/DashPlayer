@@ -1,7 +1,9 @@
 import { count } from 'drizzle-orm';
 
 import db from '@/backend/infrastructure/db';
+import { systemConfigs } from '@/backend/infrastructure/db/tables/sysConf';
 import { words } from '@/backend/infrastructure/db/tables/words';
+import TimeUtil from '@/common/utils/TimeUtil';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import TYPES from '@/backend/ioc/types';
 import container from '@/backend/ioc/inversify.config';
@@ -69,13 +71,24 @@ export const seedDefaultVocabularyIfNeeded = async (): Promise<void> => {
         }))
         .filter((w) => w.word.length > 0);
 
-    for (const batch of chunk(rows, 300)) {
-        await db
-            .insert(words)
-            .values(batch)
-            .onConflictDoNothing();
-    }
-
-    await sysConf.setValue(SEED_VERSION_KEY, DEFAULT_VOCABULARY_VERSION);
+    // 分批插入是为了控制单条 SQL 的参数数量，但必须整体原子：
+    // 中途崩溃/断电时，下一轮启动看到「表非空」就会把版本标记落库，
+    // 残缺词表从此被当成已完成播种，缺失的默认词永远不会补上。
+    // 事务内插入 + 事务内写标记，保证「要么全有、要么全无」。
+    await db.transaction(async (tx) => {
+        for (const batch of chunk(rows, 300)) {
+            await tx
+                .insert(words)
+                .values(batch)
+                .onConflictDoNothing();
+        }
+        await tx
+            .insert(systemConfigs)
+            .values({ key: SEED_VERSION_KEY, value: DEFAULT_VOCABULARY_VERSION })
+            .onConflictDoUpdate({
+                target: systemConfigs.key,
+                set: { value: DEFAULT_VOCABULARY_VERSION, updated_at: TimeUtil.timeUtc() },
+            });
+    });
     logger.info('seed done', { version: DEFAULT_VOCABULARY_VERSION });
 };
