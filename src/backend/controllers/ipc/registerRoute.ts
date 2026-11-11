@@ -1,4 +1,3 @@
-import { ipcMain } from 'electron';
 import { z } from 'zod';
 
 import type { ApiDefinitions, ApiMap } from '@/common/api/api-def';
@@ -8,11 +7,17 @@ import TYPES from '@/backend/ioc/types';
 import { getMainLogger, resolveTraceId, runWithTrace } from '@/backend/infrastructure/logger';
 import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
 import type { TraceCarrier } from '@/common/log/simple-types';
+import { registerIpcRoute } from './routeRegistry';
 
 const logger = getMainLogger('ipc');
 
-/** 高频/敏感路径的日志策略：降为 debug，并按需跳过 param/result，避免噪音与密钥落盘。 */
-const QUIET_PATH_POLICIES: Partial<Record<string, { logParam: boolean; logResult: boolean }>> = {
+/**
+ * 高频/敏感路径的日志策略：降为 debug，并按需跳过 param/result，避免噪音与密钥落盘。
+ *
+ * 导出供 routeContract 契约测试校验：这里出现的每个键都必须是真实注册的路由，
+ * 键名拼写漂移会让静默策略失效、敏感数据重新落日志。
+ */
+export const QUIET_PATH_POLICIES: Partial<Record<string, { logParam: boolean; logResult: boolean }>> = {
     'watch-history/progress/update': { logParam: false, logResult: false },
     // 录音二进制走 IPC，param 里是整段音频字节，落日志只有噪音
     // 跟读评分同样携带整段音频字节
@@ -120,7 +125,7 @@ export default function registerRoute<K extends keyof ApiMap>(
     func: (params: ApiDefinitions[K]['params']) => Promise<ApiDefinitions[K]['return']>,
     options?: { schema?: z.ZodType<ApiDefinitions[K]['params']> },
 ): void {
-    ipcMain.handle(path, async (_event, param: unknown, traceCarrier?: TraceCarrier) => {
+    registerIpcRoute(path, Boolean(options?.schema), async (_event, param: unknown, traceCarrier?: TraceCarrier) => {
         const traceId = resolveTraceId(traceCarrier?.traceId);
         return runWithTrace(traceId, async () => {
             const start = Date.now();
