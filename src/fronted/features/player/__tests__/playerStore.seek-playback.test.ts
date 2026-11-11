@@ -115,4 +115,45 @@ describe('playerStore seek 与播放意图', () => {
 
         expect(usePlayer.getState().playing).toBe(true);
     });
+
+    it('超短句单句循环在落点处不反复触发 seek（区间下限守卫）', () => {
+        // 40ms 的畸形短句：1x 倍速下句末提前量 0.06s 大于句长本身。
+        // 无守卫时循环落点（句首）自身满足 reachedLoopEnd，
+        // 每个采样周期都会再发一次 seek——约 20 次/秒的忙循环。
+        usePlayer.setState({ playing: true, singleRepeat: true });
+        const shortSentence: Sentence = {
+            key: 's-0', index: 0, fileHash: 's', text: 'Yes.', start: 0, end: 0.04,
+            adjustedStart: null, adjustedEnd: null, textZH: '', transGroup: 1,
+            translationKey: 's:0', struct: { original: 'Yes.', blocks: [] },
+        };
+        usePlayer.getState().loadSubtitles([
+            shortSentence,
+            { key: 's-1', index: 1, fileHash: 's', text: 'rest', start: 0.04, end: 2, adjustedStart: null, adjustedEnd: null },
+        ] as unknown as Sentence[]);
+        usePlayer.setState({ currentSentence: shortSentence });
+
+        usePlayer.getState().seekTo({ time: 0 });
+        const requestIdBefore = usePlayer.getState().seekTime?.requestId;
+        usePlayer.getState().resolveSeek(0, requestIdBefore);
+
+        // 守卫生效：落点处不再判定「已到句末」，不产生新的 seek。
+        expect(usePlayer.getState().seekTime?.requestId).toBe(requestIdBefore);
+    });
+
+    it('过期的 seek 落点被忽略，新一轮落点正常结算', () => {
+        arrange(true);
+
+        usePlayer.getState().seekTo({ time: 1.5 });
+        const staleId = usePlayer.getState().seekTime?.requestId;
+        usePlayer.getState().seekTo({ time: 1.8 });
+        const newId = usePlayer.getState().seekTime?.requestId;
+        expect(newId).not.toBe(staleId);
+
+        // 上一次 seek 的 seeked 迟到：不得解除新一轮的时间覆盖。
+        usePlayer.getState().resolveSeek(1.5, staleId);
+        expect(usePlayer.getState().internal.exactPlayTime).not.toBe(1.5);
+
+        usePlayer.getState().resolveSeek(1.8, newId);
+        expect(usePlayer.getState().internal.exactPlayTime).toBe(1.8);
+    });
 });

@@ -706,10 +706,20 @@ export const usePlayer = create<PlayerState>((set, get) => {
   /**
    * 循环类模式的句末判定：用一个采样周期的提前量抵消 rAF 45ms 采样带来的"听到下一句开头"的过冲。
    * 仅用于需要回跳的模式（瞬态计划 / 单句循环 / 悬停循环）；autoPause 与影跟读仍以句尾为准，避免吞字。
+   *
+   * 区间下限守卫：循环 seek 的落点是句首 start。当句长不超过提前量（畸形 SRT
+   * 的几十毫秒行，或高倍速下的短句）时，落点自身就满足「到达句末」判定，
+   * 每个采样周期都会再触发一次 seek——约 20 次/秒的忙循环。此时退回严格
+   * 判定 `time >= end`，只有真正越过句末才结算回跳。
    */
   const LOOP_END_EPSILON_SEC = 0.06;
-  const reachedLoopEnd = (time: number, end: number, rate: number): boolean =>
-    time >= end - rate * LOOP_END_EPSILON_SEC;
+  const reachedLoopEnd = (time: number, start: number, end: number, rate: number): boolean => {
+    const lead = rate * LOOP_END_EPSILON_SEC;
+    if (end - start <= lead) {
+      return time >= end;
+    }
+    return time >= end - lead;
+  };
 
   /**
    * 句末后处理：影子跟读留白 / 跳过句间空隙。
@@ -864,7 +874,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         }
         return;
       }
-      if (playing && reachedLoopEnd(effectiveTime, transientPlan.range.end, rate)) {
+      if (playing && reachedLoopEnd(effectiveTime, transientPlan.range.start, transientPlan.range.end, rate)) {
         const done = transientPlan.loopDone + 1;
         if (done >= transientPlan.loopTotal) {
           if (sentenceLoop && !skipGap) {
@@ -950,7 +960,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
           const focusInGroup = isFocusInVirtualGroup();
           const block = getCurrentBlock();
           const focusInBlock = block !== null;
-          if (reachedLoopEnd(effectiveTime, end, rate)) {
+          if (reachedLoopEnd(effectiveTime, start, end, rate)) {
             if (focusInGroup && virtualGroup.active && virtualGroup.sentences.length > 0) {
               const first = virtualGroup.sentences.slice().sort((a, b) => a.index - b.index)[0];
               state.seekToTarget({ time: start, target: first });
@@ -982,7 +992,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       case 'hoverRepeat': {
         if (playing && currentSentence) {
           const { start, end } = srtTender.mapSeekTime(currentSentence);
-          if (reachedLoopEnd(effectiveTime, end, rate)) {
+          if (reachedLoopEnd(effectiveTime, start, end, rate)) {
             state.seekToTarget({ time: start, target: currentSentence });
           }
         }
