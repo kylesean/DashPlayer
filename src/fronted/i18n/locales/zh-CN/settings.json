@@ -515,6 +515,14 @@
             "delete": "删除资源包",
             "deleteConfirmTitle": "删除本地增强资源包？"
         },
+        "embedding": {
+            "title": "语义推荐增强",
+            "ready": "已安装",
+            "install": "安装",
+            "installing": "安装中…",
+            "installed": "语义模型已安装，内容推荐将优先使用语义相似度",
+            "description": "可选，{{size}}。用于判断内容主题是否相近；未安装时推荐仍可正常使用词面相似度。"
+        },
         "cloud": {
             "title": "云端服务",
             "description": "填入服务商密钥后，翻译、查词与整句讲解都可用云端模型",

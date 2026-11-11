@@ -26,6 +26,7 @@ import SettingsPageShell from '@/fronted/features/settings/components/form/Setti
 import { SettingField, SettingSection, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
 import { ResourcePackCard } from '@/fronted/features/settings/components/ResourcePackCard';
 import { LocalLlmCard } from '@/fronted/features/settings/components/LocalLlmCard';
+import EmbeddingModelCard from '@/fronted/features/settings/components/EmbeddingModelCard';
 import ImportedDictionaryCard from '@/fronted/features/settings/components/ImportedDictionaryCard';
 import DictionaryEnhancementCard from '@/fronted/features/settings/components/DictionaryEnhancementCard';
 import { OpenAiCredentialCard } from '@/fronted/features/settings/components/OpenAiCredentialCard';
@@ -103,6 +104,12 @@ const ServiceResourceSetting: React.FC = () => {
     const { data: resourceStatus, mutate: refreshResourceStatus } = useSWR(
         'settings/resource-status/detail',
         () => settingsApi.getResourceStatus(),
+    );
+    /** 可选语义模型状态；失败时静默隐藏，不影响本地增强卡片。 */
+    const { data: embeddingStatus, mutate: refreshEmbeddingStatus } = useSWR(
+        'settings/embedding-model/status',
+        () => settingsApi.getEmbeddingModelStatus(),
+        SETTINGS_DETAIL_SWR_OPTIONS,
     );
     const hardware = resourceStatus?.hardware;
     const fallbackState = resourceStatus?.fallback ?? null;
@@ -558,6 +565,10 @@ const ServiceResourceSetting: React.FC = () => {
                                 onOpenFolder={(path) => openFolder(path).catch(() => null)}
                                 onCopy={(text) => copyText(text).catch(() => null)}
                                 onOpenUrl={(url) => openUrl(url).catch(() => null)}
+                            />
+                            <EmbeddingModelCard
+                                status={embeddingStatus ?? null}
+                                onInstalled={() => { void refreshEmbeddingStatus(); }}
                             />
                         </SettingSection>
 

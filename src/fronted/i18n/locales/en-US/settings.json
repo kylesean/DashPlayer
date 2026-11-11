@@ -515,6 +515,14 @@
             "delete": "Delete pack",
             "deleteConfirmTitle": "Delete the local enhancement resource pack?"
         },
+        "embedding": {
+            "title": "Semantic recommendation boost",
+            "ready": "Installed",
+            "install": "Install",
+            "installing": "Installing…",
+            "installed": "Semantic model installed; recommendations now prefer semantic similarity",
+            "description": "Optional, {{size}}. Helps judge whether topics are related; without it, recommendations still work using lexical similarity."
+        },
         "cloud": {
             "title": "Cloud Services",
             "description": "Add a provider key to use cloud models for translation, lookups and sentence explanations",
