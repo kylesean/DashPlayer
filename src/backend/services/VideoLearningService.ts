@@ -462,6 +462,12 @@ export class VideoLearningServiceImpl implements VideoLearningService {
             await this.videoLearningOssService.delete(key);
             await this.videoLearningClipRepository.deleteClipWithWords(key);
         });
+        // 片段键是 `<srtHash>__<index>`：删除后必须失效该字幕的状态缓存，
+        // 否则 detectClipStatus 命中删除前的旧值，前端仍显示"已完成/还有 N 个待裁切"。
+        const srtKey = key.split('__')[0];
+        if (srtKey && srtKey !== key) {
+            this.clipStatusCache.delete(srtKey);
+        }
     }
 
     /**

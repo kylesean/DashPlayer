@@ -41,6 +41,15 @@ const LEGACY_XLS_EXTENSION = '.xls';
 const MAX_VOCABULARY_FILE_BYTES = 32 * 1024 * 1024;
 
 /**
+ * 导入词典允许的最大源文件体积（字节）。
+ *
+ * 词典解析（CSV 全文读取、SQLite 全表载入、StarDict 整份 .idx）同样在内存里做，
+ * 体积无上限等于给渲染层一个内存放大器，会把主进程（连同全部 IPC）卡死。
+ * 星级词典解压后的正文另有 512MB 上限（MAX_DECOMPRESSED_DICT_BYTES）。
+ */
+export const MAX_DICTIONARY_FILE_BYTES = 128 * 1024 * 1024;
+
+/**
  * 校验文件路径的扩展名是否在允许列表里。
  *
  * @param filePath 待校验的路径。

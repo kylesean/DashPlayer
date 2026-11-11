@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { injectable } from 'inversify';
 import { getMainLogger } from '@/backend/infrastructure/logger';
+import { MAX_DICTIONARY_FILE_BYTES } from '@/backend/utils/file-path-guard';
 import { AppStateDirectoryType, getAppStatePath } from '@/backend/infrastructure/system/AppStatePath';
 import { parseDictionaryTranslation } from '@/backend/utils/dictionary/parseDictionaryTranslation';
 import { lemmatizeWord } from '@/backend/utils/language/VocabularyMatcher';
@@ -385,6 +386,12 @@ export default class ImportedDictionaryService {
     public async importFromFile(filePath: string): Promise<ImportedDictionaryVO> {
         const extension = path.extname(filePath).toLowerCase();
         const format = this.detectFormat(extension);
+        // 源文件体积上限：CSV 全文读取、SQLite 全表载入、StarDict 整份 .idx 都在内存里做，
+        // 无上限等于把主进程交给一个内存放大器。
+        const sourceStat = await fs.promises.stat(filePath);
+        if (sourceStat.size > MAX_DICTIONARY_FILE_BYTES) {
+            throw new Error(`词典文件超过 ${Math.floor(MAX_DICTIONARY_FILE_BYTES / 1024 / 1024)} MB 上限，拒绝导入`);
+        }
         const parsed = await this.parseByFormat(filePath, format);
         if (parsed.entries.length === 0) {
             throw new Error(`词典没有可用词条：${filePath}`);

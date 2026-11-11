@@ -941,7 +941,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
   };
 
   /**
-   * 为当前聚焦句构建瞬态循环计划（虚拟组时以整组为循环单元）。
+   * 为当前聚焦句构建瞬态循环计划（虚拟组/意群块时以整组为循环单元）。
    * @param mode 常开的逐句循环配置（遍数、每遍倍速、基准倍速）
    * @param seekToStart 是否 seek 到循环区间开头（开启模式/续接新锚点句时需要；
    *                    句间续接时 nextSentence 已定位到下一句开头，传 false 避免重复 seek）
@@ -960,6 +960,14 @@ export const usePlayer = create<PlayerState>((set, get) => {
       if (first) {
         anchor = first;
         range = get().getVirtualGroupRange() ?? range;
+      }
+    } else if (playerUiStore.getState().sentenceBlockMode) {
+      // 整句模式下导航以意群块为单位，循环单元必须与导航一致：
+      // 否则块首句循环 N 遍后就跳到下一块，块内其余行整段漏播。
+      const block = getCurrentBlock();
+      if (block) {
+        anchor = block.repr;
+        range = calcRangeForSentences(srtTender, block.sentences);
       }
     }
 
