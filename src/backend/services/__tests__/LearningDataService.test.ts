@@ -1,7 +1,7 @@
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 
 import LearningDataRepositoryImpl from '@/backend/infrastructure/db/repositories/LearningDataRepositoryImpl';
@@ -46,8 +46,20 @@ interface SeedEvent {
 const buildService = (memoryDb: MemoryDb) => {
     const repository = new LearningDataRepositoryImpl(memoryDb.db);
     const wordsRepository = new WordsRepositoryImpl(memoryDb.db);
-    const service = new LearningDataServiceImpl(repository, new FileSystemGatewayImpl());
-    return { service, repository, wordsRepository };
+    const wordMatchService = {
+        invalidateVocabularyCache: vi.fn(),
+        getVocabularyRevision: vi.fn(() => 0),
+    };
+    const subtitleService = {
+        invalidateVocabularyAnalysisCache: vi.fn(),
+    };
+    const service = new LearningDataServiceImpl(
+        repository,
+        new FileSystemGatewayImpl(),
+        wordMatchService as never,
+        subtitleService as never,
+    );
+    return { service, repository, wordsRepository, wordMatchService, subtitleService };
 };
 
 /**
@@ -537,8 +549,102 @@ describe('LearningDataService 导出与清除', () => {
         }
     });
 
-    it('exportToJson 写入可解析的 JSON 文件', async () => {
+    it('恢复超过 SQLite 绑定参数上限的遭遇事件也能完整入库', async () => {
         memoryDb = createMemoryDb();
+        const { service } = buildService(memoryDb);
+        await seedWords(memoryDb, [
+            { word: 'orbit', translate: '轨道', status: 'learning', source: 'manual' },
+        ]);
+
+        const exportVo = await service.buildExport();
+        // 3000 行 × 11 列 = 33000 个绑定参数，超过 SQLite 32766 的单语句上限：
+        // 不分批的实现在这里抛 too many SQL variables，整个恢复失败。
+        const now = Date.now();
+        exportVo.encounters = Array.from({ length: 3000 }, (_, index) => ({
+            id: 0,
+            word: 'orbit',
+            lemma: 'orbit',
+            action: 'seen' as const,
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+            sentenceIndex: index % 100,
+            sentenceHash: 'hash-' + Math.floor(index / 100),
+            context: null,
+            score: null,
+            rating: null,
+            createdAt: new Date(now - index * 1000).toISOString(),
+        }));
+
+        const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-learning-restore-batch-'));
+        const filePath = path.join(directory, 'backup.json');
+        try {
+            await fs.writeFile(filePath, JSON.stringify(exportVo), 'utf8');
+            const imported = await service.importFromJson(filePath);
+            expect(imported.success).toBe(true);
+            expect(imported.encountersRestored).toBe(3000);
+        } finally {
+            await fs.rm(directory, { recursive: true, force: true });
+        }
+    });
+
+    it('导出携带原始 mastery 证据值，备份往返不产生衰减复利', async () => {
+        memoryDb = createMemoryDb();
+        const { service, repository } = buildService(memoryDb);
+        // 30 天前的 last_seen：读取边界会给出按 14 天半衰期衰减后的展示值。
+        const lastSeen = new Date(Date.now() - 30 * DAY_MS).toISOString();
+        await seedWords(memoryDb, [
+            { word: 'orbit', translate: '轨道', status: 'learning', source: 'manual', mastery: 0.9, confidence: 0.8 },
+        ]);
+        await memoryDb.db.update(words).set({ last_seen_at: lastSeen })
+            .where(eq(words.word, 'orbit')).run();
+
+        const before = (await repository.listUserWords())[0];
+        const exportVo = await service.buildExport();
+        expect(exportVo.words[0].mastery).toBe(0.9);
+        expect(exportVo.words[0].lastSeenAt).toBe(lastSeen);
+
+        const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-learning-no-double-decay-'));
+        const filePath = path.join(directory, 'backup.json');
+        try {
+            await service.exportToJson(filePath);
+            await service.resetLearningData();
+            await service.importFromJson(filePath);
+            const restored = (await repository.listUserWords())[0];
+
+            // 恢复后的展示值与原库一致：衰减时钟没有被备份导出/导入过程重置或叠加。
+            // 两次读取的 Date.now 相差几毫秒，衰减输出有 ~1e-10 抖动；若发生复利
+            // （衰减后的值被当作原始值再衰减一次）差异约 0.11，远大于该容差。
+            expect(restored.mastery).toBeCloseTo(before.mastery, 4);
+            expect(restored.last_seen_at).toBe(lastSeen);
+        } finally {
+            await fs.rm(directory, { recursive: true, force: true });
+        }
+    });
+
+    it('导入与清除学习数据后失效词表派生缓存', async () => {
+        memoryDb = createMemoryDb();
+        const { service, wordMatchService, subtitleService } = buildService(memoryDb);
+        await seedWords(memoryDb, [
+            { word: 'orbit', translate: '轨道', status: 'learning', source: 'manual' },
+        ]);
+
+        const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-learning-invalidate-'));
+        const filePath = path.join(directory, 'backup.json');
+        try {
+            await service.exportToJson(filePath);
+            await service.resetLearningData();
+            expect(wordMatchService.invalidateVocabularyCache).toHaveBeenCalledTimes(1);
+            expect(subtitleService.invalidateVocabularyAnalysisCache).toHaveBeenCalledTimes(1);
+
+            await service.importFromJson(filePath);
+            expect(wordMatchService.invalidateVocabularyCache).toHaveBeenCalledTimes(2);
+            expect(subtitleService.invalidateVocabularyAnalysisCache).toHaveBeenCalledTimes(2);
+        } finally {
+            await fs.rm(directory, { recursive: true, force: true });
+        }
+    });
+
+    it('exportToJson 写入可解析的 JSON 文件', async () => {        memoryDb = createMemoryDb();
         const { service } = buildService(memoryDb);
         await seedWords(memoryDb, [
             { word: 'journey', translate: '旅程', status: 'learning', source: 'manual' },

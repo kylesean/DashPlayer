@@ -99,4 +99,56 @@ describe('parseLearningDataExport', () => {
         expect(() => parseLearningDataExport(null)).toThrow(LearningDataSnapshotError);
         expect(() => parseLearningDataExport([])).toThrow(LearningDataSnapshotError);
     });
+
+    it('复习卡调度字段按边界截断，畸形巨值不会让复习调度崩溃', () => {
+        const card = {
+            word: 'journey',
+            dueAt: NOW,
+            state: 'review',
+            reps: -3,
+            lapses: 5,
+            stability: 1e308,
+            difficulty: 42,
+            lastReviewAt: NOW,
+            lastRating: 'good',
+            createdAt: NOW,
+            updatedAt: NOW,
+        };
+
+        const snapshot = parseLearningDataExport({ ...baseSnapshot, reviewCards: [card] });
+
+        // stability 1e308 会在调度处变成 new Date(Infinity) 抛 RangeError；
+        // 与 mastery/confidence 同口径截断，而不是拒绝整份备份。
+        expect(snapshot.reviewCards[0].stability).toBe(36_500);
+        expect(snapshot.reviewCards[0].difficulty).toBe(10);
+        expect(snapshot.reviewCards[0].reps).toBe(0);
+        expect(snapshot.reviewCards[0].lapses).toBe(5);
+    });
+
+    it('拒绝不可解析的时间字符串', () => {
+        expect(() => parseLearningDataExport({
+            ...baseSnapshot,
+            words: [{ ...validWord, lastSeenAt: 'haha' }],
+        })).toThrow('$.words[0].lastSeenAt');
+
+        expect(() => parseLearningDataExport({
+            ...baseSnapshot,
+            reviewCards: [{
+                word: 'journey', dueAt: '明天', state: 'new', reps: 0, lapses: 0,
+                stability: 0, difficulty: 0, lastReviewAt: null, lastRating: null,
+                createdAt: NOW, updatedAt: NOW,
+            }],
+        })).toThrow('$.reviewCards[0].dueAt');
+    });
+
+    it('恢复的用户词不携带 default 内置标记，重映射为 manual', () => {
+        const snapshot = parseLearningDataExport({
+            ...baseSnapshot,
+            words: [{ ...validWord, source: 'default' }],
+        });
+
+        // 'default' 标记的词会被 listUserWords / 导出 / 会话摘要全部排除，
+        // 成为恢复成功却永远不可见、下次导出静默丢失的幽灵词。
+        expect(snapshot.words[0].source).toBe('manual');
+    });
 });

@@ -47,6 +47,12 @@ export default interface LearningDataRepository {
     /** 读取用户词表；默认词表不属于用户学习数据。 */
     listUserWords(): Promise<Word[]>;
 
+    /**
+     * 读取用户词表的原始证据值（mastery 不经读取边界衰减），供可移植导出使用；
+     * 用衰减后的值落备份会让每次备份往返都额外衰减一次。
+     */
+    listUserWordsForExport(): Promise<Word[]>;
+
     /** 读取全部遭遇事件，按写入顺序升序。 */
     listEncounters(): Promise<WordEncounter[]>;
 

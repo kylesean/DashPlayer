@@ -4,6 +4,8 @@ import TYPES from '@/backend/ioc/types';
 import type { Word } from '@/backend/infrastructure/db/tables/words';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
+import type { WordMatchService } from '@/backend/services/WordMatchService';
+import type SubtitleService from '@/backend/services/SubtitleService';
 import {
     isActiveWordStatus,
     type WordEncounterAction,
@@ -79,7 +81,21 @@ export class LearningDataServiceImpl implements LearningDataService {
     constructor(
         @inject(TYPES.LearningDataRepository) private readonly repository: LearningDataRepository,
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
+        @inject(TYPES.WordMatchService) private readonly wordMatchService: WordMatchService,
+        @inject(TYPES.SubtitleService) private readonly subtitleService: SubtitleService,
     ) {}
+
+    /**
+     * 备份进出后让派生缓存整体作废。
+     *
+     * 词表快照缓存（60 分钟 TTL）与字幕生词分析缓存都以词表为输入：恢复/清除
+     * 之后不主动失效，字幕标注会按旧词表继续服务，前端 reloadSubtitles 也被
+     * 架空（分析缓存的 revision 键未变，直接命中旧结果）。
+     */
+    private invalidateVocabularyDerivedCaches(): void {
+        this.wordMatchService.invalidateVocabularyCache();
+        this.subtitleService.invalidateVocabularyAnalysisCache();
+    }
 
     public async getSessionSummary(params: LearningSessionSummaryParams): Promise<LearningSessionSummaryVO> {
         const since = new Date(params.since);
@@ -190,7 +206,8 @@ export class LearningDataServiceImpl implements LearningDataService {
             last7Days,
             last30Days,
         ] = await Promise.all([
-            this.repository.listUserWords(),
+            // 导出必须带原始证据值（见 listUserWordsForExport 的说明）。
+            this.repository.listUserWordsForExport(),
             this.repository.listEncounters(),
             this.repository.listReviewCards(),
             this.repository.listRecommendationEvents(),
@@ -294,11 +311,14 @@ export class LearningDataServiceImpl implements LearningDataService {
         }
         const snapshot = parseLearningDataExport(parsed);
         const counts = await this.repository.restoreLearningData(snapshot);
+        this.invalidateVocabularyDerivedCaches();
         return { success: true, path: filePath, ...counts };
     }
 
     public async resetLearningData(): Promise<LearningDataResetResultVO> {
-        return this.repository.resetLearningData();
+        const result = await this.repository.resetLearningData();
+        this.invalidateVocabularyDerivedCaches();
+        return result;
     }
 
     private async getRetentionSince(since: string): Promise<ReviewRetentionStats> {

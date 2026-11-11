@@ -137,6 +137,25 @@ const nullableOneOf = <T extends string>(
     return oneOf(value, allowed, path);
 };
 
+/** 校验可被 Date 解析的时间字符串；备份里的 "haha" 会让排序与调度计算全面失真。 */
+const dateStr = (value: unknown, path: string): string => {
+    const parsed = str(value, path);
+    if (Number.isNaN(Date.parse(parsed))) {
+        return fail(path, '可解析的 ISO 日期字符串');
+    }
+    return parsed;
+};
+
+const nullableDateStr = (value: unknown, path: string): string | null => {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    return dateStr(value, path);
+};
+
+/** 把数值钳进 [min, max]；派生的调度字段截断比拒绝整份备份更友好。 */
+const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
+
 /**
  * 校验并归一化一条词条。
  *
@@ -149,17 +168,21 @@ const parseWord = (value: unknown, path: string): LearningDataWordVO => {
     if (word.length === 0) {
         return fail(`${path}.word`, '非空字符串');
     }
+    const source = oneOf(raw.source, WORD_SOURCES, `${path}.source`);
     return {
         word,
         translate: nullableStr(raw.translate, `${path}.translate`),
         status: oneOf(raw.status, WORD_STATUSES, `${path}.status`),
-        source: oneOf(raw.source, WORD_SOURCES, `${path}.source`),
+        // 恢复的是用户数据：'default' 是产品内置词标记，带着它入库的词会被
+        // listUserWords / 导出 / 会话摘要全部排除，成为恢复成功却永远不可见、
+        // 下次导出静默丢失的幽灵词。统一重映射为 manual。
+        source: source === 'default' ? 'manual' : source,
         mastery: clamp01(num(raw.mastery ?? 0, `${path}.mastery`)),
         confidence: clamp01(num(raw.confidence ?? 0, `${path}.confidence`)),
-        lastSeenAt: nullableStr(raw.lastSeenAt, `${path}.lastSeenAt`),
-        masteredAt: nullableStr(raw.masteredAt, `${path}.masteredAt`),
-        createdAt: str(raw.createdAt, `${path}.createdAt`),
-        updatedAt: str(raw.updatedAt, `${path}.updatedAt`),
+        lastSeenAt: nullableDateStr(raw.lastSeenAt, `${path}.lastSeenAt`),
+        masteredAt: nullableDateStr(raw.masteredAt, `${path}.masteredAt`),
+        createdAt: dateStr(raw.createdAt, `${path}.createdAt`),
+        updatedAt: dateStr(raw.updatedAt, `${path}.updatedAt`),
     };
 };
 
@@ -179,24 +202,31 @@ const parseEncounter = (value: unknown, path: string): LearningDataEncounterVO =
         context: nullableStr(raw.context, `${path}.context`),
         score: nullableNum(raw.score, `${path}.score`),
         rating: nullableOneOf(raw.rating, REVIEW_RATINGS, `${path}.rating`),
-        createdAt: str(raw.createdAt, `${path}.createdAt`),
+        createdAt: dateStr(raw.createdAt, `${path}.createdAt`),
     };
 };
 
 const parseReviewCard = (value: unknown, path: string): LearningDataReviewCardVO => {
     const raw = record(value, path);
+    // 调度字段是派生量，畸形值（如 stability: 1e308）会在复习调度里
+    // new Date(now + stability*DAY_MS) 处抛 RangeError，让这张卡永远无法评分。
+    // 与 mastery/confidence 同口径截断，不拒绝整份备份。
+    const reps = clamp(int(raw.reps ?? 0, `${path}.reps`), 0, 1_000_000);
+    const lapses = clamp(int(raw.lapses ?? 0, `${path}.lapses`), 0, 1_000_000);
+    const stability = clamp(num(raw.stability ?? 0, `${path}.stability`), 0, 36_500);
+    const difficulty = clamp(num(raw.difficulty ?? 0, `${path}.difficulty`), 0, 10);
     return {
         word: str(raw.word, `${path}.word`).toLowerCase(),
-        dueAt: str(raw.dueAt, `${path}.dueAt`),
+        dueAt: dateStr(raw.dueAt, `${path}.dueAt`),
         state: oneOf(raw.state, REVIEW_CARD_STATES, `${path}.state`),
-        reps: int(raw.reps ?? 0, `${path}.reps`),
-        lapses: int(raw.lapses ?? 0, `${path}.lapses`),
-        stability: num(raw.stability ?? 0, `${path}.stability`),
-        difficulty: num(raw.difficulty ?? 0, `${path}.difficulty`),
-        lastReviewAt: nullableStr(raw.lastReviewAt, `${path}.lastReviewAt`),
+        reps,
+        lapses,
+        stability,
+        difficulty,
+        lastReviewAt: nullableDateStr(raw.lastReviewAt, `${path}.lastReviewAt`),
         lastRating: nullableOneOf(raw.lastRating, REVIEW_RATINGS, `${path}.lastRating`),
-        createdAt: str(raw.createdAt, `${path}.createdAt`),
-        updatedAt: str(raw.updatedAt, `${path}.updatedAt`),
+        createdAt: dateStr(raw.createdAt, `${path}.createdAt`),
+        updatedAt: dateStr(raw.updatedAt, `${path}.updatedAt`),
     };
 };
 
@@ -209,7 +239,7 @@ const parseRecommendation = (value: unknown, path: string): LearningDataRecommen
         surface: str(raw.surface ?? 'home', `${path}.surface`),
         score: num(raw.score ?? 0, `${path}.score`),
         reasonCode: nullableOneOf(raw.reasonCode, CONTENT_COMPASS_REASONS, `${path}.reasonCode`),
-        createdAt: str(raw.createdAt, `${path}.createdAt`),
+        createdAt: dateStr(raw.createdAt, `${path}.createdAt`),
     };
 };
 
@@ -224,7 +254,7 @@ const parseSentencePractice = (value: unknown, path: string): LearningDataSenten
         transcript: nullableStr(raw.transcript, `${path}.transcript`),
         audioFile: nullableStr(raw.audioFile, `${path}.audioFile`),
         detailJson: nullableStr(raw.detailJson, `${path}.detailJson`),
-        createdAt: str(raw.createdAt, `${path}.createdAt`),
+        createdAt: dateStr(raw.createdAt, `${path}.createdAt`),
     };
 };
 
@@ -241,7 +271,7 @@ const parseProductionPractice = (value: unknown, path: string): LearningDataProd
         feedback: nullableStr(raw.feedback, `${path}.feedback`),
         improved: nullableStr(raw.improved, `${path}.improved`),
         detailJson: nullableStr(raw.detailJson, `${path}.detailJson`),
-        createdAt: str(raw.createdAt, `${path}.createdAt`),
+        createdAt: dateStr(raw.createdAt, `${path}.createdAt`),
     };
 };
 

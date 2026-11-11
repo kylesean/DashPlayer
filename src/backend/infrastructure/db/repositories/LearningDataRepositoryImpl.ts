@@ -26,6 +26,23 @@ import type { ReviewOutcome } from '@/backend/services/repositories/WordEncounte
 import { effectiveWordMastery } from '@/common/learning/mastery';
 
 /**
+ * restore 单条多值 INSERT 的每批行数上限。
+ *
+ * SQLite 的绑定参数上限是 32766，restore 各表最多 11-12 列：一次插入 2979 行
+ * 就会撞上 `too many SQL variables`，让用户自己导出的备份无法恢复。
+ * 每批 400 行（400×12=4800 参数）留出充分余量，与 ReviewCardRepositoryImpl
+ * ensureForWords 的分批先例同一口径。
+ */
+const RESTORE_BATCH_ROWS = 400;
+
+/** 按 size 切片逐批执行 fn；用于把大数组拆成多条多值 INSERT。 */
+const inChunks = <T>(items: readonly T[], size: number, fn: (chunk: T[]) => void): void => {
+    for (let index = 0; index < items.length; index += size) {
+        fn(items.slice(index, index + size));
+    }
+};
+
+/**
  * 学习数据 SQLite 仓储。
  */
 @injectable()
@@ -39,6 +56,21 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             .where(ne(words.source, 'default'))
             .orderBy(asc(words.word));
         return rows.map((row) => ({ ...row, mastery: effectiveWordMastery(row) }));
+    }
+
+    /**
+     * 读取用户词表的原始证据值（mastery 不经过读取边界衰减）。
+     *
+     * 仅供可移植导出使用：mastery.ts 的不变量是「数据库保存原始证据值，衰减只在
+     * 读取边界生效、重复读取不产生复利」。导出若拿衰减后的值落进备份，恢复时会把
+     * 它当作原始值写库，备份往返一次就额外衰减一次。
+     */
+    public async listUserWordsForExport(): Promise<Word[]> {
+        return this.db
+            .select()
+            .from(words)
+            .where(ne(words.source, 'default'))
+            .orderBy(asc(words.word));
     }
 
     public async listEncounters(): Promise<WordEncounter[]> {
@@ -211,72 +243,82 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
                 }).run();
             }
             if (snapshot.encounters.length > 0) {
-                tx.insert(wordEncounter).values(snapshot.encounters.map((encounter) => ({
-                    word: encounter.word,
-                    lemma: encounter.lemma,
-                    action: encounter.action,
-                    video_id: encounter.videoId,
-                    file_hash: encounter.fileHash,
-                    sentence_index: encounter.sentenceIndex,
-                    sentence_hash: encounter.sentenceHash,
-                    context: encounter.context,
-                    score: encounter.score,
-                    rating: encounter.rating,
-                    created_at: encounter.createdAt,
-                }))).run();
+                inChunks(snapshot.encounters, RESTORE_BATCH_ROWS, (chunk) => {
+                    tx.insert(wordEncounter).values(chunk.map((encounter) => ({
+                        word: encounter.word,
+                        lemma: encounter.lemma,
+                        action: encounter.action,
+                        video_id: encounter.videoId,
+                        file_hash: encounter.fileHash,
+                        sentence_index: encounter.sentenceIndex,
+                        sentence_hash: encounter.sentenceHash,
+                        context: encounter.context,
+                        score: encounter.score,
+                        rating: encounter.rating,
+                        created_at: encounter.createdAt,
+                    }))).run();
+                });
             }
             if (snapshot.reviewCards.length > 0) {
-                tx.insert(reviewCard).values(snapshot.reviewCards.map((card) => ({
-                    word: card.word,
-                    due_at: card.dueAt,
-                    state: card.state,
-                    reps: card.reps,
-                    lapses: card.lapses,
-                    stability: card.stability,
-                    difficulty: card.difficulty,
-                    last_review_at: card.lastReviewAt,
-                    last_rating: card.lastRating,
-                    created_at: card.createdAt,
-                    updated_at: card.updatedAt,
-                }))).run();
+                inChunks(snapshot.reviewCards, RESTORE_BATCH_ROWS, (chunk) => {
+                    tx.insert(reviewCard).values(chunk.map((card) => ({
+                        word: card.word,
+                        due_at: card.dueAt,
+                        state: card.state,
+                        reps: card.reps,
+                        lapses: card.lapses,
+                        stability: card.stability,
+                        difficulty: card.difficulty,
+                        last_review_at: card.lastReviewAt,
+                        last_rating: card.lastRating,
+                        created_at: card.createdAt,
+                        updated_at: card.updatedAt,
+                    }))).run();
+                });
             }
             if (snapshot.recommendations.length > 0) {
-                tx.insert(recommendationEvent).values(snapshot.recommendations.map((event) => ({
-                    video_id: event.videoId,
-                    action: event.action,
-                    surface: event.surface,
-                    score: event.score,
-                    reason_code: event.reasonCode,
-                    created_at: event.createdAt,
-                }))).run();
+                inChunks(snapshot.recommendations, RESTORE_BATCH_ROWS, (chunk) => {
+                    tx.insert(recommendationEvent).values(chunk.map((event) => ({
+                        video_id: event.videoId,
+                        action: event.action,
+                        surface: event.surface,
+                        score: event.score,
+                        reason_code: event.reasonCode,
+                        created_at: event.createdAt,
+                    }))).run();
+                });
             }
             if (snapshot.sentencePractices.length > 0) {
-                tx.insert(sentencePracticeRecord).values(snapshot.sentencePractices.map((record) => ({
-                    file_hash: record.fileHash,
-                    sentence_index: record.sentenceIndex,
-                    resegmented: record.resegmented,
-                    mode: record.mode,
-                    score: record.score,
-                    transcript: record.transcript,
-                    audio_file: record.audioFile,
-                    detail_json: record.detailJson,
-                    created_at: record.createdAt,
-                }))).run();
+                inChunks(snapshot.sentencePractices, RESTORE_BATCH_ROWS, (chunk) => {
+                    tx.insert(sentencePracticeRecord).values(chunk.map((record) => ({
+                        file_hash: record.fileHash,
+                        sentence_index: record.sentenceIndex,
+                        resegmented: record.resegmented,
+                        mode: record.mode,
+                        score: record.score,
+                        transcript: record.transcript,
+                        audio_file: record.audioFile,
+                        detail_json: record.detailJson,
+                        created_at: record.createdAt,
+                    }))).run();
+                });
             }
             if (snapshot.productionPractices.length > 0) {
-                tx.insert(productionPracticeRecord).values(snapshot.productionPractices.map((record) => ({
-                    mode: record.mode,
-                    video_id: record.videoId,
-                    file_hash: record.fileHash,
-                    sentence_index: record.sentenceIndex,
-                    sentence_text: record.sentenceText,
-                    response_text: record.responseText,
-                    level: record.level,
-                    feedback: record.feedback,
-                    improved: record.improved,
-                    detail_json: record.detailJson,
-                    created_at: record.createdAt,
-                }))).run();
+                inChunks(snapshot.productionPractices, RESTORE_BATCH_ROWS, (chunk) => {
+                    tx.insert(productionPracticeRecord).values(chunk.map((record) => ({
+                        mode: record.mode,
+                        video_id: record.videoId,
+                        file_hash: record.fileHash,
+                        sentence_index: record.sentenceIndex,
+                        sentence_text: record.sentenceText,
+                        response_text: record.responseText,
+                        level: record.level,
+                        feedback: record.feedback,
+                        improved: record.improved,
+                        detail_json: record.detailJson,
+                        created_at: record.createdAt,
+                    }))).run();
+                });
             }
 
             return {

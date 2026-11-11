@@ -156,11 +156,23 @@ export default class FileSystemGatewayImpl implements FileSystemGateway {
 
     /**
      * 写入 UTF-8 文本文件。
+     *
+     * 原子写：先写同目录临时文件再 rename 覆盖目标。直接覆写时，崩溃/断电/
+     * 磁盘满会让目标文件停留在截断的半份状态——对备份导出这类「旧文件被覆盖后
+     * 没有任何副本」的场景是不可逆损失。Node 的 rename 在 Windows 上同样替换已存在目标。
+     *
      * @param filePath 文件绝对路径。
      * @param content 待写入的文本内容。
      */
     public async writeTextFile(filePath: string, content: string): Promise<void> {
-        await fs.writeFile(filePath, content, 'utf8');
+        const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        try {
+            await fs.writeFile(tempPath, content, 'utf8');
+            await fs.rename(tempPath, filePath);
+        } catch (error) {
+            await fs.rm(tempPath, { force: true });
+            throw error;
+        }
     }
 
     /**
