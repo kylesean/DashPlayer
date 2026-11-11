@@ -20,8 +20,8 @@ import {
     TOOLBAR_TONE,
     type ToolbarTone,
 } from './toolbarStyles';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { formatLearningDue } from './learningTime';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 
 const RATING_STYLES: Record<ReviewRating, string> = {
     again: 'border-error/30 bg-error/5 text-error-text hover:bg-error/10',
@@ -55,36 +55,6 @@ const confidenceLabel = (confidence: number, t: (key: string) => string): string
     if (confidence >= 0.55) return t('reviewDock.confidenceStrong');
     if (confidence >= 0.25) return t('reviewDock.confidenceSome');
     return t('reviewDock.confidenceLow');
-};
-
-/**
- * 格式化下一次复习时间；近一天内用相对时间，更远用日期。
- *
- * @param iso 到期时间。
- * @param locale 当前界面语言。
- * @param t 翻译函数。
- * @returns 简短时间描述。
- */
-const formatDue = (
-    iso: string,
-    locale: string,
-    t: (key: string, options?: Record<string, unknown>) => string,
-): string => {
-    const time = Date.parse(iso);
-    if (Number.isNaN(time)) return t('reviewDock.dueUnknown');
-    const diff = time - Date.now();
-    if (diff <= 0) return t('reviewDock.dueNow');
-    if (diff < 60 * 60 * 1000) {
-        return t('reviewDock.dueInMinutes', { count: Math.max(1, Math.round(diff / 60000)) });
-    }
-    if (diff < DAY_MS) {
-        return t('reviewDock.dueInHours', { count: Math.max(1, Math.round(diff / (60 * 60 * 1000))) });
-    }
-    const days = Math.round(diff / DAY_MS);
-    if (days <= 30) {
-        return t('reviewDock.dueInDays', { count: days });
-    }
-    return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }).format(new Date(time));
 };
 
 /**
@@ -237,6 +207,8 @@ export default function ReviewDock({
     );
 
     const style = TOOLBAR_TONE[tone];
+    const videoId = usePlaybackSession((state) => state.videoId);
+    const fileHash = usePlaybackSession((state) => state.srtHash);
     const dueCount = data?.dueCount ?? 0;
     const card = data?.items[0] ?? null;
     const revealed = card !== null && revealedFor === card.word;
@@ -247,7 +219,10 @@ export default function ReviewDock({
         if (!card || pending) return;
         setPending(true);
         try {
-            const result = await videoLearningApi.rateReview(card.word, rating);
+            const result = await videoLearningApi.rateReview(card.word, rating, {
+                videoId: videoId ?? undefined,
+                fileHash: fileHash ?? undefined,
+            });
             setLastRated({
                 rating,
                 dueAt: result.card.schedule.dueAt,
@@ -357,7 +332,7 @@ export default function ReviewDock({
                         <p className="text-metadata leading-relaxed text-muted-foreground">
                             {data?.nextDueAt
                                 ? t('reviewDock.nextDue', {
-                                    when: formatDue(data.nextDueAt, i18n.language, t),
+                                    when: formatLearningDue(data.nextDueAt, i18n.language, t),
                                 })
                                 : t('reviewDock.emptyHint')}
                         </p>
@@ -370,7 +345,7 @@ export default function ReviewDock({
                         <span>
                             {t('reviewDock.ratedWithNext', {
                                 rating: t(`reviewDock.ratingShort.${lastRated.rating}`),
-                                when: formatDue(lastRated.dueAt, i18n.language, t),
+                                when: formatLearningDue(lastRated.dueAt, i18n.language, t),
                             })}
                         </span>
                     </div>

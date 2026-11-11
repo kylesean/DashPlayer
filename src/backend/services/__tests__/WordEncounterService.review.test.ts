@@ -164,7 +164,12 @@ describe('WordEncounterService 复习闭环', () => {
         const before = await words.findByWord('journey');
         const now = Date.now();
 
-        const result = await service.rateReview({ word: 'journey', rating: 'good' });
+        const result = await service.rateReview({
+            word: 'journey',
+            rating: 'good',
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+        });
 
         expect(result.card.schedule).toMatchObject({
             state: 'learning',
@@ -182,6 +187,8 @@ describe('WordEncounterService 复习闭环', () => {
             .where(eq(wordEncounter.action, 'review'));
         expect(reviewRows).toHaveLength(1);
         expect(reviewRows[0].rating).toBe('good');
+        expect(reviewRows[0].video_id).toBe('video-1');
+        expect(reviewRows[0].file_hash).toBe('subtitle-1');
 
         const firstStats = await service.getReviewQueue();
         expect(firstStats.stats.last7Days).toEqual({ reviewed: 1, retention: 1 });

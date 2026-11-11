@@ -78,6 +78,10 @@ export interface ReviewQueueVO {
 export interface ReviewRateParams {
     word: string;
     rating: ReviewRating;
+    /** 复习发生时的播放视频，用于归入本次学习会话；非播放器场景为空。 */
+    videoId?: string;
+    /** 复习发生时的字幕哈希，用于归入本次学习会话；非播放器场景为空。 */
+    fileHash?: string;
 }
 
 /**

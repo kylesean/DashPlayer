@@ -111,7 +111,10 @@ describe('ReviewDock', () => {
         fireEvent.click(screen.getByTestId('review-rating-good'));
 
         await waitFor(() => {
-            expect(videoLearningApi.rateReview).toHaveBeenCalledWith('journey', 'good');
+            expect(videoLearningApi.rateReview).toHaveBeenCalledWith('journey', 'good', {
+                videoId: undefined,
+                fileHash: undefined,
+            });
         });
         await waitFor(() => {
             expect(mutate).toHaveBeenCalled();

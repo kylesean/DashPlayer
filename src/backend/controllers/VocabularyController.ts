@@ -147,6 +147,8 @@ export default class VocabularyController implements Controller {
             schema: z.object({
                 word: nonEmptyStringSchema,
                 rating: z.enum(REVIEW_RATINGS),
+                videoId: z.string().min(1).optional(),
+                fileHash: z.string().min(1).optional(),
             }),
         });
         registerRoute('vocabulary/delete', (p) => this.deleteWord(p), {

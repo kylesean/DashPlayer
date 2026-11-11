@@ -316,6 +316,25 @@
         "dueInDays": "in {{count}} d",
         "dueUnknown": "soon"
     },
+    "learningSummary": {
+        "trigger": "This session",
+        "title": "This session",
+        "subtitle": "Accumulated since playback started, target words only",
+        "startedAt": "since {{time}}",
+        "encountered": "Encountered",
+        "mastered": "Mastered",
+        "due": "Due",
+        "practice": "Shadowing/dictation",
+        "dueBadge": "Due",
+        "masteredBadge": "Mastered",
+        "recentTitle": "Recently encountered",
+        "nextDue": "Next review: {{when}}",
+        "emptyTitle": "No learning activity yet",
+        "emptyHint": "Save, shadow, or mark a word as mastered and it will show up here",
+        "loadFailed": "Couldn't load this session's learning data",
+        "retry": "Retry",
+        "loading": "Summarizing this session…"
+    },
     "layout": {
         "resetSplitHint": "Double-click either divider to reset the default split"
     }

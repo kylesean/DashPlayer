@@ -316,6 +316,25 @@
         "dueInDays": "{{count}} 天后",
         "dueUnknown": "稍后"
     },
+    "learningSummary": {
+        "trigger": "本次学习",
+        "title": "本次学习",
+        "subtitle": "从本次播放开始累计，只统计你的目标词",
+        "startedAt": "{{time}} 开始",
+        "encountered": "遇见",
+        "mastered": "已掌握",
+        "due": "待复习",
+        "practice": "跟读/听写",
+        "dueBadge": "待复习",
+        "masteredBadge": "已掌握",
+        "recentTitle": "最近遇见",
+        "nextDue": "下次复习：{{when}}",
+        "emptyTitle": "本次还没有学习记录",
+        "emptyHint": "收藏、跟读或标记已掌握后，会在这里汇总",
+        "loadFailed": "本次学习数据加载失败",
+        "retry": "重试",
+        "loading": "正在汇总本次学习…"
+    },
     "layout": {
         "resetSplitHint": "双击任一分隔条，恢复默认分栏比例"
     }

@@ -15,7 +15,16 @@ import { Divider } from '@astryxdesign/core/Divider';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
-import { ChartPie, FolderOpen, HardDrive, RefreshCw, TriangleAlert, Trash2 } from 'lucide-react';
+import {
+    BookOpenCheck,
+    ChartPie,
+    Download,
+    FolderOpen,
+    HardDrive,
+    RefreshCw,
+    TriangleAlert,
+    Trash2,
+} from 'lucide-react';
 import { swrApiMutate } from '@/fronted/lib/swr-util';
 import { toast } from 'react-hot-toast';
 import { useForm, Controller } from 'react-hook-form';
@@ -29,6 +38,8 @@ import useSWR from 'swr';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 import type { StorageSettingVO } from '@/common/contracts/storage-setting-vo';
 import type { StorageUsageVO } from '@/common/contracts/storage-usage-vo';
+import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
+import { revalidateReviewQueue } from '@/fronted/features/video-learning/reviewQueue';
 
 type StorageFormValues = StorageSettingVO;
 
@@ -49,6 +60,9 @@ const StorageSetting: React.FC = () => {
     const [usageLoading, setUsageLoading] = React.useState(true);
     const [isResetDialogOpen, setIsResetDialogOpen] = React.useState(false);
     const [isResetting, setIsResetting] = React.useState(false);
+    const [isClearLearningDialogOpen, setIsClearLearningDialogOpen] = React.useState(false);
+    const [isClearingLearning, setIsClearingLearning] = React.useState(false);
+    const [isExportingLearning, setIsExportingLearning] = React.useState(false);
 
     const { data: detail } = useSWR<StorageSettingVO>(
         'settings/storage/detail',
@@ -147,6 +161,44 @@ const StorageSetting: React.FC = () => {
         }
     };
 
+    const handleExportLearningData = async () => {
+        try {
+            setIsExportingLearning(true);
+            const result = await learningDataApi.exportLearningData();
+            if (result.canceled) {
+                return;
+            }
+            if (!result.success) {
+                throw new Error(result.error ?? t('storage.learningData.exportFailed'));
+            }
+            toast.success(t('storage.learningData.exportSuccess'));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            toast.error(`${t('storage.learningData.exportFailed')}\n${message}`);
+        } finally {
+            setIsExportingLearning(false);
+        }
+    };
+
+    const handleClearLearningData = async () => {
+        try {
+            setIsClearingLearning(true);
+            const result = await learningDataApi.resetLearningData();
+            setIsClearLearningDialogOpen(false);
+            revalidateReviewQueue();
+            await swrApiMutate('learning-data/session-summary');
+            toast.success(t('storage.learningData.clearSuccess', {
+                encounters: result.encountersDeleted,
+                cards: result.reviewCardsDeleted,
+            }));
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            toast.error(`${t('storage.learningData.clearFailed')}\n${message}`);
+        } finally {
+            setIsClearingLearning(false);
+        }
+    };
+
     const handleOpen = async () => {
         try {
             await settingsApi.openCacheFolder();
@@ -192,6 +244,18 @@ const StorageSetting: React.FC = () => {
                     actionVariant="destructive"
                     isActionLoading={isResetting}
                     onAction={() => handleClear()}
+                />
+
+                <AlertDialog
+                    isOpen={isClearLearningDialogOpen}
+                    onOpenChange={setIsClearLearningDialogOpen}
+                    title={t('storage.learningData.clearConfirmTitle')}
+                    description={t('storage.learningData.clearConfirmDescription')}
+                    actionLabel={t('storage.learningData.clearConfirmOk')}
+                    cancelLabel={t('storage.learningData.clearConfirmCancel')}
+                    actionVariant="destructive"
+                    isActionLoading={isClearingLearning}
+                    onAction={() => handleClearLearningData()}
                 />
 
                 {autoSaveStatus === 'error' && autoSaveError && (
@@ -292,6 +356,40 @@ const StorageSetting: React.FC = () => {
                             size="sm"
                             label={t('storage.wordClipsSync.button')}
                             icon={<Icon icon={RefreshCw} size="sm" />}
+                        />
+                    </SettingField>
+                </SettingSection>
+
+                <Divider />
+
+                <SettingSection
+                    title={t('storage.sections.learningData')}
+                    description={t('storage.sections.learningDataDesc')}
+                    icon={BookOpenCheck}
+                >
+                    <SettingField
+                        title={t('storage.learningData.exportTitle')}
+                        description={t('storage.learningData.exportDescription')}
+                    >
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            label={t('storage.learningData.exportButton')}
+                            icon={<Icon icon={Download} size="sm" />}
+                            isLoading={isExportingLearning}
+                            onClick={handleExportLearningData}
+                        />
+                    </SettingField>
+                    <SettingField
+                        title={t('storage.learningData.clearTitle')}
+                        description={t('storage.learningData.clearDescription')}
+                    >
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            label={t('storage.learningData.clearButton')}
+                            icon={<Icon icon={Trash2} size="sm" />}
+                            onClick={() => setIsClearLearningDialogOpen(true)}
                         />
                     </SettingField>
                 </SettingSection>

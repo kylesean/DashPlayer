@@ -122,10 +122,19 @@ export const videoLearningApi = {
      *
      * @param word 单词原文或 lemma。
      * @param rating 四档反馈。
+     * @param session 可选的播放上下文，用于把复习归入本次学习会话。
      * @returns 更新后的卡与词条状态。
      */
-    rateReview: (word: string, rating: ReviewRating) =>
-        backendClient.call('vocabulary/rate-review', { word, rating }),
+    rateReview: (
+        word: string,
+        rating: ReviewRating,
+        session?: { videoId?: string; fileHash?: string },
+    ) => backendClient.call('vocabulary/rate-review', {
+        word,
+        rating,
+        videoId: session?.videoId,
+        fileHash: session?.fileHash,
+    }),
 
     /**
      * 删除单词。

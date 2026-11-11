@@ -340,12 +340,30 @@
         "openFailed": "Failed to open the cache folder",
         "description": "Library location, disk usage, and local clip indexes",
         "resetHint": "Clears database records; saved and vocabulary clips are rebuilt from local files on restart",
+        "learningData": {
+            "exportTitle": "Export learning data",
+            "exportDescription": "Export your word list, learning events, review cards, and 7/30-day retention metrics as JSON",
+            "exportButton": "Export JSON",
+            "exportSuccess": "Learning data exported",
+            "exportFailed": "Failed to export learning data",
+            "clearTitle": "Clear learning history",
+            "clearDescription": "Removes learning events, review cards, and mastery only; words, definitions, and learning status stay intact",
+            "clearButton": "Clear learning history",
+            "clearSuccess": "Cleared {{encounters}} learning events and {{cards}} review cards; words and definitions kept",
+            "clearFailed": "Failed to clear learning history",
+            "clearConfirmTitle": "Clear learning history?",
+            "clearConfirmDescription": "This deletes all learning events and review cards, and resets mastery, confidence, and last-seen times. Your words, definitions, and learning status stay intact. This cannot be undone.",
+            "clearConfirmCancel": "Cancel",
+            "clearConfirmOk": "Clear now"
+        },
         "sections": {
             "location": "Storage Location",
             "locationDesc": "Where the media library is saved",
             "usageDesc": "Disk usage by file category in the media library",
             "sync": "Resource Sync",
             "syncDesc": "Rebuild clip indexes from local files",
+            "learningData": "Learning Data",
+            "learningDataDesc": "Portable backup and learning history governance",
             "danger": "Danger Zone",
             "dangerDesc": "These actions cannot be undone"
         }

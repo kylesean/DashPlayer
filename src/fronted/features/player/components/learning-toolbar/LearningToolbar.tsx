@@ -12,6 +12,7 @@ import LearningModeButton from '@/fronted/features/player/components/srt-layout/
 import { formatShortcut } from '@/fronted/features/player/components/formatShortcut';
 import PlayerSettingsPopover from './PlayerSettingsPopover';
 import ReviewDock from './ReviewDock';
+import LearningSessionDock from './LearningSessionDock';
 import SubtitleTrackSegmented from './SubtitleTrackSegmented';
 import TrainingMenuButton from './TrainingMenuButton';
 import {
@@ -122,6 +123,7 @@ export default function LearningToolbar({
             <span className={cn(TOOLBAR_DIVIDER, style.divider)} />
 
             <ReviewDock tone="panel" popoverOffset={POPOVER_OFFSET} />
+            <LearningSessionDock tone="panel" popoverOffset={POPOVER_OFFSET} />
 
             <div className="flex-1" />
 

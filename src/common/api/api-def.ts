@@ -25,7 +25,14 @@ import type {
     WordEncounterAction,
     WordStatus,
 } from '@/common/types/vocabulary';
-import type { ReviewQueueVO, ReviewRateResultVO, ReviewRating } from '@/common/types/review';
+import type {
+    ReviewQueueVO,
+    ReviewRateParams,
+    ReviewRateResultVO,
+    ReviewRating,
+} from '@/common/types/review';
+import type { LearningSessionSummaryParams, LearningSessionSummaryVO } from '@/common/types/learningSession';
+import type { LearningDataExportResultVO, LearningDataResetResultVO } from '@/common/types/learningData';
 import type {
     ChatSessionCloseParams,
     ChatSessionCreateParams,
@@ -405,7 +412,7 @@ interface VocabularyDef {
         return: ReviewQueueVO
     };
     'vocabulary/rate-review': {
-        params: { word: string; rating: ReviewRating },
+        params: ReviewRateParams,
         return: ReviewRateResultVO
     };
     'vocabulary/delete': {
@@ -419,6 +426,21 @@ interface VocabularyDef {
     'vocabulary/pick-sentence': {
         params: { text: string },
         return: SentenceVocabularyVO
+    };
+}
+
+interface LearningDataDef {
+    'learning-data/session-summary': {
+        params: LearningSessionSummaryParams,
+        return: LearningSessionSummaryVO
+    };
+    'learning-data/export': {
+        params: void,
+        return: LearningDataExportResultVO
+    };
+    'learning-data/reset': {
+        params: void,
+        return: LearningDataResetResultVO
     };
 }
 
@@ -501,6 +523,7 @@ export type ApiDefinitions = ApiDefinition
     & YoutubeImportDef
     & WhisperCppModelDef
     & VocabularyDef
+    & LearningDataDef
     & VideoLearningDef
     & PracticeDef;
 

@@ -126,10 +126,15 @@ import type WordsRepository from '@/backend/services/repositories/WordsRepositor
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
 import type ReviewCardRepository from '@/backend/services/repositories/ReviewCardRepository';
 import ReviewCardRepositoryImpl from '@/backend/infrastructure/db/repositories/ReviewCardRepositoryImpl';
+import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
+import LearningDataRepositoryImpl from '@/backend/infrastructure/db/repositories/LearningDataRepositoryImpl';
 import type WordEncounterRepository from '@/backend/services/repositories/WordEncounterRepository';
 import WordEncounterRepositoryImpl from '@/backend/infrastructure/db/repositories/WordEncounterRepositoryImpl';
 import type WordEncounterService from '@/backend/services/WordEncounterService';
 import { WordEncounterServiceImpl } from '@/backend/services/WordEncounterService';
+import type LearningDataService from '@/backend/services/LearningDataService';
+import { LearningDataServiceImpl } from '@/backend/services/LearningDataService';
+import LearningDataController from '@/backend/controllers/LearningDataController';
 import type DpTaskRepository from '@/backend/services/repositories/DpTaskRepository';
 import DpTaskRepositoryImpl from '@/backend/infrastructure/db/repositories/DpTaskRepositoryImpl';
 import type VideoLearningClipRepository from '@/backend/services/repositories/VideoLearningClipRepository';
@@ -213,6 +218,7 @@ container.bind<LocalAiService>(TYPES.LocalAiService).to(LocalAiRuntime).inSingle
 container.bind<ResourceFallbackService>(TYPES.ResourceFallbackService).to(ResourceFallbackServiceImpl).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SherpaTtsModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VocabularyController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(LearningDataController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VideoLearningApiController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SentencePracticeController).inSingletonScope();
 // 恢复路由控制器：不绑定到 TYPES.Controller（恢复模式下不解析业务控制器），单独绑定。
@@ -237,8 +243,10 @@ container.bind<SherpaTtsModelService>(TYPES.SherpaTtsModelService).to(SherpaTtsM
 container.bind<LocalTtsService>(TYPES.LocalTtsService).to(LocalTtsServiceImpl).inSingletonScope();
 container.bind<WordsRepository>(TYPES.WordsRepository).to(WordsRepositoryImpl).inSingletonScope();
 container.bind<ReviewCardRepository>(TYPES.ReviewCardRepository).to(ReviewCardRepositoryImpl).inSingletonScope();
+container.bind<LearningDataRepository>(TYPES.LearningDataRepository).to(LearningDataRepositoryImpl).inSingletonScope();
 container.bind<WordEncounterRepository>(TYPES.WordEncounterRepository).to(WordEncounterRepositoryImpl).inSingletonScope();
 container.bind<WordEncounterService>(TYPES.WordEncounterService).to(WordEncounterServiceImpl).inSingletonScope();
+container.bind<LearningDataService>(TYPES.LearningDataService).to(LearningDataServiceImpl).inSingletonScope();
 container.bind<DpTaskRepository>(TYPES.DpTaskRepository).to(DpTaskRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipRepository>(TYPES.VideoLearningClipRepository).to(VideoLearningClipRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipWordRepository>(TYPES.VideoLearningClipWordRepository).to(VideoLearningClipWordRepositoryImpl).inSingletonScope();

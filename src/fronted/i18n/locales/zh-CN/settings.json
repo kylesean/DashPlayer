@@ -340,12 +340,30 @@
         "openFailed": "打开缓存目录失败",
         "description": "媒体库位置、磁盘占用与本地片段索引",
         "resetHint": "清空数据库记录，收藏与词汇索引会在重启后从本地文件重建",
+        "learningData": {
+            "exportTitle": "导出学习数据",
+            "exportDescription": "导出用户词表、学习事件、复习卡与 7/30 天回忆指标为 JSON",
+            "exportButton": "导出 JSON",
+            "exportSuccess": "学习数据已导出",
+            "exportFailed": "学习数据导出失败",
+            "clearTitle": "清除学习记录",
+            "clearDescription": "只清除学习事件、复习卡与掌握度，不会删除词表、释义和学习状态",
+            "clearButton": "清除学习记录",
+            "clearSuccess": "已清除 {{encounters}} 条学习记录与 {{cards}} 张复习卡，词表与释义已保留",
+            "clearFailed": "清除学习记录失败",
+            "clearConfirmTitle": "清除学习记录？",
+            "clearConfirmDescription": "将删除全部学习事件与复习卡，并把掌握度、置信度、最近遇见时间清零。词表、释义和学习状态会保留。此操作不可撤销。",
+            "clearConfirmCancel": "取消",
+            "clearConfirmOk": "确认清除"
+        },
         "sections": {
             "location": "存储位置",
             "locationDesc": "媒体库文件的保存位置",
             "usageDesc": "媒体库各类文件的磁盘占用",
             "sync": "资源同步",
             "syncDesc": "从本地文件重建片段索引",
+            "learningData": "学习数据",
+            "learningDataDesc": "可移植备份与学习记录治理",
             "danger": "危险操作",
             "dangerDesc": "以下操作不可撤销"
         }
