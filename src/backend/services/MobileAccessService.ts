@@ -144,6 +144,8 @@ export class MobileAccessServiceImpl implements MobileAccessService {
     private serverPort: number | null = null;
     /** 最近一次启动失败的原因，供设置页展示。 */
     private lastError: string | null = null;
+    /** 缩略图生成队列尾；手机页首屏会并发请求多张，排成串行避免同时拉起多个 ffmpeg。 */
+    private thumbnailQueue: Promise<void> = Promise.resolve();
 
     /**
      * 创建手机访问服务。
@@ -403,16 +405,30 @@ export class MobileAccessServiceImpl implements MobileAccessService {
      * 使用视频中点附近的一帧，保证同一个文件始终对应同一张缓存图；手机端只取
      * 800px 宽的 JPG，够列表展示又不会让 ffmpeg 生成过大的图片。
      *
+     * 手机页列表首屏会并发请求多张卡片图，而 MediaService 只按「同文件同参数」
+     * 去重、没有全局并发上限，每张图还要先跑一次 ffprobe 读时长。这里串行排队，
+     * 避免一次打开列表就把 ffmpeg 进程拉满；命中磁盘缓存时排队开销只有一次微任务。
+     *
      * @param id 观看记录 ID。
      * @returns 缩略图文件的绝对路径。
      */
     private async getThumbnail(id: string): Promise<string> {
-        const filePath = await this.watchHistoryService.videoPath(id);
-        return this.mediaService.thumbnail(filePath, undefined, {
-            quality: 'medium',
-            width: 800,
-            format: 'jpg',
+        const previous = this.thumbnailQueue;
+        let release: () => void = () => undefined;
+        this.thumbnailQueue = new Promise<void>((resolve) => {
+            release = resolve;
         });
+        await previous;
+        try {
+            const filePath = await this.watchHistoryService.videoPath(id);
+            return await this.mediaService.thumbnail(filePath, undefined, {
+                quality: 'medium',
+                width: 800,
+                format: 'jpg',
+            });
+        } finally {
+            release();
+        }
     }
 
     /**

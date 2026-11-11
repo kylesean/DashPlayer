@@ -51,14 +51,26 @@ export interface MobileWebServerOptions {
 }
 
 /**
- * 访问令牌的传递方式，按优先级排列：
- * 1. 查询参数 `?t=`：用于「把带令牌的地址粘贴到手机浏览器」这一首次访问；
+ * 访问令牌的传递方式，按校验优先级排列：
+ * 1. Cookie `dp_mobile_token`：浏览器拿到令牌后自动携带，代表「当前浏览器仍然有效」；
  * 2. 请求头 `X-DashPlayer-Token`：用于原生客户端（iOS）逐次携带；
- * 3. Cookie `dp_mobile_token`：用于浏览器在拿到令牌后自动带上后续请求。
+ * 3. 查询参数 `?t=`：用于「把带令牌的地址粘贴到手机浏览器」这一首次访问。
+ *
+ * Cookie 优先于查询参数：地址里的令牌可能来自轮换前的旧书签或旧主屏快捷方式，
+ * 若让它压过仍然有效的 Cookie，用户会表现为「明明刚连上又进不去」。
+ * 三者中任意一个有效即放行，不会因为前一个失效而拒绝后面的有效值。
  */
 const TOKEN_QUERY_KEY = 't';
 const TOKEN_HEADER_NAME = 'x-dashplayer-token';
 const TOKEN_COOKIE_NAME = 'dp_mobile_token';
+
+/**
+ * 访问令牌 Cookie 的有效期（秒）。
+ *
+ * 没有有效期时是会话 Cookie，浏览器重启或主屏 Web App 被系统回收后就会丢，
+ * 手机页再打开直接 401，只能回电脑重新复制地址。令牌本身长期稳定，这里给一年。
+ */
+const TOKEN_COOKIE_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
 
 /**
  * 常量时间比较两个字符串，避免通过响应时间逐字节猜测令牌。
@@ -153,6 +165,35 @@ const MEDIA_CONTENT_TYPES: Record<string, string> = {
 
 /** 进度请求体允许的最大字节数。 */
 const MAX_JSON_BODY_BYTES = 16 * 1024;
+
+/**
+ * 允许写回的最大播放位置（秒），24 小时。
+ *
+ * 本地媒体单文件超过 24 小时基本不存在，这个上限只用于拦住「拿到令牌的客户端
+ * 把续播位置写成任意大数」的污染；真实时长校验需要额外的 ffprobe 调用，
+ * 不适合放在每 5 秒一次的进度写回路径上。
+ */
+const MAX_PROGRESS_SECONDS = 24 * 60 * 60;
+
+/**
+ * 付费接口（查词、字幕翻译）的限流窗口长度。
+ *
+ * 这两个接口在缓存未命中时会调用用户配置的付费模型，服务又监听在局域网可达地址上，
+ * 必须给一个按来源计数的上限，避免令牌泄露或同网段设备无限制消耗额度。
+ */
+const RATE_LIMIT_WINDOW_MS = 60_000;
+
+/**
+ * 单个来源在每个窗口内允许的付费接口请求数。
+ *
+ * 查词与翻译共用一个计数桶：正常观看时每 20 句才批量翻译一次，手动查词也远低于
+ * 这个量级；取 60 是为了给「快速拖动进度条连续触发翻译窗口」和密集查词留余量，
+ * 避免正常使用被误伤。真正的防滥用仍然是访问令牌。
+ */
+const RATE_LIMIT_MAX_REQUESTS = 60;
+
+/** 限流表最多保留的来源数量，超过时清理窗口已过期的条目。 */
+const RATE_LIMIT_MAX_TRACKED_SOURCES = 128;
 
 /**
  * 单次翻译请求的文本总字节上限。
@@ -306,6 +347,8 @@ export default class MobileWebServer {
     /** 当前访问令牌；用户重新生成后由 setToken 热更新，无需重启服务。 */
     private token: string;
     private server: http.Server | null = null;
+    /** 付费接口的固定窗口计数，键为请求来源地址。 */
+    private readonly paidRequestWindows = new Map<string, { windowStart: number; count: number }>();
 
     /**
      * 创建服务实例；此时还没有开始监听。
@@ -418,12 +461,13 @@ export default class MobileWebServer {
      *
      * 服务监听在局域网可达的地址上，缺令牌等于把用户的媒体库、字幕和付费额度
      * 暴露给同一网络里的任何人。令牌可以三种方式携带：
-     * - `?t=` 查询参数：用户把设置页展示的完整地址粘到手机浏览器时用；
+     * - `dp_mobile_token` Cookie：浏览器首次访问后由服务端下发，后续请求自动带上；
      * - `X-DashPlayer-Token` 请求头：原生客户端逐次携带；
-     * - `dp_mobile_token` Cookie：浏览器首次访问后由服务端下发，后续请求自动带上。
+     * - `?t=` 查询参数：用户把设置页展示的完整地址粘到手机浏览器时用。
      *
-     * 用查询参数或请求头通过时补发 Cookie，让页面里的静态资源与接口请求
-     * 不必再各自带令牌。
+     * 依次尝试三种来源，任意一个与当前令牌一致即放行。Cookie 排在最前，避免
+     * 旧书签里残留的过期 `?t=` 把仍然有效的 Cookie 顶掉；反过来，Cookie 失效
+     * 但地址里是新令牌时也会正常放行，并顺带刷新 Cookie。
      *
      * @param request HTTP 请求。
      * @param url 解析后的请求地址。
@@ -438,8 +482,9 @@ export default class MobileWebServer {
         const queryValue = url.searchParams.get(TOKEN_QUERY_KEY);
         const cookieValue = readCookie(request.headers.cookie, TOKEN_COOKIE_NAME);
 
-        const provided = queryValue ?? headerValue ?? cookieValue;
-        if (provided === null || !safeTokenEquals(provided, expected)) {
+        const candidates = [cookieValue, headerValue, queryValue];
+        const accepted = candidates.find((value) => value !== null && safeTokenEquals(value, expected)) ?? null;
+        if (accepted === null) {
             this.logger.warn('mobile web request rejected: invalid access token', {
                 method: request.method,
                 pathname: url.pathname,
@@ -448,14 +493,86 @@ export default class MobileWebServer {
             return false;
         }
 
-        // 通过查询参数或请求头进来的，补发 Cookie 让后续请求免带令牌。
-        if (queryValue !== null || headerValue !== null) {
-            response.setHeader(
-                'Set-Cookie',
-                `${TOKEN_COOKIE_NAME}=${encodeURIComponent(expected)}; Path=/; HttpOnly; SameSite=Strict`,
-            );
+        // Cookie 不是这次通过鉴权的来源（首次带令牌进入、或旧 Cookie 已被轮换）时补发，
+        // 让后续请求不必再各自携带令牌。
+        if (accepted !== cookieValue) {
+            this.setTokenCookie(response, expected);
         }
         return true;
+    }
+
+    /**
+     * 下发访问令牌 Cookie。
+     *
+     * @param response HTTP 响应。
+     * @param token 访问令牌。
+     */
+    private setTokenCookie(response: ServerResponse, token: string): void {
+        response.setHeader(
+            'Set-Cookie',
+            `${TOKEN_COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict`
+                + `; Max-Age=${TOKEN_COOKIE_MAX_AGE_SECONDS}`,
+        );
+    }
+
+    /**
+     * 检查付费接口的调用配额，超限时直接回 429。
+     *
+     * @param request HTTP 请求。
+     * @param response HTTP 响应。
+     * @returns 未超限时为 true。
+     */
+    private ensurePaidRequestAllowed(request: IncomingMessage, response: ServerResponse): boolean {
+        if (this.acquirePaidRequest(request)) {
+            return true;
+        }
+        this.logger.warn('mobile web paid request rate limited', {
+            pathname: (request.url ?? '').split('?')[0],
+        });
+        response.setHeader('Retry-After', String(Math.ceil(RATE_LIMIT_WINDOW_MS / 1000)));
+        this.sendJson(response, 429, { error: '请求过于频繁，请稍后再试' });
+        return false;
+    }
+
+    /**
+     * 按来源地址做固定窗口计数。
+     *
+     * 手机页是单用户场景，来源地址足够区分设备；窗口滑动不精确也无所谓，
+     * 目标只是把「无限调用付费模型」收成「每分钟有限次」。
+     *
+     * @param request HTTP 请求。
+     * @returns 本窗口内仍有配额时为 true。
+     */
+    private acquirePaidRequest(request: IncomingMessage): boolean {
+        const source = request.socket.remoteAddress ?? 'unknown';
+        const now = Date.now();
+        const current = this.paidRequestWindows.get(source);
+        if (current === undefined || now - current.windowStart >= RATE_LIMIT_WINDOW_MS) {
+            this.paidRequestWindows.set(source, { windowStart: now, count: 1 });
+            this.prunePaidRequestWindows(now);
+            return true;
+        }
+        if (current.count >= RATE_LIMIT_MAX_REQUESTS) {
+            return false;
+        }
+        current.count += 1;
+        return true;
+    }
+
+    /**
+     * 清理窗口已过期且数量超出上限的来源记录，避免限流表无限增长。
+     *
+     * @param now 当前时间戳。
+     */
+    private prunePaidRequestWindows(now: number): void {
+        if (this.paidRequestWindows.size <= RATE_LIMIT_MAX_TRACKED_SOURCES) {
+            return;
+        }
+        for (const [source, window] of this.paidRequestWindows) {
+            if (now - window.windowStart >= RATE_LIMIT_WINDOW_MS) {
+                this.paidRequestWindows.delete(source);
+            }
+        }
     }
 
     /**
@@ -538,6 +655,9 @@ export default class MobileWebServer {
                     this.sendJson(response, 405, { error: '只支持 GET' });
                     return;
                 }
+                if (!this.ensurePaidRequestAllowed(request, response)) {
+                    return;
+                }
                 const word = (url.searchParams.get('word') ?? '').trim();
                 if (word === '' || word.length > 64) {
                     this.sendJson(response, 400, { error: '缺少合法的查询单词' });
@@ -551,6 +671,9 @@ export default class MobileWebServer {
             if (pathname === '/api/translate') {
                 if (request.method !== 'POST') {
                     this.sendJson(response, 405, { error: '只支持 POST' });
+                    return;
+                }
+                if (!this.ensurePaidRequestAllowed(request, response)) {
                     return;
                 }
                 const body = await readJsonBody(request);
@@ -601,8 +724,11 @@ export default class MobileWebServer {
                         return;
                     }
                     const body = await readJsonBody(request);
-                    const position = Number(body.position);
-                    if (!Number.isFinite(position) || position < 0) {
+                    const position = body.position;
+                    // 只接受 JSON 数字：Number('120') / Number([120]) 都会过旧校验，
+                    // 相当于让字符串和数组绕过类型约定写进观看历史。
+                    if (typeof position !== 'number' || !Number.isFinite(position)
+                        || position < 0 || position > MAX_PROGRESS_SECONDS) {
                         this.sendJson(response, 400, { error: '播放位置无效' });
                         return;
                     }

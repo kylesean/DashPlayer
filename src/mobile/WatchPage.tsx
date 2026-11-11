@@ -41,6 +41,7 @@ const WatchPlayer = ({ detail }: { detail: MobileWatchDetail }) => {
         videoRef,
         virtuosoRef,
         dictRef,
+        dockRef,
         handleScrollerRef,
         currentIndex,
         currentLine,
@@ -213,7 +214,7 @@ const WatchPlayer = ({ detail }: { detail: MobileWatchDetail }) => {
                 )}
             </div>
 
-            <div className="controls-wrap">
+            <div className="controls-wrap" ref={dockRef}>
                 <PlaybackControls
                     hasSubtitles={detail.subtitles.length > 0}
                     onPrevious={() => stepLine(-1)}

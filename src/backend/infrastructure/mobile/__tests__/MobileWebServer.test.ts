@@ -81,6 +81,23 @@ describe('MobileWebServer 访问令牌鉴权', () => {
         expect(setCookie).toContain('dp_mobile_token=');
         expect(setCookie).toContain('HttpOnly');
         expect(setCookie).toContain('SameSite=Strict');
+        // 会话 Cookie 在浏览器重启/主屏 Web App 被回收后会丢，必须带明确有效期。
+        expect(setCookie).toMatch(/Max-Age=\d+/);
+    });
+
+    it('有效 Cookie 优先于地址里残留的过期令牌', async () => {
+        const response = await fetch(`${baseUrl}/api/recent?t=stale-token-from-old-bookmark`, {
+            headers: { Cookie: `dp_mobile_token=${TEST_TOKEN}` },
+        });
+        expect(response.status).toBe(200);
+    });
+
+    it('Cookie 已失效但地址里是新令牌时放行并刷新 Cookie', async () => {
+        const response = await fetch(`${baseUrl}/api/recent?t=${TEST_TOKEN}`, {
+            headers: { Cookie: 'dp_mobile_token=stale-token' },
+        });
+        expect(response.status).toBe(200);
+        expect(response.headers.get('set-cookie') ?? '').toContain(`dp_mobile_token=${TEST_TOKEN}`);
     });
 
     it('请求头携带令牌可以访问', async () => {
@@ -195,5 +212,43 @@ describe('手机页的浏览器访问链路', () => {
         expect(response.headers.get('x-frame-options')).toBe('DENY');
         expect(response.headers.get('referrer-policy')).toBe('no-referrer');
         expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    });
+
+    it('进度写回只接受 0 到 24 小时之间的 JSON 数字', async () => {
+        const post = (position: unknown) => fetch(`${baseUrl}/api/videos/x/progress`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-DashPlayer-Token': TEST_TOKEN,
+            },
+            body: JSON.stringify({ position }),
+        });
+
+        expect((await post('120')).status).toBe(400);
+        expect((await post([120])).status).toBe(400);
+        expect((await post(-1)).status).toBe(400);
+        expect((await post(Number.MAX_SAFE_INTEGER)).status).toBe(400);
+        expect((await post(120)).status).toBe(200);
+    });
+
+    it('付费接口按来源限流，超限返回 429 与 Retry-After', async () => {
+        const translate = () => fetch(`${baseUrl}/api/translate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-DashPlayer-Token': TEST_TOKEN,
+            },
+            body: JSON.stringify({ texts: ['a'] }),
+        });
+
+        for (let index = 0; index < 60; index += 1) {
+            expect((await translate()).status).toBe(200);
+        }
+        const limited = await translate();
+        expect(limited.status).toBe(429);
+        expect(limited.headers.get('retry-after')).toBe('60');
+        await expect(limited.json()).resolves.toMatchObject({
+            error: expect.stringContaining('频繁'),
+        });
     });
 });

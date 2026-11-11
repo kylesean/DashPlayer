@@ -30,6 +30,8 @@ export interface WatchPlayerApi {
     videoRef: React.RefObject<HTMLVideoElement | null>;
     virtuosoRef: React.RefObject<VirtuosoHandle | null>;
     handleScrollerRef: (ref: HTMLElement | Window | null) => void;
+    /** 底部悬浮控制坞的 DOM 引用，用于计算字幕列表被遮挡的下边界。 */
+    dockRef: React.RefObject<HTMLDivElement | null>;
     dictRef: React.RefObject<HTMLDivElement | null>;
     currentIndex: number;
     currentLine: MobileSubtitleLine | null;
@@ -110,6 +112,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
     const videoRef = React.useRef<HTMLVideoElement | null>(null);
     const virtuosoRef = React.useRef<VirtuosoHandle | null>(null);
     const scrollerRef = React.useRef<HTMLElement | null>(null);
+    const dockRef = React.useRef<HTMLDivElement | null>(null);
     const dictRef = React.useRef<HTMLDivElement | null>(null);
     const mountedRef = React.useRef(true);
 
@@ -211,12 +214,6 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         void mobileApi.saveProgress(detail.id, second, force).catch(() => undefined);
     }, [detail.id]);
 
-    /**
-     * 判断某行字幕是否完整落在可视区内。
-     *
-     * @param index 字幕下标。
-     * @returns 整行可见时为 true。
-     */
     /** Virtuoso 的滚动容器引用；它的实际 DOM 类型是 HTMLElement。 */
     const handleScrollerRef = React.useCallback((ref: HTMLElement | Window | null): void => {
         scrollerRef.current = ref instanceof HTMLElement ? ref : null;
@@ -226,6 +223,8 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
      * 判断某行字幕是否完整落在可视区内。
      *
      * Virtuoso 只渲染视口附近的行，查不到 DOM 时按不可见处理。
+     * 行元素按 Virtuoso 自带的 `data-item-index` 查找，不依赖字幕行的样式类名；
+     * 控制坞的遮挡范围用外部传进来的 ref 计算，同样不依赖类名。
      *
      * @param index 字幕下标。
      * @returns 整行可见时为 true。
@@ -236,7 +235,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
             return false;
         }
         const list = scrollerRef.current;
-        const row = list?.querySelector<HTMLElement>(`.line[data-index="${index}"]`);
+        const row = list?.querySelector<HTMLElement>(`[data-item-index="${index}"]`);
         if (!list || !row) {
             return false;
         }
@@ -246,7 +245,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         // 计算底部被悬浮控制坞（Dock）遮挡的实际可视底线。
         // 以 Dock 顶边为下限（留出 12px 呼吸缓冲），一旦进入 Dock 遮挡区域即视为不可见；
         // 否则保底以容器底部扣除 Dock 高度与间距（约 110px）为准。
-        const dockEl = document.querySelector('.controls');
+        const dockEl = dockRef.current;
         const visibleBottomLimit = dockEl
             ? dockEl.getBoundingClientRect().top - 12
             : listRect.bottom - 110;
@@ -549,10 +548,20 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         saveProgress(true);
     }, [saveProgress]);
 
-    /** 开始播放后收起暂停菜单。 */
+    /**
+     * 开始播放后收起暂停菜单，并按本次起播位置决定是否重新武装自动暂停。
+     *
+     * 暂停后播放头通常已经越过当前句句尾，此时不能复位：否则下一次 timeupdate
+     * 会立刻再次暂停，「播放键」看起来失灵。只有播放头仍在本句内部（例如在句尾
+     * 前 0.1 秒就触发了暂停、或在句尾停留时刚打开自动暂停开关）才复位，
+     * 让这一句结束时仍然按预期暂停。越过句尾的情况由下标变化重新武装。
+     */
     const handlePlay = React.useCallback((): void => {
         setPaused(false);
-    }, []);
+        const video = videoRef.current;
+        const line = currentIndexRef.current >= 0 ? detail.subtitles[currentIndexRef.current] : null;
+        autoPauseArmedRef.current = !video || !line || video.currentTime < line.end - LOOP_EPSILON;
+    }, [detail.subtitles]);
 
     /** 播放结束时写回进度，并重新显示暂停菜单。 */
     const handleEnded = React.useCallback((): void => {
@@ -975,6 +984,7 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         videoRef,
         virtuosoRef,
         handleScrollerRef,
+        dockRef,
         dictRef,
         currentIndex,
         currentLine,
