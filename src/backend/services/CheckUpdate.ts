@@ -85,6 +85,7 @@ export const checkUpdate = (currentVersion: string): Promise<UpdateCheckResult> 
  * - 开发模式下直接返回“无更新”，避免版本配置落后于线上时误报；
  * - /latest 携带最近成功快照的 etag，命中 304 时复用快照结果，不消耗速率限额；
  * - /latest 请求失败（含 403 限流）直接返回失败缓存，不再请求列表接口；
+ * - /latest 返回 404 表示仓库尚未发布过稳定版，按「无更新」的正常结果处理；
  * - 列表接口失败时回退为仅返回 /latest 的单个版本（该降级结果不写入快照，
  *   保证 304 复用的永远是完整成功的结果）；
  * - 所有正常与预期失败分支都会设置 cacheExpireAt，失败态同样缓存避免反复请求。
@@ -143,6 +144,14 @@ const doCheckUpdate = async (currentVersion: string): Promise<UpdateCheckResult>
     if (!latestResponse.ok) {
         await latestResponse.body?.cancel();
         const status = latestResponse.status;
+        // 仓库还没发布过任何稳定版 Release 时 /latest 返回 404：0.x 快速迭代阶段的常态而非故障，
+        // 按「无更新」处理，避免用户每次启动都看到更新检查失败。
+        if (status === 404) {
+            logger.info('no stable release published yet (404), treat as no update');
+            cache = { status: 'ok', releases: [] };
+            cacheExpireAt = Date.now() + UPDATE_CACHE_TTL_MS;
+            return cache;
+        }
         const rateLimited = status === 403 || status === 429;
         // 限流或异常 HTTP 状态码均属于可恢复的预期失败，记 warn 并带上 status 便于排障。
         logger.warn(rateLimited ? 'github latest release rate limited' : 'failed to fetch latest release', {
