@@ -59,7 +59,6 @@ export class PlayerActions {
   setAutoPause(v: boolean) { this.s.setAutoPause(v); }
   setSingleRepeat(v: boolean) { this.s.setSingleRepeat(v); }
   setHoverRepeat(v: boolean) { this.s.setHoverRepeat(v); }
-  setAutoPlayNext(v: boolean) { this.s.setAutoPlayNext(v); }
 
   // 训练模式（skipGap / rewindOnResume 归 trainingStore，为持久化的训练偏好）
   setSkipGap(v: boolean) { useTrainingModeStore.getState().setSkipGap(v); }

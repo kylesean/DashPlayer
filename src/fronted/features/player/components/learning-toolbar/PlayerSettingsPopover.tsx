@@ -15,8 +15,6 @@ import {
     CONTROL_POPOVER_PANEL,
 } from '@/fronted/features/player/components/ControlPopover';
 import { playerApi } from '@/fronted/features/player/playerApi';
-import { playerActions } from '@/fronted/features/player/components/PlayerActions';
-import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
@@ -71,7 +69,7 @@ export default function PlayerSettingsPopover({
     const adaptiveChinese = useSetting((s) => s.values.get('player.adaptiveChinese') ?? 'true') === 'true';
     const setSetting = useSetting((s) => s.setSetting);
 
-    const autoPlayNext = usePlayer((s) => s.autoPlayNext);
+    const autoPlayNext = useSetting((s) => s.values.get('player.autoPlayNext')) === 'true';
     const currentSentence = usePlayerState((s) => s.currentSentence);
     const srtTender = usePlayerState((s) => s.srtTender);
     const adjustDiff = currentSentence && srtTender && srtTender.adjusted(currentSentence)
@@ -85,7 +83,6 @@ export default function PlayerSettingsPopover({
     };
 
     const changeAutoPlayNext = async (next: boolean) => {
-        playerActions.setAutoPlayNext(next);
         await setSetting('player.autoPlayNext', next ? 'true' : 'false');
     };
 

@@ -76,15 +76,18 @@ export class StorageServiceImpl implements StorageService {
         // 语音模型与本地 AI 模型都存放在 models 目录下（按子目录区分），统一计入「模型」分类。
         const modelsBytes = await this.queryDirectoryUsage(libraryRoot, StorageDirectoryTarget.MODELS);
 
-        // word_video 位于 favorite_clips 内，收藏片段分类只保留其余部分；
+        // word_video 位于 favorite_clips 内：收藏片段分类只保留其余部分，
+        // 否则同一批字节会在两个分类里各算一次。
         // 目录内容在两次遍历之间可能变化，差值为负时按 0 展示。
+        const savedClipsBytes = Math.max(favouriteClipsBytes - wordClipsBytes, 0);
         const otherBytes = Math.max(
-            totalBytes - videosBytes - favouriteClipsBytes - wordClipsBytes - tempBytes - modelsBytes,
+            totalBytes - videosBytes - favouriteClipsBytes - tempBytes - modelsBytes,
             0,
         );
 
         const knownItems: StorageUsageItemVO[] = [
             { category: 'videos', bytes: videosBytes },
+            { category: 'favorite_clips', bytes: savedClipsBytes },
             { category: 'word_clips', bytes: wordClipsBytes },
             { category: 'models', bytes: modelsBytes },
             { category: 'temp', bytes: tempBytes },

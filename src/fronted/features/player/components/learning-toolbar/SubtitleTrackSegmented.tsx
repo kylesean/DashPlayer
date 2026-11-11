@@ -56,10 +56,16 @@ export default function SubtitleTrackSegmented({
         if (showCn) changeShowCn();
         if (showSourceZh) changeShowSourceZh();
     };
-    /** 只留中文：英文关掉；中文两路原本都关着时打开 AI 翻译。 */
+    /**
+     * 只留中文：英文关掉。
+     *
+     * 判断必须用 `sourceZhVisible` 而不是原始的 `showSourceZh`：字幕文件不带中文时，
+     * `showSourceZh` 仍可能是 true，但画面上一行中文都没有。此时若按原始值跳过
+     * `changeShowCn()`，三档会同时不选中且点「中」毫无反应——用户被困在空白字幕里。
+     */
     const showChineseOnly = () => {
         if (showEn) changeShowEn();
-        if (!showCn && !showSourceZh) changeShowCn();
+        if (!showCn && !sourceZhVisible) changeShowCn();
     };
     /** 双语：英文 + AI 翻译都打开。 */
     const showBilingual = () => {

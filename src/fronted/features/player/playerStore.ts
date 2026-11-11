@@ -145,7 +145,6 @@ interface PlayerState {
   singleRepeat: boolean;
   /** 悬停临时单句循环：鼠标悬停主字幕胶囊区期间生效，离开即还原，不改动用户既有的句末模式。 */
   hoverRepeat: boolean;
-  autoPlayNext: boolean;
 
   // 训练模式（组合播放行为）
   /** 影子跟读：句末暂停留白（时长按本句时长自适应），留白结束后按"跳过句间空隙"开关直跳下一句或自然过渡。 */
@@ -221,7 +220,6 @@ interface PlayerState {
   setAutoPause: (v: boolean) => void;
   setSingleRepeat: (v: boolean) => void;
   setHoverRepeat: (v: boolean) => void;
-  setAutoPlayNext: (v: boolean) => void;
 
   // 训练模式控制
   setShadowing: (v: boolean) => void;
@@ -258,7 +256,7 @@ interface PlayerState {
   prevSentence: (step?: number) => void;
   gotoSentenceIndex: (index: number) => void;
   gotoSentence: (s: Sentence) => void;
-  repeatCurrent: (options?: { loop?: boolean }) => void;
+  repeatCurrent: (options?: { loop?: boolean; play?: boolean }) => void;
   clearAdjust: () => Promise<void>;
   seekToCurrentStart: () => void;
   seekToCurrentEnd: (epsilon?: number) => void;
@@ -1027,7 +1025,6 @@ export const usePlayer = create<PlayerState>((set, get) => {
     autoPause: false,
     singleRepeat: false,
     hoverRepeat: false,
-    autoPlayNext: false,
 
     shadowing: false,
     shadowingPause: null,
@@ -1202,6 +1199,14 @@ export const usePlayer = create<PlayerState>((set, get) => {
      * 基础 seek：按时间匹配高亮，用于进度条拖动等通用场景。
      * @param seekTime 目标时间（可传函数形式读取上一次 seek）
      */
+    /**
+     * 基础 seek：按时间匹配高亮，用于进度条拖动等通用场景。
+     *
+     * 默认保持当前播放态：暂停中拖动进度条只移动播放头，不应突然起播。
+     * 需要「seek 后起播」的入口（如首次加载定位到上次进度）显式传 `play: true`。
+     *
+     * @param seekTime 目标时间（可传函数形式读取上一次 seek）
+     */
     seekTo: (seekTime) => {
       clearShadowTimer();
       clearTransientPlan();
@@ -1210,7 +1215,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const srtTender = get().srtTender;
       const currentSeek = get().seekTime;
       const next = typeof seekTime === 'function' ? seekTime(currentSeek) : seekTime;
-      const wantPlay = next.play ?? true;
+      const wantPlay = next.play ?? get().playing;
 
       set((prev) => ({
         playing: wantPlay,
@@ -1319,7 +1324,6 @@ export const usePlayer = create<PlayerState>((set, get) => {
      * 用户在悬停期间显式切换任一句末模式时，由对应 setter 顺手清掉本标志（显式选择优先）。
      */
     setHoverRepeat: (v) => set({ hoverRepeat: v }),
-    setAutoPlayNext: (v) => set({ autoPlayNext: v }),
 
     // 训练模式控制
     /**
@@ -1449,16 +1453,18 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const pos = findFocusedNavIndex();
       if (pos < 0) return;
 
+      // 跳句不改变播放意图：暂停中按「下一句」只移动播放头与高亮，不应突然起播。
+      const play = get().playing;
       const nextIdx = Math.min(units.length - 1, Math.max(0, pos + step));
       const unit = units[nextIdx];
 
       if (unit.type === 'sentence') {
         const { start } = srtTender.mapSeekTime(unit.s);
-        get().seekToTarget({ time: start, target: unit.s });
+        get().seekToTarget({ time: start, target: unit.s, play });
       } else {
         const range = get().getVirtualGroupRange();
         const start = range ? range.start : srtTender.mapSeekTime(unit.repr).start;
-        get().seekToTarget({ time: start, target: unit.repr });
+        get().seekToTarget({ time: start, target: unit.repr, play });
       }
     },
 
@@ -1474,16 +1480,17 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const pos = findFocusedNavIndex();
       if (pos < 0) return;
 
+      const play = get().playing;
       const nextIdx = Math.max(0, Math.min(units.length - 1, pos - step));
       const unit = units[nextIdx];
 
       if (unit.type === 'sentence') {
         const { start } = srtTender.mapSeekTime(unit.s);
-        get().seekToTarget({ time: start, target: unit.s });
+        get().seekToTarget({ time: start, target: unit.s, play });
       } else {
         const range = get().getVirtualGroupRange();
         const start = range ? range.start : srtTender.mapSeekTime(unit.repr).start;
-        get().seekToTarget({ time: start, target: unit.repr });
+        get().seekToTarget({ time: start, target: unit.repr, play });
       }
     },
 
@@ -1499,7 +1506,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
         : sentences.find((s) => s.index === index);
       if (!target) return;
       const { start } = srtTender.mapSeekTime(target);
-      get().seekToTarget({ time: start, target });
+      // 点文稿跳句是导航，不是播放命令：暂停中跳句后应当仍停在暂停态。
+      get().seekToTarget({ time: start, target, play: get().playing });
     },
 
     // 高级 API —— 跳到指定句（按对象）
@@ -1508,13 +1516,16 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const { srtTender } = get();
       if (!srtTender) return;
       const { start } = srtTender.mapSeekTime(s);
-      get().seekToTarget({ time: start, target: s });
+      get().seekToTarget({ time: start, target: s, play: get().playing });
     },
 
     // 高级 API —— 重复当前
     repeatCurrent: (options) => {
       clearTailPreview();
       const loop = options?.loop ?? true;
+      // 时间轴微调（clearAdjust / adjustCurrentBegin）复用本入口只为了"跳到新的句首"，
+      // 不是用户点「重复当前句」；它们必须保持当前播放态，否则暂停中微调会突然起播。
+      const play = options?.play ?? true;
       if (loop) {
         // 走统一的模式入口：直接 set({ singleRepeat: true }) 会绕过互斥，
         // 让影子跟读/自动暂停与单句循环同时为真，句末行为变得不可预测。
@@ -1524,11 +1535,11 @@ export const usePlayer = create<PlayerState>((set, get) => {
           const first = vg.sentences.slice().sort((a, b) => a.index - b.index)[0];
           const r = get().getVirtualGroupRange();
           const start = r ? r.start : get().mapCurrentRange().start;
-          get().seekToTarget({ time: start, target: first });
+          get().seekToTarget({ time: start, target: first, play });
         } else {
           const { start } = get().mapCurrentRange();
           const cur = get().currentSentence ?? getFocusedSentence() ?? null;
-          get().seekToTarget({ time: start, target: cur ?? undefined });
+          get().seekToTarget({ time: start, target: cur ?? undefined, play });
         }
       } else {
         const vg = get().virtualGroup;
@@ -1537,13 +1548,13 @@ export const usePlayer = create<PlayerState>((set, get) => {
           const range = get().getVirtualGroupRange();
           const start = range ? range.start : get().mapCurrentRange().start;
           if (first) {
-            get().seekToTarget({ time: start, target: first });
+            get().seekToTarget({ time: start, target: first, play });
             return;
           }
         }
         const { start } = get().mapCurrentRange();
         const cur = get().currentSentence ?? getFocusedSentence() ?? null;
-        get().seekToTarget({ time: start, target: cur ?? undefined });
+        get().seekToTarget({ time: start, target: cur ?? undefined, play });
       }
     },
 
@@ -1558,7 +1569,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const resetSentence = srtTender.clearAdjust(focus);
       patchSentenceInStore(resetSentence);
       set({ currentSentence: resetSentence });
-      state.repeatCurrent({ loop: false });
+      state.repeatCurrent({ loop: false, play: state.playing });
 
       const { subtitlePath } = usePlaybackSession.getState();
       if (StrUtil.isBlank(subtitlePath)) {
@@ -1578,12 +1589,15 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const { srtTender, virtualGroup } = get();
       if (!srtTender) return;
 
+      // 句首/句尾跳转同样保持当前播放态：暂停中只移动播放头。
+      const play = get().playing;
+
       if (virtualGroup.active && virtualGroup.sentences.length > 0 && isFocusInVirtualGroup()) {
         const first = virtualGroup.sentences.slice().sort((a, b) => a.index - b.index)[0];
         if (first) {
           const range = get().getVirtualGroupRange();
           const start = range ? range.start : srtTender.mapSeekTime(first).start;
-          get().seekToTarget({ time: start, target: first });
+          get().seekToTarget({ time: start, target: first, play });
           return;
         }
       }
@@ -1591,7 +1605,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const currentSentence = get().currentSentence ?? getFocusedSentence();
       if (!currentSentence) return;
       const { start } = srtTender.mapSeekTime(currentSentence);
-      get().seekToTarget({ time: start, target: currentSentence });
+      get().seekToTarget({ time: start, target: currentSentence, play });
     },
 
     // 高级 API —— 跳到当前句尾
@@ -1600,12 +1614,14 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const { srtTender, virtualGroup } = get();
       if (!srtTender) return;
 
+      const play = get().playing;
+
       if (virtualGroup.active && virtualGroup.sentences.length > 0 && isFocusInVirtualGroup()) {
         const first = virtualGroup.sentences.slice().sort((a, b) => a.index - b.index)[0];
         if (first) {
           const range = get().getVirtualGroupRange();
           const end = range ? range.end : srtTender.mapSeekTime(first).end;
-          get().seekToTarget({ time: Math.max(end - epsilon, 0), target: first });
+          get().seekToTarget({ time: Math.max(end - epsilon, 0), target: first, play });
           return;
         }
       }
@@ -1613,7 +1629,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const currentSentence = get().currentSentence ?? getFocusedSentence();
       if (!currentSentence) return;
       const { end } = srtTender.mapSeekTime(currentSentence);
-      get().seekToTarget({ time: Math.max(end - epsilon, 0), target: currentSentence });
+      get().seekToTarget({ time: Math.max(end - epsilon, 0), target: currentSentence, play });
     },
 
     // 高级 API —— 调整开始时间
@@ -1640,7 +1656,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const updated = srtTender.adjustBegin(target, safeDelta);
       patchSentenceInStore(updated);
 
-      state.repeatCurrent({ loop: false });
+      state.repeatCurrent({ loop: false, play: state.playing });
 
       const { subtitlePath } = usePlaybackSession.getState();
       if (StrUtil.isBlank(subtitlePath)) {
@@ -1685,7 +1701,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const updated = srtTender.adjustEnd(target, deltaSeconds /* 或 safeDelta */);
       patchSentenceInStore(updated);
 
-      state.repeatCurrent({ loop: false });
+      state.repeatCurrent({ loop: false, play: state.playing });
 
       const { subtitlePath } = usePlaybackSession.getState();
       if (!StrUtil.isBlank(subtitlePath)) {

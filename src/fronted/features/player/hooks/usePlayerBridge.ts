@@ -12,6 +12,7 @@ import { computeResumeTime } from '@/fronted/features/player/lib/playerResume';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import useTranslation from '@/fronted/features/player/translationStore';
 import { useVocabularyStore } from '@/fronted/features/player/vocabularyStore';
+import useSetting from '@/fronted/features/settings/settingsStore';
 
 const logger = getRendererLogger('usePlayerBridge');
 
@@ -281,8 +282,9 @@ export function usePlayerBridge(navigate: (path: string) => void) {
                 }
             }
 
-            // seekTo 内部已带起播（play: true），无需再重复调用 playerActions.play()
-            playerActions.seekTo({ time: resumeTime });
+            // 首次加载要把播放头定位到上次进度并起播；seekTo 默认保持播放态，
+            // 所以这里必须显式 play: true，否则新打开的会话会停在暂停。
+            playerActions.seekTo({ time: resumeTime, play: true });
             lastLoadedFileRef.current = file;
         } catch (error) {
             logger.error('failed to jump to history progress', { error: error instanceof Error ? error.message : String(error) });
@@ -304,7 +306,9 @@ export function usePlayerBridge(navigate: (path: string) => void) {
 
     const handleAutoPlayNext = useCallback(async () => {
         const currentVideoId = usePlaybackSession.getState().videoId;
-        const autoPlayNext = usePlayer.getState().autoPlayNext;
+        // 单一来源：设置库里的值，而不是播放器 store 的镜像字段。
+        // 镜像字段在重启后恒为 false，会让用户开关看起来失效。
+        const autoPlayNext = useSetting.getState().values.get('player.autoPlayNext') === 'true';
         if (!autoPlayNext || !currentVideoId) {
             return;
         }
