@@ -22,19 +22,24 @@ import SubtitleTranslationScheduler, {
     type SubtitleTranslationBatchResult,
 } from '@/backend/services/subtitle-translation/SubtitleTranslationScheduler';
 import {
+    DirectSubtitleTranslator,
+    type DirectSubtitleTranslatorHost,
+} from '@/backend/services/subtitle-translation/DirectSubtitleTranslator';
+import {
+    normalizeTranslationProvider,
+    resolveSubtitleTranslationContext,
+    type ResolvedSubtitleTranslationContext,
+} from '@/backend/services/subtitle-translation/SubtitleTranslationContext';
+import {
     buildContextStorageKeyForSentence,
     buildSentenceStorageKey,
     resolvePromptNeighbor,
     shouldTranslateSubtitleText,
 } from '@/backend/services/subtitle-translation/SubtitleTranslationCacheKey';
 import {
-    buildSubtitleStorageMode,
     type SubtitleTranslationStorageMode,
 } from '@/backend/services/subtitle-translation/SubtitleTranslationStorageMode';
 import { concurrency } from '@/backend/utils/concurrency';
-import {
-    resolveSubtitleStyleWithSignature,
-} from '@/common/constants/openaiSubtitlePrompts';
 import type { Sentence } from '@/common/types/SentenceC';
 import type {
     RendererTranslationItem,
@@ -87,16 +92,6 @@ interface SubtitleBatchTarget {
      */
     storageKey: string;
     /** 字幕原文，保留大小写，用于送翻译与跳过判定。 */
-    text: string;
-}
-
-/**
- * 不依赖播放窗口的独立字幕翻译目标。
- */
-interface DirectTranslationTarget {
-    /** 用于缓存和结果映射的归一化原文键。 */
-    key: string;
-    /** 保留原始大小写的待翻译文本。 */
     text: string;
 }
 
@@ -213,11 +208,14 @@ const PROVIDER_LABELS: Partial<Record<TranslationProvider, string>> = {
  * 负责字幕缓存查询、在线翻译、结果持久化与窗口调度。
  */
 @injectable()
-export class SubtitleTranslationServiceImpl implements SubtitleTranslationService {
+export class SubtitleTranslationServiceImpl implements SubtitleTranslationService, DirectSubtitleTranslatorHost {
     private readonly logger = getMainLogger('SubtitleTranslationServiceImpl');
 
     /** 按字幕文件维护事件驱动的优先级翻译窗口。 */
     private readonly scheduler: SubtitleTranslationScheduler<SubtitleTranslationExecutionContext>;
+
+    /** 非播放窗口场景的独立直译器：编排逻辑见 DirectSubtitleTranslator。 */
+    private readonly directTranslator: DirectSubtitleTranslator;
 
     /**
      * 构造字幕翻译编排服务。
@@ -303,143 +301,54 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                 });
             },
         });
+        this.directTranslator = new DirectSubtitleTranslator({
+            settingService: this.settingService,
+            tencentProvider: this.tencentProvider,
+            resolveContext: (provider) => this.resolveCurrentStorageContext(provider),
+            host: this,
+            logger: this.logger,
+        });
     }
 
     /**
      * 使用当前 provider 对独立文本批次执行一次结构化翻译。
      *
      * 该入口供收藏片段等非播放窗口场景使用，与播放调度共用缓存、Provider
-     * 网关、批量 Prompt 和结果校验，但不会创建播放位置会话。
+     * 网关、批量 Prompt 和结果校验，但不会创建播放位置会话；编排逻辑见
+     * {@link DirectSubtitleTranslator}。
      *
      * @param texts 待翻译文本；空白项会被忽略，重复项按归一化文本键合并。
      * @returns 归一化原文到翻译结果的映射。
      */
     public async translateTexts(texts: string[]): Promise<Map<string, string>> {
-        const targetsByKey = new Map<string, DirectTranslationTarget>();
-        texts.forEach((text) => {
-            const trimmed = text.trim();
-            const key = buildSentenceStorageKey(trimmed);
-            if (key && !targetsByKey.has(key)) {
-                targetsByKey.set(key, { key, text: trimmed });
-            }
-        });
-        if (targetsByKey.size === 0) {
-            return new Map();
-        }
-
-        const rawProvider = await this.settingService.getCurrentTranslationProvider();
-        if (!rawProvider) {
-            throw new Error('未启用字幕翻译服务');
-        }
-        const provider = rawProvider === 'local-mt' ? 'local' : rawProvider;
-
-        const { mode, storageMode, style, localModelId } = await this.resolveCurrentStorageContext(provider);
-
-        const targets = Array.from(targetsByKey.values());
-        const cached = await this.getTranslations(
-            targets.map((target) => target.key),
-            storageMode
-        );
-        const result = new Map(cached);
-        const freshResults = new Map<string, string>();
-        const pending = targets.filter((target) => !cached.has(target.key));
-        const skipped = pending.filter((target) => !shouldTranslateSubtitleText(target.text));
-        skipped.forEach((target) => {
-            result.set(target.key, target.text);
-        });
-
-        const onlineTargets = pending.filter(
-            (target) => shouldTranslateSubtitleText(target.text)
-        );
-        let fellBackToLocal = false;
-        if (onlineTargets.length > 0) {
-            const batchId = `direct-${Date.now()}`;
-            const startedAt = Date.now();
-            let onlineResults: Map<string, string>;
-            if (provider === 'tencent') {
-                onlineResults = await this.translateDirectWithTencent(onlineTargets, batchId);
-            } else {
-                const gatewayOutcome = await this.translateDirectWithGateway(
-                    onlineTargets,
-                    mode,
-                    style,
-                    localModelId,
-                    provider,
-                );
-                onlineResults = gatewayOutcome.translations;
-                fellBackToLocal = gatewayOutcome.fellBackToLocal;
-            }
-            onlineResults.forEach((translation, key) => {
-                result.set(key, translation);
-                freshResults.set(key, translation);
-            });
-            this.logger.info('独立字幕批次翻译完成', {
-                batchId,
-                provider,
-                mode,
-                fellBackToLocal,
-                cacheHitCount: cached.size,
-                targetCount: onlineTargets.length,
-                elapsedMs: Date.now() - startedAt,
-            });
-        }
-
-        if (!fellBackToLocal) {
-            await this.saveTranslations(freshResults, storageMode);
-        }
-        return result;
+        return this.directTranslator.translateTexts(texts);
     }
 
     public async clearTranslationCache(): Promise<number> {
-        const rawProvider = await this.settingService.getCurrentTranslationProvider();
-        if (!rawProvider) {
-            throw new Error('未启用字幕翻译服务');
-        }
-        const provider = rawProvider === 'local-mt' ? 'local' : rawProvider;
-        const { storageMode } = await this.resolveCurrentStorageContext(provider);
-        const deleted = await this.sentenceTranslatesRepository.deleteByMode(storageMode);
-        this.logger.info('已清除当前配置的字幕翻译缓存', { provider, storageMode, deleted });
-        return deleted;
+        return this.directTranslator.clearTranslationCache();
     }
 
     /**
      * 解析当前设置对应的风格、持久化缓存模式与调度 profileKey。
      *
-     * 这是设置到缓存键/网关引擎路径的唯一解析入口：播放调度与独立直翻都从这里取值，
-     * 避免同一配置在多处重复拼装后产生不一致。
+     * 解析逻辑在 {@link resolveSubtitleTranslationContext} 共享：播放调度与独立直翻
+     * 都从这里取值，避免同一配置在多处重复拼装后产生不一致。
      *
-     * @param provider 当前字幕翻译 provider。
+     * @param provider 当前字幕翻译 provider（设置原始值，含 legacy 'local-mt'）。
      * @returns 翻译模式、缓存模式、风格、调度 profileKey 与本地模型 ID（云端为 null）；
-     *          OpenAI 引擎未配置模型时抛出显式错误。
+     *          对应引擎未配置模型时抛出显式错误。
      */
-    private async resolveCurrentStorageContext(
+    private resolveCurrentStorageContext(
         provider: NonNullable<Awaited<ReturnType<SettingService['getCurrentTranslationProvider']>>>
-    ): Promise<{
-        mode: TranslationMode,
-        storageMode: SubtitleTranslationStorageMode,
-        style?: string,
-        profileKey: string,
-        localModelId: string | null,
-    }> {
-        if (provider === 'tencent') {
-            return { mode: 'zh', storageMode: 'tencent', profileKey: 'tencent', localModelId: null };
-        }
-        const mode = await this.settingService.getOpenAiSubtitleTranslationMode();
-        const customStyle = mode === 'custom'
-            ? await this.settingService.getOpenAiSubtitleCustomStyle()
-            : undefined;
-        const resolved = resolveSubtitleStyleWithSignature(mode, customStyle);
-        const localModelId = provider === 'local' ? await this.localAiService.getActiveModelId() : null;
-        if (provider === 'local') {
-            // 本地引擎缺少模型标识时显式失败，不滑入云端路由掩盖配置问题。
-            if (!localModelId) throw new Error('本地字幕翻译模型未配置');
-            const storageMode = buildSubtitleStorageMode('local', localModelId, mode, resolved.signature);
-            return { mode, storageMode, style: resolved.style, profileKey: `${storageMode}:${localModelId}`, localModelId };
-        }
-        const routed = this.modelRoutingService.resolveOpenAiModel('subtitleTranslation');
-        if (!routed) throw new Error('OpenAI 字幕翻译模型未配置');
-        const storageMode = buildSubtitleStorageMode('openai', routed.modelId, mode, resolved.signature);
-        return { mode, storageMode, style: resolved.style, profileKey: `${storageMode}:${routed.fullModelId}`, localModelId: null };
+    ): Promise<ResolvedSubtitleTranslationContext> {
+        return resolveSubtitleTranslationContext(
+            {
+                settingService: this.settingService,
+                localAiService: this.localAiService,
+                modelRoutingService: this.modelRoutingService,
+            },
+            normalizeTranslationProvider(provider),
+        );
     }
 
     /**
@@ -477,7 +386,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
             this.scheduler.release(fileHash, input.rendererSessionId);
             throw new Error('未启用字幕翻译服务');
         }
-        const provider: TranslationProvider = rawProvider === 'local-mt' ? 'local' : rawProvider;
+        const provider = normalizeTranslationProvider(rawProvider);
 
         if (provider === 'tencent') {
             this.scheduler.updateDemand({
@@ -878,40 +787,6 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
     }
 
     /**
-     * 使用腾讯接口翻译不属于播放窗口的独立文本批次。
-     *
-     * 与主路径 {@link translateWithTencent} 一致走 `tencent` 限流，避免直翻批次绕过配额触发上游限流。
-     * @param targets 使用归一化原文作为 key 的目标条目。
-     * @param batchId 日志关联批次编号。
-     * @returns 归一化原文到翻译结果的映射。
-     */
-    private async translateDirectWithTencent(
-        targets: DirectTranslationTarget[],
-        batchId: string
-    ): Promise<Map<string, string>> {
-        const client = this.tencentProvider.getClient();
-        if (!client) {
-            throw new Error('腾讯翻译客户端未初始化，请检查密钥配置');
-        }
-
-        const holder = await concurrency.withRateLimit('tencent', () => client.batchTrans(
-            targets.map((target) => target.text),
-            {
-                batchId,
-                fileHash: 'direct',
-            }
-        ));
-        const translations = new Map<string, string>();
-        targets.forEach((target) => {
-            const translation = holder.get(target.text)?.trim();
-            if (translation) {
-                translations.set(target.key, translation);
-            }
-        });
-        return translations;
-    }
-
-    /**
      * 通过字幕翻译网关（云端或本地引擎）对当前目标执行一次结构化翻译。
      *
      * 失败后的重新执行由窗口调度器统一控制，当前方法本身只发起一次请求。
@@ -980,7 +855,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
      * @param targets 本次要校验的目标条目。
      * @returns 校验后的翻译结果及是否发生了云端到本地的回退。
      */
-    private async translateWithFallback(
+    public async translateWithFallback(
         input: SubtitleBatchTranslationInput,
         provider: 'openai' | 'local',
         localModelId: string | null,
@@ -1029,37 +904,6 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                 throw error;
             }
         }
-    }
-
-    /**
-     * 使用当前批量 Prompt 翻译不属于播放窗口的独立文本批次。
-     *
-     * @param targets 使用归一化原文作为 key 的目标条目。
-     * @param mode 当前字幕翻译模式。
-     * @param style 已解析的风格约束。
-     * @param localModelId 本地引擎使用中的模型 ID；云端引擎为 null。
-     * @returns 归一化原文到翻译结果的映射及是否发生了本地回退。
-     */
-    private async translateDirectWithGateway(
-        targets: DirectTranslationTarget[],
-        mode: TranslationMode,
-        style: string | undefined,
-        localModelId: string | null,
-        provider: 'openai' | 'local'
-    ): Promise<{ translations: Map<string, string>; fellBackToLocal: boolean }> {
-        if (!style) {
-            throw new Error('OpenAI 字幕翻译风格配置缺失');
-        }
-        // 独立直翻场景没有播放窗口，不携带上下文。
-        const input: SubtitleBatchTranslationInput = {
-            targets: [...targets],
-            contextBefore: [],
-            contextAfter: [],
-            mode,
-            style: style ?? '',
-            signal: new AbortController().signal,
-        };
-        return this.translateWithFallback(input, provider, localModelId, input.targets);
     }
 
     /**
@@ -1131,11 +975,13 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
     /**
      * 批量查询当前模式下的句级翻译缓存。
      *
+     * 播放调度与直译器宿主（{@link DirectSubtitleTranslatorHost}）共用。
+     *
      * @param keys 数据库存储键（内容派生键，非 renderer 定位键）。
      * @param mode 持久化缓存模式。
      * @returns 有效的非空翻译映射，键为存储键。
      */
-    private async getTranslations(
+    public async getTranslations(
         keys: string[],
         mode: SubtitleTranslationStorageMode
     ): Promise<Map<string, string>> {
@@ -1157,10 +1003,12 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
     /**
      * 批量持久化句级翻译结果。
      *
+     * 播放调度与直译器宿主（{@link DirectSubtitleTranslatorHost}）共用。
+     *
      * @param translations 数据库存储键到翻译文本的映射。
      * @param mode 持久化缓存模式。
      */
-    private async saveTranslations(
+    public async saveTranslations(
         translations: Map<string, string>,
         mode: SubtitleTranslationStorageMode
     ): Promise<void> {
@@ -1175,6 +1023,16 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                 updated_at: TimeUtil.timeUtc(),
             }))
         );
+    }
+
+    /**
+     * 删除当前持久化模式下的全部句级翻译缓存；直译器宿主能力。
+     *
+     * @param mode 持久化缓存模式。
+     * @returns 删除的缓存行数。
+     */
+    public async deleteTranslationsByMode(mode: SubtitleTranslationStorageMode): Promise<number> {
+        return this.sentenceTranslatesRepository.deleteByMode(mode);
     }
 
     /**
