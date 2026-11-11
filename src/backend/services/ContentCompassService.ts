@@ -19,12 +19,16 @@ import { ObjUtil } from '@/backend/utils/ObjUtil';
 import { analyzeWords } from '@/backend/utils/language/VocabularyMatcher';
 import {
     aggregateInterestScore,
-    lexicalSimilarity,
     rankContentCompassCandidates,
     type ContentCompassRankCandidate,
 } from '@/common/learning/contentCompass';
 import { isContentLemma } from '@/common/learning/contentWords';
 import { estimateComprehension, resolveComprehensionBand } from '@/common/learning/comprehension';
+import {
+    searchTopicVectors,
+    toTopicVectorEntry,
+    type TopicVectorEntry,
+} from '@/common/learning/topicIndex';
 import {
     parseAss,
     parseSrt,
@@ -93,6 +97,17 @@ interface SubtitleAnalysis {
     contentLemmas: Set<string>;
     normalizedFrequency: Map<string, number>;
     sentences: AnalyzedSentence[];
+}
+
+/**
+ * 一次推荐计算使用的共享词表空间。
+ *
+ * 候选与近期视频各自维护独立词频表，直接算余弦会因维度不同而失败；
+ * 这里把所有字幕的 lemma 并成同一坐标轴，再统一投影。
+ */
+interface TopicVectorSpace {
+    /** 把一份词频表投影为共享空间向量。 */
+    project: (frequency: Map<string, number>) => number[];
 }
 
 /**
@@ -168,21 +183,24 @@ export class ContentCompassServiceImpl implements ContentCompassService {
             return { generatedAt: new Date().toISOString(), items: [] };
         }
 
-        const recentVectors = await this.loadRecentTopicVectors(records);
+        const recentProfiles = await this.loadRecentTopicProfiles(records);
+        const space = this.buildTopicVectorSpace([
+            ...candidateDetails.map(({ analysis }) => analysis.normalizedFrequency),
+            ...recentProfiles.map(({ frequency }) => frequency),
+        ]);
+        const recentEntries: TopicVectorEntry[] = recentProfiles.map((profile) =>
+            toTopicVectorEntry(profile.videoPath, space.project(profile.frequency)));
         const rankInputs: ContentCompassRankCandidate[] = candidateDetails.map(({ candidate, analysis }) => {
             const dueWords = this.collectOverlapWords(analysis.contentLemmas, dueLemmas, userWordMap);
             const dueSet = new Set(dueLemmas);
             const learningWords = activeWords
                 .map((word) => word.word.toLowerCase())
                 .filter((lemma) => !dueSet.has(lemma) && analysis.contentLemmas.has(lemma));
-            const otherVectors = recentVectors
-                .filter((entry) => entry.videoPath !== candidate.videoPath)
-                .map((entry) => entry.vector);
-            // 兴趣分统一走「多部近期视频相似度的均值」，避免单部视频主导推荐。
-            // 词面向量维度各自独立，因此这里仍用 Map 口径的余弦相似度；
-            // 后续接入同维度 embedding 时，只需把相似度计算替换为 vectorSimilarity。
+            const otherEntries = recentEntries.filter((entry) => entry.id !== candidate.videoPath);
+            // 兴趣分统一走本地主题索引检索；词面实现与后续 embedding 共用同一入口。
             const interestScore = aggregateInterestScore(
-                otherVectors.map((vector) => lexicalSimilarity(analysis.normalizedFrequency, vector)),
+                searchTopicVectors(space.project(analysis.normalizedFrequency), otherEntries)
+                    .map((match) => match.similarity),
             );
             return {
                 id: candidate.record.id,
@@ -587,14 +605,43 @@ export class ContentCompassServiceImpl implements ContentCompassService {
         return words;
     }
 
-    private async loadRecentTopicVectors(
+    /**
+     * 把多份词频表并成同一坐标轴。
+     *
+     * @param frequencies 候选与近期视频的词频表。
+     * @returns 共享词表空间与投影函数。
+     */
+    private buildTopicVectorSpace(frequencies: Array<Map<string, number>>): TopicVectorSpace {
+        const index = new Map<string, number>();
+        for (const frequency of frequencies) {
+            for (const lemma of frequency.keys()) {
+                if (!index.has(lemma)) {
+                    index.set(lemma, index.size);
+                }
+            }
+        }
+        return {
+            project: (frequency) => {
+                const vector = new Array<number>(index.size).fill(0);
+                for (const [lemma, value] of frequency) {
+                    const position = index.get(lemma);
+                    if (position !== undefined) {
+                        vector[position] = value;
+                    }
+                }
+                return vector;
+            },
+        };
+    }
+
+    private async loadRecentTopicProfiles(
         records: WatchHistoryRecord[],
-    ): Promise<Array<{ videoPath: string; vector: Map<string, number> }>> {
+    ): Promise<Array<{ videoPath: string; frequency: Map<string, number> }>> {
         const watched = records
             .filter((record) => record.current_position > 0)
             .slice(0, MAX_RECENT_PROFILE_VIDEOS);
         const recent = watched.length >= 3 ? watched : records.slice(0, MAX_RECENT_PROFILE_VIDEOS);
-        const vectors: Array<{ videoPath: string; vector: Map<string, number> }> = [];
+        const profiles: Array<{ videoPath: string; frequency: Map<string, number> }> = [];
         for (const record of recent) {
             const videoPath = path.join(record.base_path, record.file_name);
             try {
@@ -604,7 +651,7 @@ export class ContentCompassServiceImpl implements ContentCompassService {
                 }
                 const analysis = await this.analyzeSubtitle(subtitlePath);
                 if (analysis) {
-                    vectors.push({ videoPath, vector: analysis.normalizedFrequency });
+                    profiles.push({ videoPath, frequency: analysis.normalizedFrequency });
                 }
             } catch (error) {
                 this.logger.warn('content compass interest profile skipped', {
@@ -613,7 +660,7 @@ export class ContentCompassServiceImpl implements ContentCompassService {
                 });
             }
         }
-        return vectors;
+        return profiles;
     }
 
     private errorMessage(error: unknown): string {

@@ -181,6 +181,51 @@ describe('ContentCompassService', () => {
         expect(result.items[0].comprehension).toBeGreaterThan(0);
     });
 
+    it('近期观看主题相近的候选获得更高的兴趣分', async () => {
+        harness = await buildHarness();
+        const watched = `1
+00:00:01,000 --> 00:00:04,000
+The spacecraft entered a stable orbit around the planet.
+`;
+        const similar = `1
+00:00:01,000 --> 00:00:04,000
+The spacecraft orbit around the planet stayed stable.
+`;
+        const different = `1
+00:00:01,000 --> 00:00:04,000
+My grandmother baked a lemon cake in the kitchen.
+`;
+        await writeMedia(harness.directory, 'watched.mp4', watched);
+        await writeMedia(harness.directory, 'similar.mp4', similar);
+        await writeMedia(harness.directory, 'different.mp4', different);
+        await insertHistory(harness.memoryDb, [
+            {
+                id: 'watched',
+                basePath: harness.directory,
+                fileName: 'watched.mp4',
+                updatedAt: new Date().toISOString(),
+                position: 120,
+            },
+            {
+                id: 'similar',
+                basePath: harness.directory,
+                fileName: 'similar.mp4',
+                updatedAt: new Date(Date.now() - 1_000).toISOString(),
+            },
+            {
+                id: 'different',
+                basePath: harness.directory,
+                fileName: 'different.mp4',
+                updatedAt: new Date(Date.now() - 2_000).toISOString(),
+            },
+        ]);
+
+        const result = await harness.service.list({ limit: 3 });
+        const byId = new Map(result.items.map((item) => [item.videoId, item]));
+
+        expect(byId.get('similar')!.interest).toBeGreaterThan(byId.get('different')!.interest);
+    });
+
     it('排除已展示视频后返回下一个候选，没有字幕的视频不参与', async () => {
         harness = await buildHarness();
         await writeMedia(harness.directory, 'first.mp4', SRT_DUE);
@@ -297,15 +342,36 @@ describe('ContentCompassService', () => {
         const events = await harness.memoryDb.db.select().from(recommendationEvent);
 
         expect(stats).toMatchObject({
-            shown: 3,
+            shown: 2,
             opened: 1,
             dismissed: 1,
             reviewed: 1,
-            openRate: 1 / 3,
-            dismissRate: 1 / 3,
+            openRate: 1 / 2,
+            dismissRate: 1 / 2,
             reviewRate: 1,
             retention: { reviewed: 2, retention: 0.5 },
         });
         expect(events).toHaveLength(6);
+    });
+
+    it('推荐比率只统计同一曝光样本，重复动作不会把比率推过 100%', async () => {
+        harness = await buildHarness();
+        await harness.service.recordEvent({ videoId: 'video-1', action: 'shown', reasonCode: 'due_review' });
+        await harness.service.recordEvent({ videoId: 'video-1', action: 'shown', reasonCode: 'due_review' });
+        await harness.service.recordEvent({ videoId: 'video-1', action: 'opened' });
+        await harness.service.recordEvent({ videoId: 'video-1', action: 'opened' });
+        await harness.service.recordEvent({ videoId: 'video-1', action: 'reviewed' });
+        // 没有任何曝光记录的 reviewed 不计入分子，避免出现无分母归因。
+        await harness.service.recordEvent({ videoId: 'video-2', action: 'reviewed', reasonCode: 'due_review' });
+
+        const stats = await harness.service.getStats({ days: 7 });
+
+        expect(stats).toMatchObject({
+            shown: 1,
+            opened: 1,
+            reviewed: 1,
+            openRate: 1,
+            reviewRate: 1,
+        });
     });
 });
