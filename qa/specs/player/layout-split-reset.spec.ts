@@ -81,7 +81,7 @@ async function expectBothAxesReset(page: Page): Promise<void> {
     expect(sizes.stage + sizes.subtitle).toBeCloseTo(100, 5);
 }
 
-test('双击任一分隔条都会同时复位两组比例', async ({ session }) => {
+test('[SET-PLY-02] 双击任一分隔条都会同时复位两组比例', async ({ session }) => {
     const { page } = session;
     await openPlayer(page);
 
@@ -104,7 +104,7 @@ test('双击任一分隔条都会同时复位两组比例', async ({ session }) 
     await expectBothAxesReset(page);
 });
 
-test('字幕文稿收起后双击主字幕分隔条仍能复位且不抛错', async ({ session }) => {
+test('[SET-PLY-03] 字幕文稿收起后双击主字幕分隔条仍能复位且不抛错', async ({ session }) => {
     const { page } = session;
     await openPlayer(page);
 
@@ -122,7 +122,7 @@ test('字幕文稿收起后双击主字幕分隔条仍能复位且不抛错', as
     expect(reset.stage + reset.subtitle).toBeCloseTo(100, 5);
 });
 
-test('大字号下复位后双语字幕仍完整落在默认面板内', async ({ session }) => {
+test('[SET-PLY-04] 大字号下复位后双语字幕仍完整落在默认面板内', async ({ session }) => {
     const { page } = session;
     await page.evaluate(async () => {
         const electron = (window as unknown as {

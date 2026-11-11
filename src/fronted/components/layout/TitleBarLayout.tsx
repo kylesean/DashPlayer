@@ -31,7 +31,7 @@ const TitleBarLayout: React.FC = () => {
             // 会把 32px 的标题栏挤出 header，导致窗口控制按钮高度不一、与标题栏错位
             header={
                 !fullScreen ? (
-                    <LayoutHeader height={TITLE_BAR_HEIGHT} padding={0}>
+                    <LayoutHeader height={TITLE_BAR_HEIGHT} padding={0} data-testid="title-bar-header">
                         {/* 标题栏高度由 TitleBar 自身固定，外层只负责同高的 header slot；
                             不要再用 h-8 之类的 spacing 工具类，它会跟随主题放大 */}
                         <TitleBar className="w-full" />

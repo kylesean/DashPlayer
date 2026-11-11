@@ -172,24 +172,31 @@ test.describe('外观设置', () => {
         const page = session.page;
         await openAppearanceSetting(page);
 
-        const header = page.locator('.astryx-layout-header').first();
-        const minimize = page.locator('#minimize');
+        const header = page.getByTestId('title-bar-header');
+        const minimize = page.getByRole('button', { name: '最小化' });
+        const minimizeIcon = page.getByTestId('title-bar-minimize-icon');
         await expect(minimize).toBeVisible();
 
         // Matcha / Y2K 的 Astryx spacing 基数是 6px 而非 4px。标题栏若继续用
         // h-8/w-11 这类 spacing 工具类，会膨胀到 48px 并被固定 32px 的 header 裁掉。
+        // 断言用区间而不是精确像素：跨 DPI/字体回退允许 1px 取整误差，
+        // 但「32px 设计值」与「被 spacing 放大到 48px」之间仍有足够宽的区分带。
         for (const [label, slug] of [['Y2K', 'dp-y2k'], ['Matcha', 'dp-matcha']] as const) {
             await page.getByText(label, { exact: true }).click();
             await expect(page.getByTestId('app-root')).toHaveAttribute('data-astryx-theme', slug);
 
             const headerBox = await header.boundingBox();
             const controlBox = await minimize.boundingBox();
-            const iconBox = await minimize.locator('svg').boundingBox();
-            expect(headerBox?.height).toBe(32);
-            expect(controlBox?.width).toBe(44);
-            expect(controlBox?.height).toBe(32);
-            expect(controlBox?.y).toBe(0);
-            expect(iconBox?.height).toBe(14);
+            const iconBox = await minimizeIcon.boundingBox();
+            expect(headerBox?.height).toBeGreaterThanOrEqual(31);
+            expect(headerBox?.height).toBeLessThanOrEqual(33);
+            expect(controlBox?.width).toBeGreaterThanOrEqual(43);
+            expect(controlBox?.width).toBeLessThanOrEqual(45);
+            expect(controlBox?.height).toBeGreaterThanOrEqual(31);
+            expect(controlBox?.height).toBeLessThanOrEqual(33);
+            expect(controlBox?.y).toBeLessThanOrEqual(1);
+            expect(iconBox?.height).toBeGreaterThanOrEqual(13);
+            expect(iconBox?.height).toBeLessThanOrEqual(15);
             expect((iconBox?.y ?? 0) + (iconBox?.height ?? 0)).toBeLessThanOrEqual(32);
         }
     });

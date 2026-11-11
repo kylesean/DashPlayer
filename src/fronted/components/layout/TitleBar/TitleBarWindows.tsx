@@ -91,7 +91,7 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
                     aria-label={t('minimize')}
                     title={t('minimize')}
                 >
-                    <Minus className="w-[14px] h-[14px]" />
+                    <Minus className="w-[14px] h-[14px]" data-testid="title-bar-minimize-icon" />
                 </button>
                 <button
                     onClick={handleToggleMaximize}
