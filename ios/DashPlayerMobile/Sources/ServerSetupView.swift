@@ -14,9 +14,9 @@ struct ServerSetupView: View {
                     Image(systemName: "play.rectangle.on.rectangle")
                         .font(.system(size: 44, weight: .light))
                         .foregroundStyle(.tint)
-                    Text("连接电脑上的 DashPlayer")
+                    Text("连接电脑上的 Refrain")
                         .font(.largeTitle.bold())
-                    Text("先在电脑上打开 DashPlayer，进入设置里的「手机访问」，把页面上显示的地址填到这里。两边连同一个 Wi-Fi 就行。")
+                    Text("先在电脑上打开 Refrain，进入设置里的「手机访问」，把页面上显示的地址填到这里。两边连同一个 Wi-Fi 就行。")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }

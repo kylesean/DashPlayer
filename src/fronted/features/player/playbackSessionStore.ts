@@ -76,7 +76,7 @@ export const usePlaybackSession = create(
             }));
         },
         clear: () => {
-            document.title = 'DashPlayer';
+            document.title = 'Refrain';
             set({
                 videoPath: null,
                 subtitlePath: null,

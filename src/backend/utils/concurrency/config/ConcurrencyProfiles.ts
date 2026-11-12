@@ -59,7 +59,7 @@ export interface ConcurrencyProfiles {
 }
 
 /**
- * DashPlayer 默认并发配置。
+ * Refrain 默认并发配置。
  */
 export const defaultConcurrencyProfiles: ConcurrencyProfiles = {
     semaphore: {

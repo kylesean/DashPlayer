@@ -97,7 +97,7 @@
         "directConnectionWarning": "未检测到有效代理：YouTube 下载等外部网络请求可能直连失败。如需代理，请选择「自定义」并填写代理地址。",
         "sections": {
             "connection": "连接方式",
-            "connectionDesc": "DashPlayer 如何访问外部网络"
+            "connectionDesc": "Refrain 如何访问外部网络"
         }
     },
     "mobile": {
@@ -273,7 +273,8 @@
     },
     "about": {
         "title": "关于与更新",
-        "slogan": "专为语言学习与长视频精听打造的智能双语播放器",
+        "slogan": "精选 YouTube 英语视频，AI 原生的沉浸式学习",
+        "appName": "Refrain",
         "appInfoTitle": "产品信息",
         "appInfoDescription": "版本与更新状态",
         "resourcesTitle": "相关资源",
@@ -302,7 +303,7 @@
             "license": "开源协议",
             "licenseDesc": "基于 AGPLv3 自由开源"
         },
-        "footer": "基于 solidSpoon/DashPlayer 深度定制"
+        "footer": "源自 solidSpoon/DashPlayer，现以 Refrain 独立维护"
     },
     "storage": {
         "title": "存储管理",

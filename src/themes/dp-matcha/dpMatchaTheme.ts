@@ -1,5 +1,5 @@
 /**
- * DashPlayer Matcha 主题：在 Astryx 官方 matcha 之上补齐中文回退与浅色层级。
+ * Refrain Matcha 主题：在 Astryx 官方 matcha 之上补齐中文回退与浅色层级。
  *
  * 官方 matcha 的标题用 Playwrite US Trad（拉丁手写体）。它没有中文字形，
  * 中文会沿 Georgia → Times → 系统衬线一路回落，导致同一行里英文手写、

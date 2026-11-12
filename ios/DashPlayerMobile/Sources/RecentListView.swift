@@ -64,7 +64,7 @@ struct RecentListView: View {
             ContentUnavailableView(
                 "还没有播放记录",
                 systemImage: "film.stack",
-                description: Text("先在电脑上的 DashPlayer 里打开一个视频，手机上就能接着看。")
+                description: Text("先在电脑上的 Refrain 里打开一个视频，手机上就能接着看。")
             )
         case .loaded:
             List {

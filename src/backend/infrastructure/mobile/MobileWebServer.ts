@@ -633,7 +633,7 @@ export default class MobileWebServer {
                 + '<title>需要访问令牌</title></head><body style="font-family:system-ui;padding:2rem;line-height:1.6">'
                 + '<h1 style="font-size:1.25rem">需要访问令牌</h1>'
                 + '<p>这个地址缺少有效的访问令牌，或者令牌已经被重新生成。</p>'
-                + '<p>请回到电脑上的 DashPlayer「设置 → 手机访问」，重新复制一条访问地址到手机浏览器打开。</p>'
+                + '<p>请回到电脑上的 Refrain「设置 → 手机访问」，重新复制一条访问地址到手机浏览器打开。</p>'
                 + '</body></html>';
             response.writeHead(401, { 'Content-Type': 'text/html; charset=utf-8' });
             response.end(body);

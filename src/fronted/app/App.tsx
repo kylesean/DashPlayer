@@ -85,7 +85,7 @@ const RouterLinkAdapter = React.forwardRef<HTMLAnchorElement, { href?: string; t
 RouterLinkAdapter.displayName = 'RouterLinkAdapter';
 
 /**
- * DashPlayer 桌面端根组件，负责启动门槛判定、主题语言同步及全局路由。
+ * Refrain 桌面端根组件，负责启动门槛判定、主题语言同步及全局路由。
  */
 export const App = () => {
     const { t } = useI18nTranslation('toast');

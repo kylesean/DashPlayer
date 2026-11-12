@@ -59,7 +59,7 @@ describe('OnboardingView Component', () => {
         vi.mocked(settingsApi.saveTranscriptionEngine).mockResolvedValue();
         vi.mocked(settingsApi.getStorageStatus).mockResolvedValue({
             configuredPath: '',
-            resolvedPath: '/Users/test/DashPlayer',
+            resolvedPath: '/Users/test/Refrain',
             exists: true,
             isDirectory: true,
             readable: true,

@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs/promises';
+import { existsSync } from 'node:fs';
 import { app } from 'electron';
 import { getEnvironmentSuffix } from '@/backend/utils/runtimeEnv';
 import StrUtil from '@/common/utils/str-util';
@@ -8,7 +9,9 @@ import { resolveStorageDirectory } from '@/backend/services/gateways/storage/Sto
 
 export { resolveStorageDirectory };
 
-const DEFAULT_STORAGE_FOLDER_NAME = 'DashPlayer';
+const DEFAULT_STORAGE_FOLDER_NAME = 'Refrain';
+/** 改名前的默认库目录：已存在时继续沿用，避免老用户升级后媒体库"变空"。 */
+const LEGACY_STORAGE_FOLDER_NAME = 'DashPlayer';
 
 /**
  * 路径访问检查类型。
@@ -62,7 +65,11 @@ export interface StorageAccessStatus {
 export function resolveStorageRootPath(configuredPath?: string | null): string {
     let rawPath = configuredPath;
     if (StrUtil.isBlank(rawPath)) {
-        rawPath = path.join(app.getPath('documents'), DEFAULT_STORAGE_FOLDER_NAME);
+        const documents = app.getPath('documents');
+        const legacy = path.join(documents, `${LEGACY_STORAGE_FOLDER_NAME}${getEnvironmentSuffix()}`);
+        rawPath = existsSync(legacy)
+            ? legacy
+            : path.join(documents, DEFAULT_STORAGE_FOLDER_NAME);
     }
 
     const dirName = path.basename(rawPath);

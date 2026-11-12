@@ -1,6 +1,6 @@
-# DashPlayer iOS
+# Refrain iOS
 
-配套桌面端的手机客户端。连到电脑上 DashPlayer 的手机访问服务（默认端口 27182），
+配套桌面端的手机客户端。连到电脑上 Refrain 的手机访问服务（默认端口 27182），
 读最近播放、放视频、按句切字幕、点词查词，进度写回桌面端。
 
 和网页版功能对齐，界面按 iOS 重做：原生导航、表单式设置、锁屏控制、后台播放。
@@ -41,7 +41,7 @@ xcodebuild -project DashPlayerMobile.xcodeproj \
   -derivedDataPath build CODE_SIGNING_ALLOWED=NO
 
 mkdir -p build/ipa/Payload
-cp -R build/Build/Products/Release-iphoneos/DashPlayer.app build/ipa/Payload/
+cp -R build/Build/Products/Release-iphoneos/Refrain.app build/ipa/Payload/
 cd build/ipa && zip -qry ../DashPlayerMobile.ipa Payload
 ```
 
@@ -58,7 +58,7 @@ cd build/ipa && zip -qry ../DashPlayerMobile.ipa Payload
 
 ## 用之前
 
-电脑上 DashPlayer 打开「手机访问」，把设置页显示的地址（形如 `http://192.168.1.5:27182`）
+电脑上 Refrain 打开「手机访问」，把设置页显示的地址（形如 `http://192.168.1.5:27182`）
 填进 App 首屏。两边在同一个 Wi-Fi 下。装完第一次连不上，先看电脑那边服务有没有起来。
 
 ## 结构
@@ -83,8 +83,9 @@ DashPlayerMobile/
 ## 图标
 
 AppIcon 取自 `assets/icons/icon.svg`，没有另画。iOS 的图标要铺满整块画布、由系统自己裁圆角，
-所以把原来的圆角白底板换成满幅白底，字母和星星原样保留，渲染成 1024×1024 PNG。
-主图标改动后按同样方式重新导出一份即可。
+所以由 `scripts/build-mobile-icons.mjs` 派生出满幅方图（去掉底板圆角），`R.` 与黄色句号原样保留，
+渲染成 1024×1024 PNG。主图标改动后重跑
+`python3 assets/brand/refrain/tools/export_app_icons.py` 即可同步更新这一份。
 
 ## 已知限制
 

@@ -1,6 +1,6 @@
 # 本地主题（Astryx extends）
 
-这里放 DashPlayer 自己的主题：每套都通过 `defineTheme({ extends })` 继承一个 Astryx 官方主题，
+这里放 Refrain 自己的主题：每套都通过 `defineTheme({ extends })` 继承一个 Astryx 官方主题，
 只覆盖必要的地方，其余 tokens / 组件覆盖 / 图标继续跟随官方包。
 
 ## 为什么需要本地主题

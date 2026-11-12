@@ -1,5 +1,5 @@
 /**
- * DashPlayer Stone 主题：在 Astryx 官方 stone 之上补齐中文回退与浅色层级。
+ * Refrain Stone 主题：在 Astryx 官方 stone 之上补齐中文回退与浅色层级。
  *
  * 官方 stone 的浅色卡片/浮层是纯白，与主题的暖石底色缺少过渡；
  * 这里把浅色面调成带一点冷调的纸白，深色值沿用官方主题。

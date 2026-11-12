@@ -1,6 +1,6 @@
 # 网络代理
 
-如果您使用代理访问网络（例如访问 OpenAI API 或下载本地模型时需要代理），可以在 <control>设置中心</control> → <control>网络代理</control>页面配置 DashPlayer 的联网方式。
+如果您使用代理访问网络（例如访问 OpenAI API 或下载本地模型时需要代理），可以在 <control>设置中心</control> → <control>网络代理</control>页面配置 Refrain 的联网方式。
 
 ## 代理模式
 

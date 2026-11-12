@@ -41,7 +41,7 @@ struct AppSettingsView: View {
                     } else if connected {
                         Text("已连接")
                     } else {
-                        Text("电脑上 DashPlayer 设置里的「手机访问」页会显示这个地址。")
+                        Text("电脑上 Refrain 设置里的「手机访问」页会显示这个地址。")
                     }
                 }
 

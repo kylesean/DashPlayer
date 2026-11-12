@@ -145,7 +145,7 @@ struct APIClient {
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch {
-            throw APIError(message: "连不上电脑上的 DashPlayer，确认在同一网络且手机访问已打开。")
+            throw APIError(message: "连不上电脑上的 Refrain，确认在同一网络且手机访问已打开。")
         }
 
         guard let http = response as? HTTPURLResponse else {

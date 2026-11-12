@@ -1,5 +1,5 @@
 /**
- * DashPlayer Chocolate 主题：在 Astryx 官方 chocolate 之上补齐中文回退。
+ * Refrain Chocolate 主题：在 Astryx 官方 chocolate 之上补齐中文回退。
  *
  * 官方 chocolate 的浅色卡片本身就是焦糖纸色（#EDE4D4），层级已经很明显，
  * 因此这里只处理字体：正文保留 Albert Sans，标题保留 Fraunces（衬线），

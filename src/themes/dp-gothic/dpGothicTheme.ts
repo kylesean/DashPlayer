@@ -1,5 +1,5 @@
 /**
- * DashPlayer Gothic 主题：在 Astryx 官方 gothic 之上补齐中文回退。
+ * Refrain Gothic 主题：在 Astryx 官方 gothic 之上补齐中文回退。
  *
  * gothic 是深色专用主题：token 是绝对值而不是 light-dark 对，
  * 因此这里的配色全部沿用官方，不做浅色适配；

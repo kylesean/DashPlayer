@@ -1,3 +1,5 @@
+// 必须是第一个导入：它在其它模块读取 userData 之前把旧数据目录钉住。
+import '@/backend/startup/userDataCompat';
 import 'dotenv/config';
 import 'reflect-metadata';
 import { LocalEmbeddingRuntime } from '@/backend/infrastructure/ai/LocalEmbeddingRuntime';

@@ -1,12 +1,12 @@
 /**
  * 生成手机页用的图标，全部从 assets/icons 里已有的素材派生，不做手工修图。
  *
- * 两份产物：
- * - `mobile-icon.svg`：从应用图标 icon.svg 的底板矩形与 glyph / star 路径 1:1 复刻，
- *   画布就是底板范围，去掉底板圆角和投影——也就是「满幅方图」。浏览器和 iOS 会给图标自己加圆角，
- *   图标自带圆角底板时就会出现「圆角矩形套圆角矩形」，四角还会露出一圈投影。
- * - `apple-touch-180.png`：iOS 主屏图标只认位图，这里把 icon@2x.png 按同一块底板范围裁切、
- *   按面积平均缩放到 180、四角透明处压成底板白，结果与上面那份 SVG 视觉一致。
+ * 主图标 icon.svg 里只有两个带 id 的元素：`#plate`（圆角底板）与 `#glyph`（R + 句号的
+ * 成组路径）。本脚本按这两个元素派生两份产物：
+ * - `mobile-icon.svg`：画布收紧到底板范围、去掉底板圆角，也就是「满幅方图」。浏览器和 iOS
+ *   会给图标自己加圆角，图标自带圆角底板时会出现「圆角矩形套圆角矩形」。
+ * - `apple-touch-180.png`：iOS 主屏图标只认位图，把 icon@2x.png 按同一块底板范围裁切、
+ *   按面积平均缩放到 180、四角透明处压成底板色，结果与上面那份 SVG 视觉一致。
  *   位图编解码用 node:zlib 自己实现（见文件末尾），不引入任何新依赖。
  *
  * 用法：node scripts/build-mobile-icons.mjs（改完应用图标重跑一次即可）
@@ -54,10 +54,9 @@ const readAttr = (attrs, name, fallback) => {
     return match ? match[1] : fallback;
 };
 
-// 底板决定画布范围与底色；glyph / star 只取路径数据，投影一律丢掉
+// 底板决定画布范围与底色；glyph 是 R 与句号两条路径的容器，整体原样搬运
 const plate = readElement(/<rect id="plate"([^>]*)>/);
-const glyph = readElement(/<path id="glyph"([^>]*?) d="([\s\S]*?)"/);
-const star = readElement(/<path id="star"([^>]*?) d="([\s\S]*?)"/);
+const glyph = readElement(/<g id="glyph"([^>]*)>([\s\S]*?)<\/g>/);
 
 const plateBox = {
     x: Number(readAttr(plate.attrs, 'x', '0')),
@@ -70,23 +69,19 @@ if (!(plateBox.width > 0 && plateBox.height > 0)) {
     throw new Error(`icon.svg 的底板尺寸不合法：${JSON.stringify(plateBox)}`);
 }
 
-/** 满幅 SVG：画布=底板范围，无圆角、无投影，只保留底板底色与两层图形。 */
+/** 满幅 SVG：画布=底板范围、底板不画圆角，图形层原样保留。 */
 const buildMobileSvg = () => {
     const viewBox = `${plateBox.x} ${plateBox.y} ${plateBox.width} ${plateBox.height}`;
     return [
         '<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="' + viewBox + '">',
         '  <!--',
         '    手机页图标：由 scripts/build-mobile-icons.mjs 从 assets/icons/icon.svg 自动生成，不要直接改这里。',
-        '    与应用图标是同一套图形，区别只有两点：画布收紧到底板范围（满幅，系统加圆角时才不会套圆角），',
-        '    以及去掉底板圆角与所有投影（那层圆角边框和投影在系统圆角里会露出来）。',
+        '    与应用图标是同一套图形，区别只有一点：画布收紧到底板范围、底板去掉圆角，',
+        '    由系统统一裁圆角（浏览器标签页与 iOS 主屏都会自己加）。',
         '  -->',
-        `  <rect id="plate" x="${plateBox.x}" y="${plateBox.y}" width="${plateBox.width}" height="${plateBox.height}" fill="${plateBox.fill}"/>`,
+        `  <rect x="${plateBox.x}" y="${plateBox.y}" width="${plateBox.width}" height="${plateBox.height}" fill="${plateBox.fill}"/>`,
         '',
-        '  <!-- 字母 d -->',
-        `  <path id="glyph" fill="${readAttr(glyph.attrs, 'fill', '#5A5A5A')}" d="${glyph.body.trim()}"/>`,
-        '',
-        '  <!-- 星星 -->',
-        `  <path id="star" fill="${readAttr(star.attrs, 'fill', '#FFD700')}" d="${star.body.trim()}"/>`,
+        `  <g${glyph.attrs}>${glyph.body.trim()}</g>`,
         '</svg>',
         '',
     ].join('\n');
@@ -290,10 +285,10 @@ const encodePng = (data, width, height) => {
 };
 
 /**
- * 把 PNG 裁到底板范围、缩放到目标边长，并把透明处压成底板白。
+ * 把 PNG 裁到底板范围、缩放到目标边长，并把透明处压成底板色。
  *
  * 缩放用面积平均（每个目标像素取它在源图里的覆盖区域做平均），比最近邻少锯齿；
- * 先压白再平均，等价于「把图铺在白底上看」，不会出现边缘发黑的半透明混色。
+ * 先压到底板色再平均，等价于「把图铺在底板上看」，不会出现边缘发黑的半透明混色。
  *
  * @param {{width: number, height: number, data: Uint8Array}} image 源图（RGBA）。
  * @param {{x: number, y: number, width: number, height: number, fill: string}} box 底板范围（按 1024 画布给出）。
@@ -349,7 +344,7 @@ const buildTouchIcon = (image, box) => {
                     }
                     const index = (sy * image.width + sx) * 4;
                     const alpha = image.data[index + 3] / 255;
-                    // 先按 alpha 压到白底（等价于把整幅图铺在白底上），再参与平均
+                    // 先按 alpha 压到底板色（等价于把整幅图铺在底板上），再参与平均
                     r += area * (image.data[index] * alpha + bgR * (1 - alpha));
                     g += area * (image.data[index + 1] * alpha + bgG * (1 - alpha));
                     b += area * (image.data[index + 2] * alpha + bgB * (1 - alpha));

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>zh_CN</string>
 	<key>CFBundleDisplayName</key>
-	<string>DashPlayer</string>
+	<string>Refrain</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -29,7 +29,7 @@
 		<true/>
 	</dict>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>需要访问局域网内的电脑，读取 DashPlayer 的播放记录和视频。</string>
+	<string>需要访问局域网内的电脑，读取 Refrain 的播放记录和视频。</string>
 	<!-- 锁屏与切后台时继续播放音频。 -->
 	<key>UIBackgroundModes</key>
 	<array>

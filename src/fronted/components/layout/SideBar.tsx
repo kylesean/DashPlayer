@@ -7,8 +7,10 @@ import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { SideNav, SideNavItem } from '@astryxdesign/core/SideNav';
 import { VStack } from '@astryxdesign/core/VStack';
-import logoLight from '../../../../assets/logo-light.png';
-import logoDark from '../../../../assets/logo-dark.png';
+import mark from '../../../../assets/brand/refrain/mark.svg';
+import markReverse from '../../../../assets/brand/refrain/mark-reverse.svg';
+import wordmark from '../../../../assets/brand/refrain/wordmark.svg';
+import wordmarkReverse from '../../../../assets/brand/refrain/wordmark-reverse.svg';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import YoutubeImportSidebarItem from '@/fronted/features/youtube-import/YoutubeImportSidebarItem';
 import useSetting from '@/fronted/features/settings/settingsStore';
@@ -104,13 +106,13 @@ const SideBar: React.FC<SideBarProps> = ({
                         <button
                             type="button"
                             onClick={navigateHome}
-                            className="focus:outline-none cursor-pointer"
+                            className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg cursor-pointer"
                             aria-label={t('home', { defaultValue: '首页' })}
                         >
                             <img
-                                className="user-drag-none w-8 h-8 rounded-lg shadow-xs transition-transform duration-200 hover:scale-105"
-                                src={isDark ? logoDark : logoLight}
-                                alt={t('appTitle', { defaultValue: 'DashPlayer' })}
+                                className="user-drag-none w-8 h-8 object-contain transition-transform duration-200 hover:scale-105"
+                                src={isDark ? markReverse : mark}
+                                alt={t('appTitle', { defaultValue: 'Refrain' })}
                             />
                         </button>
                     </Center>
@@ -125,21 +127,16 @@ const SideBar: React.FC<SideBarProps> = ({
                                 navigateHome();
                             }
                         }}
-                        className="flex items-center gap-2.5 px-3 py-2.5 w-full select-none cursor-pointer rounded-xl hover:bg-muted/40 transition-colors duration-150 focus:outline-none"
+                        className="flex flex-col gap-1.5 px-3 py-2.5 w-full select-none cursor-pointer rounded-xl hover:bg-muted/40 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                         <img
-                            className="user-drag-none w-8 h-8 rounded-lg shadow-xs shrink-0"
-                            src={isDark ? logoDark : logoLight}
-                            alt="DashPlayer Logo"
+                            className="user-drag-none h-6 w-auto object-contain shrink-0"
+                            src={isDark ? wordmarkReverse : wordmark}
+                            alt={t('appTitle', { defaultValue: 'Refrain' })}
                         />
-                        <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-semibold tracking-tight text-foreground truncate leading-tight">
-                                DashPlayer
-                            </span>
-                            <span className="text-xs text-muted-foreground/75 font-medium tracking-wide uppercase truncate">
-                                English Studio
-                            </span>
-                        </div>
+                        <span className="text-metadata text-muted-foreground font-medium tracking-wide uppercase truncate">
+                            {t('appTagline', { defaultValue: 'Curated English, on repeat.' })}
+                        </span>
                     </div>
                 )
             }

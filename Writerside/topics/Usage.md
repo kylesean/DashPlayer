@@ -2,10 +2,10 @@
 
 ## 如何播放视频
 
-DashPlayer 支持常见的视频格式（`mp4`、`avi`、`mov`、`wmv`、`flv`、`webm` 等），也支持 `mp3`、`m4a` 等纯音频的播客精听，字幕格式支持 `srt`、`vtt` 和 `ass`。
+Refrain 支持常见的视频格式（`mp4`、`avi`、`mov`、`wmv`、`flv`、`webm` 等），也支持 `mp3`、`m4a` 等纯音频的播客精听，字幕格式支持 `srt`、`vtt` 和 `ass`。
 
 - 使用 <control>打开文件</control> 按钮选择一个视频文件，可同时选中配套的字幕文件一起打开
-- 使用 <control>打开文件夹</control> 按钮导入整个媒体文件夹，DashPlayer 会自动查找文件夹里的视频和字幕文件
+- 使用 <control>打开文件夹</control> 按钮导入整个媒体文件夹，Refrain 会自动查找文件夹里的视频和字幕文件
 - 如果视频无法正常播放（无声、卡顿、黑屏），请参考 [修复播放问题](Convert.md)
 
 ![start-page.png](start-page.png)
@@ -14,7 +14,7 @@ DashPlayer 支持常见的视频格式（`mp4`、`avi`、`mov`、`wmv`、`flv`�
 
 ### 通过鼠标/键盘快捷键控制播放
 
-DashPlayer 默认快捷键如下：
+Refrain 默认快捷键如下：
 
 | 功能 | 默认按键 |
 |------|----------|

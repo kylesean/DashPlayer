@@ -9,9 +9,9 @@ import path from 'node:path';
  * - mobile-icon.svg / favicon-32.png 是标签页图标（SVG 优先，位图兵底）；
  * - apple-touch-icon.png 是 iOS「添加到主屏幕」用的图标，iOS 只认位图。
  *
- * 后两个都是 scripts/build-mobile-icons.mjs 从应用图标派生出来的「满幅方图」（无透明边距、无自带圆角）：
- * 系统会给主屏图标自己加圆角，图标若自带圆角底板，就会变成「圆角矩形套圆角矩形」，
- * 四角还露出一圈投影。改完应用图标重跑 `node scripts/build-mobile-icons.mjs` 即可。
+ * apple-touch-icon.png 是 scripts/build-mobile-icons.mjs 从应用图标派生出来的「满幅方图」
+ * （无透明边距、无自带圆角）：系统会给主屏图标自己加圆角，图标若自带圆角底板，
+ * 就会变成「圆角矩形套圆角矩形」。改完应用图标重跑 `node scripts/build-mobile-icons.mjs` 即可。
  */
 const MOBILE_ICONS: { fileName: string; source: string }[] = [
     { fileName: 'mobile-icon.svg', source: 'assets/icons/mobile-icon.svg' },

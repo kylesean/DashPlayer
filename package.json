@@ -1,8 +1,8 @@
 {
   "name": "dash-player",
-  "productName": "DashPlayer",
+  "productName": "Refrain",
   "version": "0.1.0",
-  "description": "A video player designed for English learning",
+  "description": "Curated YouTube English, immersive and AI-native",
   "main": ".vite/build/main.cjs",
   "desktopName": "dashplayer.desktop",
   "scripts": {

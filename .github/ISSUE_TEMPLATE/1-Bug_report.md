@@ -19,14 +19,14 @@ labels: ['bug']
 
 <!-- 以下信息可在「设置 → 关于」或日志文件中找到，完整日志路径见文末 -->
 
-- DashPlayer 版本：
+- Refrain 版本：
 - 安装包类型：exe / msi / dmg / deb / rpm
 - 操作系统及版本：
 - 是否从旧版本升级而来：是 / 否（旧版本号：）
 
 ## 日志
 
-<!-- 日志目录在应用数据目录下的 logs 文件夹：Windows %APPDATA%\DashPlayer\logs；macOS ~/Library/Application Support/DashPlayer/logs；Linux ~/.config/DashPlayer/logs -->
+<!-- 日志目录在应用数据目录下的 logs 文件夹：Windows %APPDATA%\Refrain\logs；macOS ~/Library/Application Support/Refrain/logs；Linux ~/.config/Refrain/logs。从 DashPlayer 升级来的安装会沿用旧目录（名字仍是 DashPlayer），见 src/backend/startup/userDataCompat.ts -->
 
 <details><summary>日志内容（可折叠长日志）</summary>
 

@@ -97,7 +97,7 @@
         "directConnectionWarning": "No effective proxy detected: network requests such as YouTube downloads will go direct and are likely to fail on this network. Switch to Custom and fill in a proxy address if you need one.",
         "sections": {
             "connection": "Connection",
-            "connectionDesc": "How DashPlayer reaches the network"
+            "connectionDesc": "How Refrain reaches the network"
         }
     },
     "mobile": {
@@ -273,7 +273,8 @@
     },
     "about": {
         "title": "About & Updates",
-        "slogan": "The intelligent bilingual media player built for language learners",
+        "slogan": "Curated YouTube English, immersive and AI-native",
+        "appName": "Refrain",
         "appInfoTitle": "Product Information",
         "appInfoDescription": "Version and update status",
         "resourcesTitle": "Resources",
@@ -302,7 +303,7 @@
             "license": "Open Source License",
             "licenseDesc": "Free & open source under AGPLv3"
         },
-        "footer": "A deep customization of solidSpoon/DashPlayer"
+        "footer": "Independently maintained as Refrain, forked from solidSpoon/DashPlayer"
     },
     "storage": {
         "title": "Storage",
@@ -317,7 +318,7 @@
         "resetConfirmOk": "Reset now",
         "openLibraryFolder": "Open Library Folder",
         "libraryPathTitle": "Storage Path (Library Path)",
-        "libraryPathDescription": "Takes effect after restarting DashPlayer",
+        "libraryPathDescription": "Takes effect after restarting Refrain",
         "syncWordClipsFailed": "Failed to sync Vocabulary Studio clips. Please try again later.",
         "wordClipsTitle": "Vocabulary Studio Clips",
         "wordClipsSync": {

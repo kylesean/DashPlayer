@@ -140,8 +140,8 @@ const WatchPlayer = ({ detail }: { detail: MobileWatchDetail }) => {
                         </div>
                         <div className="video-note-text">
                             {t(
-                                '可以回到电脑上，用 DashPlayer 的「播放修复」生成 MP4 后再试。',
-                                'Run Playback Repair in DashPlayer on your computer to make an MP4, then try again.',
+                                '可以回到电脑上，用 Refrain 的「播放修复」生成 MP4 后再试。',
+                                'Run Playback Repair in Refrain on your computer to make an MP4, then try again.',
                             )}
                         </div>
                     </div>
@@ -260,14 +260,14 @@ const WatchDetailLoader = ({ videoId }: { videoId: string }) => {
 
     React.useEffect(() => {
         let cancelled = false;
-        document.title = 'DashPlayer';
+        document.title = 'Refrain';
         mobileApi.getWatchDetail(videoId)
             .then((next) => {
                 if (cancelled) {
                     return;
                 }
                 setDetail(next);
-                document.title = `${next.title || 'DashPlayer'} · DashPlayer`;
+                document.title = `${next.title || 'Refrain'} · Refrain`;
             })
             .catch((reason: unknown) => {
                 if (!cancelled) {

@@ -12,7 +12,7 @@
 
 在播放器页面点击<control>提取生词片段</control>。
 
-DashPlayer 会自动：
+Refrain 会自动：
 
 - 读取当前视频的字幕内容
 - 智能匹配生词表中的目标词汇

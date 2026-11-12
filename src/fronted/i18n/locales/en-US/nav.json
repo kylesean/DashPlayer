@@ -5,7 +5,7 @@
     "subtitleWorkspace": "Subtitle Generator",
     "vocabularyStudio": "Vocabulary Studio",
     "settingsCenter": "Settings Center",
-    "productStory": "About DashPlayer",
+    "productStory": "About Refrain",
     "backNavRecent": "Recently opened",
     "backNavUp": "Go up one level",
     "backNavRecentHint": "Browse recently opened projects",
@@ -15,6 +15,7 @@
     "expandSidebar": "Expand Navigation",
     "hideSidebar": "Hide Sidebar",
     "home": "Home",
-    "appTitle": "DashPlayer",
+    "appTitle": "Refrain",
+    "appTagline": "Curated English, on repeat.",
     "sidebarFixedCompact": "Pinned to icon navigation when the window is narrow"
 }

@@ -30,15 +30,18 @@
 
 > 安装与使用指南详见 [文档](https://kylesean.github.io/DashPlayer/home.html)
 
-# DashPlayer
+# Refrain
 
-> 一款专为英语学习打造的视频播放器
+> 精选 YouTube 英语视频，AI 原生的沉浸式学习
+
+> Refrain 由 [solidSpoon/DashPlayer](https://github.com/solidSpoon/DashPlayer) 派生，现独立维护。
+> 下方的缘起与截图来自上游项目，功能说明仍适用于本项目。
 
 <p align="center">
     <img width="70%" alt="image" src="https://github.com/solidSpoon/DashPlayer/assets/39454841/80a356ab-a018-4af7-a99a-ce430b5aada7">
 </p>
 
-## 为什么需要 DashPlayer ？
+## 为什么需要 Refrain ？
 
 简而言之，我想用英文来学习感兴趣的知识。
 
@@ -52,7 +55,7 @@
 
 ## 主要特性
 
-DashPlayer 的目标就是方便你观看英文视频。无论你是想泛听，还是想一句句精听，亦或是想要查询生词，DashPlayer 精心打磨的手感让您始终心情愉悦。
+Refrain 的目标就是方便你观看英文视频。无论你是想泛听，还是想一句句精听，亦或是想要查询生词，Refrain 精心打磨的手感让您始终心情愉悦。
 
 - **双语字幕**：支持机器翻译字幕。只展示中文/英文，或者全部隐藏都可以。
 - **按字幕跳转：** 重复当前句，或者跳到上一句，怎么跳都可以。
@@ -108,7 +111,7 @@ https://github.com/user-attachments/assets/82b2cb36-a44b-4729-9b4f-3a440c6deb40
 
 # 安装指南
 
-DashPlayer 目前并没有进行应用签名，因此在安装过程中可能会遭到操作系统的警告，当您遇到安装问题时请阅读下面的指南
+Refrain 目前并没有进行应用签名，因此在安装过程中可能会遭到操作系统的警告，当您遇到安装问题时请阅读下面的指南
 
 ## Windows
 
@@ -129,12 +132,12 @@ Windows 提供两种安装包格式，请根据需求选择其一：
 ### 手动安装
 
 1.  去 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载对应芯片以 `.dmg` 的安装包：Apple Silicon（M 系列芯片）选择 `arm64` 版本，Intel 芯片选择 `x64` 版本
-2.  下载完成后双击安装包进行安装，然后将 `DashPlayer` 拖动到 `Applications` 文件夹。
+2.  下载完成后双击安装包进行安装，然后将 `Refrain` 拖动到 `Applications` 文件夹。
 3.  开始使用吧！
 
 ### 故障排除
 
-#### "DashPlayer" can’t be opened because the developer cannot be verified.
+#### "Refrain" can’t be opened because the developer cannot be verified.
 
 <p align="center">
   <img width="300" alt="image" src="https://user-images.githubusercontent.com/39454841/226151784-b6ed3e65-2c0a-4ad0-93eb-57d45108e1ba.png">
@@ -171,13 +174,13 @@ xattr -c /Applications/DashPlayer.app
 2. 添加可执行权限后直接运行：
 
 ```bash
-chmod +x DashPlayer-*.AppImage
-./DashPlayer-*.AppImage
+chmod +x Refrain-*.AppImage
+./Refrain-*.AppImage
 ```
 
 3. 开始使用吧！
 
-> 如果启动时提示缺少 FUSE（`dlopen(): error loading libfuse.so.2`），请安装 `libfuse2`（Debian/Ubuntu：`sudo apt install libfuse2`），或改用 `./DashPlayer-*.AppImage --appimage-extract-and-run` 运行。
+> 如果启动时提示缺少 FUSE（`dlopen(): error loading libfuse.so.2`），请安装 `libfuse2`（Debian/Ubuntu：`sudo apt install libfuse2`），或改用 `./Refrain-*.AppImage --appimage-extract-and-run` 运行。
 
 ### deb / rpm
 

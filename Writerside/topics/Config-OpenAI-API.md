@@ -4,7 +4,7 @@
 >
 > 简而言之，OpenAI 提供了强大且实惠的人工智能 API，可以用来做各种有趣的事情。
 
-OpenAI 是 DashPlayer 的核心 AI 服务，配置后即可使用以下全部云端 AI 功能：
+OpenAI 是 Refrain 的核心 AI 服务，配置后即可使用以下全部云端 AI 功能：
 
 - **字幕翻译** — 使用大语言模型将英文字幕翻译为中文，或转换为简化英文等风格
 - **词典查询** — 鼠标悬停在单词上，通过 AI 获取详细释义与例句
@@ -21,13 +21,13 @@ OpenAI 官方接口在部分地区可能不便获取，您可以通过第三方�
 
 注册充值后即可获得 API Key 和 Endpoint。
 
-## 在 DashPlayer 中配置
+## 在 Refrain 中配置
 
 1. 打开设置中心，进入「服务凭据」
 2. 在 OpenAI 区域填写 **API Key** 和 **Endpoint**
 3. 点击「测试连接」按钮验证配置是否正确
 
-> DashPlayer 支持所有 OpenAI 兼容接口，仅使用 chat completion API 格式。
+> Refrain 支持所有 OpenAI 兼容接口，仅使用 chat completion API 格式。
 >
 > {style="note"}
 
@@ -35,7 +35,7 @@ OpenAI 官方接口在部分地区可能不便获取，您可以通过第三方�
 
 「服务凭据」页面的 OpenAI 区域提供「是否自动追加 /v1」开关：
 
-- **开启（默认）**：DashPlayer 会自动在接口地址后追加 `/v1`，直接填写服务商给你的域名即可
+- **开启（默认）**：Refrain 会自动在接口地址后追加 `/v1`，直接填写服务商给你的域名即可
 - **关闭**：请在 Endpoint 中自行包含 `/v1` 路径
 
 <!-- 截图占位：OpenAI 服务凭据配置界面 -->

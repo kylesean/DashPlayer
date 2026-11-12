@@ -362,7 +362,7 @@ const StorageSetting: React.FC = () => {
                                     <TextInput
                                         label={t('storage.libraryPathTitle')}
                                         isLabelHidden
-                                        placeholder="Documents/DashPlayer"
+                                        placeholder="Documents/Refrain"
                                         value={field.value ?? ''}
                                         onChange={(val) => field.onChange(val)}
                                         onBlur={field.onBlur}

@@ -81,7 +81,7 @@ const RecentPage = () => {
     });
 
     React.useEffect(() => {
-        document.title = 'DashPlayer';
+        document.title = 'Refrain';
     }, []);
 
     /**
@@ -380,8 +380,8 @@ const RecentPage = () => {
                             <div className="state-title">{t('还没有播放记录', 'No recent plays yet')}</div>
                             <div className="state-text">
                                 {t(
-                                    '先在电脑上的 DashPlayer 里打开一个视频，手机上就能接着看。',
-                                    'Open a video in DashPlayer on your computer first, then it will show up here.',
+                                    '先在电脑上的 Refrain 里打开一个视频，手机上就能接着看。',
+                                    'Open a video in Refrain on your computer first, then it will show up here.',
                                 )}
                             </div>
                         </div>

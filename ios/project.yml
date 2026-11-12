@@ -31,7 +31,7 @@ targets:
       base:
         INFOPLIST_FILE: DashPlayerMobile/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.kylesean.DashPlayerMobile
-        PRODUCT_NAME: DashPlayer
+        PRODUCT_NAME: Refrain
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

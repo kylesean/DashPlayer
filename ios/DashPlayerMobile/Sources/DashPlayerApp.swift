@@ -49,7 +49,7 @@ enum AudioSession {
             try session.setActive(true)
         } catch {
             // 以前用 try? 静默吞掉：首次激活失败时锁屏播放会无声，而日志里查不到任何线索。
-            NSLog("[DashPlayer] audio session activate failed: %@", String(describing: error))
+            NSLog("[Refrain] audio session activate failed: %@", String(describing: error))
         }
     }
 
@@ -77,13 +77,13 @@ enum AudioSession {
             switch type {
             case .began:
                 // 系统已接管音频，这里不需要做任何事；播放器本身会被系统暂停。
-                NSLog("[DashPlayer] audio session interrupted")
+                NSLog("[Refrain] audio session interrupted")
             case .ended:
                 // 中断结束：只有系统允许恢复时才重新激活，否则会再次被打断。
                 let options = (notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
                     .map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
                 guard options.contains(.shouldResume) else {
-                    NSLog("[DashPlayer] audio session interruption ended without resume option")
+                    NSLog("[Refrain] audio session interruption ended without resume option")
                     return
                 }
                 activate()

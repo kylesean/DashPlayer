@@ -38,7 +38,7 @@ describe('AboutSetting', () => {
 
         renderWithFreshSWR(<AboutSetting />);
 
-        expect(screen.getByText('DashPlayer')).toBeDefined();
+        expect(screen.getByAltText('Refrain')).toBeDefined();
         expect(await screen.findByText("You're up to date")).toBeDefined();
         expect(screen.getByRole('button', { name: /Check for Updates/ })).toBeDefined();
     });

@@ -1,5 +1,5 @@
 /**
- * DashPlayer Neutral 主题：在 Astryx 官方 neutral 之上补齐两件事。
+ * Refrain Neutral 主题：在 Astryx 官方 neutral 之上补齐两件事。
  *
  * 1. 中文回退：官方主题字体只覆盖拉丁字形，中文会落到浏览器默认的
  *    generic family（标题甚至可能变成系统衬线），与拉丁字形混排很违和。

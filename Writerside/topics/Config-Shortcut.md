@@ -1,6 +1,6 @@
 # 配置快捷键
 
-DashPlayer 的所有快捷键都可以在设置中心自定义，进入 <control>设置中心</control> → <control>快捷键</control>页面即可修改。
+Refrain 的所有快捷键都可以在设置中心自定义，进入 <control>设置中心</control> → <control>快捷键</control>页面即可修改。
 
 ![shortcut.png](shortcut.png)
 

@@ -1,4 +1,4 @@
-/* 手机版 DashPlayer：React 入口的样式。保持中性色，只在当前句上用一点主色。 */
+/* 手机版 Refrain：React 入口的样式。保持中性色，只在当前句上用一点主色。 */
 :root {
     color-scheme: dark;
     --bg: #0b0b0b;

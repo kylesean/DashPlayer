@@ -12,7 +12,6 @@ import {
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { Divider } from '@astryxdesign/core/Divider';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { ScrollableArea } from '@astryxdesign/core/ScrollableArea';
@@ -27,8 +26,8 @@ import type { UpdateCheckResult } from '@/common/types/update-check';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
 import { SettingField, SettingSection } from '@/fronted/features/settings/components/form';
-import logoLight from '../../../../assets/logo-light.png';
-import logoDark from '../../../../assets/logo-dark.png';
+import wordmark from '../../../../assets/brand/refrain/wordmark.svg';
+import wordmarkReverse from '../../../../assets/brand/refrain/wordmark-reverse.svg';
 
 /**
  * 关于与更新设置面板
@@ -90,36 +89,30 @@ const AboutSetting: React.FC = () => {
         <SettingsPageShell
             title={t('about.title', { defaultValue: '关于与更新' })}
             description={t('about.slogan', {
-                defaultValue: '专为语言学习与长视频精听打造的智能双语播放器',
+                defaultValue: '精选 YouTube 英语视频，AI 原生的沉浸式学习',
             })}
         >
             <SettingSection
                 title={t('about.appInfoTitle', { defaultValue: '产品信息' })}
-                description={t('about.appInfoDescription', { defaultValue: '了解 DashPlayer 的版本与更新状态' })}
+                description={t('about.appInfoDescription', { defaultValue: '了解 Refrain 的版本与更新状态' })}
                 icon={Info as unknown as IconType}
             >
                 <Card variant="default" padding={4}>
                     <HStack vAlign="center" justify="between" wrap="wrap" gap={4}>
                         <HStack vAlign="center" gap={3}>
                             <img
-                                src={isDark ? logoDark : logoLight}
-                                alt="DashPlayer Logo"
-                                width={48}
-                                height={48}
+                                className="h-10 w-auto object-contain shrink-0"
+                                src={isDark ? wordmarkReverse : wordmark}
+                                alt={t('about.appName', { defaultValue: 'Refrain' })}
                                 draggable={false}
                             />
-                            <VStack gap={1}>
-                                <HStack vAlign="center" gap={2}>
-                                    <Heading level={4}>DashPlayer</Heading>
-                                    {currentVersion && (
-                                        <Token
-                                            label={`v${currentVersion}`}
-                                            size="sm"
-                                            color="gray"
-                                        />
-                                    )}
-                                </HStack>
-                            </VStack>
+                            {currentVersion && (
+                                <Token
+                                    label={`v${currentVersion}`}
+                                    size="sm"
+                                    color="gray"
+                                />
+                            )}
                         </HStack>
 
                         <HStack vAlign="center" gap={2}>
@@ -257,7 +250,7 @@ const AboutSetting: React.FC = () => {
 
             <HStack justify="center" paddingBlock={2}>
                 <Text size="2xs" color="secondary" justify="center">
-                    {t('about.footer', { defaultValue: '基于 solidSpoon/DashPlayer 深度定制' })} · GNU AGPLv3
+                    {t('about.footer', { defaultValue: '源自 solidSpoon/DashPlayer，现以 Refrain 独立维护' })} · GNU AGPLv3
                 </Text>
             </HStack>
         </SettingsPageShell>
