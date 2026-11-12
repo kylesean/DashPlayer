@@ -9,6 +9,7 @@ import {
 } from '@/backend/infrastructure/db/tables/recommendationEvent';
 import { productionPracticeRecord } from '@/backend/infrastructure/db/tables/productionPracticeRecord';
 import { reviewCard, type ReviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
+import { rolePlayTurn, type RolePlayTurn } from '@/backend/infrastructure/db/tables/rolePlayTurn';
 import { sentencePracticeRecord } from '@/backend/infrastructure/db/tables/sentencePracticeRecord';
 import { wordEncounter, type WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import { words, type Word } from '@/backend/infrastructure/db/tables/words';
@@ -199,16 +200,29 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             .orderBy(asc(productionPracticeRecord.id));
     }
 
+    public async listRolePlayTurns(): Promise<RolePlayTurn[]> {
+        return this.db
+            .select()
+            .from(rolePlayTurn)
+            .orderBy(
+                asc(rolePlayTurn.created_at),
+                asc(rolePlayTurn.session_key),
+                asc(rolePlayTurn.turn),
+            );
+    }
+
     public async resetLearningData(): Promise<LearningDataResetCounts> {
         const now = new Date().toISOString();
         return this.db.transaction((tx) => {
             const encounters = tx.delete(wordEncounter).run();
             const cards = tx.delete(reviewCard).run();
             const recommendations = tx.delete(recommendationEvent).run();
-            // 句子练习（跟读/听写）与产出型练习（复述/角色扮演）都属于用户学习记录，
-            // 清除学习数据时必须一并删除，否则会残留按视频定位的历史成绩。
+            // 句子练习（跟读/听写）、产出型练习（复述/角色扮演）与角色扮演轮次
+            // 都属于用户学习记录，清除学习数据时必须一并删除，否则会残留按视频
+            // 定位的历史成绩，或让同一场对话在清除后继续续聊。
             tx.delete(sentencePracticeRecord).run();
             tx.delete(productionPracticeRecord).run();
+            const rolePlayTurns = tx.delete(rolePlayTurn).run();
             const updatedWords = tx.update(words).set({
                 mastery: 0,
                 confidence: 0,
@@ -220,6 +234,7 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
                 encountersDeleted: Number(encounters.changes),
                 reviewCardsDeleted: Number(cards.changes),
                 recommendationsDeleted: Number(recommendations.changes),
+                rolePlayTurnsDeleted: Number(rolePlayTurns.changes),
                 wordsReset: Number(updatedWords.changes),
             };
         });
@@ -241,6 +256,7 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             tx.delete(recommendationEvent).run();
             tx.delete(sentencePracticeRecord).run();
             tx.delete(productionPracticeRecord).run();
+            tx.delete(rolePlayTurn).run();
 
             // 只替换用户词表：默认词表是产品资产，不随用户备份进出。
             // 但如果备份里的某个词正好与默认词表同形，必须先让位，否则会撞上 word 唯一约束；
@@ -342,6 +358,27 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
                     }))).run();
                 });
             }
+            if (snapshot.rolePlayTurns.length > 0) {
+                inChunks(snapshot.rolePlayTurns, RESTORE_BATCH_ROWS, (chunk) => {
+                    tx.insert(rolePlayTurn).values(chunk.map((turn) => ({
+                        session_key: turn.sessionKey,
+                        turn: turn.turn,
+                        video_id: turn.videoId,
+                        file_hash: turn.fileHash,
+                        partner_line: turn.partnerLine,
+                        partner_index: turn.partnerIndex,
+                        response_text: turn.responseText,
+                        level: turn.level,
+                        feedback: turn.feedback,
+                        improved: turn.improved,
+                        used_expressions_json: turn.usedExpressions.length > 0
+                            ? JSON.stringify(turn.usedExpressions)
+                            : null,
+                        source: turn.source,
+                        created_at: turn.createdAt,
+                    }))).run();
+                });
+            }
 
             return {
                 wordsRestored: snapshot.words.length,
@@ -350,6 +387,7 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
                 recommendationsRestored: snapshot.recommendations.length,
                 sentencePracticesRestored: snapshot.sentencePractices.length,
                 productionPracticesRestored: snapshot.productionPractices.length,
+                rolePlayTurnsRestored: snapshot.rolePlayTurns.length,
             };
         });
     }

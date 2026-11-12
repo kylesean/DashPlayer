@@ -9,6 +9,7 @@ import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsR
 import { productionPracticeRecord } from '@/backend/infrastructure/db/tables/productionPracticeRecord';
 import { recommendationEvent } from '@/backend/infrastructure/db/tables/recommendationEvent';
 import { reviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
+import { rolePlayTurn } from '@/backend/infrastructure/db/tables/rolePlayTurn';
 import { sentencePracticeRecord } from '@/backend/infrastructure/db/tables/sentencePracticeRecord';
 import { wordEncounter, type InsertWordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import { words } from '@/backend/infrastructure/db/tables/words';
@@ -263,7 +264,7 @@ describe('LearningDataService 导出与清除', () => {
 
         const exported = await service.buildExport();
 
-        expect(exported.schemaVersion).toBe(2);
+        expect(exported.schemaVersion).toBe(3);
         expect(exported.words.map((word) => word.word)).toEqual(['journey']);
         expect(exported.words[0]).toMatchObject({
             word: 'journey',
@@ -308,10 +309,24 @@ describe('LearningDataService 导出与清除', () => {
             feedback: 'clear',
             improved: 'I learned to slow down and listen.',
         });
+        await memoryDb.db.insert(rolePlayTurn).values({
+            session_key: 'video-1|opening',
+            turn: 1,
+            video_id: 'video-1',
+            file_hash: 'subtitle-1',
+            partner_line: 'What did you learn?',
+            partner_index: 4,
+            response_text: 'I learned to slow down.',
+            level: 'good',
+            feedback: 'clear',
+            improved: 'I learned to slow down and listen.',
+            used_expressions_json: '["slow down"]',
+            source: 'ai',
+        });
 
         const exported = await service.buildExport();
 
-        expect(exported.schemaVersion).toBe(2);
+        expect(exported.schemaVersion).toBe(3);
         expect(exported.sentencePractices).toEqual([{
             fileHash: 'subtitle-1',
             sentenceIndex: 3,
@@ -330,6 +345,21 @@ describe('LearningDataService 导出与清除', () => {
             level: 'good',
             responseText: 'I learned to slow down.',
         });
+        expect(exported.rolePlayTurns).toEqual([{
+            sessionKey: 'video-1|opening',
+            turn: 1,
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+            partnerLine: 'What did you learn?',
+            partnerIndex: 4,
+            responseText: 'I learned to slow down.',
+            level: 'good',
+            feedback: 'clear',
+            improved: 'I learned to slow down and listen.',
+            usedExpressions: ['slow down'],
+            source: 'ai',
+            createdAt: expect.any(String),
+        }]);
     });
 
     it('导入备份会整体恢复词表、事件、复习卡与练习记录', async () => {
@@ -520,6 +550,15 @@ describe('LearningDataService 导出与清除', () => {
             response_text: 'Everything changed after the journey.',
             level: 'great',
         });
+        await memoryDb.db.insert(rolePlayTurn).values({
+            session_key: 'video-1|roundtrip',
+            turn: 1,
+            partner_line: 'Where did you go?',
+            response_text: 'I went on a long journey.',
+            level: 'great',
+            used_expressions_json: '["go on a journey"]',
+            source: 'local',
+        });
 
         const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'dashplayer-learning-roundtrip-'));
         const filePath = path.join(directory, 'backup.json');
@@ -533,6 +572,7 @@ describe('LearningDataService 导出与清除', () => {
             expect(cleared.reviewCards).toHaveLength(0);
             expect(cleared.sentencePractices).toHaveLength(0);
             expect(cleared.productionPractices).toHaveLength(0);
+            expect(cleared.rolePlayTurns).toHaveLength(0);
 
             const imported = await service.importFromJson(filePath);
             expect(imported.success).toBe(true);
@@ -543,6 +583,7 @@ describe('LearningDataService 导出与清除', () => {
             expect(after.reviewCards).toEqual(before.reviewCards);
             expect(after.sentencePractices).toEqual(before.sentencePractices);
             expect(after.productionPractices).toEqual(before.productionPractices);
+            expect(after.rolePlayTurns).toEqual(before.rolePlayTurns);
             expect(after.retention.last7Days.reviewed).toBe(before.retention.last7Days.reviewed);
         } finally {
             await fs.rm(directory, { recursive: true, force: true });
@@ -696,6 +737,14 @@ describe('LearningDataService 导出与清除', () => {
             response_text: 'The journey changed everything for me.',
             level: 'good',
         });
+        await memoryDb.db.insert(rolePlayTurn).values({
+            session_key: 'video-1|clear',
+            turn: 1,
+            partner_line: 'What changed?',
+            response_text: 'The journey changed everything.',
+            level: 'good',
+            source: 'ai',
+        });
         await memoryDb.db.update(words).set({ updated_at: new Date(0).toISOString() }).run();
 
         const result = await service.resetLearningData();
@@ -704,6 +753,7 @@ describe('LearningDataService 导出与清除', () => {
             encountersDeleted: 2,
             reviewCardsDeleted: 1,
             recommendationsDeleted: 1,
+            rolePlayTurnsDeleted: 1,
             wordsReset: 2,
         });
         expect(await memoryDb.db.select().from(wordEncounter)).toHaveLength(0);
@@ -711,6 +761,7 @@ describe('LearningDataService 导出与清除', () => {
         expect(await memoryDb.db.select().from(recommendationEvent)).toHaveLength(0);
         expect(await memoryDb.db.select().from(sentencePracticeRecord)).toHaveLength(0);
         expect(await memoryDb.db.select().from(productionPracticeRecord)).toHaveLength(0);
+        expect(await memoryDb.db.select().from(rolePlayTurn)).toHaveLength(0);
         const remaining = await memoryDb.db.select().from(words);
         expect(remaining).toHaveLength(2);
         expect(remaining.find((word) => word.word === 'journey')).toMatchObject({

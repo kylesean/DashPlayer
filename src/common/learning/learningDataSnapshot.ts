@@ -8,6 +8,7 @@ import type {
     LearningDataRecommendationVO,
     LearningDataRestoreSnapshot,
     LearningDataReviewCardVO,
+    LearningDataRolePlayTurnVO,
     LearningDataSentencePracticeVO,
     LearningDataWordVO,
 } from '@/common/types/learningData';
@@ -20,7 +21,7 @@ import {
 } from '@/common/types/vocabulary';
 
 /** 导入支持的最高 schema 版本。 */
-export const LEARNING_DATA_SCHEMA_VERSION = 2;
+export const LEARNING_DATA_SCHEMA_VERSION = 3;
 
 /** 产出型练习模式。 */
 const PRODUCTION_PRACTICE_MODES: readonly ProductionPracticeMode[] = ['retell', 'roleplay'];
@@ -275,11 +276,31 @@ const parseProductionPractice = (value: unknown, path: string): LearningDataProd
     };
 };
 
+const parseRolePlayTurn = (value: unknown, path: string): LearningDataRolePlayTurnVO => {
+    const raw = record(value, path);
+    return {
+        sessionKey: str(raw.sessionKey, `${path}.sessionKey`),
+        turn: int(raw.turn, `${path}.turn`),
+        videoId: nullableStr(raw.videoId, `${path}.videoId`),
+        fileHash: nullableStr(raw.fileHash, `${path}.fileHash`),
+        partnerLine: str(raw.partnerLine, `${path}.partnerLine`),
+        partnerIndex: nullableInt(raw.partnerIndex, `${path}.partnerIndex`),
+        responseText: str(raw.responseText, `${path}.responseText`),
+        level: oneOf(raw.level, RETELL_LEVELS, `${path}.level`),
+        feedback: nullableStr(raw.feedback, `${path}.feedback`),
+        improved: nullableStr(raw.improved, `${path}.improved`),
+        usedExpressions: array(raw.usedExpressions ?? [], `${path}.usedExpressions`)
+            .map((item, index) => str(item, `${path}.usedExpressions[${index}]`)),
+        source: str(raw.source, `${path}.source`),
+        createdAt: dateStr(raw.createdAt, `${path}.createdAt`),
+    };
+};
+
 /**
  * 解析并校验一份学习数据备份。
  *
- * 兼容 schemaVersion 1：旧备份没有练习记录，按空数组处理。更高版本直接拒绝，
- * 避免用旧代码写入它并不理解的字段。
+ * 兼容 schemaVersion 1/2：旧备份没有角色扮演轮次，按空数组处理；版本 3 起
+ * 必须携带 `rolePlayTurns`。更高版本直接拒绝，避免用旧代码写入它并不理解的字段。
  *
  * @param value 已 JSON.parse 的未知值。
  * @returns 可直接写库的快照。
@@ -330,6 +351,10 @@ export function parseLearningDataExport(value: unknown): LearningDataRestoreSnap
         productionPractices: version >= 2
             ? array(root.productionPractices ?? [], '$.productionPractices')
                 .map((item, index) => parseProductionPractice(item, `$.productionPractices[${index}]`))
+            : [],
+        rolePlayTurns: version >= 3
+            ? array(root.rolePlayTurns, '$.rolePlayTurns')
+                .map((item, index) => parseRolePlayTurn(item, `$.rolePlayTurns[${index}]`))
             : [],
     };
 }

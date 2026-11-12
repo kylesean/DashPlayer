@@ -25,6 +25,23 @@ import { parseLearningDataExport } from '@/common/learning/learningDataSnapshot'
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * 角色扮演轮次里的目标表达以 JSON 文本存储；畸形值不应让整份导出失败。
+ */
+const parseUsedExpressions = (raw: string | null): string[] => {
+    if (!raw) {
+        return [];
+    }
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        return Array.isArray(parsed)
+            ? parsed.filter((item): item is string => typeof item === 'string')
+            : [];
+    } catch {
+        return [];
+    }
+};
+
 /** 会进入“本次学习”摘要的行动；seen/hover 只算曝光，不构成学习证据。 */
 export const LEARNING_SESSION_ACTIONS = [
     'open',
@@ -203,6 +220,7 @@ export class LearningDataServiceImpl implements LearningDataService {
             recommendations,
             sentencePractices,
             productionPractices,
+            rolePlayTurns,
             last7Days,
             last30Days,
         ] = await Promise.all([
@@ -213,11 +231,12 @@ export class LearningDataServiceImpl implements LearningDataService {
             this.repository.listRecommendationEvents(),
             this.repository.listSentencePracticeRecords(),
             this.repository.listProductionPracticeRecords(),
+            this.repository.listRolePlayTurns(),
             this.getRetentionSince(new Date(now.getTime() - 7 * DAY_MS).toISOString()),
             this.getRetentionSince(new Date(now.getTime() - 30 * DAY_MS).toISOString()),
         ]);
         return {
-            schemaVersion: 2,
+            schemaVersion: 3,
             exportedAt: now.toISOString(),
             words: words.map((word) => ({
                 word: word.word,
@@ -290,6 +309,21 @@ export class LearningDataServiceImpl implements LearningDataService {
                 improved: record.improved,
                 detailJson: record.detail_json,
                 createdAt: record.created_at,
+            })),
+            rolePlayTurns: rolePlayTurns.map((turn) => ({
+                sessionKey: turn.session_key,
+                turn: turn.turn,
+                videoId: turn.video_id,
+                fileHash: turn.file_hash,
+                partnerLine: turn.partner_line,
+                partnerIndex: turn.partner_index,
+                responseText: turn.response_text,
+                level: turn.level,
+                feedback: turn.feedback,
+                improved: turn.improved,
+                usedExpressions: parseUsedExpressions(turn.used_expressions_json),
+                source: turn.source,
+                createdAt: turn.created_at,
             })),
             retention: { last7Days, last30Days },
         };

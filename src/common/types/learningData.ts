@@ -114,13 +114,35 @@ export interface LearningDataProductionPracticeVO {
 }
 
 /**
+ * 学习数据导出中的角色扮演轮次。
+ *
+ * 与 `dp_role_play_turn` 一一对应：同一场对话按轮次恢复，重开弹窗时才能
+ * 看到完整的上下文中点评。
+ */
+export interface LearningDataRolePlayTurnVO {
+    sessionKey: string;
+    turn: number;
+    videoId: string | null;
+    fileHash: string | null;
+    partnerLine: string;
+    partnerIndex: number | null;
+    responseText: string;
+    level: RetellLevel;
+    feedback: string | null;
+    improved: string | null;
+    usedExpressions: string[];
+    source: string;
+    createdAt: string;
+}
+
+/**
  * 可移植的学习数据 JSON。
  *
  * schemaVersion 1 只含词表 / 事件 / 复习卡 / 推荐；版本 2 起补齐了
- * 跟读、听写与产出型练习，导入时按版本兼容读取。
+ * 跟读、听写与产出型练习；版本 3 起补齐角色扮演轮次，导入时按版本兼容读取。
  */
 export interface LearningDataExportVO {
-    schemaVersion: 2;
+    schemaVersion: 3;
     exportedAt: string;
     words: LearningDataWordVO[];
     encounters: LearningDataEncounterVO[];
@@ -128,6 +150,7 @@ export interface LearningDataExportVO {
     recommendations: LearningDataRecommendationVO[];
     sentencePractices: LearningDataSentencePracticeVO[];
     productionPractices: LearningDataProductionPracticeVO[];
+    rolePlayTurns: LearningDataRolePlayTurnVO[];
     retention: {
         last7Days: ReviewRetentionStats;
         last30Days: ReviewRetentionStats;
@@ -147,6 +170,7 @@ export interface LearningDataRestoreSnapshot {
     recommendations: LearningDataRecommendationVO[];
     sentencePractices: LearningDataSentencePracticeVO[];
     productionPractices: LearningDataProductionPracticeVO[];
+    rolePlayTurns: LearningDataRolePlayTurnVO[];
 }
 
 /**
@@ -159,6 +183,7 @@ export interface LearningDataRestoreCounts {
     recommendationsRestored: number;
     sentencePracticesRestored: number;
     productionPracticesRestored: number;
+    rolePlayTurnsRestored: number;
 }
 
 /**
@@ -168,6 +193,7 @@ export interface LearningDataResetResultVO {
     encountersDeleted: number;
     reviewCardsDeleted: number;
     recommendationsDeleted: number;
+    rolePlayTurnsDeleted: number;
     wordsReset: number;
 }
 
@@ -196,5 +222,6 @@ export interface LearningDataImportResultVO {
     recommendationsRestored?: number;
     sentencePracticesRestored?: number;
     productionPracticesRestored?: number;
+    rolePlayTurnsRestored?: number;
     error?: string;
 }

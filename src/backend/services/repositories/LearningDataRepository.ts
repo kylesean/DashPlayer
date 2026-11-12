@@ -13,6 +13,7 @@ import type {
 } from '@/common/types/learningData';
 import type { ReviewCard } from '@/backend/infrastructure/db/tables/reviewCard';
 import type { ProductionPracticeRecord } from '@/backend/infrastructure/db/tables/productionPracticeRecord';
+import type { RolePlayTurn } from '@/backend/infrastructure/db/tables/rolePlayTurn';
 import type { SentencePracticeRecord } from '@/backend/infrastructure/db/tables/sentencePracticeRecord';
 
 /**
@@ -35,6 +36,7 @@ export interface LearningDataResetCounts {
     encountersDeleted: number;
     reviewCardsDeleted: number;
     recommendationsDeleted: number;
+    rolePlayTurnsDeleted: number;
     wordsReset: number;
 }
 
@@ -100,8 +102,11 @@ export default interface LearningDataRepository {
     /** 读取全部复述 / 角色扮演记录，用于可移植导出。 */
     listProductionPracticeRecords(): Promise<ProductionPracticeRecord[]>;
 
+    /** 读取全部角色扮演轮次，用于可移植导出。 */
+    listRolePlayTurns(): Promise<RolePlayTurn[]>;
+
     /**
-     * 删除遭遇事件、复习卡、推荐事件与练习记录，并重置词条掌握字段。
+     * 删除遭遇事件、复习卡、推荐事件、练习记录与角色扮演轮次，并重置词条掌握字段。
      *
      * 在一个事务内完成，避免用户看到“记录已删但掌握度还在”的半清空状态。
      */
