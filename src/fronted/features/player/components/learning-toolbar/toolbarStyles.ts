@@ -17,11 +17,11 @@ export type ToolbarAccent = 'amber' | 'emerald' | 'neutral';
 
 /** 图标按钮基础形状（尺寸与圆角），升级为标准 32px 舒适触达网格。 */
 export const TOOLBAR_ICON_BUTTON =
-    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer';
+    'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current';
 
 /** 带文字/徽章的按钮基础形状，与同一行的图标按钮同高同圆角。 */
 export const TOOLBAR_TEXT_BUTTON =
-    'flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium leading-none transition-all duration-150 cursor-pointer';
+    'flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium leading-none transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current';
 
 /** 分段控件（EN / 中 / 双语）的外壳。 */
 export const TOOLBAR_SEGMENTED =
@@ -57,8 +57,8 @@ export const TOOLBAR_TONE: Record<ToolbarTone, ToneClasses> = {
         idle: 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground',
         divider: 'bg-border/70',
         segmented: 'border-border/50 bg-muted/60',
-        segmentIdle: 'text-muted-foreground hover:text-foreground',
-        segmentActive: 'bg-background text-foreground shadow-xs',
+        segmentIdle: 'text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
+        segmentActive: 'bg-background text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
         badge: 'bg-foreground/10 text-foreground',
         accent: {
             amber: 'bg-warning/10 text-warning-text ring-1 ring-warning/25 dark:text-warning-text',
@@ -70,12 +70,12 @@ export const TOOLBAR_TONE: Record<ToolbarTone, ToneClasses> = {
         idle: 'text-media-fg/80 hover:bg-media-fg/15 hover:text-media-fg',
         divider: 'bg-media-fg/15',
         segmented: 'border-media-fg/15 bg-media-fg/10',
-        segmentIdle: 'text-media-fg/70 hover:text-media-fg',
-        segmentActive: 'bg-media-fg/20 text-media-fg shadow-xs',
+        segmentIdle: 'text-media-fg/70 hover:text-media-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
+        segmentActive: 'bg-media-fg/20 text-media-fg shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
         badge: 'bg-media-fg/20 text-media-fg',
         accent: {
-            amber: 'bg-warning/20 text-warning-text ring-1 ring-warning/30',
-            emerald: 'bg-success/25 text-success-text ring-1 ring-success/30',
+            amber: 'bg-warning/20 text-media-amber ring-1 ring-warning/30',
+            emerald: 'bg-success/25 text-media-fg ring-1 ring-success/30',
             neutral: 'bg-media-fg/20 text-media-fg ring-1 ring-media-fg/30',
         },
     },

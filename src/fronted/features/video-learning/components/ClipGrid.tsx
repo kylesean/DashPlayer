@@ -117,7 +117,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                         </div>
                       )}
                       {clip.sourceType === 'local' && !isPlaying && (
-                        <div className="absolute top-2 left-2 bg-warning/90 text-media-fg text-metadata font-medium px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs backdrop-blur-xs">
+                        <div className="absolute top-2 left-2 bg-warning text-on-warning text-metadata font-medium px-2 py-0.5 rounded-md flex items-center gap-1 shadow-2xs backdrop-blur-xs">
                           <div className="w-1.5 h-1.5 bg-current rounded-full animate-pulse"></div>
                           {t('clipGridProcessing')}
                         </div>
