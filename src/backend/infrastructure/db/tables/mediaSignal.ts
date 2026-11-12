@@ -15,7 +15,7 @@ export const mediaSignal = sqliteTable('dp_media_signal', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     /** 视频路径；与观看记录一致。 */
     video_id: text('video_id').notNull(),
-    /** 信号类型：`speaker-segments`（声纹分段）/ `visual-scenes`（画面切分）。 */
+    /** 信号类型：`speaker-segments`（声纹分段）/ `visual-scenes`（画面切分）/ `prosody-envelope`（语音韵律包络）。 */
     kind: text('kind').notNull(),
     /** 算法版本；阈值或模型变化时递增，旧结果自然失效。 */
     algorithm_version: integer('algorithm_version').notNull(),

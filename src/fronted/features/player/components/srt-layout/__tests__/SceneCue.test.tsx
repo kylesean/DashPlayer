@@ -83,6 +83,36 @@ describe('SceneCue', () => {
         expect(mockedBoundaries).toHaveBeenCalledTimes(1);
     });
 
+    it('韵律突变时展示语速或音量变化提示', async () => {
+        setSceneCues('true');
+        mockedBoundaries.mockResolvedValue([{
+            sentenceIndex: 2,
+            atSec: 4,
+            kinds: ['prosody-shift'],
+            confidence: 0.7,
+        }]);
+        render(<SceneCue sentences={withBoundary} currentSentence={withBoundary[2]} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('scene-cue').textContent).toBe('sceneCue.prosodyShift');
+        });
+    });
+
+    it('声纹优先于画面与韵律，画面优先于韵律', async () => {
+        setSceneCues('true');
+        mockedBoundaries.mockResolvedValue([{
+            sentenceIndex: 2,
+            atSec: 4,
+            kinds: ['prosody-shift', 'visual-shift', 'speaker-shift'],
+            confidence: 0.85,
+        }]);
+        render(<SceneCue sentences={withBoundary} currentSentence={withBoundary[2]} />);
+
+        await waitFor(() => {
+            expect(screen.getByTestId('scene-cue').textContent).toBe('sceneCue.speakerShift');
+        });
+    });
+
     it('普通连续字幕不展示提示', async () => {
         setSceneCues('true');
         render(<SceneCue sentences={continuous} currentSentence={continuous[1]} />);

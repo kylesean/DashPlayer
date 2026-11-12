@@ -75,6 +75,7 @@ const TYPES = {
     SpeakerDiarizationGateway: Symbol('SpeakerDiarizationGateway'),
     SpeakerDiarizationService: Symbol('SpeakerDiarizationService'),
     VisualSceneService: Symbol('VisualSceneService'),
+    ProsodySignalService: Symbol('ProsodySignalService'),
     SpeakerDiarizationModelService: Symbol('SpeakerDiarizationModelService'),
     DpTaskRepository: Symbol('DpTaskRepository'),
     VideoLearningClipRepository: Symbol('VideoLearningClipRepository'),

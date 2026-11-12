@@ -99,9 +99,11 @@ export default function SceneCue({
         ? t('sceneCue.speakerShift')
         : boundary.kinds.includes('visual-shift')
             ? t('sceneCue.visualShift')
-        : boundary.kinds.includes('topic-shift')
-            ? t('sceneCue.topicShift')
-            : t('sceneCue.newScene');
+            : boundary.kinds.includes('prosody-shift')
+                ? t('sceneCue.prosodyShift')
+                : boundary.kinds.includes('topic-shift')
+                    ? t('sceneCue.topicShift')
+                    : t('sceneCue.newScene');
 
     return (
         <div

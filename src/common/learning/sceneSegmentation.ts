@@ -1,4 +1,5 @@
 import { isContentLemma } from '@/common/learning/contentWords';
+import type { ProsodyShift } from '@/common/learning/prosodySignal';
 import { cleanWord, isWordToken, splitWords } from '@/common/utils/subtitle/tokenize';
 
 /**
@@ -36,7 +37,12 @@ export interface SpeakerInterval {
 }
 
 /** 场景边界类型。 */
-export type SceneBoundaryKind = 'time-gap' | 'topic-shift' | 'speaker-shift' | 'visual-shift';
+export type SceneBoundaryKind =
+    | 'time-gap'
+    | 'topic-shift'
+    | 'speaker-shift'
+    | 'visual-shift'
+    | 'prosody-shift';
 
 /**
  * 场景切分算法版本。
@@ -45,8 +51,9 @@ export type SceneBoundaryKind = 'time-gap' | 'topic-shift' | 'speaker-shift' | '
  * 版本变了旧结果自然失效并重算，不会读到旧阈值的结果却以为是最新。
  *
  * v2：speaker-shift 可由真实声纹区间判定，置信度与文本启发式不同。
+ * v3：新增 prosody-shift，语音韵律（语速/音量）可作为第五类边界信号。
  */
-export const SCENE_SEGMENTATION_VERSION = 2;
+export const SCENE_SEGMENTATION_VERSION = 3;
 
 /** 一个本地推测的场景边界。 */
 export interface SceneBoundary {
@@ -82,6 +89,14 @@ export interface SceneSegmentationOptions {
      * 字幕文本，能在没有对话的段落里给出边界。
      */
     visualShifts?: readonly number[];
+    /**
+     * 语音韵律突变点；提供时把语速或音量的骤变也作为场景边界信号。
+     *
+     * 与前两类信号正交：声纹抓「谁在说」，画面抓「镜头去了哪里」，韵律抓
+     * 「说话方式变了」。听感上换人、切到旁白或进入争吵段落时，语速与音量
+     * 常先于文本与画面发生变化。
+     */
+    prosodyShifts?: readonly ProsodyShift[];
 }
 
 const DEFAULT_TIME_GAP_SEC = 2.5;
@@ -159,12 +174,14 @@ const unionLemmas = (sentences: readonly SceneSentence[]): Set<string> => {
 /**
  * 本地场景切分。
  *
- * 只用字幕时间与文本做确定性启发式：
+ * 基础判定只用字幕时间与文本做确定性启发式：
  * - 明显的静默间隔；
  * - 前后窗口内容词几乎不重合；
  * - 短回应紧跟在问句之后（推测说话人切换）。
  *
- * 不读取画面、不做声纹分离，也不声称是精确的场景/说话人识别。
+ * 声纹区间、画面切换点与语音韵律作为可选信号由调用方传入：三者都来自
+ * 对视频本体的分析，缺失时自动退回纯字幕启发式。即便如此也不声称是
+ * 精确的场景/说话人识别。
  *
  * @param sentences 按 index 升序的字幕句。
  * @param options 阈值覆盖。
@@ -182,6 +199,14 @@ export const segmentScenes = (
     const windowSize = Math.max(1, options.windowSize ?? DEFAULT_WINDOW_SIZE);
     const speakerIntervals = options.speakerIntervals ?? [];
     const visualShifts = options.visualShifts ?? [];
+    // 韵律突变按句序号索引：与画面切换不同，它天然对齐到具体某一句，
+    // 不需要按时间窗匹配。
+    const prosodyByIndex = new Map<number, ProsodyShift>();
+    for (const shift of options.prosodyShifts ?? []) {
+        if (!prosodyByIndex.has(shift.sentenceIndex)) {
+            prosodyByIndex.set(shift.sentenceIndex, shift);
+        }
+    }
     // 画面切换点按时间升序，句级判定时用二分查找最近的点，避免每句线性扫描。
     const sortedVisualShifts = [...visualShifts].sort((left, right) => left - right);
 
@@ -243,6 +268,14 @@ export const segmentScenes = (
             confidence = Math.max(confidence, 0.6);
             // 一个切换点只归属一句：消耗掉它，避免短句被连续标记两次。
             visualCursor += 1;
+        }
+
+        const prosody = prosodyByIndex.get(current.index);
+        if (prosody) {
+            kinds.push('prosody-shift');
+            // 语速变化比音量变化更可靠：配乐与音效也会推高音量，却不会
+            // 改变词速，因此两者给不同置信度。
+            confidence = Math.max(confidence, prosody.reason === 'rate' ? 0.7 : 0.6);
         }
 
         if (kinds.length === 0) {

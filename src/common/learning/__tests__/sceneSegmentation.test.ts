@@ -75,4 +75,55 @@ describe('segmentScenes', () => {
         expect(segmentScenes([])).toEqual([]);
         expect(segmentScenes([sentence(0, 'hello', 0, 1)])).toEqual([]);
     });
+
+    it('韵律突变点标记 prosody-shift，语速比音量置信度更高', () => {
+        const boundaries = segmentScenes([
+            sentence(0, 'The journey begins at the station.', 0, 2),
+            sentence(1, 'The journey continues through the valley.', 2, 4),
+            sentence(2, 'The journey ends at the station.', 4, 6),
+        ], {
+            timeGapSec: 10,
+            prosodyShifts: [
+                { sentenceIndex: 1, atSec: 2, reason: 'rate', detail: 2.1 },
+                { sentenceIndex: 2, atSec: 4, reason: 'energy', detail: 11 },
+            ],
+        });
+
+        expect(boundaries).toHaveLength(2);
+        expect(boundaries[0].kinds).toContain('prosody-shift');
+        expect(boundaries[0].confidence).toBe(0.7);
+        expect(boundaries[1].confidence).toBe(0.6);
+    });
+
+    it('韵律信号与文本信号同时命中时合并到同一边界', () => {
+        const boundaries = segmentScenes([
+            sentence(0, 'The spacecraft entered the orbit.', 0, 2),
+            sentence(1, 'Engineers checked the spacecraft orbit.', 2, 4),
+            sentence(2, 'My grandmother baked a lemon cake.', 4, 6),
+            sentence(3, 'The kitchen smelled of lemon and sugar.', 6, 8),
+        ], {
+            timeGapSec: 10,
+            prosodyShifts: [{ sentenceIndex: 2, atSec: 4, reason: 'rate', detail: 1.8 }],
+        });
+
+        expect(boundaries).toHaveLength(1);
+        expect(boundaries[0].kinds).toContain('topic-shift');
+        expect(boundaries[0].kinds).toContain('prosody-shift');
+    });
+
+    it('同一句的多个韵律突变只标记一次', () => {
+        const boundaries = segmentScenes([
+            sentence(0, 'The journey begins at the station.', 0, 2),
+            sentence(1, 'The journey continues through the valley.', 2, 4),
+        ], {
+            timeGapSec: 10,
+            prosodyShifts: [
+                { sentenceIndex: 1, atSec: 2, reason: 'rate', detail: 2 },
+                { sentenceIndex: 1, atSec: 2, reason: 'energy', detail: 12 },
+            ],
+        });
+
+        expect(boundaries).toHaveLength(1);
+        expect(boundaries[0].kinds.filter((kind) => kind === 'prosody-shift')).toHaveLength(1);
+    });
 });

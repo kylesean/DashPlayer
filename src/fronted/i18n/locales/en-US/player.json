@@ -106,7 +106,7 @@
         "adaptiveChinese": "Adaptive Chinese",
         "adaptiveChineseHint": "Weakens Chinese when the sentence looks easy to understand. Hover the subtitle to reveal it; turn this off to always show full Chinese.",
         "sceneCues": "Scene cues",
-        "sceneCuesHint": "A subtle hint above the subtitle when a scene or speaker may have changed. Inferred from subtitle timing and text only, never video frames; off by default.",
+        "sceneCuesHint": "A subtle hint above the subtitle when a scene or speaker may have changed. Inferred from subtitle timing and text, optionally combined with on-device speaker, frame and prosody signals; off by default.",
         "translationEngineMissing": "No subtitle translation engine is enabled. Configure one in Settings → Services & Resources.",
         "displayModeLabel": "Subtitle layout",
         "sentenceBlockMode": "Full-sentence flow",
@@ -149,7 +149,8 @@
         "newScene": "New scene",
         "topicShift": "New scene · Topic shift",
         "speakerShift": "Speaker may have changed",
-        "visualShift": "New scene · Camera cut"
+        "visualShift": "New scene · Camera cut",
+        "prosodyShift": "New scene · Pace or volume change"
     },
     "clearAdjust": {
         "button": "Clear timing adjustments",

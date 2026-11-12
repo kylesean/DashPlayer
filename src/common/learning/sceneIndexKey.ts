@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type { SceneSentence, SpeakerInterval } from '@/common/learning/sceneSegmentation';
+import type { ProsodyShift } from '@/common/learning/prosodySignal';
 
 /**
  * 计算场景切分的输入指纹。
@@ -11,12 +12,14 @@ import type { SceneSentence, SpeakerInterval } from '@/common/learning/sceneSegm
  * @param sentences 按 index 升序的字幕句。
  * @param speakerIntervals 可选的声纹区间；参与判定，因此必须进指纹。
  * @param visualShifts 可选的画面切换点；同样参与判定，必须进指纹。
+ * @param prosodyShifts 可选的韵律突变点；句序号、时间与原因都影响边界。
  * @returns 十六进制 SHA-256。
  */
 export function sceneInputHash(
     sentences: readonly SceneSentence[],
     speakerIntervals: readonly SpeakerInterval[] = [],
     visualShifts: readonly number[] = [],
+    prosodyShifts: readonly ProsodyShift[] = [],
 ): string {
     const hash = createHash('sha256');
     for (const sentence of sentences) {
@@ -35,6 +38,13 @@ export function sceneInputHash(
         hash.update('\u001c');
         for (const shift of visualShifts) {
             hash.update(`${shift}\u001e`);
+        }
+    }
+    // 韵律突变按句序号对齐，原因（语速/音量）影响置信度，两者都要进指纹。
+    if (prosodyShifts.length > 0) {
+        hash.update('\u001b');
+        for (const shift of prosodyShifts) {
+            hash.update(`${shift.sentenceIndex}\u001f${shift.atSec}\u001f${shift.reason}\u001f${shift.detail}\u001e`);
         }
     }
     return hash.digest('hex');

@@ -16,6 +16,7 @@ import { SCENE_SEGMENTATION_VERSION, type SceneSentence } from '@/common/learnin
 import { sceneInputHash } from '@/common/learning/sceneIndexKey';
 import type SpeakerDiarizationService from '@/backend/services/SpeakerDiarizationService';
 import type VisualSceneService from '@/backend/services/VisualSceneService';
+import type ProsodySignalService from '@/backend/services/ProsodySignalService';
 
 /**
  * 声纹服务桩：默认「没有声纹能力」，让切分退回纯文本启发式。
@@ -42,6 +43,19 @@ const stubVisualScene = (
     getBoundaries: vi.fn(async () => boundaries),
     invalidate: vi.fn(async () => 0),
 }) as unknown as VisualSceneService;
+
+/**
+ * 韵律信号服务桩：默认「没有韵律能力」，让切分退回字幕/声纹/画面信号。
+ *
+ * @param shifts 可选的韵律突变点；传 null 表示不可用。
+ * @returns 满足服务契约的桩对象。
+ */
+const stubProsody = (
+    shifts: Awaited<ReturnType<ProsodySignalService['getShifts']>> = null,
+) => ({
+    getShifts: vi.fn(async () => shifts),
+    invalidate: vi.fn(async () => 0),
+}) as unknown as ProsodySignalService;
 
 /**
  * 内存版场景索引仓储桩。
@@ -115,7 +129,7 @@ describe('SceneIndexService', () => {
 
     it('首次调用计算边界并写回索引', async () => {
         const { repository, rows, spies } = memoryRepository();
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene(), stubProsody());
         const sentences = [
             sentence(0, 0, 2, 'The ocean covers most of the planet.'),
             sentence(1, 10, 12, 'She bought a red bicycle yesterday.'),
@@ -142,7 +156,7 @@ describe('SceneIndexService', () => {
         const { repository, spies } = memoryRepository({
             [`hash-1::${sceneInputHash(sentences)}`]: JSON.stringify(cached),
         });
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene(), stubProsody());
 
         const boundaries = await service.getBoundaries(sentences);
 
@@ -163,7 +177,7 @@ describe('SceneIndexService', () => {
                 confidence: 0.9,
             }]),
         });
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene(), stubProsody());
         const newSentences = [
             oldSentences[0],
             sentence(1, 3, 5, 'She bought a red bicycle yesterday.'),
@@ -183,7 +197,7 @@ describe('SceneIndexService', () => {
         const { repository, spies } = memoryRepository({
             [`hash-1::${sceneInputHash(sentences)}`]: '{not json',
         });
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene(), stubProsody());
 
         const boundaries = await service.getBoundaries(sentences);
 
@@ -199,7 +213,7 @@ describe('SceneIndexService', () => {
             upsert: vi.fn(async () => undefined),
             deleteByFile: vi.fn(async () => 0),
         } as unknown as SceneIndexRepository;
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene(), stubProsody());
 
         const boundaries = await service.getBoundaries([
             sentence(0, 0, 2, 'The ocean covers most of the planet.'),
@@ -211,7 +225,7 @@ describe('SceneIndexService', () => {
 
     it('句数不足或字幕哈希不一致时不做缓存读写', async () => {
         const { repository, spies } = memoryRepository();
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene(), stubProsody());
 
         expect(await service.getBoundaries([sentence(0, 0, 2, 'Only one.')])).toEqual([]);
         await service.getBoundaries([
@@ -225,7 +239,7 @@ describe('SceneIndexService', () => {
 
     it('invalidate 删除该字幕的全部版本', async () => {
         const { repository, rows, spies } = memoryRepository();
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(), stubVisualScene(), stubProsody());
         await service.getBoundaries([
             sentence(0, 0, 2, 'The ocean covers most of the planet.'),
             sentence(1, 10, 12, 'She bought a red bicycle yesterday.'),
@@ -244,7 +258,7 @@ describe('SceneIndexService', () => {
             { start: 0, end: 2, speaker: 'speaker_00' },
             { start: 2, end: 4, speaker: 'speaker_01' },
         ]);
-        const service = new SceneIndexServiceImpl(repository, diarization, stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, diarization, stubVisualScene(), stubProsody());
         const sentences = [
             sentence(0, 0, 2, 'Are you ready for the journey?'),
             sentence(1, 2, 4, 'Yes.'),
@@ -265,7 +279,7 @@ describe('SceneIndexService', () => {
 
     it('声纹不可用时退回文本启发式，不因缺少模型而失败', async () => {
         const { repository } = memoryRepository();
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(null), stubVisualScene());
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(null), stubVisualScene(), stubProsody());
         const sentences = [
             sentence(0, 0, 2, 'The journey starts tomorrow morning.'),
             sentence(1, 2, 4, 'Are you ready for the journey?'),
@@ -282,7 +296,7 @@ describe('SceneIndexService', () => {
     it('画面切换点落在句间时标记 visual-shift，并进入输入指纹', async () => {
         const { repository, spies } = memoryRepository();
         const visualScene = stubVisualScene([{ atSec: 4, similarity: 0.79 }]);
-        const service = new SceneIndexServiceImpl(repository, stubDiarization(null), visualScene);
+        const service = new SceneIndexServiceImpl(repository, stubDiarization(null), visualScene, stubProsody());
         const sentences = [
             sentence(0, 0, 4, 'The journey begins at the station.'),
             sentence(1, 4, 8, 'The journey continues through the valley.'),
@@ -293,5 +307,52 @@ describe('SceneIndexService', () => {
         expect(boundaries).toHaveLength(1);
         expect(boundaries[0].kinds).toContain('visual-shift');
         expect(spies.upsert.mock.calls[0][0].inputHash).toBe(sceneInputHash(sentences, [], [4]));
+    });
+
+    it('韵律突变点标记 prosody-shift，并进入输入指纹', async () => {
+        const { repository, spies } = memoryRepository();
+        const prosody = stubProsody([{ sentenceIndex: 1, atSec: 4, reason: 'rate', detail: 2.1 }]);
+        const service = new SceneIndexServiceImpl(
+            repository,
+            stubDiarization(null),
+            stubVisualScene(),
+            prosody,
+        );
+        const sentences = [
+            sentence(0, 0, 4, 'The journey begins at the station.'),
+            sentence(1, 4, 8, 'The journey continues through the valley.'),
+        ];
+
+        const boundaries = await service.getBoundaries(sentences, '/video/a.mp4');
+
+        expect(prosody.getShifts).toHaveBeenCalledWith('/video/a.mp4', sentences);
+        expect(boundaries).toHaveLength(1);
+        expect(boundaries[0].kinds).toContain('prosody-shift');
+        expect(spies.upsert.mock.calls[0][0].inputHash).toBe(sceneInputHash(
+            sentences,
+            [],
+            [],
+            [{ sentenceIndex: 1, atSec: 4, reason: 'rate', detail: 2.1 }],
+        ));
+    });
+
+    it('韵律信号不可用时不影响其余信号', async () => {
+        const { repository } = memoryRepository();
+        const service = new SceneIndexServiceImpl(
+            repository,
+            stubDiarization(null),
+            stubVisualScene(),
+            stubProsody(null),
+        );
+        const sentences = [
+            sentence(0, 0, 2, 'The ocean covers most of the planet.'),
+            sentence(1, 10, 12, 'She bought a red bicycle yesterday.'),
+        ];
+
+        const boundaries = await service.getBoundaries(sentences, '/video/a.mp4');
+
+        expect(boundaries).toHaveLength(1);
+        expect(boundaries[0].kinds).toContain('time-gap');
+        expect(boundaries[0].kinds).not.toContain('prosody-shift');
     });
 });

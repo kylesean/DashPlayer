@@ -137,6 +137,8 @@ import type SpeakerDiarizationService from '@/backend/services/SpeakerDiarizatio
 import { SpeakerDiarizationServiceImpl } from '@/backend/services/SpeakerDiarizationService';
 import type VisualSceneService from '@/backend/services/VisualSceneService';
 import { VisualSceneServiceImpl } from '@/backend/services/VisualSceneService';
+import type ProsodySignalService from '@/backend/services/ProsodySignalService';
+import { ProsodySignalServiceImpl } from '@/backend/services/ProsodySignalService';
 import type SpeakerDiarizationModelService from '@/backend/services/SpeakerDiarizationModelService';
 import { SpeakerDiarizationModelServiceImpl } from '@/backend/services/SpeakerDiarizationModelService';
 import { SpeakerDiarizationModelController } from '@/backend/controllers/SpeakerDiarizationModelController';
@@ -260,6 +262,7 @@ container.bind<MediaSignalRepository>(TYPES.MediaSignalRepository).to(MediaSigna
 container.bind<SpeakerDiarizationGateway>(TYPES.SpeakerDiarizationGateway).to(SherpaSpeakerDiarizationGateway).inSingletonScope();
 container.bind<SpeakerDiarizationService>(TYPES.SpeakerDiarizationService).to(SpeakerDiarizationServiceImpl).inSingletonScope();
 container.bind<VisualSceneService>(TYPES.VisualSceneService).to(VisualSceneServiceImpl).inSingletonScope();
+container.bind<ProsodySignalService>(TYPES.ProsodySignalService).to(ProsodySignalServiceImpl).inSingletonScope();
 container.bind<SpeakerDiarizationModelService>(TYPES.SpeakerDiarizationModelService).to(SpeakerDiarizationModelServiceImpl).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SpeakerDiarizationModelController).inSingletonScope();
 container.bind<ResourceFallbackService>(TYPES.ResourceFallbackService).to(ResourceFallbackServiceImpl).inSingletonScope();
