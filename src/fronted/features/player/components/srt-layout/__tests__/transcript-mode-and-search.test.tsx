@@ -144,35 +144,16 @@ describe('SideSentence - Single repeat shadowing loop & search highlight', () =>
     });
 
     /**
-     * 状态点是「这一句有东西可看」的第一眼信号，数量必须作为可见文本一起出现：
-     * Astryx 的 StatusDot 文档明确要求状态不能只靠颜色传达。
+     * 文稿行只保留时间戳与正文：待学词/有印象词的圆点与数量已从阅读区移除，
+     * 词汇能力改由筛选菜单提供。
      */
-    it('renders a visible count next to each vocabulary status dot', () => {
+    it('renders no vocabulary status dots or counts in the transcript row', () => {
         const { container } = render(
             <SideSentence
                 sentence={mockSentence}
                 onClick={vi.fn()}
                 isCurrent={false}
                 isRepeat={false}
-                vocabularyCount={{ learning: 2, familiar: 1 }}
-            />,
-        );
-
-        const dots = container.querySelectorAll('[data-testid="sentence-vocabulary-dots"] [aria-label]');
-        expect(dots).toHaveLength(2);
-        expect(dots[0].getAttribute('aria-label')).toContain('2');
-        expect(dots[1].getAttribute('aria-label')).toContain('1');
-        expect(container.textContent).toContain('2');
-    });
-
-    it('renders no status dot when the sentence has no visible annotations', () => {
-        const { container } = render(
-            <SideSentence
-                sentence={mockSentence}
-                onClick={vi.fn()}
-                isCurrent={false}
-                isRepeat={false}
-                vocabularyCount={{ learning: 0, familiar: 0 }}
             />,
         );
 

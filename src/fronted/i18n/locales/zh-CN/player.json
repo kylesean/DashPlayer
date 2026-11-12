@@ -392,8 +392,6 @@
         "filterFamiliar": "含有印象的词",
         "filteringHint": "只显示 {{shown}} / {{total}} 句",
         "clearFilter": "显示全部",
-        "emptyTitle": "这段里没有符合筛选的句子",
-        "learningDot": "本句有 {{count}} 个待学词",
-        "familiarDot": "本句有 {{count}} 个有印象的词"
+        "emptyTitle": "这段里没有符合筛选的句子"
     }
 }

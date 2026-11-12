@@ -162,7 +162,7 @@ export default function Subtitle() {
      */
     const [vocabularyFilter, setVocabularyFilter] = useState<TranscriptVocabularyFilter>('all');
 
-    /** 整份文稿的词汇标记统计，一次算完供筛选与状态点共用。 */
+    /** 整份文稿的词汇标记统计，一次算完供筛选使用。 */
     const vocabularyCounts = useTranscriptVocabularyCounts(subtitle);
 
     const countOf = useCallback(
@@ -642,7 +642,6 @@ export default function Subtitle() {
             >
                 <SideSentence
                     sentence={item}
-                    vocabularyCount={countOf(item)}
                     isTimeAdjusted={srtTender?.adjusted(item) ?? false}
                     onResetTime={(target) => { void playerActions.clearAdjust(target); }}
                     onClick={(targetSentence) => {
@@ -710,7 +709,6 @@ export default function Subtitle() {
         delaySetNormal,
         srtTender,
         recordReplay,
-        countOf,
     ]);
 
     return (

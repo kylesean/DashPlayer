@@ -392,8 +392,6 @@
         "filterFamiliar": "With familiar words",
         "filteringHint": "Showing {{shown}} of {{total}} sentences",
         "clearFilter": "Show all",
-        "emptyTitle": "No sentences match this filter",
-        "learningDot": "{{count}} word(s) to learn in this sentence",
-        "familiarDot": "{{count}} familiar word(s) in this sentence"
+        "emptyTitle": "No sentences match this filter"
     }
 }
