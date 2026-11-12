@@ -8,14 +8,24 @@
  *
  * 这里只做**分类**，不吞掉未知错误：只有确认是「没识别出语音」才替换成
  * 可操作提示，其余错误原样返回，避免把真正的故障伪装成用户操作问题。
+ *
+ * 特征串来自 `common/constants/asr-errors`（跨进程契约常量），
+ * 生产端抛错与消费端分类共用同一常量，由契约测试钉住。
  */
 
-/** 判定「没有识别出任何语音」的特征串。 */
+import {
+    ASR_ERROR_EMPTY_RECORDING,
+    ASR_ERROR_NO_RECOGNIZED_TEXT,
+    ASR_ERROR_NO_TOKEN_TIMELINE,
+    ASR_ERROR_ZERO_SEGMENTS_PATTERN,
+} from '@/common/constants/asr-errors';
+
+/** 判定「没有识别出任何语音」的特征串；模式从契约常量派生（空白放宽为 \s+）。 */
 const NO_SPEECH_PATTERNS = [
-    /未返回识别文本/,
-    /Segments\s*\(\s*0\s*\)/,
-    /未返回\s*token\s*时间轴/,
-    /录音内容为空/,
+    new RegExp(ASR_ERROR_NO_RECOGNIZED_TEXT),
+    new RegExp(ASR_ERROR_ZERO_SEGMENTS_PATTERN.replace(/\(/g, '\\(').replace(/\)/g, '\\)')),
+    new RegExp(ASR_ERROR_NO_TOKEN_TIMELINE.replace(/\s+/g, '\\s+')),
+    new RegExp(ASR_ERROR_EMPTY_RECORDING),
 ] as const;
 
 /** 剥掉 Electron IPC 在错误消息前面加的固定前缀。 */

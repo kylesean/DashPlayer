@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { describeAsrFailure, isNoSpeechError } from '../asr-error';
+import { ASR_ERROR_EMPTY_RECORDING, ASR_ERROR_NO_RECOGNIZED_TEXT, ASR_ERROR_NO_TOKEN_TIMELINE } from '@/common/constants/asr-errors';
 
 /** parakeet 在静音输入下的真实异常形态。 */
 const NO_SPEECH_STDERR = [
@@ -45,5 +46,18 @@ describe('ASR 失败信息可读化', () => {
         const message = describeAsrFailure(new Error('whisper.cpp 未返回识别文本：Segments (0):'));
 
         expect(message).toBe('没有识别到语音。请靠近麦克风、避开环境噪音后重试。');
+    });
+});
+
+describe('跨进程错误文案契约', () => {
+    it('生产端组装形态能被消费端正则命中（常量双向钉住）', () => {
+        // 生产端形态：whisper.cpp {常量}：{stderr}
+        expect(isNoSpeechError(`whisper.cpp ${ASR_ERROR_NO_RECOGNIZED_TEXT}：${'x'.repeat(10)}`)).toBe(true);
+        expect(isNoSpeechError(`whisper.cpp ${ASR_ERROR_NO_TOKEN_TIMELINE}：xxx`)).toBe(true);
+        expect(isNoSpeechError(ASR_ERROR_EMPTY_RECORDING)).toBe(true);
+        // parakeet 自身输出（非本仓文案）
+        expect(isNoSpeechError('parakeet Segments (0) total duration 5.2s')).toBe(true);
+        // 非无语音类错误不被误判
+        expect(isNoSpeechError('whisper.cpp 未返回识别文')).toBe(false);
     });
 });

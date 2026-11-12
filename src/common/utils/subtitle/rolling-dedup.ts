@@ -54,19 +54,29 @@ export const rollingOverlapWordCount = (previous: string, next: string): number 
 /**
  * 从文本头部剥掉指定数量的词。
  *
- * 保留原有标点与空白形态：只按空白切词，拼回时用单空格连接，
- * 与意群归并的输出口径一致。
+ * 词数与 {@link rollingOverlapWordCount} 的归一化口径一致：纯标点 token
+ * （如行首孤立的引号 `"`）归一化后为空、不占词数，剥词时必须跳过它们，
+ * 否则按原始 token 计数会把标点当成词剥掉、留下真实的重复词。
+ *
+ * 剥完后按单空格拼回，与意群归并的输出口径一致。
  *
  * @param text 原始文本。
- * @param count 要剥掉的词数。
+ * @param count 要剥掉的词数（按归一化词计）。
  * @returns 剩余文本；全部剥完时为空字符串。
  */
 export const dropLeadingWords = (text: string, count: number): string => {
     if (count <= 0) {
         return text.trim();
     }
-    const words = text.trim().split(/\s+/);
-    return words.slice(count).join(' ').trim();
+    const rawTokens = text.trim().split(/\s+/);
+    let idx = 0;
+    while (idx < rawTokens.length && count > 0) {
+        if (normalizeWords(rawTokens[idx]).length > 0) {
+            count -= 1;
+        }
+        idx += 1;
+    }
+    return rawTokens.slice(idx).join(' ').trim();
 };
 
 /**

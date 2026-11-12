@@ -20,6 +20,7 @@ import type RolePlayTurnRepository from '@/backend/services/repositories/RolePla
 import type SentencePracticeService from '@/backend/services/SentencePracticeService';
 import { isContentLemma } from '@/common/learning/contentWords';
 import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
+import { ASR_ERROR_EMPTY_RECORDING } from '@/common/constants/asr-errors';
 import type {
     LearningRecapExpressionVO,
     LearningRecapParams,
@@ -421,7 +422,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             throw new Error('原句不能为空');
         }
         if (!params.audio || params.audio.byteLength === 0) {
-            throw new Error('录音内容为空');
+            throw new Error(ASR_ERROR_EMPTY_RECORDING);
         }
 
         // 转写失败直接抛出：没有转写就没有答案，用空字符串评分只会给一个假的 retry。

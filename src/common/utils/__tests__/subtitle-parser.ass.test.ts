@@ -82,3 +82,21 @@ Dialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,Fallback layout`;
         expect(lines[0].contentEn).toBe('Fallback layout');
     });
 });
+
+describe('parseAss 晚到的 Format 声明', () => {
+    it('Format 声明在 Dialogue 之后时仍按声明顺序解析全部行（两遍式）', () => {
+        // 修复前：FORMAT 晚到，先出现的 Dialogue 按空布局兜底、非标准布局直接解析失败被丢弃
+        const ass = `[Events]
+Dialogue: Hello late format,0:00:01.00,0:00:03.00
+Dialogue: Second line,0:00:04.00,0:00:06.00
+Format: Text, Start, End`;
+
+        const lines = parseAss(ass);
+        expect(lines).toHaveLength(2);
+        expect(lines[0].start).toBe(1);
+        expect(lines[0].end).toBe(3);
+        expect(lines[0].contentEn).toBe('Hello late format');
+        expect(lines[1].start).toBe(4);
+        expect(lines[1].contentEn).toBe('Second line');
+    });
+});

@@ -28,6 +28,7 @@ import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/Stor
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
 import type SentencePracticeRecordRepository from '@/backend/services/repositories/SentencePracticeRecordRepository';
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
+import { ASR_ERROR_EMPTY_RECORDING } from '@/common/constants/asr-errors';
 
 /**
  * 句子跟读/听写练习业务服务。
@@ -230,7 +231,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     public async transcribeOnce(params: SpeechTranscriptionParams): Promise<SpeechTranscriptionVO> {
         const audio = params.audio;
         if (audio.byteLength === 0) {
-            throw new Error('录音内容为空');
+            throw new Error(ASR_ERROR_EMPTY_RECORDING);
         }
         const practiceRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.PRACTICE);
         // 一次性转写用完即删：放在临时子目录里，不与可回放的跟读录音混在一起。

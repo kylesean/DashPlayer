@@ -82,3 +82,14 @@ describe('滚动字幕去重', () => {
         expect(result.map((item) => item.index)).toEqual([1, 2]);
     });
 });
+
+describe('dropLeadingWords 与归一化词口径一致', () => {
+    it('纯标点 token 不占词数：行首孤立引号被跳过而不是当成词剥掉', () => {
+        // 重叠词数按归一化词计（said that = 2），原始 token 里行首的 `"` 是纯标点
+        expect(dropLeadingWords('" said that hello world.', 2)).toBe('hello world.');
+    });
+
+    it('词尾标点正常按词剥除', () => {
+        expect(dropLeadingWords('said that, hello world', 2)).toBe('hello world');
+    });
+});

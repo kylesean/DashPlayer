@@ -258,6 +258,11 @@ export function parseAss(assContent: Nullable<string>): SrtLine[] {
     let eventFields: string[] = [];
     let inEventsSection = false;
 
+    // 两遍式：FORMAT 可能声明在部分 Dialogue 之后（畸形文件）。
+    // 单遍解析会让先出现的 Dialogue 按空布局兜底，非标准布局时时间字段取错
+    // 直接抛错被静默丢行；先收集再统一解析，晚到的 Format 也能覆盖全部 Dialogue。
+    const dialogueLines: string[] = [];
+
     for (const rawLine of lines) {
         const line = rawLine.trim();
         const upper = line.toUpperCase();
@@ -278,7 +283,10 @@ export function parseAss(assContent: Nullable<string>): SrtLine[] {
         if (!upper.startsWith('DIALOGUE:')) {
             continue;
         }
+        dialogueLines.push(line);
+    }
 
+    for (const line of dialogueLines) {
         const fieldMap = new Map<string, string>();
         const parts = line.split(',');
         // 去掉首字段上的 "Dialogue:" 前缀（字段顺序可被 Format 重排）
@@ -289,8 +297,10 @@ export function parseAss(assContent: Nullable<string>): SrtLine[] {
                 fieldMap.set(fieldName, parts[i].trim());
             }
         }
-        // 正文可能包含逗号，若声明了 Text 字段则把剩余部分拼回 Text
-        if (eventFields.includes('TEXT')) {
+        // 正文可能包含逗号，若声明了 Text 字段则把剩余部分拼回 Text。
+        // 重组只在 Text 是末字段时进行（ASS 规范如此，TEXT 含逗号必须吃掉其余部分）；
+        // 非标准顺序下整行回拼会把时间字段吞进正文，保持字段映射原值。
+        if (eventFields.includes('TEXT') && eventFields.indexOf('TEXT') === eventFields.length - 1) {
             const textIndex = eventFields.indexOf('TEXT');
             const joined = parts.slice(textIndex).join(',').trim();
             if (joined) {
@@ -329,7 +339,7 @@ export function parseAss(assContent: Nullable<string>): SrtLine[] {
             srtLines.push(srtLine);
             fallbackIndex += 1;
         } catch (error: unknown) {
-            console.warn('failed to parse ass dialogue', { error, line: rawLine });
+            console.warn('failed to parse ass dialogue', { error, line });
             continue;
         }
     }

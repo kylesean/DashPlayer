@@ -7,6 +7,7 @@ import { getMainLogger } from '@/backend/infrastructure/logger';
 import { CancelByUserError } from '@/backend/utils/errors/errors';
 import { LOG_TAIL_LINES, tailLines } from '@/backend/utils/output-tail';
 import type { SpeechRecognitionToken } from '@/backend/services/gateways/media/SpeechRecognitionGateway';
+import { ASR_ERROR_NO_RECOGNIZED_TEXT, ASR_ERROR_NO_TOKEN_TIMELINE } from '@/common/constants/asr-errors';
 
 /** token 调试行的时间单位为 10ms，除以该常数得到秒。 */
 const TOKEN_TIME_UNIT_MS = 100;
@@ -126,7 +127,7 @@ export interface WhisperCppOutput {
 export function parseWhisperCppOutput(stdout: string, stderr: string): WhisperCppOutput {
     const text = stdout.trim();
     if (!text) {
-        throw new Error(`whisper.cpp 未返回识别文本：${stderr.slice(-2000)}`);
+        throw new Error(`whisper.cpp ${ASR_ERROR_NO_RECOGNIZED_TEXT}：${stderr.slice(-2000)}`);
     }
     const tokens: SpeechRecognitionToken[] = [];
     const tokenPattern = /^\s*\[\s*\d+\]\s+.*?\bt0=\s*(-?\d+)\s+t1=\s*(-?\d+)\s+word_start=(?:true|false)\s+"(.*)"$/;
@@ -147,7 +148,7 @@ export function parseWhisperCppOutput(stdout: string, stderr: string): WhisperCp
         tokens.push({ text: tokenText, start: startMs / TOKEN_TIME_UNIT_MS, end: endMs / TOKEN_TIME_UNIT_MS });
     }
     if (tokens.length === 0) {
-        throw new Error(`whisper.cpp 未返回 token 时间轴：${stderr.slice(-2000)}`);
+        throw new Error(`whisper.cpp ${ASR_ERROR_NO_TOKEN_TIMELINE}：${stderr.slice(-2000)}`);
     }
     for (let i = 1; i < tokens.length; i++) {
         if (tokens[i].start < tokens[i - 1].start) {
