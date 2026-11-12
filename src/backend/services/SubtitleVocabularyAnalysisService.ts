@@ -84,6 +84,15 @@ export interface SubtitleVocabularyAnalysisService {
     getStatus(fileHash: string): SubtitleVocabularyAnalysisStatus;
 
     /**
+     * 指定字幕是否有**真正在跑**的分析任务。
+     *
+     * 与 getStatus().status === 'analyzing' 的区别：被其它字幕取代的分析
+     * （有分块但已非 active）getStatus 仍返回 analyzing，用它判定"在跑"
+     * 会让轮询补跑逻辑永远不触发，状态永久卡死。
+     */
+    isActive(fileHash: string): boolean;
+
+    /**
      * 使词表变化后的旧分析结果失效。
      */
     invalidate(): void;
@@ -215,6 +224,10 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
                 ? 0
                 : Math.min(99, Math.round((state.chunks.size / state.totalChunks) * 100)),
         };
+    }
+
+    public isActive(fileHash: string): boolean {
+        return this.activeAnalysis?.fileHash === fileHash;
     }
 
     /**

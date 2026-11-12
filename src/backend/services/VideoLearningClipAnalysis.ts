@@ -58,11 +58,15 @@ export default class VideoLearningClipAnalysis {
     /**
      * 判断指定字幕是否仍在分析。
      *
+     * 必须用 isActive（是否挂 activeAnalysis）而不是 getStatus().status === 'analyzing'：
+     * 被其它字幕取代的分析（有分块但已让位）getStatus 仍返回 analyzing，
+     * 用它判定会让 detectClipStatus 的轮询补跑永不触发，状态永久卡在"分析中"。
+     *
      * @param srtKey 字幕缓存键。
      * @returns 存在运行中的共享分析任务时返回 true。
      */
     public isRunning(srtKey: string): boolean {
-        return this.getVocabularyAnalysisService().getStatus(srtKey).status === 'analyzing';
+        return this.getVocabularyAnalysisService().isActive(srtKey);
     }
 
     /**
