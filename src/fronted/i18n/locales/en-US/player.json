@@ -283,6 +283,7 @@
     "switchToSentenceMode": "Switch to Sentence Mode",
     "reviewDock": {
         "trigger": "Due reviews",
+        "triggerWithDue": "Due reviews, {{count}} due",
         "title": "Due reviews",
         "subtitle": "Scheduled by memory strength, only from words you saved or practiced",
         "dueWords": "due",

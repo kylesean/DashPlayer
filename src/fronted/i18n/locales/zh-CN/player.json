@@ -283,6 +283,7 @@
     "switchToSentenceMode": "切换为单句精析模式",
     "reviewDock": {
         "trigger": "到期复习",
+        "triggerWithDue": "到期复习，{{count}} 个单词待复习",
         "title": "到期复习",
         "subtitle": "按记忆曲线排期，只来自你收藏或练过的词",
         "dueWords": "待复习",
