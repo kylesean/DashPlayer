@@ -53,6 +53,21 @@ export default interface WordEncounterService {
      * 提交一次复习反馈，并同步更新词条状态与下一次复习时间。
      */
     rateReview(params: ReviewRateParams): Promise<ReviewRateResultVO>;
+
+    /**
+     * 记录一次产出型练习（复述 / 角色扮演）对目标词的证据。
+     *
+     * 产出型练习衡量的是「能不能用出来」，比跟读更难，因此只在用户真的
+     * 用到了目标表达时才算证据；没用到的词不扣分，也不假装练过。
+     */
+    recordProductionEvidence(params: {
+        words: readonly string[];
+        score: number;
+        videoId?: string | null;
+        fileHash?: string | null;
+        sentenceIndex?: number | null;
+        context?: string | null;
+    }): Promise<void>;
 }
 
 @injectable()
@@ -202,6 +217,52 @@ export class WordEncounterServiceImpl implements WordEncounterService {
 
     private masteryOf(word: Word): MasterySnapshot {
         return { mastery: word.mastery, confidence: word.confidence };
+    }
+
+    public async recordProductionEvidence(params: {
+        words: readonly string[];
+        score: number;
+        videoId?: string | null;
+        fileHash?: string | null;
+        sentenceIndex?: number | null;
+        context?: string | null;
+    }): Promise<void> {
+        // 产出型练习的分数是 0–100；映射到练习证据的 0–1。
+        const normalized = Math.max(0, Math.min(1, params.score / 100));
+        const unique = Array.from(new Set(
+            params.words.map((word) => word.trim().toLowerCase()).filter((word) => word.length > 0),
+        ));
+        for (const lemma of unique) {
+            // 只对已经在用户词表里的词更新掌握度：产出型练习不该把没学过的词
+            // 静默加进个人词表，那会让词表变成「用户说过的一切」。
+            const existing = await this.wordsRepository.findByWord(lemma);
+            if (!existing || existing.source === 'default') {
+                continue;
+            }
+            const mastery = applyMasteryEvidence(this.masteryOf(existing), {
+                kind: 'practice',
+                score: normalized,
+            });
+            const nextStatus = this.resolveNextStatus(existing.status, mastery.suggestedStatus);
+            await this.wordsRepository.updateLearning(lemma, {
+                mastery: mastery.mastery,
+                confidence: mastery.confidence,
+                status: nextStatus,
+                lastSeenAt: new Date().toISOString(),
+            });
+            await this.repository.record({
+                word: existing.word,
+                lemma,
+                action: 'shadow',
+                video_id: params.videoId ?? null,
+                file_hash: params.fileHash ?? null,
+                sentence_index: params.sentenceIndex ?? null,
+                sentence_hash: null,
+                context: params.context ?? null,
+                score: params.score,
+                rating: null,
+            });
+        }
     }
 
     private evidenceFor(params: WordEncounterInput): MasteryEvidence | null {

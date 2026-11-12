@@ -12,6 +12,8 @@ import type CacheService from '@/backend/services/CacheService';
 import type LearningDataService from '@/backend/services/LearningDataService';
 import { LEARNING_SESSION_ACTIONS } from '@/backend/services/LearningDataService';
 import type LocalAiService from '@/backend/services/LocalAiService';
+import type WordEncounterService from '@/backend/services/WordEncounterService';
+
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
 import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
 import { isContentLemma } from '@/common/learning/contentWords';
@@ -34,6 +36,18 @@ import type {
     LearningSessionSummaryVO,
     LearningSessionWordVO,
 } from '@/common/types/learningSession';
+
+/**
+ * 产出型练习等级到练习分数的映射。
+ *
+ * 与跟读共用 0–100 的练习证据口径：`retry` 也给少量分，因为「敢说出来
+ * 但还不准」确实是练习，只是证据强度低，不能和 `great` 等价。
+ */
+const PRODUCTION_LEVEL_SCORE: Record<RetellLevel, number> = {
+    great: 90,
+    good: 72,
+    retry: 45,
+};
 
 /** 提示词或输出契约变化时递增，使旧缓存自然失效。 */
 const PROMPT_VERSION = 'learning-recap-v2';
@@ -159,6 +173,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         @inject(TYPES.CacheService) private readonly cacheService: CacheService,
         @inject(TYPES.ProductionPracticeRecordRepository)
         private readonly productionPracticeRepository: ProductionPracticeRecordRepository,
+        @inject(TYPES.WordEncounterService) private readonly wordEncounterService: WordEncounterService,
     ) {}
 
     public async buildRecap(params: LearningRecapParams): Promise<LearningRecapVO> {
@@ -397,6 +412,22 @@ export class LearningRecapServiceImpl implements LearningRecapService {
                     source: result.source,
                 }),
             });
+            // 复述的证据是「用出来的原句关键词」，而不是整句逐词复现：
+            // 复述本来就允许换说法，只有真正说到的词才算练习过。
+            // matchedKeywords 只是数量，具体词由原句内容词减去 missingWords 得到。
+            const missing = new Set(result.missingWords.map((word) => word.toLowerCase()));
+            const matchedWords = analyzeWords(original)
+                .filter((token) => token.type === 'word')
+                .map((token) => token.lemma)
+                .filter((lemma) => isContentLemma(lemma) && !missing.has(lemma.toLowerCase()));
+            await this.recordProductionMastery({
+                words: matchedWords,
+                level: result.level,
+                videoId: params.videoId,
+                fileHash: params.fileHash,
+                sentenceIndex: params.sentenceIndex,
+                context: original,
+            });
         } catch (error) {
             this.logger.warn('failed to persist retell attempt', { error: this.errorMessage(error) });
         }
@@ -428,9 +459,44 @@ export class LearningRecapServiceImpl implements LearningRecapService {
                     source: result.source,
                 }),
             });
+            await this.recordProductionMastery({
+                words: result.usedExpressions,
+                level: result.level,
+                videoId: params.videoId,
+                fileHash: params.fileHash,
+                sentenceIndex: params.sentenceIndex,
+                context: openingLine,
+            });
         } catch (error) {
             this.logger.warn('failed to persist role play attempt', { error: this.errorMessage(error) });
         }
+    }
+
+    /**
+     * 把产出型练习结果折算成掌握度证据。
+     *
+     * 只有用户真的用出来的目标表达才算证据；等级映射到 0–100 分，
+     * 与跟读共用同一套练习证据路径，避免两套「算不算练过」的口径。
+     */
+    private async recordProductionMastery(params: {
+        words: readonly string[];
+        level: RetellLevel;
+        videoId?: string | null;
+        fileHash?: string | null;
+        sentenceIndex?: number | null;
+        context?: string | null;
+    }): Promise<void> {
+        if (params.words.length === 0) {
+            return;
+        }
+        await this.wordEncounterService.recordProductionEvidence({
+            words: params.words,
+            score: PRODUCTION_LEVEL_SCORE[params.level],
+            videoId: params.videoId ?? null,
+            fileHash: params.fileHash ?? null,
+            sentenceIndex: params.sentenceIndex ?? null,
+            context: params.context ?? null,
+        });
     }
 
     /**

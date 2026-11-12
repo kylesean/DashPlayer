@@ -31,6 +31,7 @@ import {
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
 import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
+import type WordEncounterService from '@/backend/services/WordEncounterService';
 import type { WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import type { LearningSessionSummaryVO } from '@/common/types/learningSession';
 
@@ -126,6 +127,12 @@ const buildService = (options: {
         }),
         listRecentByLocation: vi.fn(async () => []),
     } as unknown as ProductionPracticeRecordRepository;
+    const recordedEvidence: Array<Record<string, unknown>> = [];
+    const wordEncounterService = {
+        recordProductionEvidence: vi.fn(async (value: Record<string, unknown>) => {
+            recordedEvidence.push(value);
+        }),
+    } as unknown as WordEncounterService;
     const service = new LearningRecapServiceImpl(
         learningDataService,
         learningDataRepository,
@@ -133,8 +140,16 @@ const buildService = (options: {
         localAiService,
         cache,
         productionPracticeRepository,
+        wordEncounterService,
     );
-    return { service, aiProviderService, localAiService, cache, productionPractice };
+    return {
+        service,
+        aiProviderService,
+        localAiService,
+        cache,
+        productionPractice,
+        recordedEvidence,
+    };
 };
 
 const RECAP_PARAMS = {
@@ -403,6 +418,52 @@ describe('LearningRecapService', () => {
         expect(JSON.parse(productionPractice[1].detail_json as string)).toMatchObject({
             usedExpressions: ['long journey', 'coming home'],
         });
+    });
+
+    it('复述与角色扮演会把用到的目标词写入长期掌握度证据', async () => {
+        const { service, recordedEvidence } = buildService({});
+
+        await service.evaluateRetell({
+            original: 'They decided to cancel the meeting.',
+            response: 'They cancelled the meeting.',
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+            sentenceIndex: 3,
+        });
+        await service.evaluateRolePlay({
+            openingLine: 'It was a long journey home.',
+            response: 'It really was a long journey, but coming home felt wonderful.',
+            targetExpressions: ['long journey', 'coming home'],
+            videoId: 'video-1',
+        });
+
+        expect(recordedEvidence).toHaveLength(2);
+        // 复述：只把真正说到的内容词当证据，缺失的 decided 不计入。
+        expect(recordedEvidence[0]).toMatchObject({
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+            sentenceIndex: 3,
+            score: 90,
+        });
+        expect(recordedEvidence[0].words).not.toContain('decided');
+        expect(recordedEvidence[0].words).toContain('cancel');
+        // 角色扮演：证据是用户真的用出来的目标表达。
+        expect(recordedEvidence[1]).toMatchObject({
+            words: ['long journey', 'coming home'],
+            score: 90,
+        });
+    });
+
+    it('没有说到任何目标词时不写掌握度证据', async () => {
+        const { service, recordedEvidence } = buildService({});
+
+        await service.evaluateRolePlay({
+            openingLine: 'It was a long journey home.',
+            response: 'Yes.',
+            targetExpressions: ['long journey'],
+        });
+
+        expect(recordedEvidence).toHaveLength(0);
     });
 
     it('场景回应在本地计算目标表达使用情况', async () => {
