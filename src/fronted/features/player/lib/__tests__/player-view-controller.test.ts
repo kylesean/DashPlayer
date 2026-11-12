@@ -131,4 +131,24 @@ describe('播放页视图统一写入点', () => {
         expect(useLayout.getState().podcastMode).toBe(true);
         expect(usePracticePanel.getState().visible).toBe(false);
     });
+
+    it('回归：播客 → 学习 → 跳练习 → 退出练习回到播客，而不是黑屏 play', () => {
+        // 修复前的链路：beginOverlayView('learning') 记住 podcast 并收掉播客；
+        // 随后跳练习时 beginOverlayView('practice') 无条件重记——此时播客已被收掉，
+        // 底层视图被覆写成 'play'，退出练习后音频文件黑屏。
+        setPlayerViewMode('podcast');
+
+        setPlayerViewMode('learning');
+        expect(useChatPanel.getState().learningVisible).toBe(true);
+
+        // 学习页内跳练习（LearningPage.handleJumpToPractice 的路径）
+        setPlayerViewMode('practice');
+        expect(usePracticePanel.getState().visible).toBe(true);
+        expect(useChatPanel.getState().learningVisible).toBe(false);
+
+        exitOverlayView();
+        expect(useLayout.getState().podcastMode).toBe(true);
+        expect(usePracticePanel.getState().visible).toBe(false);
+        expect(useChatPanel.getState().learningVisible).toBe(false);
+    });
 });

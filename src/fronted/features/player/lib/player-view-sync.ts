@@ -68,9 +68,14 @@ export function syncNonLearningViews(mode: PlayerViewMode): void {
  * 这里只处理「别的视图必须让路」以及「退出时要回到哪」。
  *
  * @param mode 即将进入的覆盖层视图。
+ * @param alreadyInOverlay 当前是否已在某个覆盖层内（学习 ↔ 练习互跳）。
+ *   覆盖层叠覆盖层时**不得**再次记录底层视图：第一次进入时 `podcastMode` 已被收掉，
+ *   此时 `readCurrentBaseView()` 返回 'play'，会把播客记忆覆写成黑屏。
  */
-export function beginOverlayView(mode: 'learning' | 'practice'): void {
-    rememberBaseView(readCurrentBaseView());
+export function beginOverlayView(mode: 'learning' | 'practice', alreadyInOverlay = false): void {
+    if (!alreadyInOverlay) {
+        rememberBaseView(readCurrentBaseView());
+    }
     syncNonLearningViews(mode);
 }
 

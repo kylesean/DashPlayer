@@ -38,9 +38,12 @@ export function getPlayerViewMode(): PlayerViewMode {
  * @param mode 目标视图。
  */
 export function setPlayerViewMode(mode: PlayerViewMode): void {
+    // 学习 ↔ 练习互跳属于「覆盖层叠覆盖层」：此时不得重新记录底层视图，
+    // 否则播客记忆会被覆写成 'play'，退出练习后音频文件回到黑屏。
+    const alreadyInOverlay = useChatPanel.getState().learningVisible || usePracticePanel.getState().visible;
     if (mode === 'learning') {
         // 由 chatStore 负责真正打开学习页（它还要暂停播放），这里只收掉竞争视图。
-        beginOverlayView('learning');
+        beginOverlayView('learning', alreadyInOverlay);
         if (!useChatPanel.getState().learningVisible) {
             useChatPanel.setState({ learningVisible: true });
         }
@@ -49,7 +52,7 @@ export function setPlayerViewMode(mode: PlayerViewMode): void {
 
     if (mode === 'practice') {
         // 练习面板同样是覆盖层：记住底层视图，退出时按原样还原。
-        beginOverlayView('practice');
+        beginOverlayView('practice', alreadyInOverlay);
     }
 
     if (useChatPanel.getState().learningVisible) {

@@ -22,6 +22,7 @@ import {
 import type { Sentence } from '@/common/types/SentenceC';
 import type { SentenceMemoryHints } from '@/common/types/vo/SentenceVocabularyVO';
 import { beginOverlayView } from '@/fronted/features/player/lib/player-view-sync';
+import usePracticePanel from '@/fronted/features/practice/practiceStore';
 
 const DEFAULT_PRESET_ID = 'image-schema-tutor';
 
@@ -163,7 +164,8 @@ const resolveDefaultPresetId = (): string => {
 const enterLearning = () => {
     learningCloseRequested = false;
     usePlayer.getState().pause();
-    beginOverlayView('learning');
+    // 练习面板可见时属于覆盖层叠覆盖层：不重新记录底层视图，避免覆写播客记忆
+    beginOverlayView('learning', usePracticePanel.getState().visible);
     useChatPanel.setState({ learningVisible: true });
 };
 
@@ -275,7 +277,8 @@ const startSessionForTopic = async (
     }
 
     if (!learningCloseRequested) {
-        beginOverlayView('learning');
+        // 学习页已可见或练习面板可见时不重记底层视图（理由同 enterLearning）
+        beginOverlayView('learning', useChatPanel.getState().learningVisible || usePracticePanel.getState().visible);
     }
 
     const activePresetId = options?.presetId || resolveDefaultPresetId();
