@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { SWRConfig } from 'swr';
+import { mutate, SWRConfig } from 'swr';
 import HomePage from '@/fronted/features/file-browser/HomePage';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
@@ -80,8 +80,9 @@ const makeVideo = (id: string, fileName: string): WatchHistoryVO => ({
 describe('HomePage & ProjectListCard watch-history SWR sync', () => {
     let historyList: WatchHistoryVO[];
 
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
+        await mutate(() => true, undefined, { revalidate: false });
         historyList = [
             makeVideo('vid-1', 'first-lesson.mp4'),
             makeVideo('vid-2', 'second-lesson.mp4'),
@@ -95,7 +96,7 @@ describe('HomePage & ProjectListCard watch-history SWR sync', () => {
 
     it('删除历史记录卡片后通过 SWR 重新校验完整列表，不保留过期本地状态', async () => {
         render(
-            <SWRConfig value={{ provider: () => new Map(), dedupingInterval: 0 }}>
+            <SWRConfig value={{ dedupingInterval: 0 }}>
                 <MemoryRouter>
                     <HomePage />
                 </MemoryRouter>
@@ -103,21 +104,21 @@ describe('HomePage & ProjectListCard watch-history SWR sync', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getByText('first-lesson.mp4')).toBeDefined();
-            expect(screen.getByText('second-lesson.mp4')).toBeDefined();
+            expect(screen.getByTestId('watch-history-card-vid-1')).toBeDefined();
+            expect(screen.getByTestId('watch-history-card-vid-2')).toBeDefined();
         });
 
-        // 触发第一张卡片的删除按钮并确认删除
-        const deleteButtons = screen.getAllByRole('button', { name: 'delete' });
-        fireEvent.click(deleteButtons[0]);
+        // 触发第一张卡片的悬浮删除按钮并在 AlertDialog 中确认删除
+        fireEvent.mouseEnter(screen.getByTestId('watch-history-card-vid-1'));
+        fireEvent.click(screen.getByRole('button', { name: 'common:delete' }));
 
-        const confirmButton = await screen.findByRole('button', { name: 'confirm' });
-        fireEvent.click(confirmButton);
+        const dialog = await screen.findByRole('alertdialog');
+        fireEvent.click(within(dialog).getByRole('button', { name: 'common:delete' }));
 
         await waitFor(() => {
             expect(fileBrowserApi.deleteWatchHistoryGroup).toHaveBeenCalledWith('vid-1');
-            expect(screen.queryByText('first-lesson.mp4')).toBeNull();
+            expect(screen.queryByTestId('watch-history-card-vid-1')).toBeNull();
         });
-        expect(screen.getByText('second-lesson.mp4')).toBeDefined();
+        expect(screen.getByTestId('watch-history-card-vid-2')).toBeDefined();
     });
 });
