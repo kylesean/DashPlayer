@@ -267,7 +267,7 @@ export default function MainSubtitle({ variant = 'panel' }: { variant?: 'panel' 
                         isOverlay ? 'max-h-[46vh]' : 'h-full',
                     )}
                 >
-                    <div className="flex min-h-full w-full flex-col items-center justify-center px-8 py-3 text-center text-textColor select-none">
+                    <div className="flex min-h-full w-full flex-col items-center justify-center px-8 py-3 text-center select-none">
                         {/* 字幕内容区：受 py-3 保护，自然居中 */}
                         <div
                             ref={subtitleContentRef}

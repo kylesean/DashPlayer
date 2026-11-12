@@ -1060,7 +1060,6 @@ export default function Subtitle() {
                         className={twJoin(
                             'h-full w-full overflow-y-auto text-primary py-2',
                             'scrollbar-thin scrollbar-thumb-rounded-full',
-                            'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
                             showSideBar && 'scrollbar-none',
                         )}
                         data={blocks}
@@ -1118,7 +1117,6 @@ export default function Subtitle() {
                         className={twJoin(
                             'h-full w-full overflow-y-auto text-primary py-2',
                             'scrollbar-thin scrollbar-thumb-rounded-full',
-                            'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
                             showSideBar && 'scrollbar-none',
                         )}
                         data={displaySentences}
