@@ -31,6 +31,8 @@ import zhMoment from '@/fronted/i18n/locales/zh-CN/moment.json';
 import enMoment from '@/fronted/i18n/locales/en-US/moment.json';
 import zhMemoryMap from '@/fronted/i18n/locales/zh-CN/memoryMap.json';
 import enMemoryMap from '@/fronted/i18n/locales/en-US/memoryMap.json';
+import zhMetrics from '@/fronted/i18n/locales/zh-CN/metrics.json';
+import enMetrics from '@/fronted/i18n/locales/en-US/metrics.json';
 
 export type AppLocale = 'zh-CN' | 'en-US';
 export type AppLanguageSetting = 'system' | AppLocale;
@@ -54,6 +56,7 @@ export const resources = {
         compass: zhCompass,
         moment: zhMoment,
         memoryMap: zhMemoryMap,
+        metrics: zhMetrics,
     },
     'en-US': {
         nav: enNav,
@@ -71,6 +74,7 @@ export const resources = {
         compass: enCompass,
         moment: enMoment,
         memoryMap: enMemoryMap,
+        metrics: enMetrics,
     },
 };
 
@@ -110,7 +114,7 @@ void i18nextUse(initReactI18next)
         interpolation: {
             escapeValue: false,
         },
-        ns: ['nav', 'settings', 'toast', 'errors', 'player', 'pages', 'common', 'onboarding', 'migration', 'youtubeImport', 'practice', 'recap', 'compass', 'moment', 'memoryMap'],
+        ns: ['nav', 'settings', 'toast', 'errors', 'player', 'pages', 'common', 'onboarding', 'migration', 'youtubeImport', 'practice', 'recap', 'compass', 'moment', 'memoryMap', 'metrics'],
         defaultNS: 'settings',
         returnNull: false,
         debug: import.meta.env.DEV,

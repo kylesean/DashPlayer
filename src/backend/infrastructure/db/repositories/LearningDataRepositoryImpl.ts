@@ -18,6 +18,7 @@ import type {
     LearningDataResetCounts,
     SessionEventQuery,
 } from '@/backend/services/repositories/LearningDataRepository';
+import type { ReviewEventRow } from '@/common/types/review';
 import type {
     LearningDataRestoreCounts,
     LearningDataRestoreSnapshot,
@@ -138,6 +139,27 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
                 eq(wordEncounter.action, 'review'),
                 gte(wordEncounter.created_at, since),
             ));
+    }
+
+    public async listReviewEventsSince(since: string): Promise<ReviewEventRow[]> {
+        return this.db
+            .select({
+                lemma: wordEncounter.lemma,
+                rating: wordEncounter.rating,
+            })
+            .from(wordEncounter)
+            .where(and(
+                eq(wordEncounter.action, 'review'),
+                gte(wordEncounter.created_at, since),
+            ));
+    }
+
+    public async listEncountersSince(since: string): Promise<WordEncounter[]> {
+        return this.db
+            .select()
+            .from(wordEncounter)
+            .where(gte(wordEncounter.created_at, since))
+            .orderBy(asc(wordEncounter.id));
     }
 
     public async insertRecommendationEvent(value: InsertRecommendationEvent): Promise<void> {

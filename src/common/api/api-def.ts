@@ -53,6 +53,7 @@ import type {
     RolePlayFeedbackVO,
 } from '@/common/types/learningRecap';
 import type { MemoryMapParams, MemoryMapVO } from '@/common/types/memoryMap';
+import type { LearningMetricsParams, LearningMetricsVO } from '@/common/types/learningMetrics';
 import type {
     ContentCompassEventParams,
     ContentCompassListParams,
@@ -556,6 +557,11 @@ interface LearningDataDef {
         params: MemoryMapParams,
         return: MemoryMapVO
     };
+    /** 学习指标看板：北极星指标与辅助指标。 */
+    'learning-data/metrics': {
+        params: LearningMetricsParams,
+        return: LearningMetricsVO
+    };
 }
 
 interface ContentCompassDef {
@@ -714,6 +720,7 @@ export const API_ROUTE_KEYS = [
     'learning-data/export',
     'learning-data/import',
     'learning-data/memory-map',
+    'learning-data/metrics',
     'learning-data/production-practice',
     'learning-data/recap',
     'learning-data/reset',

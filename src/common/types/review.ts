@@ -82,6 +82,16 @@ export interface ReviewRetentionStats {
 }
 
 /**
+ * 一次复习事件的最小信息。
+ *
+ * 北极星指标按词去重，所以必须带 lemma；同时保留评级以便区分成功回忆。
+ */
+export interface ReviewEventRow {
+    lemma: string;
+    rating: ReviewRating | null;
+}
+
+/**
  * 复习坞需要的队列与统计快照。
  */
 export interface ReviewQueueVO {

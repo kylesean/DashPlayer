@@ -1,0 +1,54 @@
+{
+    "title": "Learning metrics",
+    "windowHint": "Computed locally from the last {{days}} days. Nothing leaves this device.",
+    "noData": "No data",
+    "loadFailed": "Could not load metrics. Try again later.",
+    "northStar": {
+        "label": "Words recalled this week",
+        "hint": "Distinct words successfully recalled at least once in the window (rated Good or Easy). Reviewing the same word repeatedly still counts as one — this measures how many words stuck, not how many reviews you did.",
+        "caption": "This is the one number worth watching."
+    },
+    "weeklyRecallWords": {
+        "label": "Words recalled this week",
+        "hint": "Distinct words successfully recalled at least once."
+    },
+    "retention7": {
+        "label": "7-day recall",
+        "hint": "Share of reviews in the last 7 days rated Good or Easy. Shows whether short-term memory is holding."
+    },
+    "retention30": {
+        "label": "30-day recall",
+        "hint": "Share of successful recalls over 30 days. Compare with 7 days to see if words are reaching long-term memory."
+    },
+    "reviewCompletion": {
+        "label": "Review completion",
+        "hint": "Reviews finished ÷ (finished + cards still due). A low value means the backlog is growing."
+    },
+    "recommendationOpen": {
+        "label": "Recommendation open rate",
+        "hint": "Share of recommendations opened, de-duplicated per video per day. Uses the same definition as the recommendation panel in Settings."
+    },
+    "feedbackRate": {
+        "label": "Explicit feedback rate",
+        "hint": "Share of learning/familiar words the user explicitly marked as Known or Ignored. A low value suggests the word states are drifting out of date."
+    },
+    "dueBacklog": {
+        "label": "Due backlog",
+        "hint": "Cards that are due right now and not yet reviewed. This is a count, not a rate."
+    },
+    "practiceCoverage": {
+        "label": "Practice coverage",
+        "hint": "Share of learning/familiar words that were shadowed, dictated, or reviewed at least once. Opening a word card does not count."
+    },
+    "interventionsPerTenMinutes": {
+        "label": "Interventions per 10 min",
+        "hint": "Needs playback duration data, which this version does not collect yet."
+    },
+    "continueAfterSession": {
+        "label": "Continues watching after a session",
+        "hint": "Needs post-session viewing data, which this version does not collect yet."
+    },
+    "unavailable": {
+        "title": "Not available yet (no data source — this is not a value of zero)"
+    }
+}

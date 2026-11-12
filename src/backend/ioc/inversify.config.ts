@@ -164,6 +164,8 @@ import type WordEncounterService from '@/backend/services/WordEncounterService';
 import { WordEncounterServiceImpl } from '@/backend/services/WordEncounterService';
 import type LearningDataService from '@/backend/services/LearningDataService';
 import { LearningDataServiceImpl } from '@/backend/services/LearningDataService';
+import type LearningMetricsService from '@/backend/services/LearningMetricsService';
+import { LearningMetricsServiceImpl } from '@/backend/services/LearningMetricsService';
 import LearningDataController from '@/backend/controllers/LearningDataController';
 import ContentCompassController from '@/backend/controllers/ContentCompassController';
 import type DpTaskRepository from '@/backend/services/repositories/DpTaskRepository';
@@ -291,6 +293,7 @@ container.bind<LearningDataRepository>(TYPES.LearningDataRepository).to(Learning
 container.bind<WordEncounterRepository>(TYPES.WordEncounterRepository).to(WordEncounterRepositoryImpl).inSingletonScope();
 container.bind<WordEncounterService>(TYPES.WordEncounterService).to(WordEncounterServiceImpl).inSingletonScope();
 container.bind<LearningDataService>(TYPES.LearningDataService).to(LearningDataServiceImpl).inSingletonScope();
+container.bind<LearningMetricsService>(TYPES.LearningMetricsService).to(LearningMetricsServiceImpl).inSingletonScope();
 container.bind<DpTaskRepository>(TYPES.DpTaskRepository).to(DpTaskRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipRepository>(TYPES.VideoLearningClipRepository).to(VideoLearningClipRepositoryImpl).inSingletonScope();
 container.bind<VideoLearningClipWordRepository>(TYPES.VideoLearningClipWordRepository).to(VideoLearningClipWordRepositoryImpl).inSingletonScope();

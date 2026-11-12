@@ -7,6 +7,7 @@ import type {
     RolePlayFeedbackParams,
 } from '@/common/types/learningRecap';
 import type { MemoryMapParams } from '@/common/types/memoryMap';
+import type { LearningMetricsParams, LearningMetricsVO } from '@/common/types/learningMetrics';
 
 /**
  * 学习数据与播放会话摘要接口。
@@ -47,6 +48,12 @@ export const learningDataApi = {
      */
     getMemoryMap: (params: MemoryMapParams = {}) =>
         backendClient.call('learning-data/memory-map', params),
+
+    /**
+     * 学习指标看板：北极星指标与辅助指标。
+     */
+    getMetrics: (params: LearningMetricsParams = {}): Promise<LearningMetricsVO> =>
+        backendClient.call('learning-data/metrics', params),
 
     /**
      * 打开保存对话框并导出学习数据 JSON。

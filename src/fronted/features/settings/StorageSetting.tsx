@@ -17,6 +17,7 @@ import { HStack } from '@astryxdesign/core/HStack';
 import { Icon } from '@astryxdesign/core/Icon';
 import { Text } from '@astryxdesign/core/Text';
 import {
+    Activity,
     BookOpenCheck,
     ChartPie,
     Download,
@@ -45,6 +46,7 @@ import { revalidateReviewQueue } from '@/fronted/features/video-learning/reviewQ
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { contentCompassApi } from '@/fronted/features/content-compass/contentCompassApi';
 import type { ContentCompassStatsVO } from '@/common/types/contentCompass';
+import LearningMetricsSection from '@/fronted/features/learning-data/LearningMetricsSection';
 
 type StorageFormValues = StorageSettingVO;
 
@@ -383,6 +385,16 @@ const StorageSetting: React.FC = () => {
                             />
                         </HStack>
                     </SettingField>
+                </SettingSection>
+
+                <Divider />
+
+                <SettingSection
+                    title={t('storage.sections.metrics')}
+                    description={t('storage.sections.metricsDesc')}
+                    icon={Activity}
+                >
+                    <LearningMetricsSection />
                 </SettingSection>
 
                 <Divider />

@@ -383,6 +383,8 @@
             "syncDesc": "Rebuild clip indexes from local files",
             "learningData": "Learning Data",
             "learningDataDesc": "Portable backup and learning history governance",
+            "metrics": "Learning Metrics",
+            "metricsDesc": "North-star metric plus review, recommendation and practice auxiliaries",
             "danger": "Danger Zone",
             "dangerDesc": "These actions cannot be undone"
         },

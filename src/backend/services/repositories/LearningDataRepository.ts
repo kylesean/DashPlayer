@@ -5,6 +5,7 @@ import type {
 import type { WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import type { Word } from '@/backend/infrastructure/db/tables/words';
 import type { ReviewOutcome } from '@/backend/services/repositories/WordEncounterRepository';
+import type { ReviewEventRow } from '@/common/types/review';
 import type { WordEncounterAction } from '@/common/types/vocabulary';
 import type {
     LearningDataRestoreCounts,
@@ -70,6 +71,19 @@ export default interface LearningDataRepository {
 
     /** 查询某时间之后的复习结果，用于导出 7/30 天指标。 */
     listReviewOutcomesSince(since: string): Promise<ReviewOutcome[]>;
+
+    /**
+     * 查询某时间之后的复习事件，带上 lemma 与评级。
+     *
+     * 北极星指标要按「词」去重，而 `listReviewOutcomesSince` 只返回评级与分数，
+     * 无法区分是不是同一个词，因此单独提供带 lemma 的窗口查询。
+     */
+    listReviewEventsSince(since: string): Promise<ReviewEventRow[]>;
+
+    /**
+     * 查询某时间之后的学习事件，用于按窗口统计反馈率与练习覆盖。
+     */
+    listEncountersSince(since: string): Promise<WordEncounter[]>;
 
     /** 写入一条内容指南针曝光或反馈事件。 */
     insertRecommendationEvent(value: InsertRecommendationEvent): Promise<void>;

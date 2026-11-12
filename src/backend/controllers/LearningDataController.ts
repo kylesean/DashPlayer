@@ -8,6 +8,7 @@ import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import { positiveIntSchema } from '@/backend/controllers/ipc/routeSchemas';
 import TYPES from '@/backend/ioc/types';
 import type LearningDataService from '@/backend/services/LearningDataService';
+import type LearningMetricsService from '@/backend/services/LearningMetricsService';
 import type LearningRecapService from '@/backend/services/LearningRecapService';
 import type MemoryMapService from '@/backend/services/MemoryMapService';
 import type { LearningSessionSummaryParams } from '@/common/types/learningSession';
@@ -17,6 +18,7 @@ import type {
 } from '@/common/types/learningData';
 import { LearningDataSnapshotError } from '@/common/learning/learningDataSnapshot';
 import type { MemoryMapParams } from '@/common/types/memoryMap';
+import type { LearningMetricsParams } from '@/common/types/learningMetrics';
 import type {
     LearningRecapParams,
     ProductionPracticeListParams,
@@ -31,6 +33,7 @@ import type {
 export default class LearningDataController implements Controller {
     constructor(
         @inject(TYPES.LearningDataService) private readonly learningDataService: LearningDataService,
+        @inject(TYPES.LearningMetricsService) private readonly learningMetricsService: LearningMetricsService,
         @inject(TYPES.LearningRecapService) private readonly learningRecapService: LearningRecapService,
         @inject(TYPES.MemoryMapService) private readonly memoryMapService: MemoryMapService,
     ) {}
@@ -75,6 +78,13 @@ export default class LearningDataController implements Controller {
      */
     public async getMemoryMap(params: MemoryMapParams) {
         return this.memoryMapService.getMap(params);
+    }
+
+    /**
+     * 学习指标看板：北极星指标与辅助指标。
+     */
+    public async getMetrics(params: LearningMetricsParams) {
+        return this.learningMetricsService.getMetrics(params);
     }
 
     /**
@@ -196,6 +206,11 @@ export default class LearningDataController implements Controller {
         registerRoute('learning-data/memory-map', (p) => this.getMemoryMap(p), {
             schema: z.object({
                 limit: z.number().int().min(1).max(20).optional(),
+            }),
+        });
+        registerRoute('learning-data/metrics', (p) => this.getMetrics(p), {
+            schema: z.object({
+                windowDays: z.union([z.literal(7), z.literal(30)]).optional(),
             }),
         });
     }
