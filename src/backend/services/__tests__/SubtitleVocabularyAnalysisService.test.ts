@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WordMatchService } from '@/backend/services/WordMatchService';
+import type { MatchedWord, WordMatchService } from '@/backend/services/WordMatchService';
 import { SubtitleVocabularyAnalysisServiceImpl } from '@/backend/services/SubtitleVocabularyAnalysisService';
 
 vi.mock('@/backend/infrastructure/logger', () => ({

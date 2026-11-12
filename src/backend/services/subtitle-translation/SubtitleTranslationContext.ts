@@ -51,6 +51,8 @@ export interface ResolvedSubtitleTranslationContext {
     storageMode: SubtitleTranslationStorageMode;
     /** OpenAI 批量提示词使用的风格约束；腾讯引擎为 undefined。 */
     style?: string;
+    /** 风格签名：与 storageMode 尾段一致，云端回退本地时用于拼本地持久化分区。 */
+    styleSignature: string;
     /** 调度器使用的 profileKey。 */
     profileKey: string;
     /** 本地引擎使用中的模型 ID；云端引擎为 null。 */
@@ -73,7 +75,7 @@ export const resolveSubtitleTranslationContext = async (
     provider: TranslationProvider,
 ): Promise<ResolvedSubtitleTranslationContext> => {
     if (provider === 'tencent') {
-        return { mode: 'zh', storageMode: 'tencent', profileKey: 'tencent', localModelId: null };
+        return { mode: 'zh', storageMode: 'tencent', styleSignature: '', profileKey: 'tencent', localModelId: null };
     }
     const mode = await deps.settingService.getOpenAiSubtitleTranslationMode();
     const customStyle = mode === 'custom'
@@ -85,9 +87,23 @@ export const resolveSubtitleTranslationContext = async (
         // 本地引擎缺少模型标识时显式失败，不滑入云端路由掩盖配置问题。
         if (!localModelId) throw new Error('本地字幕翻译模型未配置');
         const storageMode = buildSubtitleStorageMode('local', localModelId, mode, resolved.signature);
-        return { mode, storageMode, style: resolved.style, profileKey: `${storageMode}:${localModelId}`, localModelId };
+        return {
+            mode,
+            storageMode,
+            style: resolved.style,
+            styleSignature: resolved.signature,
+            profileKey: `${storageMode}:${localModelId}`,
+            localModelId,
+        };
     }
     const routed = deps.modelRoutingService.resolveOpenAiModel('subtitleTranslation');
     const storageMode = buildSubtitleStorageMode('openai', routed.modelId, mode, resolved.signature);
-    return { mode, storageMode, style: resolved.style, profileKey: `${storageMode}:${routed.fullModelId}`, localModelId: null };
+    return {
+        mode,
+        storageMode,
+        style: resolved.style,
+        styleSignature: resolved.signature,
+        profileKey: `${storageMode}:${routed.fullModelId}`,
+        localModelId: null,
+    };
 };

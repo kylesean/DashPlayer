@@ -37,6 +37,7 @@ import {
     shouldTranslateSubtitleText,
 } from '@/backend/services/subtitle-translation/SubtitleTranslationCacheKey';
 import {
+    buildSubtitleStorageMode,
     type SubtitleTranslationStorageMode,
 } from '@/backend/services/subtitle-translation/SubtitleTranslationStorageMode';
 import { concurrency } from '@/backend/utils/concurrency';
@@ -70,6 +71,8 @@ interface SubtitleTranslationExecutionContext {
     fileHash: string;
     /** OpenAI 批量提示词使用的风格约束。 */
     style?: string;
+    /** 风格签名：云端回退本地时拼本地持久化分区用。 */
+    styleSignature: string;
 }
 
 /**
@@ -400,6 +403,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                     provider,
                     storageMode: 'tencent',
                     mode: 'zh',
+                    styleSignature: '',
                     localModelId: null,
                     sentencesByIndex: this.buildSentencesByIndex(srtData.sentences),
                     fileHash,
@@ -427,6 +431,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                 provider,
                 storageMode,
                 mode,
+                styleSignature: resolvedContext.styleSignature,
                 localModelId,
                 sentencesByIndex: this.buildSentencesByIndex(srtData.sentences),
                 fileHash,
@@ -541,6 +546,23 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
                     this.toStorageKeyedTranslations(onlineResults, onlineTargets),
                     request.context.storageMode
                 );
+            } else {
+                // 本地回退结果按本地引擎自己的持久化分区落库：
+                // - 重启后译文仍在，本地引擎会话可直接命中，不再整批重跑推理；
+                // - 云端分区不被本地质量占用，云端恢复后同一批照常重试并覆盖。
+                const fallbackModelId = await this.localAiService.getActiveModelId();
+                if (fallbackModelId) {
+                    const localStorageMode = buildSubtitleStorageMode(
+                        'local',
+                        fallbackModelId,
+                        request.context.mode,
+                        request.context.styleSignature
+                    );
+                    await this.saveTranslations(
+                        this.toStorageKeyedTranslations(onlineResults, onlineTargets),
+                        localStorageMode
+                    );
+                }
             }
             this.pushTranslations(onlineResults, request.context);
 
