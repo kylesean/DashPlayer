@@ -322,6 +322,13 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
     lastStallHealAtRef.current = 0;
     lastSeekTsRef.current = 0;
     appliedSeekIdRef.current = undefined;
+    // 旧源的 seek 结算契约一并作废：兜底计时器若残留，会在新源上以新 currentTime
+    // 结算旧请求，把旧 seek 的落点写进新源（切源后 store 的 seekTime 已无序号，
+    // requestId 门控挡不住这种迟到结算）
+    if (pendingResolveRef.current?.timer) {
+      clearTimeout(pendingResolveRef.current.timer);
+    }
+    pendingResolveRef.current = null;
   }, [src]);
 
   // 看门狗：独立采样媒体状态，检测播放卡死并自愈

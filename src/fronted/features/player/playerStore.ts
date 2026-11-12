@@ -1390,8 +1390,10 @@ export const usePlayer = create<PlayerState>((set, get) => {
     resolveSeek: (actualTime, requestId) => {
       const state = get();
       const currentRequestId = state.seekTime?.requestId;
-      // 过期落点（例如上一次 seek 的 seeked 迟到）：忽略，避免提前解除新一轮的覆盖
-      if (requestId !== undefined && currentRequestId !== undefined && requestId !== currentRequestId) {
+      // 过期落点（例如上一次 seek 的 seeked 迟到）：忽略，避免提前解除新一轮的覆盖。
+      // 在途契约已不存在时（setSource 清空了 seekTime），带序号的迟到结算同样拒绝：
+      // 它属于旧源/旧契约，不得把旧视频的落点写进新源。
+      if (requestId !== undefined && requestId !== currentRequestId) {
         return;
       }
       const hadLock = state.internal.currentLock?.active === true;
