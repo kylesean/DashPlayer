@@ -192,6 +192,36 @@ describe('ContentCompassService', () => {
         expect(result.items[0].comprehension).toBeGreaterThan(0);
     });
 
+    /**
+     * 到期词数必须是「整部视频里有多少到期词会复现」，而不是 30 行抽样里的命中数。
+     * 抽样会把 2000 行的视频报成一个与真实值无关的数字，而用户会据此决定看哪一部。
+     */
+    it('到期词数覆盖整条字幕，不因抽样而漏计', async () => {
+        harness = await buildHarness();
+        // 到期词只出现在第 150 行：均匀抽样 30 行时它会落在采样点之间。
+        const filler = Array.from({ length: 200 }, (_, index) => `${index + 1}
+00:00:${String(index % 60).padStart(2, '0')},000 --> 00:00:${String((index + 1) % 60).padStart(2, '0')},500
+A simple filler line number ${index} about ordinary daily routine.
+`).join('\n');
+        const withDueWord = filler.replace(
+            'A simple filler line number 150 about ordinary daily routine.',
+            'The journey finally reaches its destination after many long delays.',
+        );
+        await writeMedia(harness.directory, 'long.mp4', withDueWord);
+        await insertHistory(harness.memoryDb, [{
+            id: 'long-video',
+            basePath: harness.directory,
+            fileName: 'long.mp4',
+            updatedAt: new Date().toISOString(),
+        }]);
+        await seedLearning(harness.memoryDb, 'journey', new Date(Date.now() - 60_000).toISOString());
+
+        const result = await harness.service.list({ limit: 1 });
+
+        expect(result.items[0].reason.dueCount).toBe(1);
+        expect(result.items[0].reason.words).toContain('journey');
+    });
+
     it('近期观看主题相近的候选获得更高的兴趣分', async () => {
         harness = await buildHarness();
         const watched = `1
@@ -453,8 +483,10 @@ My grandmother baked a lemon cake in the kitchen.
             openRate: 1 / 2,
             dismissRate: 1 / 2,
             reviewRate: 1,
-            retention: { reviewed: 2, retention: 0.5 },
         });
+        // 复习成功率不再挂在推荐统计上：它是全站记忆指标，混进来会被读成
+        // 「这条推荐让我记住了 X%」，属于范畴错误。
+        expect(stats).not.toHaveProperty('retention');
         expect(events).toHaveLength(6);
     });
 

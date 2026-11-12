@@ -9,6 +9,42 @@ import PlayerEngine from '@/fronted/features/player/components/PlayerEngine';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { clipLinesToSentences } from '@/common/utils/subtitle';
 import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
+import { getRendererLogger } from '@/fronted/log/simple-logger';
+
+const logger = getRendererLogger('VideoPlayerPane');
+
+/**
+ * 片段里的学习证据动作。
+ *
+ * 片段此前完全不参与学习闭环：用户在这里看了、重听了，系统一无所知。
+ * 只记两类能说明「回到了真实语境」的动作，且不写掌握度——`seen` / `replay`
+ * 在掌握度管线里本就是零证据动作（见 WordEncounterService），它们的作用是
+ * 让「上次遇见」与「重听次数」反映真实行为，而不是把播放当成学习成果。
+ */
+export const recordClipEvidence = (
+    clip: { videoName: string },
+    vocabulary: Array<{ word: string; matchedForms: string[] }>,
+    action: 'seen' | 'replay',
+): void => {
+    for (const entry of vocabulary) {
+        void videoLearningApi.recordWordEncounter({
+            word: entry.matchedForms[0] ?? entry.word,
+            action,
+            videoId: undefined,
+            fileHash: undefined,
+            sentenceIndex: undefined,
+            sentenceHash: undefined,
+            context: undefined,
+        }).catch((error: unknown) => {
+            logger.error('failed to record clip evidence', {
+                error: error instanceof Error ? error.message : String(error),
+                action,
+                word: entry.word,
+                video: clip.videoName,
+            });
+        });
+    }
+};
 import type { Sentence } from '@/common/types/SentenceC';
 import type { ClipSrtLine } from '@/common/types/clipMeta';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
@@ -170,6 +206,11 @@ export default function VideoPlayerPane({
       const shouldAutoPlay = forcePlayKey !== undefined && forcePlayKey !== lastForcePlayKeyRef.current;
       lastForcePlayKeyRef.current = forcePlayKey;
       autoPlayRef.current = shouldAutoPlay;
+
+      // 真正起播才记一次「在真实语境里又见到这个词」；静默选中不算。
+      if (shouldAutoPlay) {
+        recordClipEvidence(clip, clip.vocabulary ?? [], 'seen');
+      }
 
       const desiredIndex = lineIdxRef.current ?? -1;
       let targetSentence: Sentence | null = null;
@@ -334,6 +375,10 @@ export default function VideoPlayerPane({
 
   // 视频播放结束处理
   const handlePlayerEnded = () => {
+    // 片段播完 = 一次真实的重听：记 replay 而不是 seen，后者在进入时已记过。
+    if (clip) {
+      recordClipEvidence(clip, clip.vocabulary ?? [], 'replay');
+    }
     onEnded();
   };
 

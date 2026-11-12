@@ -279,7 +279,13 @@ interface PlayerState {
   gotoSentenceIndex: (index: number) => void;
   gotoSentence: (s: Sentence) => void;
   repeatCurrent: (options?: { loop?: boolean; play?: boolean }) => void;
-  clearAdjust: () => Promise<void>;
+  /**
+   * 清除时间轴调整。
+   *
+   * @param sentence 目标句；缺省为当前句。文稿里逐行复位时必须传句，
+   *                 否则会复位用户正在看的那一句而不是他点的那一句。
+   */
+  clearAdjust: (sentence?: Sentence) => Promise<void>;
   seekToCurrentStart: () => void;
   seekToCurrentEnd: (epsilon?: number) => void;
 
@@ -1705,18 +1711,24 @@ export const usePlayer = create<PlayerState>((set, get) => {
       }
     },
 
-    clearAdjust: async () => {
+    clearAdjust: async (sentence?: Sentence) => {
       const state = get();
-      const focus = state.currentSentence;
       const srtTender = state.srtTender;
+      // 传了句就以它为准；没传才退回当前句（播客行徽章与快捷键走这条）。
+      const focus = sentence ?? state.currentSentence;
       if (!focus || !srtTender) {
         return;
       }
 
       const resetSentence = srtTender.clearAdjust(focus);
       patchSentenceInStore(resetSentence);
-      set({ currentSentence: resetSentence });
-      state.repeatCurrent({ loop: false, play: state.playing });
+      const isCurrent = state.currentSentence
+        ? sentenceKey(state.currentSentence) === sentenceKey(resetSentence)
+        : false;
+      if (isCurrent) {
+        set({ currentSentence: resetSentence });
+        state.repeatCurrent({ loop: false, play: state.playing });
+      }
 
       const { subtitlePath } = usePlaybackSession.getState();
       if (StrUtil.isBlank(subtitlePath)) {

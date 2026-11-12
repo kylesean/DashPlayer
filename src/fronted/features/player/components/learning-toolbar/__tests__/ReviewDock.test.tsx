@@ -8,6 +8,10 @@ import type { ReviewQueueVO } from '@/common/types/review';
 import { useReviewDockStore } from '../reviewDockStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 
+vi.mock('react-router-dom', () => ({
+    useNavigate: () => vi.fn(),
+}));
+
 vi.mock('swr', () => ({
     default: vi.fn(),
     mutate: vi.fn(),
@@ -28,6 +32,7 @@ vi.mock('@/fronted/features/video-learning/videoLearningApi', () => ({
     videoLearningApi: {
         getReviewQueue: vi.fn(),
         rateReview: vi.fn(),
+        getWordClipStats: vi.fn(),
     },
 }));
 

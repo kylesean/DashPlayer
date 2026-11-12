@@ -61,13 +61,16 @@ export default function Subtitle() {
     const showSideTranslation = usePlayerUi((state) => state.showSideTranslation);
     const changeShowSideTranslation = usePlayerUi((state) => state.changeShowSideTranslation);
     const { t } = useI18nTranslation('player');
-    const { currentSentence, subtitle, singleRepeat, hoverRepeat, virtualGroup } = usePlayerState(
+    const { currentSentence, subtitle, singleRepeat, hoverRepeat, virtualGroup, srtTender } = usePlayerState(
         useShallow((s) => ({
             currentSentence: s.currentSentence,
             subtitle: s.sentences,
             singleRepeat: s.singleRepeat,
             hoverRepeat: s.hoverRepeat,
             virtualGroup: s.virtualGroup,
+            // 时间轴微调只写进 tender 索引，不回写句子对象；
+            // 逐行徽章必须问 tender，否则调完永远不出现。
+            srtTender: s.srtTender,
         })),
     );
     const { setBoundaryRef } = useBoundary();
@@ -640,6 +643,8 @@ export default function Subtitle() {
                 <SideSentence
                     sentence={item}
                     vocabularyCount={countOf(item)}
+                    isTimeAdjusted={srtTender?.adjusted(item) ?? false}
+                    onResetTime={(target) => { void playerActions.clearAdjust(target); }}
                     onClick={(targetSentence) => {
                         playerActions.clearVirtualGroup();
                         if (useChatPanel.getState().learningVisible) {
@@ -703,6 +708,7 @@ export default function Subtitle() {
         activeMatchedSentenceIndex,
         scrollState,
         delaySetNormal,
+        srtTender,
         recordReplay,
         countOf,
     ]);

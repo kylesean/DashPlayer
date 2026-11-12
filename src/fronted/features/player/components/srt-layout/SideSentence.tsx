@@ -3,7 +3,7 @@ import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { useShallow } from 'zustand/react/shallow';
-import { Play, Repeat1 } from 'lucide-react';
+import { History, Play, Repeat1 } from 'lucide-react';
 
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { usePlayerUiState } from '@/fronted/features/player/playerUiStore';
@@ -48,6 +48,15 @@ export interface SideSentenceProps {
     onToggleSingleRepeat?: (sentence: Sentence) => void;
     /** 本句可见的词汇标记数量；缺省时不显示状态点。 */
     vocabularyCount?: SentenceVocabularyCount;
+    /**
+     * 本句的时间轴是否被手动调整过。
+     *
+     * 用户是在这一行里调的，就必须能在同一行里退回去。此前只有播客模式
+     * 有复位入口，文稿里调完时间轴就再也回不来了。
+     */
+    isTimeAdjusted?: boolean;
+    /** 清除本句的时间轴调整。 */
+    onResetTime?: (sentence: Sentence) => void;
 }
 
 /**
@@ -162,6 +171,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
             isActiveSearchMatch = false,
             onToggleSingleRepeat,
             vocabularyCount = EMPTY_SENTENCE_VOCABULARY_COUNT,
+            isTimeAdjusted = false,
+            onResetTime,
         }: SideSentenceProps,
         ref
     ) => {
@@ -379,6 +390,24 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                             <Repeat1 className="w-2.5 h-2.5" />
                         </button>
                     </Tooltip>
+
+                    {isTimeAdjusted && onResetTime && (
+                        <Tooltip
+                            content={t('subtitle.resetTimingTooltip', { defaultValue: '点击重置当前句子时间戳' })}
+                            placement="above"
+                        >
+                            <button
+                                type="button"
+                                data-testid="side-sentence-reset-time"
+                                onClick={() => onResetTime(sentence)}
+                                className="p-1 rounded text-warning-text hover:bg-warning-muted transition-colors cursor-pointer"
+                                title={t('subtitle.resetTimingTooltip', { defaultValue: '点击重置当前句子时间戳' })}
+                                aria-label={t('subtitle.resetTimingTooltip', { defaultValue: '点击重置当前句子时间戳' })}
+                            >
+                                <History className="w-2.5 h-2.5" />
+                            </button>
+                        </Tooltip>
+                    )}
 
                     <Tooltip content={t('sideSentence.replaySentence', { defaultValue: '从头重播此句' })} placement="above">
                         <button

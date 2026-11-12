@@ -330,7 +330,8 @@
         "batchProgress": "Card {{done}} of {{total}}",
         "batchDone": "Finished {{count}} in this set",
         "batchMoreDue": "{{count}} more due",
-        "batchNext": "Next set"
+        "batchNext": "Next set",
+        "openClips": "Watch {{count}} clips"
     },
     "learningSummary": {
         "trigger": "This session",

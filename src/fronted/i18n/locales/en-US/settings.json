@@ -372,8 +372,6 @@
             "recommendationOpened": "Opened",
             "recommendationDismissed": "Not interested",
             "recommendationReviewed": "Reviewed",
-            "recommendationRecall": "Global 7-day recall",
-            "recommendationRecallHint": "{{count}} reviews (site-wide, not attributed)",
             "attributionTitle": "Recommendation funnel (shown → opened → reviewed → recalled)",
             "attributionRow": "{{reason}}: {{shown}} → {{opened}} → {{reviewed}} → {{recalled}}",
             "attributionReasons": {
@@ -402,6 +400,7 @@
     "serviceCredentials": {
         "openai": {
             "keyHint": "Stored locally; used only to call your provider",
+            "keyPlaceholderSaved": "Saved {{hint}} — leave blank to keep",
             "apiFormatLabel": "API format",
             "apiFormatOpenai": "OpenAI compatible",
             "apiFormatAnthropic": "Anthropic compatible",

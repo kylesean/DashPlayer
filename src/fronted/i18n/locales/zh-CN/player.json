@@ -330,7 +330,8 @@
         "batchProgress": "第 {{done}} / {{total}} 张",
         "batchDone": "这一组已完成 {{count}} 张",
         "batchMoreDue": "还有 {{count}} 个到期词",
-        "batchNext": "继续下一组"
+        "batchNext": "继续下一组",
+        "openClips": "看这 {{count}} 个片段"
     },
     "learningSummary": {
         "trigger": "本次学习",

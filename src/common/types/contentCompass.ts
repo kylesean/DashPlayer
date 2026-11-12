@@ -1,4 +1,3 @@
-import type { ReviewRetentionStats } from '@/common/types/review';
 import type { ComprehensionBand } from '@/common/types/subtitleComprehension';
 
 /** 内容推荐在界面上被用户执行的动作。 */
@@ -102,11 +101,4 @@ export interface ContentCompassStatsVO {
     dismissRate: number | null;
     /** 进入复习次数 / 含到期词的曝光次数；没有样本时为 null。不代表复习完成。 */
     reviewRate: number | null;
-    /**
-     * 同一统计窗口内的全局复习回忆指标。
-     *
-     * 这是全站复习结果，不按推荐来源归因；用于观察整体记忆趋势，
-     * 不能解读为「推荐让用户多记住了多少词」。
-     */
-    retention: ReviewRetentionStats;
 }

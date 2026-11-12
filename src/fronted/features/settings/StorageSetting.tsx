@@ -510,13 +510,6 @@ const StorageSetting: React.FC = () => {
                                         label={t('storage.learningData.recommendationReviewed')}
                                         value={`${compassStats.reviewed} · ${formatRate(compassStats.reviewRate)}`}
                                     />
-                                    <CompassStat
-                                        label={t('storage.learningData.recommendationRecall')}
-                                        value={formatRate(compassStats.retention.retention)}
-                                        hint={t('storage.learningData.recommendationRecallHint', {
-                                            count: compassStats.retention.reviewed,
-                                        })}
-                                    />
                                 </HStack>
                             ) : (
                                 <Text type="supporting" color="secondary">

@@ -5,6 +5,7 @@ import TYPES from '@/backend/ioc/types';
 import { generateText } from 'ai';
 import type AiProviderService from '@/backend/services/AiProviderService';
 import StrUtil from '@/common/utils/str-util';
+import { maskSecret } from '@/common/utils/secret-mask';
 import type ClientProviderService from '@/backend/services/ClientProviderService';
 import type { TencentTranslateClient } from '@/backend/services/gateways/translate/TencentTranslateClient';
 import { getMainLogger } from '@/backend/infrastructure/logger';
@@ -412,9 +413,13 @@ export class SettingServiceImpl implements SettingService {
      */
     public async getServiceCredentialsDetail(): Promise<ServiceCredentialSettingDetailVO> {
         const availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
+        const openAiKey = this.getValue('apiKeys.openAi.key');
+        const tencentSecretId = this.getValue('apiKeys.tencent.secretId');
+        const tencentSecretKey = this.getValue('apiKeys.tencent.secretKey');
         return {
             openai: {
-                key: this.getValue('apiKeys.openAi.key'),
+                hasKey: !StrUtil.isBlank(openAiKey),
+                keyHint: maskSecret(openAiKey),
                 endpoint: this.getValue('apiKeys.openAi.endpoint'),
                 apiFormat: this.requireEnumValue(
                     this.getValue('apiKeys.openAi.apiFormat'),
@@ -424,8 +429,8 @@ export class SettingServiceImpl implements SettingService {
                 models: availableModels,
             },
             tencent: {
-                secretId: this.getValue('apiKeys.tencent.secretId'),
-                secretKey: this.getValue('apiKeys.tencent.secretKey'),
+                hasCredentials: !StrUtil.isBlank(tencentSecretId) && !StrUtil.isBlank(tencentSecretKey),
+                secretIdHint: maskSecret(tencentSecretId),
             },
         };
     }
@@ -460,13 +465,28 @@ export class SettingServiceImpl implements SettingService {
             }
         }
 
-        await this.setValue('apiKeys.openAi.key', settings.openai.key);
+        // 密钥字段缺省/留空 = 保持原值：设置页自动保存，改接口地址时表单里的密钥
+        // 本来就是空的（详情不再下发明文），把「没填」当成「清空」会静默抹掉凭据。
+        if (settings.openai.clearKey) {
+            await this.setValue('apiKeys.openAi.key', '');
+        } else if (!StrUtil.isBlank(settings.openai.key)) {
+            await this.setValue('apiKeys.openAi.key', settings.openai.key as string);
+        }
         await this.setValue('apiKeys.openAi.endpoint', settings.openai.endpoint);
         await this.setValue('apiKeys.openAi.apiFormat', apiFormat);
         await this.setValue('models.openai.available', dedupedModels.join('\n'));
 
-        await this.setValue('apiKeys.tencent.secretId', settings.tencent.secretId);
-        await this.setValue('apiKeys.tencent.secretKey', settings.tencent.secretKey);
+        if (settings.tencent.clearTencent) {
+            await this.setValue('apiKeys.tencent.secretId', '');
+            await this.setValue('apiKeys.tencent.secretKey', '');
+        } else {
+            if (!StrUtil.isBlank(settings.tencent.secretId)) {
+                await this.setValue('apiKeys.tencent.secretId', settings.tencent.secretId as string);
+            }
+            if (!StrUtil.isBlank(settings.tencent.secretKey)) {
+                await this.setValue('apiKeys.tencent.secretKey', settings.tencent.secretKey as string);
+            }
+        }
 
 
     }

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useForm } from 'react-hook-form';
-import type { ServiceCredentialSettingDetailVO } from '@/common/types/vo/service-credentials-setting-vo';
+import type { ServiceCredentialSettingFormValues } from '@/common/types/vo/service-credentials-setting-vo';
 import { CLOUD_AI_PROVIDER_PRESETS } from '@/common/constants/cloud-ai-provider-presets';
 import { OpenAiCredentialCard } from '../components/OpenAiCredentialCard';
 
@@ -26,21 +26,30 @@ vi.mock('react-i18next', () => ({
 }));
 
 const buildDefaultValues = (
-    openai?: Partial<ServiceCredentialSettingDetailVO['openai']>,
-): ServiceCredentialSettingDetailVO => ({
+    openai?: Partial<ServiceCredentialSettingFormValues['openai']>,
+): ServiceCredentialSettingFormValues => ({
     openai: {
+        hasKey: false,
+        keyHint: '',
         key: '',
+        clearKey: false,
         endpoint: '',
         apiFormat: 'openai',
         models: [],
         ...openai,
     },
-    tencent: { secretId: '', secretKey: '' },
+    tencent: {
+        hasCredentials: false,
+        secretIdHint: '',
+        secretId: '',
+        secretKey: '',
+        clearTencent: false,
+    },
 });
 
-const renderCard = (defaultValues: ServiceCredentialSettingDetailVO) => {
+const renderCard = (defaultValues: ServiceCredentialSettingFormValues) => {
     const Wrapper: React.FC = () => {
-        const form = useForm<ServiceCredentialSettingDetailVO>({ defaultValues });
+        const form = useForm<ServiceCredentialSettingFormValues>({ defaultValues });
         return (
             <OpenAiCredentialCard
                 form={form}

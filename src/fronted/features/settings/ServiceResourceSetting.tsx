@@ -37,7 +37,7 @@ import { OPENAI_SUBTITLE_DEFAULT_STYLES } from '@/common/constants/openaiSubtitl
 import { subscribeLocalAiDownloadProgress } from '@/fronted/features/settings/settingsEvents';
 import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
 import type { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
-import type { ServiceCredentialSettingDetailVO } from '@/common/types/vo/service-credentials-setting-vo';
+import type { ServiceCredentialSettingFormValues } from '@/common/types/vo/service-credentials-setting-vo';
 import {
     computeCloudModelUsage,
     type OpenAiModelUsageFeature,
@@ -114,7 +114,7 @@ const ServiceResourceSetting: React.FC = () => {
     const fallbackState = resourceStatus?.fallback ?? null;
     const localAiStatus = resourceStatus?.localAi ?? null;
 
-    const credentialForm = useForm<ServiceCredentialSettingDetailVO>();
+    const credentialForm = useForm<ServiceCredentialSettingFormValues>();
     const preferenceForm = useForm<EngineSelectionSettingVO>();
 
     const {
@@ -123,11 +123,26 @@ const ServiceResourceSetting: React.FC = () => {
         error: credentialSaveError,
         initialize: initializeCredentials,
         flush: flushCredentials,
-    } = useAutoSaveSettingsForm<ServiceCredentialSettingDetailVO>({
+    } = useAutoSaveSettingsForm<ServiceCredentialSettingFormValues>({
         form: credentialForm,
         detailKey: 'settings/service-credentials/detail',
         onSave: async (values) => {
-            await settingsApi.saveServiceCredentials(values);
+            // 详情里的 hasKey / keyHint 只是给输入框的提示，不属于保存契约；
+            // 密钥字段留空表示沿用已保存的值，不在这里补明文。
+            await settingsApi.saveServiceCredentials({
+                openai: {
+                    ...(values.openai.key ? { key: values.openai.key } : {}),
+                    ...(values.openai.clearKey ? { clearKey: true } : {}),
+                    endpoint: values.openai.endpoint,
+                    apiFormat: values.openai.apiFormat,
+                    models: values.openai.models,
+                },
+                tencent: {
+                    ...(values.tencent.secretId ? { secretId: values.tencent.secretId } : {}),
+                    ...(values.tencent.secretKey ? { secretKey: values.tencent.secretKey } : {}),
+                    ...(values.tencent.clearTencent ? { clearTencent: true } : {}),
+                },
+            });
         },
     });
 
@@ -207,7 +222,17 @@ const ServiceResourceSetting: React.FC = () => {
 
     React.useEffect(() => {
         if (!settings) return;
-        initializeCredentials(settings);
+        // 详情不含明文密钥，表单里对应的编辑字段显式补空：
+        // 空串的含义是「沿用已保存的值」，不是「清空」。
+        initializeCredentials({
+            openai: { ...settings.openai, key: '', clearKey: false },
+            tencent: {
+                ...settings.tencent,
+                secretId: '',
+                secretKey: '',
+                clearTencent: false,
+            },
+        });
     }, [initializeCredentials, settings]);
 
     React.useEffect(() => {

@@ -59,7 +59,23 @@ import type {
 
 const MAX_CANDIDATES = 12;
 const MAX_RECENT_PROFILE_VIDEOS = 5;
+/**
+ * 打分用抽样行数上限。
+ *
+ * 只影响「理解度」与「主题词频」这类**平均值**估计：抽 30 行算平均难度是合理
+ * 估计量，成本也低。它绝不能用来算「有多少到期词会复现」——那是集合交集，
+ * 抽样会让 2000 行的视频报出一个只基于 30 行的假数字。
+ */
 const MAX_SAMPLE_LINES = 30;
+
+/**
+ * 全量扫描的行数上限（用于精确统计词集合）。
+ *
+ * 实测 wink 分析约 55ms / 3000 行，比一次推荐请求里的字幕读取与向量检索都便宜，
+ * 因此这里给一个足够覆盖真实视频的上限，而不是抽样。超长素材仍设硬上限，
+ * 避免异常文件（例如把整本书当字幕）把主线程拖住。
+ */
+const MAX_SCAN_LINES = 6000;
 const MAX_SUBTITLE_BYTES = 2 * 1024 * 1024;
 const MAX_ANALYSIS_CACHE_ENTRIES = 64;
 const MAX_REASON_WORDS = 4;
@@ -284,10 +300,10 @@ export class ContentCompassServiceImpl implements ContentCompassService {
     public async getStats(params: ContentCompassStatsParams): Promise<ContentCompassStatsVO> {
         const days = Math.max(1, Math.min(90, Math.trunc(params.days ?? DEFAULT_STATS_DAYS)));
         const since = new Date(Date.now() - days * DAY_MS).toISOString();
-        const [events, outcomes] = await Promise.all([
-            this.learningDataRepository.listRecommendationEventsSince(since),
-            this.learningDataRepository.listReviewOutcomesSince(since),
-        ]);
+        // 只看推荐事件：复习成功率属于全局记忆指标，已经在学习指标看板里按
+        // 「7 天 / 30 天回忆」呈现。把它塞进推荐效果区会让人读成
+        // 「这条推荐让我记住了 72%」，那是范畴错误，不是口径问题。
+        const events = await this.learningDataRepository.listRecommendationEventsSince(since);
         // 所有推荐指标按「视频 × 自然日」去重：曝光在前端本就按天去重，其余动作
         // 也按同一粒度聚合，打开/不感兴趣/进入复习才是曝光集合的子集，比率不会越界。
         const shownKeys = new Set<string>();
@@ -323,9 +339,6 @@ export class ContentCompassServiceImpl implements ContentCompassService {
         const opened = countWithin(openedKeys, shownKeys);
         const dismissed = countWithin(dismissedKeys, shownKeys);
         const reviewed = countWithin(reviewedKeys, dueShownKeys);
-        const successfulReviews = outcomes.filter((outcome) =>
-            outcome.rating === 'good' || outcome.rating === 'easy',
-        ).length;
         return {
             since,
             shown,
@@ -335,10 +348,6 @@ export class ContentCompassServiceImpl implements ContentCompassService {
             openRate: shown === 0 ? null : opened / shown,
             dismissRate: shown === 0 ? null : dismissed / shown,
             reviewRate: dueShownKeys.size === 0 ? null : reviewed / dueShownKeys.size,
-            retention: {
-                reviewed: outcomes.length,
-                retention: outcomes.length === 0 ? null : successfulReviews / outcomes.length,
-            },
         };
     }
 
@@ -568,13 +577,31 @@ export class ContentCompassServiceImpl implements ContentCompassService {
             return cached;
         }
         const lines = MediaUtil.isAss(subtitlePath) ? parseAss(content) : parseSrt(content);
-        const sampled = this.sampleLines(lines);
+        const usable = lines
+            .filter((line) => line.contentEn.trim().length > 0)
+            .slice(0, MAX_SCAN_LINES);
+        const sampled = this.sampleLines(usable);
         if (sampled.length === 0) {
             return null;
         }
 
-        const sentences: AnalyzedSentence[] = [];
+        // 词集合走全量：它直接决定「这部视频里有多少到期词 / 学习词会复现」，
+        // 抽样会把集合交集算成一个与真实值无关的数字。
         const contentLemmas = new Set<string>();
+        for (const line of usable) {
+            for (const token of analyzeWords(line.contentEn)) {
+                if (token.type !== 'word') {
+                    continue;
+                }
+                const lemma = token.lemma.toLowerCase();
+                if (isContentLemma(lemma)) {
+                    contentLemmas.add(lemma);
+                }
+            }
+        }
+
+        // 句级难度与主题词频只用于打分，抽样即可。
+        const sentences: AnalyzedSentence[] = [];
         const frequencies = new Map<string, number>();
         let totalContentTokens = 0;
         for (const line of sampled) {
@@ -591,7 +618,6 @@ export class ContentCompassServiceImpl implements ContentCompassService {
                 if (!isContentLemma(lemma)) {
                     continue;
                 }
-                contentLemmas.add(lemma);
                 frequencies.set(lemma, (frequencies.get(lemma) ?? 0) + 1);
                 totalContentTokens += 1;
             }
@@ -620,10 +646,14 @@ export class ContentCompassServiceImpl implements ContentCompassService {
     }
 
     /**
-     * 均匀抽样，防止超长视频让首页推荐等待整条字幕分析。
+     * 均匀抽样，只用于「平均值」类打分（理解度、主题词频）。
+     *
+     * 不要用它算集合类指标（例如到期词复现数）：抽样下的交集没有统计意义。
+     *
+     * @param usable 已过滤空行并截断到扫描上限的字幕行。
+     * @returns 抽样后的行；不足上限时原样返回。
      */
-    private sampleLines(lines: SrtLine[]): SrtLine[] {
-        const usable = lines.filter((line) => line.contentEn.trim().length > 0);
+    private sampleLines(usable: SrtLine[]): SrtLine[] {
         if (usable.length <= MAX_SAMPLE_LINES) {
             return usable;
         }

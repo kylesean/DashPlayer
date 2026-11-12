@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { BookOpenCheck, Check, CornerUpLeft, Loader2, RotateCcw } from 'lucide-react';
+import { BookOpenCheck, Check, Clapperboard, CornerUpLeft, Loader2, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
@@ -26,6 +26,7 @@ import { useReviewDockStore } from './reviewDockStore';
 import { selectReviewBatch } from './reviewBatch';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
+import { useNavigate } from 'react-router-dom';
 
 const RATING_STYLES: Record<ReviewRating, string> = {
     again: 'border-error/30 bg-error/5 text-error-text hover:bg-error/10',
@@ -90,12 +91,18 @@ const ReviewCardBody = ({
     pending,
     onReveal,
     onRate,
+    clipCount,
+    onOpenClips,
 }: {
     card: ReviewCardVO;
     revealed: boolean;
     pending: boolean;
     onReveal: () => void;
     onRate: (rating: ReviewRating) => void;
+    /** 该词已收藏的真实片段数；0 表示没有片段可看。 */
+    clipCount: number;
+    /** 打开该词的片段（词汇工坊按词筛选）。 */
+    onOpenClips: (word: string) => void;
 }) => {
     const { t } = useTranslation('player');
     const statusLabel = card.status === 'familiar'
@@ -139,6 +146,24 @@ const ReviewCardBody = ({
                     </p>
                 )}
             </div>
+
+            {revealed && clipCount > 0 && (
+                <button
+                    type="button"
+                    data-testid="review-open-clips"
+                    onClick={() => onOpenClips(card.word)}
+                    className={cn(
+                        'mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/25',
+                        'h-8 text-sm font-medium text-foreground transition-colors hover:bg-muted/50 cursor-pointer',
+                    )}
+                >
+                    <Clapperboard className="h-3.5 w-3.5 text-accent" />
+                    {t('reviewDock.openClips', {
+                        count: clipCount,
+                        defaultValue: '看这 {{count}} 个片段',
+                    })}
+                </button>
+            )}
 
             {revealed && card.context && (
                 <div
@@ -215,6 +240,7 @@ export default function ReviewDock({
     popoverOffset: number;
 }) {
     const { t, i18n } = useTranslation('player');
+    const navigate = useNavigate();
     const requestId = useReviewDockStore((state) => state.requestId);
     const consumedId = useReviewDockStore((state) => state.consumedId);
     const consumeRequest = useReviewDockStore((state) => state.consume);
@@ -276,6 +302,23 @@ export default function ReviewDock({
         }
         popover.hide();
     }, [popover]);
+
+    /**
+     * 每个词有多少个真实片段。
+     *
+     * 片段此前是独立的一等公民：有 OSS 同步、任务队列、写入器，却完全不参与
+     * 复习调度。这里把它接回闭环——复习时看到「有 3 个片段」比看到一句
+     * 「已收藏」有用得多，用户能立刻回到真实语境里再听一遍。
+     * 失败只降级为「没有片段」，不影响复习本身。
+     */
+    const { data: clipStats } = useSWR(
+        'video-learning/word-clip-stats',
+        () => videoLearningApi.getWordClipStats(),
+        {
+            revalidateOnFocus: false,
+            shouldRetryOnError: false,
+        },
+    );
 
     const { data, error, isLoading, mutate } = useSWR(
         REVIEW_QUEUE_SWR_KEY,
@@ -425,6 +468,11 @@ export default function ReviewDock({
                             pending={pending}
                             onReveal={() => setRevealedFor(card.word)}
                             onRate={(rating) => { void rate(rating); }}
+                            clipCount={clipStats?.data?.[card.word.toLowerCase()]?.count ?? 0}
+                            onOpenClips={(word) => {
+                                popover.hide();
+                                navigate(`/vocabulary?word=${encodeURIComponent(word)}`);
+                            }}
                         />
                     </div>
                 ) : (

@@ -372,8 +372,6 @@
             "recommendationOpened": "打开",
             "recommendationDismissed": "不感兴趣",
             "recommendationReviewed": "进入复习",
-            "recommendationRecall": "全局 7 天回忆",
-            "recommendationRecallHint": "{{count}} 次复习（全站，不按推荐归因）",
             "attributionTitle": "推荐因果漏斗（曝光 → 打开 → 复习 → 回忆成功）",
             "attributionRow": "{{reason}}：{{shown}} → {{opened}} → {{reviewed}} → {{recalled}}",
             "attributionReasons": {
@@ -402,6 +400,7 @@
     "serviceCredentials": {
         "openai": {
             "keyHint": "仅保存在本机，用于调用所选服务商",
+            "keyPlaceholderSaved": "已保存 {{hint}}，留空即沿用",
             "apiFormatLabel": "API 类型",
             "apiFormatOpenai": "OpenAI 兼容",
             "apiFormatAnthropic": "Anthropic 兼容",

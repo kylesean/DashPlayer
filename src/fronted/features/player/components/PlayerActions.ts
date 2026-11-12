@@ -104,7 +104,12 @@ export class PlayerActions {
   gotoSentenceIndex(index: number) { this.s.gotoSentenceIndex(index); }
   gotoSentence(s: Sentence) { this.s.gotoSentence(s); }
   repeatCurrent(options?: { loop?: boolean }) { this.s.repeatCurrent(options); }
-  clearAdjust() { return this.s.clearAdjust(); }
+  /**
+   * 清除时间轴调整。
+   *
+   * @param sentence 目标句；缺省为当前句。逐行复位必须传句，否则会复位错行。
+   */
+  clearAdjust(sentence?: Sentence) { return this.s.clearAdjust(sentence); }
   seekToCurrentStart() { this.s.seekToCurrentStart(); }
   seekToCurrentEnd(epsilon?: number) { this.s.seekToCurrentEnd(epsilon); }
 

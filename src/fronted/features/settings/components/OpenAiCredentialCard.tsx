@@ -29,7 +29,7 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
 
-import type { ServiceCredentialSettingDetailVO } from '@/common/types/vo/service-credentials-setting-vo';
+import type { ServiceCredentialSettingFormValues } from '@/common/types/vo/service-credentials-setting-vo';
 import type { OpenAiModelUsageFeature } from '@/common/utils/cloud-model-usage';
 import { CLOUD_AI_PROVIDER_PRESETS } from '@/common/constants/cloud-ai-provider-presets';
 import { AI_API_FORMATS, type AiApiFormat } from '@/common/utils/cloud-ai-api-format';
@@ -43,7 +43,7 @@ export interface OpenAiModelTestResult {
 }
 
 interface OpenAiCredentialCardProps {
-    form: UseFormReturn<ServiceCredentialSettingDetailVO>;
+    form: UseFormReturn<ServiceCredentialSettingFormValues>;
     /**
      * 按模型标识现算的占用功能列表。
      */
@@ -87,6 +87,8 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
     const [pendingDeleteModel, setPendingDeleteModel] = React.useState<string | null>(null);
 
     const openAiKey = useWatch({ control: form.control, name: 'openai.key' }) ?? '';
+    const openAiKeyHint = useWatch({ control: form.control, name: 'openai.keyHint' }) ?? '';
+    const hasOpenAiKey = useWatch({ control: form.control, name: 'openai.hasKey' }) === true;
     const endpoint = useWatch({ control: form.control, name: 'openai.endpoint' }) ?? '';
     const apiFormat = useWatch({ control: form.control, name: 'openai.apiFormat' }) ?? 'openai';
     const openAiModels = useWatch({ control: form.control, name: 'openai.models' }) ?? [];
@@ -150,8 +152,15 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                     label="API Key"
                     isLabelHidden
                     value={openAiKey}
-                    onChange={(val) => setValue('openai.key', val, { shouldDirty: true })}
-                    placeholder="sk-..."
+                    onChange={(val) => {
+                        // 清空输入框 = 沿用已保存的 key，而不是把它删掉；
+                        // 详情接口不下发明文，用户本来就看不到旧值。
+                        setValue('openai.key', val, { shouldDirty: true });
+                        setValue('openai.clearKey', false, { shouldDirty: true });
+                    }}
+                    placeholder={hasOpenAiKey
+                        ? t('serviceCredentials.openai.keyPlaceholderSaved', { hint: openAiKeyHint })
+                        : 'sk-...'}
                     size="sm"
                     width={320}
                 />

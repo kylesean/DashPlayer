@@ -17,6 +17,7 @@ import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { toast } from 'react-hot-toast';
+import { useSearchParams } from 'react-router-dom';
 
 const logger = getRendererLogger('VideoLearning');
 import PageHeader from '@/fronted/components/shared/common/PageHeader';
@@ -42,10 +43,37 @@ const DEFAULT_LEARNING_RESPONSE: { success: true; data: VideoLearningClipPage } 
 
 export default function VideoLearningPage() {
   const { t } = useI18nTranslation('pages');
-  const [selectedWord, setSelectedWord] = useState<WordItem | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
   // 正在编辑的单词；null 表示编辑弹窗关闭
   const [editingWord, setEditingWord] = useState<WordItem | null>(null);
   const [words, setWords] = useState<WordItem[]>([]);
+  const [explicitWord, setExplicitWord] = useState<WordItem | null>(null);
+  const deepLinkWord = searchParams.get('word')?.trim() ?? '';
+  /**
+   * 当前选中的词。
+   *
+   * 优先用用户显式点选的那个；否则从 `?word=` 深链派生。复习坞揭示释义后
+   * 会给一个「看片段」入口，用户点进来应该直接看到这个词的片段，而不是
+   * 自己在左侧词表里再找一遍。派生而不是在 effect 里 setState：后者会在
+   * 词表加载完成时触发一次级联渲染，而且会让「用户手动切词」与「URL 仍指向
+   * 旧词」两个真相打架。
+   */
+  const selectedWord = useMemo<WordItem | null>(() => {
+    if (explicitWord) {
+      return explicitWord;
+    }
+    if (!deepLinkWord) {
+      return null;
+    }
+    const matched = words.find((item) => item.word.toLowerCase() === deepLinkWord.toLowerCase());
+    return matched ?? {
+      id: -1,
+      word: deepLinkWord,
+      translate: '',
+      created_at: '',
+      updated_at: '',
+    };
+  }, [deepLinkWord, explicitWord, words]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   /**
@@ -417,10 +445,20 @@ export default function VideoLearningPage() {
   }, [fetchWords]);
 
   // 处理单词点击
+  /** 用户显式点词：落本地选择，并清掉深链参数，避免刷新后被拉回原词。 */
+  const selectWord = useCallback((word: WordItem | null) => {
+    setExplicitWord(word);
+    if (searchParams.has('word')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('word');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const handleWordClick = useCallback((word: WordItem) => {
-    setSelectedWord(word);
+    selectWord(word);
     handlePageChange(1, { targetIndex: 0 });
-  }, [handlePageChange, setSelectedWord]);
+  }, [handlePageChange, selectWord]);
 
   /**
    * 从记忆图谱选择词条：优先命中左侧已有词条，保证编辑/删除等操作上下文一致。
@@ -431,7 +469,7 @@ export default function VideoLearningPage() {
       handleWordClick(matched);
       return;
     }
-    setSelectedWord({
+    selectWord({
       id: -1,
       word,
       translate: '',
@@ -439,7 +477,7 @@ export default function VideoLearningPage() {
       updated_at: '',
     });
     handlePageChange(1, { targetIndex: 0 });
-  }, [handlePageChange, handleWordClick, words]);
+  }, [handlePageChange, handleWordClick, selectWord, words]);
 
   /**
    * 开始主题内连续学习：把该主题的代表词按图谱顺序排到词表最前面。
@@ -461,9 +499,9 @@ export default function VideoLearningPage() {
 
   // 处理清除选择
   const handleClearSelection = useCallback(() => {
-    setSelectedWord(null);
+    selectWord(null);
     handlePageChange(1, { targetIndex: 0 });
-  }, [handlePageChange, setSelectedWord]);
+  }, [handlePageChange, selectWord]);
 
   /**
    * 编辑弹窗保存成功后刷新列表，并在编辑了选中词时同步选中态。
@@ -472,7 +510,7 @@ export default function VideoLearningPage() {
    */
   const handleWordSaved = useCallback(async (newWord: string) => {
     const editedId = editingWord?.id;
-    setSelectedWord((prev) => (prev && editedId != null && prev.id === editedId ? { ...prev, word: newWord } : prev));
+    setExplicitWord((prev) => (prev && editedId != null && prev.id === editedId ? { ...prev, word: newWord } : prev));
     setEditingWord(null);
     await fetchWords();
     await mutate(searchKey);
@@ -484,7 +522,7 @@ export default function VideoLearningPage() {
    * @param deleted 被删除的单词。
    */
   const handleWordDeleted = useCallback(async (deleted: WordItem) => {
-    setSelectedWord((prev) => (prev && prev.id === deleted.id ? null : prev));
+    setExplicitWord((prev) => (prev && prev.id === deleted.id ? null : prev));
     await fetchWords();
     await mutate(searchKey);
   }, [fetchWords, mutate, searchKey]);
