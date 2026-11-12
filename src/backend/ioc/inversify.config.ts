@@ -186,6 +186,8 @@ import type SentencePracticeRecordRepository from '@/backend/services/repositori
 import SentencePracticeRecordRepositoryImpl from '@/backend/infrastructure/db/repositories/SentencePracticeRecordRepositoryImpl';
 import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
 import ProductionPracticeRecordRepositoryImpl from '@/backend/infrastructure/db/repositories/ProductionPracticeRecordRepositoryImpl';
+import type RolePlayTurnRepository from '@/backend/services/repositories/RolePlayTurnRepository';
+import RolePlayTurnRepositoryImpl from '@/backend/infrastructure/db/repositories/RolePlayTurnRepositoryImpl';
 import type SysConfRepository from '@/backend/services/repositories/SysConfRepository';
 import SysConfRepositoryImpl from '@/backend/infrastructure/db/repositories/SysConfRepositoryImpl';
 import type SubtitleTimestampAdjustmentsRepository from '@/backend/services/repositories/SubtitleTimestampAdjustmentsRepository';
@@ -303,6 +305,7 @@ container.bind<WordTranslatesRepository>(TYPES.WordTranslatesRepository).to(Word
 container.bind<SentenceTranslatesRepository>(TYPES.SentenceTranslatesRepository).to(SentenceTranslatesRepositoryImpl).inSingletonScope();
 container.bind<SentencePracticeRecordRepository>(TYPES.SentencePracticeRecordRepository).to(SentencePracticeRecordRepositoryImpl).inSingletonScope();
 container.bind<ProductionPracticeRecordRepository>(TYPES.ProductionPracticeRecordRepository).to(ProductionPracticeRecordRepositoryImpl).inSingletonScope();
+container.bind<RolePlayTurnRepository>(TYPES.RolePlayTurnRepository).to(RolePlayTurnRepositoryImpl).inSingletonScope();
 container.bind<SysConfRepository>(TYPES.SysConfRepository).to(SysConfRepositoryImpl).inSingletonScope();
 container.bind<SubtitleTimestampAdjustmentsRepository>(TYPES.SubtitleTimestampAdjustmentsRepository).to(SubtitleTimestampAdjustmentsRepositoryImpl).inSingletonScope();
 container.bind<ClipOssService>(TYPES.VideoLearningOssService).to(VideoLearningOssServiceImpl).inSingletonScope();

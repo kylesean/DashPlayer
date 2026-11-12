@@ -85,6 +85,7 @@ const TYPES = {
     SentenceTranslatesRepository: Symbol('SentenceTranslatesRepository'),
     SentencePracticeRecordRepository: Symbol('SentencePracticeRecordRepository'),
     ProductionPracticeRecordRepository: Symbol('ProductionPracticeRecordRepository'),
+    RolePlayTurnRepository: Symbol('RolePlayTurnRepository'),
     SysConfRepository: Symbol('SysConfRepository'),
     SubtitleTimestampAdjustmentsRepository: Symbol('SubtitleTimestampAdjustmentsRepository'),
     // Clients

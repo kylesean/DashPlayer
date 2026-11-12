@@ -54,5 +54,10 @@
     "rolePlayLocalFeedbackRetry": "回应还比较短，先直接接住对方这句话，再补充一点你的想法。",
     "rolePlayUsedExpressions": "用上的表达",
     "rolePlayImprovedTitle": "更自然的回应",
-    "close": "完成"
+    "close": "完成",
+    "rolePlayTurnCount": "第 {{count}} / {{max}} 轮",
+    "rolePlayTurnLimit": "对话到这里就够了（最多 {{max}} 轮），先消化一下这几轮。",
+    "rolePlayEnded": "这段字幕已经用完了，对话自然结束。",
+    "rolePlayRestoring": "正在恢复上次的对话…",
+    "rolePlayRestart": "从头再来一遍"
 }

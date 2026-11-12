@@ -51,6 +51,10 @@ import type {
     RetellEvaluationVO,
     RolePlayFeedbackParams,
     RolePlayFeedbackVO,
+    RolePlaySessionParams,
+    RolePlaySessionVO,
+    RolePlayTurnParams,
+    RolePlayTurnResultVO,
 } from '@/common/types/learningRecap';
 import type { MemoryMapParams, MemoryMapVO } from '@/common/types/memoryMap';
 import type { LearningMetricsParams, LearningMetricsVO } from '@/common/types/learningMetrics';
@@ -549,6 +553,16 @@ interface LearningDataDef {
         params: RolePlayFeedbackParams,
         return: RolePlayFeedbackVO
     };
+    /** 检查多轮场景对话中的一轮，并把它写入会话。 */
+    'learning-data/role-play-turn': {
+        params: RolePlayTurnParams,
+        return: RolePlayTurnResultVO
+    };
+    /** 读取某个多轮场景对话已经发生的轮次。 */
+    'learning-data/role-play-session': {
+        params: RolePlaySessionParams,
+        return: RolePlaySessionVO
+    };
     /** 读取某个视频下最近的复述 / 角色扮演结果。 */
     'learning-data/production-practice': {
         params: ProductionPracticeListParams,
@@ -739,6 +753,8 @@ export const API_ROUTE_KEYS = [
     'learning-data/reset',
     'learning-data/retell-feedback',
     'learning-data/role-play-feedback',
+    'learning-data/role-play-turn',
+    'learning-data/role-play-session',
     'learning-data/session-summary',
     'local-ai/cancel-download',
     'local-ai/delete',

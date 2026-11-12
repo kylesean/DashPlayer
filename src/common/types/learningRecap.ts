@@ -192,3 +192,81 @@ export interface RolePlayFeedbackVO {
     source: LearningRecapSource;
     cached: boolean;
 }
+
+/**
+ * 多轮场景对话中已完成的一轮。
+ *
+ * 对方台词永远来自真实字幕行；学习者回应是用户自己写的文本。
+ */
+export interface RolePlayTurnVO {
+    /** 从 1 开始的轮次序号。 */
+    turn: number;
+    /** 对方这一轮的台词（真实字幕）。 */
+    partnerLine: string;
+    /** 对方台词在字幕中的序号；无法定位时为 null。 */
+    partnerIndex: number | null;
+    /** 学习者这一轮的回应。 */
+    response: string;
+    level: RetellLevel;
+    feedback: string;
+    improved: string;
+    usedExpressions: string[];
+    source: LearningRecapSource;
+}
+
+/**
+ * 提交一轮多轮场景对话的参数。
+ */
+export interface RolePlayTurnParams {
+    /** 会话键；由前端按视频与开场白派生，重开弹窗后仍能续聊。 */
+    sessionKey: string;
+    /** 场景说明，仅作为点评上下文。 */
+    scenario?: string;
+    /** 对方这一轮的台词，必须能在字幕里逐字定位。 */
+    partnerLine: string;
+    /** 对方台词在字幕中的序号；前端从真实字幕取行时一并传入。 */
+    partnerIndex?: number;
+    /** 学习者这一轮的回应。 */
+    response: string;
+    /** 希望用户用上的表达。 */
+    targetExpressions?: string[];
+    /** 本会话已完成的轮次，供点评理解对话进行到哪一步。 */
+    previousTurns?: Array<{ partnerLine: string; response: string }>;
+    locale?: 'zh-CN' | 'en-US';
+    /** 是否绕过缓存重新检查。 */
+    forceRefresh?: boolean;
+    videoId?: string;
+    fileHash?: string;
+}
+
+/**
+ * 一轮多轮场景对话的检查结果。
+ *
+ * 下一句对方台词不在这里返回：它由前端按真实字幕确定性挑选，
+ * 后端只负责点评与轮次记账，避免同一套选行逻辑出现两份实现。
+ */
+export interface RolePlayTurnResultVO extends RolePlayFeedbackVO {
+    /** 这一轮在会话中的序号，从 1 开始。 */
+    turn: number;
+    /** 本轮对方台词的字幕序号；无法定位时为 null。 */
+    partnerIndex: number | null;
+}
+
+/**
+ * 读取某个会话已有轮次的参数。
+ */
+export interface RolePlaySessionParams {
+    sessionKey: string;
+    fileHash?: string;
+    videoId?: string;
+}
+
+/**
+ * 一次多轮场景对话的状态。
+ *
+ * 只恢复已发生的轮次；下一句台词由前端按真实字幕挑选，服务端不缓存字幕。
+ */
+export interface RolePlaySessionVO {
+    sessionKey: string;
+    turns: RolePlayTurnVO[];
+}

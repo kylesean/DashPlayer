@@ -31,6 +31,7 @@ import {
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
 import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
+import type RolePlayTurnRepository from '@/backend/services/repositories/RolePlayTurnRepository';
 import type WordEncounterService from '@/backend/services/WordEncounterService';
 import type { WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import type { LearningSessionSummaryVO } from '@/common/types/learningSession';
@@ -38,6 +39,8 @@ import type { LearningSessionSummaryVO } from '@/common/types/learningSession';
 const LOCAL_MODEL_ID = 'qwen3.5-2b-q4_k_m';
 const CLOUD_MODEL = { modelId: 'gpt-test' } as unknown as LanguageModel;
 const SINCE = '2026-01-01T10:00:00.000Z';
+/** 多轮场景对话的会话键。 */
+const MULTI_TURN_SESSION = 'session-multi-turn';
 
 const summary: LearningSessionSummaryVO = {
     since: SINCE,
@@ -133,6 +136,26 @@ const buildService = (options: {
             recordedEvidence.push(value);
         }),
     } as unknown as WordEncounterService;
+    // 多轮轮次仓储：默认空会话，单个用例按需覆盖。
+    const rolePlayTurns: Array<Record<string, unknown>> = [];
+    const rolePlayTurnRepository = {
+        upsertTurn: vi.fn(async (value: Record<string, unknown>) => {
+            const existing = rolePlayTurns.findIndex((row) => (
+                row.session_key === value.session_key && row.turn === value.turn
+            ));
+            if (existing >= 0) {
+                rolePlayTurns[existing] = value;
+                return existing + 1;
+            }
+            rolePlayTurns.push(value);
+            return rolePlayTurns.length;
+        }),
+        listBySession: vi.fn(async (sessionKey: string) => (
+            rolePlayTurns
+                .filter((row) => row.session_key === sessionKey)
+                .sort((a, b) => Number(a.turn) - Number(b.turn))
+        )),
+    } as unknown as RolePlayTurnRepository;
     const service = new LearningRecapServiceImpl(
         learningDataService,
         learningDataRepository,
@@ -140,6 +163,7 @@ const buildService = (options: {
         localAiService,
         cache,
         productionPracticeRepository,
+        rolePlayTurnRepository,
         wordEncounterService,
     );
     return {
@@ -148,6 +172,8 @@ const buildService = (options: {
         localAiService,
         cache,
         productionPractice,
+        rolePlayTurns,
+        rolePlayTurnRepository,
         recordedEvidence,
     };
 };
@@ -513,6 +539,88 @@ describe('LearningRecapService', () => {
         expect(first.improved).toBe('It was a long journey, but I was glad to be home.');
         expect(second.cached).toBe(true);
         expect(generateObject).toHaveBeenCalledTimes(1);
+    });
+
+    it('多轮场景对话按轮次落库，并可原样读回', async () => {
+        const { service, rolePlayTurns } = buildService({});
+
+        const first = await service.evaluateRolePlayTurn({
+            sessionKey: MULTI_TURN_SESSION,
+            scenario: '和朋友聊回家的路。',
+            partnerLine: 'It was a long journey home.',
+            partnerIndex: 12,
+            response: 'It really was a long journey, but coming home felt wonderful.',
+            targetExpressions: ['long journey'],
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+        });
+        const second = await service.evaluateRolePlayTurn({
+            sessionKey: MULTI_TURN_SESSION,
+            partnerLine: 'I bet you were exhausted.',
+            partnerIndex: 14,
+            response: 'I was, but I slept for twelve hours.',
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+        });
+
+        expect(first).toMatchObject({ turn: 1, partnerIndex: 12, level: 'great' });
+        expect(second).toMatchObject({ turn: 2, partnerIndex: 14 });
+        expect(rolePlayTurns).toHaveLength(2);
+
+        const session = await service.listRolePlayTurns({ sessionKey: MULTI_TURN_SESSION });
+        expect(session.sessionKey).toBe(MULTI_TURN_SESSION);
+        expect(session.turns.map((turn) => turn.partnerLine)).toEqual([
+            'It was a long journey home.',
+            'I bet you were exhausted.',
+        ]);
+        expect(session.turns[0]).toMatchObject({
+            turn: 1,
+            partnerIndex: 12,
+            response: 'It really was a long journey, but coming home felt wonderful.',
+            usedExpressions: ['long journey'],
+            level: 'great',
+        });
+    });
+
+    it('同一句对方台词重复提交时覆盖该轮，不新增轮次', async () => {
+        const { service, rolePlayTurns } = buildService({});
+        const params = {
+            sessionKey: 'session-b',
+            partnerLine: 'It was a long journey home.',
+            response: 'Yes.',
+        };
+
+        const first = await service.evaluateRolePlayTurn(params);
+        const retried = await service.evaluateRolePlayTurn({
+            ...params,
+            response: 'It was a long journey, and I was glad to be home.',
+        });
+
+        expect(first.turn).toBe(1);
+        expect(retried.turn).toBe(1);
+        expect(rolePlayTurns).toHaveLength(1);
+        expect(rolePlayTurns[0].response_text).toBe('It was a long journey, and I was glad to be home.');
+    });
+
+    it('多轮轮次落库失败时仍然返回点评', async () => {
+        const { service, rolePlayTurnRepository } = buildService({});
+        vi.mocked(rolePlayTurnRepository.upsertTurn).mockRejectedValueOnce(new Error('disk full'));
+
+        const result = await service.evaluateRolePlayTurn({
+            sessionKey: 'session-c',
+            partnerLine: 'It was a long journey home.',
+            response: 'It was a long journey, and I was tired.',
+        });
+
+        expect(result.level).toBe('great');
+        expect(result.turn).toBe(1);
+    });
+
+    it('没有轮次时读取会话返回空列表，而不是报错', async () => {
+        const { service } = buildService({});
+        await expect(service.listRolePlayTurns({ sessionKey: 'missing' }))
+            .resolves
+            .toEqual({ sessionKey: 'missing', turns: [] });
     });
 
     it('提示词把会话词、真实句子与本地覆盖信号作为 grounding', () => {

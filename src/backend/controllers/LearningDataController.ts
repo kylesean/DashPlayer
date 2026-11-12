@@ -24,6 +24,8 @@ import type {
     ProductionPracticeListParams,
     RetellEvaluationParams,
     RolePlayFeedbackParams,
+    RolePlaySessionParams,
+    RolePlayTurnParams,
 } from '@/common/types/learningRecap';
 
 /**
@@ -64,6 +66,20 @@ export default class LearningDataController implements Controller {
      */
     public async evaluateRolePlay(params: RolePlayFeedbackParams) {
         return this.learningRecapService.evaluateRolePlay(params);
+    }
+
+    /**
+     * 检查多轮场景对话中的一轮，并把它写入会话。
+     */
+    public async evaluateRolePlayTurn(params: RolePlayTurnParams) {
+        return this.learningRecapService.evaluateRolePlayTurn(params);
+    }
+
+    /**
+     * 读取某个多轮场景对话已经发生的轮次。
+     */
+    public async listRolePlayTurns(params: RolePlaySessionParams) {
+        return this.learningRecapService.listRolePlayTurns(params);
     }
 
     /**
@@ -201,6 +217,31 @@ export default class LearningDataController implements Controller {
                 limit: positiveIntSchema.max(50).optional(),
             }).refine((value) => Boolean(value.videoId || value.fileHash), {
                 message: 'videoId 或 fileHash 至少提供一个',
+            }),
+        });
+        registerRoute('learning-data/role-play-turn', (p) => this.evaluateRolePlayTurn(p), {
+            schema: z.object({
+                sessionKey: z.string().min(1).max(200),
+                scenario: z.string().max(500).optional(),
+                partnerLine: z.string().min(1).max(1_000),
+                partnerIndex: z.number().int().min(0).optional(),
+                response: z.string().min(1).max(2_000),
+                targetExpressions: z.array(z.string().min(1).max(120)).max(3).optional(),
+                previousTurns: z.array(z.object({
+                    partnerLine: z.string().min(1).max(1_000),
+                    response: z.string().max(2_000),
+                })).max(20).optional(),
+                locale: z.enum(['zh-CN', 'en-US']).optional(),
+                forceRefresh: z.boolean().optional(),
+                videoId: z.string().min(1).optional(),
+                fileHash: z.string().min(1).optional(),
+            }),
+        });
+        registerRoute('learning-data/role-play-session', (p) => this.listRolePlayTurns(p), {
+            schema: z.object({
+                sessionKey: z.string().min(1).max(200),
+                videoId: z.string().min(1).optional(),
+                fileHash: z.string().min(1).optional(),
             }),
         });
         registerRoute('learning-data/memory-map', (p) => this.getMemoryMap(p), {

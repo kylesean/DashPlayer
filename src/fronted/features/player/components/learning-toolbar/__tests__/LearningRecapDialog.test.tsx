@@ -6,7 +6,7 @@ import { learningDataApi } from '@/fronted/features/learning-data/learningDataAp
 import type {
     LearningRecapVO,
     RetellEvaluationVO,
-    RolePlayFeedbackVO,
+    RolePlayTurnResultVO,
 } from '@/common/types/learningRecap';
 
 vi.mock('react-i18next', () => ({
@@ -25,9 +25,24 @@ vi.mock('@/fronted/features/learning-data/learningDataApi', () => ({
     learningDataApi: {
         getRecap: vi.fn(),
         evaluateRetell: vi.fn(),
-        evaluateRolePlay: vi.fn(),
+        evaluateRolePlayTurn: vi.fn(),
+        getRolePlaySession: vi.fn(async ({ sessionKey }: { sessionKey: string }) => ({
+            sessionKey,
+            turns: [],
+        })),
         listProductionPractice: vi.fn(async () => []),
     },
+}));
+
+// 多轮对话的对方台词来自播放器当前字幕，测试里给一段最小字幕。
+vi.mock('@/fronted/features/player/playerStore', () => ({
+    usePlayer: (selector: (state: { sentences: unknown[] }) => unknown) => selector({
+        sentences: [
+            { index: 0, text: 'It was a long journey home.' },
+            { index: 1, text: 'I bet you were exhausted after that drive.' },
+            { index: 2, text: 'Did you stop anywhere on the way?' },
+        ],
+    }),
 }));
 
 const SINCE = '2026-01-01T10:00:00.000Z';
@@ -173,43 +188,89 @@ describe('LearningRecapContent', () => {
         expect(screen.getByText('localBadge')).toBeDefined();
         expect(screen.getByText('localSpeakingTask')).toBeDefined();
         expect(screen.getByText('rolePlayScenarioFallback')).toBeDefined();
-        expect(screen.getByText('rolePlayPromptFallback')).toBeDefined();
+        expect(screen.getByTestId('learning-role-play-dialogue')).toBeDefined();
     });
 
-    it('提交场景回应后展示等级、表达与更自然的回应', async () => {
-        const feedback: RolePlayFeedbackVO = {
+    it('多轮场景对话用真实字幕续接，并展示每轮点评', async () => {
+        const feedback: RolePlayTurnResultVO = {
             level: 'great',
             feedback: '回应自然，而且接住了这个场景。',
             improved: 'It was a long journey, but I was glad to be home.',
             usedExpressions: ['long journey'],
             source: 'ai',
             cached: false,
+            turn: 1,
+            partnerIndex: 1,
         };
         vi.mocked(learningDataApi.getRecap).mockResolvedValue(aiRecap);
-        vi.mocked(learningDataApi.evaluateRolePlay).mockResolvedValue(feedback);
+        vi.mocked(learningDataApi.evaluateRolePlayTurn).mockResolvedValue(feedback);
         renderContent('video-role-play');
 
-        expect(await screen.findByText('和朋友聊回家的路。')).toBeDefined();
-        expect(screen.getByText('回应朋友，说说你的感受。')).toBeDefined();
+        expect(await screen.findByTestId('learning-role-play-dialogue')).toBeDefined();
+        expect(screen.getByText('和朋友聊回家的路。')).toBeDefined();
+        expect(screen.getAllByText('It was a long journey home.').length).toBeGreaterThan(0);
         expect(screen.getAllByText('long journey').length).toBeGreaterThan(0);
 
-        const input = screen.getByTestId('learning-role-play-input');
-        fireEvent.change(input, { target: { value: 'It was a long journey, but I was glad to be home.' } });
-        fireEvent.click(screen.getByTestId('learning-role-play-submit'));
+        expect(await screen.findByTestId('learning-role-play-composer')).toBeDefined();
+        const input = document.querySelector('[contenteditable="true"]') as HTMLElement;
+        expect(input).not.toBeNull();
+        // ChatComposer 是 contentEditable 输入：直接写入文本再派发 input 事件。
+        input.textContent = 'It was a long journey, but I was glad to be home.';
+        fireEvent.input(input);
+        fireEvent.keyDown(input, { key: 'Enter' });
 
-        expect(await screen.findByTestId('learning-role-play-feedback')).toBeDefined();
+        expect(await screen.findByText('回应自然，而且接住了这个场景。')).toBeDefined();
         expect(screen.getByText('rolePlayLevelGreat')).toBeDefined();
-        expect(screen.getByText('回应自然，而且接住了这个场景。')).toBeDefined();
         expect(screen.getByText('rolePlayUsedExpressions: long journey')).toBeDefined();
-        expect(learningDataApi.evaluateRolePlay).toHaveBeenCalledWith({
+        expect(learningDataApi.evaluateRolePlayTurn).toHaveBeenCalledWith(expect.objectContaining({
             scenario: '和朋友聊回家的路。',
-            openingLine: 'It was a long journey home.',
+            partnerLine: 'I bet you were exhausted after that drive.',
+            partnerIndex: 1,
             response: 'It was a long journey, but I was glad to be home.',
             targetExpressions: ['long journey'],
             locale: 'zh-CN',
             videoId: 'video-role-play',
             fileHash: undefined,
+        }));
+    });
+
+    it('字幕用完时对话自然结束，不再显示输入框', async () => {
+        vi.mocked(learningDataApi.getRecap).mockResolvedValue({
+            ...aiRecap,
+            rolePlay: {
+                scenario: '和朋友聊回家的路。',
+                openingLine: 'Did you stop anywhere on the way?',
+                prompt: '',
+                targetExpressions: [],
+            },
         });
+        renderContent('video-role-play-end');
+
+        expect(await screen.findByTestId('learning-role-play-dialogue')).toBeDefined();
+        expect(await screen.findByText('rolePlayEnded')).toBeDefined();
+        expect(screen.queryByTestId('learning-role-play-composer')).toBeNull();
+    });
+
+    it('重开弹窗时恢复已发生的轮次', async () => {
+        vi.mocked(learningDataApi.getRecap).mockResolvedValue(aiRecap);
+        vi.mocked(learningDataApi.getRolePlaySession).mockResolvedValueOnce({
+            sessionKey: 'restored',
+            turns: [{
+                turn: 1,
+                partnerLine: 'I bet you were exhausted after that drive.',
+                partnerIndex: 1,
+                response: 'I was, but I slept for twelve hours.',
+                level: 'good',
+                feedback: '上一轮的点评',
+                improved: '',
+                usedExpressions: [],
+                source: 'ai',
+            }],
+        });
+        renderContent('video-role-play-restore');
+
+        expect(await screen.findByText('上一轮的点评')).toBeDefined();
+        expect(screen.getByText('I was, but I slept for twelve hours.')).toBeDefined();
     });
 
     it('加载失败时展示重试入口', async () => {

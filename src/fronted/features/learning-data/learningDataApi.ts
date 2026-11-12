@@ -5,6 +5,8 @@ import type {
     ProductionPracticeListParams,
     RetellEvaluationParams,
     RolePlayFeedbackParams,
+    RolePlaySessionParams,
+    RolePlayTurnParams,
 } from '@/common/types/learningRecap';
 import type { MemoryMapParams } from '@/common/types/memoryMap';
 import type { LearningMetricsParams, LearningMetricsVO } from '@/common/types/learningMetrics';
@@ -36,6 +38,18 @@ export const learningDataApi = {
      */
     evaluateRolePlay: (params: RolePlayFeedbackParams) =>
         backendClient.call('learning-data/role-play-feedback', params),
+
+    /**
+     * 提交多轮场景对话中的一轮，并拿到该轮点评。
+     */
+    evaluateRolePlayTurn: (params: RolePlayTurnParams) =>
+        backendClient.call('learning-data/role-play-turn', params),
+
+    /**
+     * 读取某个多轮场景对话已经发生的轮次，用于重开弹窗续聊。
+     */
+    getRolePlaySession: (params: RolePlaySessionParams) =>
+        backendClient.call('learning-data/role-play-session', params),
 
     /**
      * 读取某个视频下最近的复述 / 角色扮演结果，用于展示「上次结果」。

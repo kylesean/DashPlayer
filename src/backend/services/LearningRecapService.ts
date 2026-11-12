@@ -16,6 +16,7 @@ import type WordEncounterService from '@/backend/services/WordEncounterService';
 
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
 import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
+import type RolePlayTurnRepository from '@/backend/services/repositories/RolePlayTurnRepository';
 import { isContentLemma } from '@/common/learning/contentWords';
 import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
 import type {
@@ -31,6 +32,11 @@ import type {
     RetellLevel,
     RolePlayFeedbackParams,
     RolePlayFeedbackVO,
+    RolePlaySessionParams,
+    RolePlaySessionVO,
+    RolePlayTurnParams,
+    RolePlayTurnResultVO,
+    RolePlayTurnVO,
 } from '@/common/types/learningRecap';
 import type {
     LearningSessionSummaryVO,
@@ -148,6 +154,18 @@ export default interface LearningRecapService {
     evaluateRolePlay(params: RolePlayFeedbackParams): Promise<RolePlayFeedbackVO>;
 
     /**
+     * 检查多轮场景对话中的一轮，并把该轮写入会话。
+     *
+     * 点评口径与单轮一致；轮次落库后重开弹窗可原样恢复对话。
+     */
+    evaluateRolePlayTurn(params: RolePlayTurnParams): Promise<RolePlayTurnResultVO>;
+
+    /**
+     * 读取某个会话已经发生的轮次。
+     */
+    listRolePlayTurns(params: RolePlaySessionParams): Promise<RolePlaySessionVO>;
+
+    /**
      * 读取某个视频下最近的复述 / 角色扮演结果，供复盘弹窗展示。
      */
     listProductionPractice(params: ProductionPracticeListParams): Promise<ProductionPracticeRecordVO[]>;
@@ -173,6 +191,8 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         @inject(TYPES.CacheService) private readonly cacheService: CacheService,
         @inject(TYPES.ProductionPracticeRecordRepository)
         private readonly productionPracticeRepository: ProductionPracticeRecordRepository,
+        @inject(TYPES.RolePlayTurnRepository)
+        private readonly rolePlayTurnRepository: RolePlayTurnRepository,
         @inject(TYPES.WordEncounterService) private readonly wordEncounterService: WordEncounterService,
     ) {}
 
@@ -380,6 +400,82 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             improved: record.improved,
             createdAt: record.created_at,
         }));
+    }
+
+    public async evaluateRolePlayTurn(params: RolePlayTurnParams): Promise<RolePlayTurnResultVO> {
+        const sessionKey = params.sessionKey?.trim().slice(0, 200) ?? '';
+        const partnerLine = params.partnerLine?.trim().slice(0, MAX_ROLE_PLAY_OPENING_CHARS) ?? '';
+        if (!sessionKey) {
+            throw new Error('会话键不能为空');
+        }
+        if (!partnerLine) {
+            throw new Error('对方台词不能为空');
+        }
+
+        // 复用单轮点评的完整链路：本地表达匹配、云端/本地模型、缓存与降级都不另起一套。
+        const feedback = await this.evaluateRolePlay({
+            scenario: params.scenario,
+            openingLine: partnerLine,
+            response: params.response,
+            targetExpressions: params.targetExpressions,
+            locale: params.locale,
+            forceRefresh: params.forceRefresh,
+            videoId: params.videoId,
+            fileHash: params.fileHash,
+        });
+
+        const existing = await this.rolePlayTurnRepository.listBySession(sessionKey);
+        // 同一句对方台词只占一个轮次：用户改稿重评时覆盖该轮，而不是无限追加。
+        const sameLineTurn = existing.find((row) => row.partner_line === partnerLine);
+        const turn = sameLineTurn?.turn ?? (existing.length > 0
+            ? Math.max(...existing.map((row) => row.turn)) + 1
+            : 1);
+
+        try {
+            await this.rolePlayTurnRepository.upsertTurn({
+                session_key: sessionKey,
+                turn,
+                video_id: params.videoId ?? null,
+                file_hash: params.fileHash ?? null,
+                partner_line: partnerLine,
+                partner_index: params.partnerIndex ?? null,
+                response_text: params.response.trim().slice(0, MAX_RESPONSE_CHARS),
+                level: feedback.level,
+                feedback: feedback.feedback || null,
+                improved: feedback.improved || null,
+                used_expressions_json: JSON.stringify(feedback.usedExpressions),
+                source: feedback.source,
+            });
+        } catch (error) {
+            // 轮次落库失败不影响用户拿到点评，只损失「重开弹窗恢复对话」。
+            this.logger.warn('failed to persist role play turn', { error: this.errorMessage(error) });
+        }
+
+        return {
+            ...feedback,
+            turn,
+            partnerIndex: params.partnerIndex ?? null,
+        };
+    }
+
+    public async listRolePlayTurns(params: RolePlaySessionParams): Promise<RolePlaySessionVO> {
+        const sessionKey = params.sessionKey?.trim().slice(0, 200) ?? '';
+        if (!sessionKey) {
+            return { sessionKey: '', turns: [] };
+        }
+        const rows = await this.rolePlayTurnRepository.listBySession(sessionKey);
+        const turns: RolePlayTurnVO[] = rows.map((row) => ({
+            turn: row.turn,
+            partnerLine: row.partner_line,
+            partnerIndex: row.partner_index,
+            response: row.response_text,
+            level: row.level,
+            feedback: row.feedback ?? '',
+            improved: row.improved ?? '',
+            usedExpressions: this.parseStringArray(row.used_expressions_json),
+            source: row.source === 'ai' ? 'ai' : 'local',
+        }));
+        return { sessionKey, turns };
     }
 
     /**
@@ -1263,6 +1359,22 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             .replace(/[“”"'‘’]/gu, '')
             .replace(/\s+/gu, ' ')
             .trim();
+    }
+
+    /**
+     * 读取以 JSON 数组落库的字符串列表。
+     *
+     * 坏数据只丢这一项，不抛出：历史记录损坏不应让整个会话无法恢复。
+     */
+    private parseStringArray(value: string | null): string[] {
+        if (!value) {
+            return [];
+        }
+        const parsed = parseMaybeJson(value);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
     }
 
     /**

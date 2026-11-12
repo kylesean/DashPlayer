@@ -54,5 +54,10 @@
     "rolePlayLocalFeedbackRetry": "Your reply is quite short. Answer the other person first, then add a little of your own thought.",
     "rolePlayUsedExpressions": "Expressions used",
     "rolePlayImprovedTitle": "A more natural reply",
-    "close": "Done"
+    "close": "Done",
+    "rolePlayTurnCount": "Turn {{count}} of {{max}}",
+    "rolePlayTurnLimit": "That is enough for one sitting ({{max}} turns). Let these turns sink in.",
+    "rolePlayEnded": "The subtitle for this scene has run out, so the conversation ends here.",
+    "rolePlayRestoring": "Restoring your last conversation…",
+    "rolePlayRestart": "Start over"
 }
