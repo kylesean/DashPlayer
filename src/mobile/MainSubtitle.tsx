@@ -40,6 +40,7 @@ const MainSubtitle = React.memo(({
 
     const longPressTimerRef = React.useRef<number | null>(null);
     const suppressTimerRef = React.useRef<number | null>(null);
+    const openSettingsTimerRef = React.useRef<number | null>(null);
     const startRef = React.useRef<{ x: number; y: number } | null>(null);
     const longPressReadyRef = React.useRef(false);
     const suppressClickRef = React.useRef(false);
@@ -59,6 +60,9 @@ const MainSubtitle = React.memo(({
             clearLongPressTimer();
             if (suppressTimerRef.current !== null) {
                 window.clearTimeout(suppressTimerRef.current);
+            }
+            if (openSettingsTimerRef.current !== null) {
+                window.clearTimeout(openSettingsTimerRef.current);
             }
         };
     }, [clearLongPressTimer]);
@@ -118,7 +122,13 @@ const MainSubtitle = React.memo(({
         suppressTimerRef.current = window.setTimeout(() => {
             suppressClickRef.current = false;
         }, 500);
-        window.setTimeout(() => onLongPress(), 0);
+        if (openSettingsTimerRef.current !== null) {
+            window.clearTimeout(openSettingsTimerRef.current);
+        }
+        openSettingsTimerRef.current = window.setTimeout(() => {
+            openSettingsTimerRef.current = null;
+            onLongPress();
+        }, 0);
     };
 
     /**

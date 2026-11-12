@@ -96,8 +96,8 @@ const LOOP_EPSILON = 0.1;
 /** 跳句时提前多少秒起播，避免把第一个音切掉。 */
 const SEEK_PREROLL = 0.2;
 
-/** 程序滚动后多久没有 scroll 事件就算滚完（毫秒）。 */
-const AUTO_SCROLL_SETTLE_MS = 120;
+/** 程序滚动后多久没有 scroll 事件就算滚完（毫秒）。覆盖移动端 smooth scroll 步长。 */
+const AUTO_SCROLL_SETTLE_MS = 220;
 
 /** 用户停止滚动多久之后，再决定恢复跟随还是露出「回到当前」。 */
 const BROWSE_SETTLE_MS = 400;
@@ -118,11 +118,9 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
 
     const [currentIndex, setCurrentIndex] = React.useState(-1);
     const currentIndexRef = React.useRef(-1);
-    const browsingRef = React.useRef(false);
+    const scrollPhaseRef = React.useRef<'idle' | 'auto-scrolling' | 'browsing'>('idle');
     /** 用户停下滚动后的判定计时；滚动期间不判定，免按钮跟着闪。 */
     const browseSettleTimerRef = React.useRef<number | null>(null);
-    /** 程序滚动进行中：这期间的 scroll 事件都算自己写出来的，不算用户滚动。 */
-    const autoScrollingRef = React.useRef(false);
     const autoScrollSettleTimerRef = React.useRef<number | null>(null);
     /** Virtuoso 当前渲染到的下标范围，用来先排除肯定没渲染的行。 */
     const renderedRangeRef = React.useRef<[number, number]>([0, -1]);
@@ -131,10 +129,18 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
     const [showTranslation, setShowTranslation] = React.useState(() => loadBoolPref(PREF_KEYS.showTranslation, true));
     const [showFollow, setShowFollow] = React.useState(false);
     const showTranslationRef = React.useRef(showTranslation);
-    const [translations, setTranslations] = React.useState<Record<number, string>>({});
+    const [translationsState, setTranslationsState] = React.useState<{
+        detailId: string;
+        subtitles: MobileSubtitleLine[];
+        map: Record<number, string>;
+    }>(() => ({
+        detailId: detail.id,
+        subtitles: detail.subtitles,
+        map: {},
+    }));
     const translationsRef = React.useRef<Record<number, string>>({});
     const attemptedTranslationsRef = React.useRef<Set<number>>(new Set());
-    const translationCoveredUntilRef = React.useRef(-1);
+    const detailEpochRef = React.useRef(0);
 
     const [repeatOn, setRepeatOn] = React.useState(false);
     const repeatOnRef = React.useRef(false);
@@ -255,14 +261,16 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
     }, []);
 
     /** 续一下程序滚动的静默计时；scroll 事件再来就重新计时。 */
-    const settleAutoScroll = React.useCallback((): void => {
+    const settleAutoScroll = React.useCallback((delayMs = AUTO_SCROLL_SETTLE_MS): void => {
         if (autoScrollSettleTimerRef.current !== null) {
             window.clearTimeout(autoScrollSettleTimerRef.current);
         }
         autoScrollSettleTimerRef.current = window.setTimeout(() => {
             autoScrollSettleTimerRef.current = null;
-            autoScrollingRef.current = false;
-        }, AUTO_SCROLL_SETTLE_MS);
+            if (scrollPhaseRef.current === 'auto-scrolling') {
+                scrollPhaseRef.current = 'idle';
+            }
+        }, delayMs);
     }, []);
 
     /**
@@ -271,12 +279,12 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
      * @param index 字幕下标。
      */
     const ensureRowVisible = React.useCallback((index: number): void => {
-        if (isRowVisible(index)) {
+        if (isRowVisible(index) || !virtuosoRef.current) {
             return;
         }
-        autoScrollingRef.current = true;
-        settleAutoScroll();
-        virtuosoRef.current?.scrollIntoView({ index, align: 'start', behavior: 'smooth' });
+        scrollPhaseRef.current = 'auto-scrolling';
+        settleAutoScroll(550);
+        virtuosoRef.current.scrollIntoView({ index, align: 'start', behavior: 'smooth' });
     }, [isRowVisible, settleAutoScroll]);
 
     /**
@@ -291,12 +299,12 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         }
         browseSettleTimerRef.current = window.setTimeout(() => {
             browseSettleTimerRef.current = null;
-            if (!browsingRef.current) {
+            if (scrollPhaseRef.current !== 'browsing') {
                 return;
             }
             const index = currentIndexRef.current;
             if (index >= 0 && isRowVisible(index)) {
-                browsingRef.current = false;
+                scrollPhaseRef.current = 'idle';
                 setShowFollow(false);
                 return;
             }
@@ -310,14 +318,13 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
      * 用 touchmove / wheel 而不是 pointerdown，点字幕行是跳句，不该算浏览。
      */
     const handleUserScroll = React.useCallback((): void => {
-        if (autoScrollingRef.current) {
-            autoScrollingRef.current = false;
+        if (scrollPhaseRef.current === 'auto-scrolling') {
             if (autoScrollSettleTimerRef.current !== null) {
                 window.clearTimeout(autoScrollSettleTimerRef.current);
                 autoScrollSettleTimerRef.current = null;
             }
         }
-        browsingRef.current = true;
+        scrollPhaseRef.current = 'browsing';
         settleBrowsing();
     }, [settleBrowsing]);
 
@@ -329,8 +336,8 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
     /**
      * 为当前句附近的一小段字幕请求翻译。
      *
-     * 只翻字幕文件里没有中文的行；同一窗口请求过就不再重复请求，翻译服务不可用时
-     * 保持空白，避免播放过程中反复打模型。
+     * 只翻字幕文件里没有中文的行；支持回跳到已播段落或新窗口补翻，翻译服务不可用时
+     * 保持空白，避免播放过程中反复打模型（重新开启翻译开关时会重置重试记录）。
      *
      * @param index 当前字幕下标。
      */
@@ -342,13 +349,28 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         if (lines.length === 0) {
             return;
         }
-        // 已经有一批翻译排在前面时不逐句追加请求；等播放接近批次末尾再整批补。
-        if (index < translationCoveredUntilRef.current - 5) {
+        // 检查近期前瞻区间 [index, index + 6) 是否仍有未翻译且未尝试的行，兼顾向前滚动批量预取与向后回跳补翻
+        const probeStart = Math.max(0, index);
+        const probeEnd = Math.min(lines.length, probeStart + 6);
+        let hasUncoveredAhead = false;
+        for (let i = probeStart; i < probeEnd; i += 1) {
+            const line = lines[i];
+            if (
+                line.zh === ''
+                && line.en.trim() !== ''
+                && !attemptedTranslationsRef.current.has(i)
+                && (translationsRef.current[i] ?? '') === ''
+            ) {
+                hasUncoveredAhead = true;
+                break;
+            }
+        }
+        if (!hasUncoveredAhead) {
             return;
         }
+
         const start = Math.max(0, index - 2);
         const end = Math.min(lines.length, start + 20);
-        translationCoveredUntilRef.current = Math.max(translationCoveredUntilRef.current, end);
         const indexes: number[] = [];
         const texts: string[] = [];
         for (let i = start; i < end; i += 1) {
@@ -369,9 +391,12 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         if (texts.length === 0) {
             return;
         }
+        const epoch = detailEpochRef.current;
+        const targetId = detail.id;
+        const targetSubtitles = detail.subtitles;
         mobileApi.translateTexts(texts)
             .then((result) => {
-                if (!mountedRef.current) {
+                if (!mountedRef.current || detailEpochRef.current !== epoch) {
                     return;
                 }
                 const next = { ...translationsRef.current };
@@ -379,12 +404,16 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
                     next[lineIndex] = result[position] ?? '';
                 });
                 translationsRef.current = next;
-                setTranslations(next);
+                setTranslationsState({
+                    detailId: targetId,
+                    subtitles: targetSubtitles,
+                    map: next,
+                });
             })
             .catch(() => {
                 // 没有配置翻译服务时保持空白，已请求过的行不反复重试。
             });
-    }, [detail.subtitles]);
+    }, [detail.id, detail.subtitles]);
 
     /**
      * 应用当前字幕下标，并更新高亮、循环区间和列表位置。
@@ -408,10 +437,10 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         if (index < 0) {
             return;
         }
-        if (browsingRef.current) {
+        if (scrollPhaseRef.current === 'browsing') {
             // 没在滚（判定已经跑完）且当前句回到视口，就恢复跟随
             if (browseSettleTimerRef.current === null && isRowVisible(index)) {
-                browsingRef.current = false;
+                scrollPhaseRef.current = 'idle';
                 setShowFollow(false);
             }
             return;
@@ -526,7 +555,15 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
                 resumeDoneRef.current = true;
             }
             if (!resumeDoneRef.current) {
+                if (resumeTimerRef.current !== null) {
+                    window.clearTimeout(resumeTimerRef.current);
+                    resumeTimerRef.current = null;
+                }
                 resumeTimerRef.current = window.setTimeout(() => {
+                    resumeTimerRef.current = null;
+                    if (!mountedRef.current) {
+                        return;
+                    }
                     resumeDoneRef.current = true;
                     const current = videoRef.current;
                     if (current) {
@@ -584,11 +621,11 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
 
     /** 用户在字幕列表滚动。 */
     const handleScroll = React.useCallback((): void => {
-        if (autoScrollingRef.current) {
+        if (scrollPhaseRef.current === 'auto-scrolling') {
             settleAutoScroll();
             return;
         }
-        browsingRef.current = true;
+        scrollPhaseRef.current = 'browsing';
         settleBrowsing();
     }, [settleAutoScroll, settleBrowsing]);
 
@@ -600,15 +637,16 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         if (index < 0) {
             return;
         }
-        browsingRef.current = false;
+        scrollPhaseRef.current = virtuosoRef.current ? 'auto-scrolling' : 'idle';
         setShowFollow(false);
         if (browseSettleTimerRef.current !== null) {
             window.clearTimeout(browseSettleTimerRef.current);
             browseSettleTimerRef.current = null;
         }
-        autoScrollingRef.current = true;
-        settleAutoScroll();
-        virtuosoRef.current?.scrollToIndex({ index, align: 'start', behavior: 'smooth' });
+        if (virtuosoRef.current) {
+            settleAutoScroll(550);
+            virtuosoRef.current.scrollToIndex({ index, align: 'start', behavior: 'smooth' });
+        }
         tapFeedback();
     }, [settleAutoScroll]);
 
@@ -714,11 +752,15 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
             seekTargetIndexRef.current = null;
             return;
         }
-        browsingRef.current = false;
+        scrollPhaseRef.current = 'idle';
         setShowFollow(false);
         if (browseSettleTimerRef.current !== null) {
             window.clearTimeout(browseSettleTimerRef.current);
             browseSettleTimerRef.current = null;
+        }
+        if (autoScrollSettleTimerRef.current !== null) {
+            window.clearTimeout(autoScrollSettleTimerRef.current);
+            autoScrollSettleTimerRef.current = null;
         }
         closeDict();
         applyIndex(index);
@@ -834,12 +876,13 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
         setShowEnglish((value) => !value);
     }, []);
 
-    /** 切换翻译显示；重新打开时立即补当前窗口的翻译。 */
+    /** 切换翻译显示；重新打开时重置失败记录并立即补当前窗口的翻译。 */
     const toggleTranslation = React.useCallback((): void => {
         const next = !showTranslationRef.current;
         showTranslationRef.current = next;
         setShowTranslation(next);
         if (next) {
+            attemptedTranslationsRef.current.clear();
             requestTranslationWindow(currentIndexRef.current >= 0 ? currentIndexRef.current : 0);
         }
     }, [requestTranslationWindow]);
@@ -943,6 +986,18 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
     }, [saveProgress]);
 
     React.useEffect(() => {
+        detailEpochRef.current += 1;
+        translationsRef.current = {};
+        attemptedTranslationsRef.current.clear();
+        resumeDoneRef.current = detail.currentPosition <= 3;
+        seekInFlightRef.current = false;
+        programmaticSeekRef.current = false;
+        seekTargetIndexRef.current = null;
+        lastSavedRef.current = -1;
+        autoPauseArmedRef.current = true;
+    }, [detail.id, detail.currentPosition, detail.subtitles]);
+
+    React.useEffect(() => {
         // 进入播放页时把 video 节点固定下来：cleanup 里不再读可能已经变化的 ref。
         const video = videoRef.current;
         return () => {
@@ -962,22 +1017,29 @@ export const useWatchPlayer = (detail: MobileWatchDetail): WatchPlayerApi => {
             }
             if (resumeTimerRef.current !== null) {
                 window.clearTimeout(resumeTimerRef.current);
+                resumeTimerRef.current = null;
             }
             if (autoScrollSettleTimerRef.current !== null) {
                 window.clearTimeout(autoScrollSettleTimerRef.current);
+                autoScrollSettleTimerRef.current = null;
             }
             if (browseSettleTimerRef.current !== null) {
                 window.clearTimeout(browseSettleTimerRef.current);
+                browseSettleTimerRef.current = null;
             }
             if (dictTimerRef.current !== null) {
                 window.clearTimeout(dictTimerRef.current);
+                dictTimerRef.current = null;
             }
         };
     }, [saveProgress]);
 
+    const activeTranslations = translationsState.detailId === detail.id && translationsState.subtitles === detail.subtitles
+        ? translationsState.map
+        : {};
     const currentLine = currentIndex >= 0 ? detail.subtitles[currentIndex] : detail.subtitles[0] ?? null;
     const currentTranslation = currentLine
-        ? (currentLine.zh || translations[currentIndex >= 0 ? currentIndex : 0] || '')
+        ? (currentLine.zh || activeTranslations[currentIndex >= 0 ? currentIndex : 0] || '')
         : '';
 
     return {

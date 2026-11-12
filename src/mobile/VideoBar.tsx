@@ -37,10 +37,11 @@ const VideoBar = ({
     onSeek,
     onFullscreen,
 }: VideoBarProps) => {
-    /** 拖动中的预览位置；没在拖动时为 null，显示真实播放位置。 */
+    /** 拖动中的预览位置；没在拖动或控件不可用时回退显示真实播放位置。 */
     const [scrub, setScrub] = React.useState<number | null>(null);
+    const effectiveScrub = disabled || duration <= 0 ? null : scrub;
 
-    const shown = scrub ?? position;
+    const shown = effectiveScrub ?? position;
     /** 已播部分占整条的比例，用来给进度条上色（0~1）。 */
     const ratio = duration > 0 ? Math.min(1, Math.max(0, shown / duration)) : 0;
 
@@ -53,7 +54,9 @@ const VideoBar = ({
         if (scrub === null) {
             return;
         }
-        onSeek(scrub);
+        if (!disabled && duration > 0) {
+            onSeek(scrub);
+        }
         setScrub(null);
     };
 
