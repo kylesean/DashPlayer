@@ -81,6 +81,8 @@ export const WORD_ENCOUNTER_ACTIONS = [
     'ignore',
     'shadow',
     'dictation',
+    'retell',
+    'roleplay',
     'review',
 ] as const;
 export type WordEncounterAction = (typeof WORD_ENCOUNTER_ACTIONS)[number];

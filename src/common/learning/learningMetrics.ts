@@ -21,7 +21,7 @@ export interface MetricEncounter {
 const FEEDBACK_ACTIONS = ['known', 'ignore'] as const;
 
 /** 参与「练习覆盖」的动作：用户真的开口或动笔了。 */
-const PRACTICE_ACTIONS = ['shadow', 'dictation', 'review'] as const;
+const PRACTICE_ACTIONS = ['shadow', 'dictation', 'retell', 'roleplay', 'review'] as const;
 
 /** 只有这两种评级才算「成功回忆」，与留存指标口径一致。 */
 const SUCCESSFUL_RATINGS = new Set(['good', 'easy']);
@@ -33,7 +33,7 @@ const ratio = (numerator: number, denominator: number): number | null =>
     denominator === 0 ? null : numerator / denominator;
 
 /**
- * 北极星指标：窗口内至少成功回忆过一次的去重词数。
+ * 成功回忆指标：窗口内至少成功回忆过一次的去重词数。
  *
  * 按 lemma 去重而不是按事件计数：一个词复习五次只说明它难，不说明记住了五个词。
  */

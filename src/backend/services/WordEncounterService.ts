@@ -63,6 +63,7 @@ export default interface WordEncounterService {
     recordProductionEvidence(params: {
         words: readonly string[];
         score: number;
+        action: 'retell' | 'roleplay';
         videoId?: string | null;
         fileHash?: string | null;
         sentenceIndex?: number | null;
@@ -222,6 +223,7 @@ export class WordEncounterServiceImpl implements WordEncounterService {
     public async recordProductionEvidence(params: {
         words: readonly string[];
         score: number;
+        action: 'retell' | 'roleplay';
         videoId?: string | null;
         fileHash?: string | null;
         sentenceIndex?: number | null;
@@ -253,7 +255,7 @@ export class WordEncounterServiceImpl implements WordEncounterService {
             await this.repository.record({
                 word: existing.word,
                 lemma,
-                action: 'shadow',
+                action: params.action,
                 video_id: params.videoId ?? null,
                 file_hash: params.fileHash ?? null,
                 sentence_index: params.sentenceIndex ?? null,
@@ -273,6 +275,8 @@ export class WordEncounterServiceImpl implements WordEncounterService {
                 return { kind: 'save' };
             case 'shadow':
             case 'dictation':
+            case 'retell':
+            case 'roleplay':
                 return params.score === undefined
                     ? { kind: 'practice', score: 0 }
                     : { kind: 'practice', score: this.normalizeScore(params.score) ?? 0 };
@@ -306,9 +310,9 @@ export class WordEncounterServiceImpl implements WordEncounterService {
         params: WordEncounterInput,
         now: Date,
     ): Promise<void> {
-        // 跟读只提供发音反馈与 mastery 证据，不参与复习调度：
-        // 口音导致的低分不应把词推进复习队列，也不应提前/推迟 due。
-        if (params.action === 'shadow') {
+        // 跟读与产出型练习只提供练习反馈与 mastery 证据，不参与复习调度：
+        // 口音或表达差异导致的低分不应把词推进复习队列，也不应提前/推迟 due。
+        if (params.action === 'shadow' || params.action === 'retell' || params.action === 'roleplay') {
             return;
         }
         if (status === 'known' || status === 'ignored') {

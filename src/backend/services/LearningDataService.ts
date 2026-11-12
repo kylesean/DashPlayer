@@ -50,6 +50,8 @@ export const LEARNING_SESSION_ACTIONS = [
     'ignore',
     'shadow',
     'dictation',
+    'retell',
+    'roleplay',
     'review',
 ] as const satisfies readonly WordEncounterAction[];
 
@@ -201,7 +203,10 @@ export class LearningDataServiceImpl implements LearningDataService {
                 mastered: mastered.length,
                 due: due.length,
                 practice: events.filter((event) =>
-                    event.action === 'shadow' || event.action === 'dictation',
+                    event.action === 'shadow'
+                    || event.action === 'dictation'
+                    || event.action === 'retell'
+                    || event.action === 'roleplay',
                 ).length,
             },
             words: visibleWords.slice(0, limit).map(({ word }) => word),

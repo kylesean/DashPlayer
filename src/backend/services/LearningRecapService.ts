@@ -563,6 +563,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             await this.recordProductionMastery({
                 words: matchedWords,
                 level: result.level,
+                action: 'retell',
                 videoId: params.videoId,
                 fileHash: params.fileHash,
                 sentenceIndex: params.sentenceIndex,
@@ -602,6 +603,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             await this.recordProductionMastery({
                 words: result.usedExpressions,
                 level: result.level,
+                action: 'roleplay',
                 videoId: params.videoId,
                 fileHash: params.fileHash,
                 sentenceIndex: params.sentenceIndex,
@@ -621,6 +623,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
     private async recordProductionMastery(params: {
         words: readonly string[];
         level: RetellLevel;
+        action: 'retell' | 'roleplay';
         videoId?: string | null;
         fileHash?: string | null;
         sentenceIndex?: number | null;
@@ -632,6 +635,7 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         await this.wordEncounterService.recordProductionEvidence({
             words: params.words,
             score: PRODUCTION_LEVEL_SCORE[params.level],
+            action: params.action,
             videoId: params.videoId ?? null,
             fileHash: params.fileHash ?? null,
             sentenceIndex: params.sentenceIndex ?? null,

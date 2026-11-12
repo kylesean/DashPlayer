@@ -72,14 +72,14 @@ describe('WordEncounterService', () => {
             {} as unknown as ReviewCardRepository,
         );
 
-        await service.recordProductionEvidence({ words: ['grasp'], score: 90 });
+        await service.recordProductionEvidence({ words: ['grasp'], score: 90, action: 'retell' });
 
         const [, patch] = updateLearning.mock.calls[0];
         expect(patch.mastery).toBeCloseTo(0.672, 6);
         expect(patch.status).toBe('familiar');
         expect(record).toHaveBeenCalledWith(expect.objectContaining({
             lemma: 'grasp',
-            action: 'shadow',
+            action: 'retell',
             score: 90,
         }));
     });

@@ -476,6 +476,7 @@ describe('LearningRecapService', () => {
         expect(recordedEvidence).toHaveLength(2);
         // 复述：只把真正说到的内容词当证据，缺失的 decided 不计入。
         expect(recordedEvidence[0]).toMatchObject({
+            action: 'retell',
             videoId: 'video-1',
             fileHash: 'subtitle-1',
             sentenceIndex: 3,
@@ -486,6 +487,7 @@ describe('LearningRecapService', () => {
         // 角色扮演：证据是用户真的用出来的目标表达。
         expect(recordedEvidence[1]).toMatchObject({
             words: ['long journey', 'coming home'],
+            action: 'roleplay',
             score: 90,
         });
     });
