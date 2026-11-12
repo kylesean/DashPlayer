@@ -9,6 +9,7 @@ import type AiProviderService from '@/backend/services/AiProviderService';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
 import type ReviewCardRepository from '@/backend/services/repositories/ReviewCardRepository';
+import type WordEncounterRepository from '@/backend/services/repositories/WordEncounterRepository';
 import type VideoLearningClipWordRepository from '@/backend/services/repositories/VideoLearningClipWordRepository';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
@@ -24,6 +25,7 @@ import {
     parseImportedWords,
 } from '@/backend/services/VocabularySpreadsheet';
 import { isActiveWordStatus, type WordSource, type WordStatus } from '@/common/types/vocabulary';
+import type { WordMemoryVO } from '@/common/types/wordMemory';
 import { createNewReviewSchedule } from '@/common/learning/reviewScheduler';
 
 export interface GetAllWordsParams {
@@ -119,6 +121,16 @@ export interface GenerateDefinitionResult {
 }
 
 export default interface VocabularyService {
+    /**
+     * 读取一个词的学习历史快照。
+     *
+     * 纯只读：不写事件、不改掌握度，因此可以在每次打开词卡时调用。
+     *
+     * @param rawWord 用户点击的词形，可能不是原形。
+     * @returns 历史快照；查询失败时返回 null。
+     */
+    getWordMemory(rawWord: string): Promise<WordMemoryVO | null>;
+
     getAllWords(params: GetAllWordsParams): Promise<GetAllWordsResult>;
     exportTemplate(): Promise<ExportTemplateResult>;
     importWords(filePath: string): Promise<ImportWordsResult>;
@@ -186,6 +198,7 @@ export class VocabularyServiceImpl implements VocabularyService {
         @inject(TYPES.VideoLearningService) private readonly videoLearningService: VideoLearningService,
         @inject(TYPES.WordsRepository) private readonly wordsRepository: WordsRepository,
         @inject(TYPES.ReviewCardRepository) private readonly reviewCardRepository: ReviewCardRepository,
+        @inject(TYPES.WordEncounterRepository) private readonly wordEncounterRepository: WordEncounterRepository,
         @inject(TYPES.WordMatchService) private readonly wordMatchService: WordMatchService,
         @inject(TYPES.AiProviderService) private readonly aiProviderService: AiProviderService,
         @inject(TYPES.VideoLearningClipWordRepository) private readonly clipWordRepository: VideoLearningClipWordRepository,
@@ -193,6 +206,58 @@ export class VocabularyServiceImpl implements VocabularyService {
         @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
     ) {}
+
+    /**
+     * 读取一个词的学习历史快照。
+     *
+     * 纯只读：不写事件、不改掌握度，因此可以在每次打开词卡时调用。
+     * 词不在词表里时仍返回一条快照（status 为 null），让用户能看到「查过但
+     * 还没加入学习」这件事本身。
+     *
+     * @param rawWord 用户点击的词形，可能不是原形。
+     * @returns 历史快照；查询失败时返回 null。
+     */
+    async getWordMemory(rawWord: string): Promise<WordMemoryVO | null> {
+        const lemma = lemmatizeWord(rawWord).toLowerCase().trim();
+        if (!lemma) {
+            return null;
+        }
+        try {
+            const [word, card, contexts] = await Promise.all([
+                this.wordsRepository.findByWord(lemma),
+                this.reviewCardRepository.findByWord(lemma),
+                this.wordEncounterRepository.findLatestContexts([lemma]),
+            ]);
+            const context = contexts.find((row) => row.lemma === lemma) ?? null;
+            return {
+                word: lemma,
+                status: word?.status ?? null,
+                source: word?.source ?? null,
+                mastery: word?.mastery ?? 0,
+                confidence: word?.confidence ?? 0,
+                lastSeenAt: word?.last_seen_at ?? null,
+                lastReviewedAt: card?.last_review_at ?? null,
+                dueAt: card?.due_at ?? null,
+                reviewCount: card?.reps ?? 0,
+                lapseCount: card?.lapses ?? 0,
+                lastContext: context
+                    ? {
+                        text: context.text,
+                        videoId: context.videoId,
+                        videoFileName: context.videoFileName,
+                        sentenceIndex: context.sentenceIndex,
+                        at: context.createdAt,
+                    }
+                    : null,
+            };
+        } catch (error) {
+            this.logger.warn('word memory read failed', {
+                word: lemma,
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+        }
+    }
 
     async getAllWords(params: GetAllWordsParams = {}): Promise<GetAllWordsResult> {
         try {

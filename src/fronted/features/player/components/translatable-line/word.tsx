@@ -209,6 +209,17 @@ export default function Word({
 
     const shouldFetch = isOpen && pop;
 
+    // 词卡打开时才读取「你与这个词的历史」：只读接口，不改任何状态。
+    // 失败时静默降级为不展示历史行，不影响查词本身。
+    const { data: wordMemory } = useSWR(
+        shouldFetch ? ['vocabulary/word-memory', cleanWord] : null,
+        () => videoLearningApi.getWordMemory(cleanWord),
+        {
+            revalidateOnFocus: false,
+            shouldRetryOnError: false,
+        },
+    );
+
     const {
         data: dictionaryResponse,
         isLoading: isWordLoading,
@@ -495,6 +506,7 @@ export default function Word({
                         isUpdatingStatus={statusSaving}
                         contextWord={original}
                         contextSentence={sentenceText}
+                        wordMemory={wordMemory ?? null}
                         onMarkKnown={() => { void handleStatusChange('known'); }}
                         onMarkIgnored={() => { void handleStatusChange('ignored'); }}
                     />

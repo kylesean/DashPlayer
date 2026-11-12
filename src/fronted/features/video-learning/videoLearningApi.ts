@@ -119,6 +119,15 @@ export const videoLearningApi = {
         backendClient.call('vocabulary/context-pack', params),
 
     /**
+     * 读取一个词的学习历史（上次遇见、上次复习、当前状态）。
+     *
+     * @param word 用户点击的词形，可能不是原形。
+     * @returns 历史快照；不可用时为 null。
+     */
+    getWordMemory: (word: string) =>
+        backendClient.call('vocabulary/word-memory', { word }),
+
+    /**
      * 获取当前到期的复习队列与回忆统计。
      *
      * @param limit 最多返回多少张卡。

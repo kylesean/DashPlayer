@@ -1432,6 +1432,44 @@ R3 第十八阶段。
 - 句子建议 chip 7 项测试通过（含强化档同样展示建议）。
 - `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1282 passed / 9 skipped。
 
+#### R0 补记二：词卡补上「你与这个词的历史」（2026-11-12）
+
+§6.2 把词卡的信息顺序定为「上下文优先」，其中第 4 条要求展示「上次遇见、
+上次复习、当前状态」。此前只做到「当前状态」一个标签，历史部分是空的。
+
+已落地：
+
+- 新增只读接口 `vocabulary/word-memory`：一次返回状态、来源、掌握度与置信度、
+  上次遇见、上次复习、到期时间、复习/遗忘次数，以及最近一次带字幕原句的遭遇。
+- **纯只读**：不写事件、不改掌握度，因此每次打开词卡都能安全调用，不会因为
+  「看一眼历史」而污染证据链。
+- 未入词表也返回快照（`status` 为 null）：用户能看到「查过但还没加入学习」
+  这件事本身，而不是被当成「没有记录」。
+- 时间用相对描述（刚刚 / N 分钟前 / N 小时前 / N 天前），超过 30 天退回日期：
+  「第 47 天前」没人会换算。未来时间（时钟漂移）按「刚刚」处理，不显示负数。
+- 从未复习时明确写「还没有复习过」，不留空行——空行会被读成「加载失败」。
+- 词卡只在打开时请求，失败静默降级为不展示历史行，不影响查词主流程。
+
+核心实现：
+
+- `src/common/types/wordMemory.ts`（`WordMemoryVO` / `WordMemoryContextVO`）
+- `src/backend/services/VocabularyService.ts` 的 `getWordMemory`（复用词条、复习卡与
+  遭遇事件三个既有仓储，不新建表）
+- `src/backend/controllers/VocabularyController.ts` 的 `vocabulary/word-memory`
+- `src/fronted/features/player/components/translatable-line/word-memory-time.ts`
+- `src/fronted/features/player/components/translatable-line/{word.tsx,word-pop.tsx,openai-word-pop.tsx}`
+- i18n `common` 命名空间新增 `wordMemory.*`（中英对齐）
+
+验证：
+
+- 词卡历史快照 3 项服务测试通过（变体还原到 lemma、状态/复习/遭遇汇总、
+  未入词表返回空状态、空词形不查库）。
+- 时间格式化 4 项测试通过（从未发生、刚刚与未来时间、分钟/小时/天分档、
+  超过 30 天退回日期）。
+- 词卡组件 3 项测试通过（展示历史行、无数据不渲染、未入词表仍展示但无状态标签）。
+- `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1292 passed / 9 skipped；
+  覆盖率门禁通过（controllers lines 58.22%）。
+
 #### R3 完成度总览（2026-11-12）
 
 R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
@@ -1441,6 +1479,7 @@ R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
 - ContextPack、候选评分、每句一个建议、可解释理由、密度约束。
 - 自适应中文字幕、词卡 AI 语境解读、会话复盘、书面与口头复述、多轮场景对话（对方台词严格取自真实字幕）。
 - 四级提示强度（关闭 / 安静 / 教练 / 强化），强度只改提示密度不改标注语义。
+- 词卡的「你与这个词的历史」：上次遇见、上次复习、到期与复习次数，纯只读投影。
 - 句子/视频主题向量、内容指南针、语义模型（EmbeddingGemma 2）、持久化向量索引与增量失效。
 - 场景切分（时间/话题/声纹/画面/语音韵律五类信号）、场景索引持久化。
 - 学习时刻检测与微回忆、复习坞、FSRS-lite 调度、跟读/听写/复述/角色扮演写入掌握度。

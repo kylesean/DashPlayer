@@ -26,6 +26,7 @@ import type {VideoLearningClipPage} from '@/common/types/vo/VideoLearningClipVO'
 import type { GlobalVideoLearningClipQueueStatusVO, VideoLearningClipStatusVO } from '@/common/types/vo/VideoLearningClipStatusVO';
 import type { SentenceVocabularyVO } from '@/common/types/vo/SentenceVocabularyVO';
 import type { ContextPackParams, ContextPackVO } from '@/common/types/contextPack';
+import type { WordMemoryVO } from '@/common/types/wordMemory';
 import type {
     SubtitleComprehensionParams,
     SubtitleComprehensionVO,
@@ -520,6 +521,10 @@ interface VocabularyDef {
         params: ContextPackParams,
         return: ContextPackVO
     };
+    'vocabulary/word-memory': {
+        params: { word: string },
+        return: WordMemoryVO | null
+    };
 }
 
 interface LearningDataDef {
@@ -868,6 +873,7 @@ export const API_ROUTE_KEYS = [
     'vocabulary/rate-review',
     'vocabulary/record-encounter',
     'vocabulary/review-queue',
+    'vocabulary/word-memory',
     'vocabulary/update',
     'vocabulary/update-state',
     'watch-history/attach-srt',

@@ -67,6 +67,18 @@ export default class VocabularyController implements Controller {
         return this.vocabularyService.updateWordState(params);
     }
 
+    /**
+     * 读取一个词的学习历史快照。
+     *
+     * 纯只读，供词卡展示「上次遇见 / 上次复习 / 当前状态」。
+     *
+     * @param params 用户点击的词形。
+     * @returns 历史快照；不可用时为 null。
+     */
+    public async getWordMemory(params: { word: string }) {
+        return this.vocabularyService.getWordMemory(params.word);
+    }
+
     public async recordWordEncounter(params: WordEncounterInput): Promise<void> {
         await this.wordEncounterService.record(params);
     }
@@ -139,6 +151,9 @@ export default class VocabularyController implements Controller {
                 word: nonEmptyStringSchema,
                 status: z.enum(WORD_STATUSES),
             }),
+        });
+        registerRoute('vocabulary/word-memory', (p) => this.getWordMemory(p), {
+            schema: z.object({ word: nonEmptyStringSchema }),
         });
         registerRoute('vocabulary/record-encounter', (p) => this.recordWordEncounter(p), {
             schema: z.object({

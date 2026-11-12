@@ -8,7 +8,9 @@ import { formatPhonetic } from '@/fronted/lib/phonetic';
 import { DICT_TAG_I18N_KEYS } from '@/fronted/lib/dict-tags';
 import { useTranslation } from 'react-i18next';
 import type { WordStatus } from '@/common/types/vocabulary';
+import type { WordMemoryVO } from '@/common/types/wordMemory';
 import WordContextInsight from './word-context-insight';
+import { formatMemoryWhen } from './word-memory-time';
 
 /**
  * 统一音标显示格式，自动补齐首尾斜杠。
@@ -43,6 +45,8 @@ interface OpenAIWordPopProps {
     contextWord?: string;
     /** 单词所在字幕句，供语境解读使用。 */
     contextSentence?: string;
+    /** 你与这个词的历史；加载中或不可用时为 null。 */
+    wordMemory?: WordMemoryVO | null;
     className?: string;
 }
 
@@ -60,9 +64,10 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
     isUpdatingStatus = false,
     contextWord,
     contextSentence,
+    wordMemory = null,
     className
 }) => {
-    const { t } = useTranslation('common');
+    const { t, i18n } = useTranslation('common');
     const hasDefinitions = !!data && Array.isArray(data.definitions) && data.definitions.length > 0;
     const hasEnglishSenses = !!data?.englishSenses?.length;
     const hasContent = !!data && (Boolean(data.word) || hasDefinitions || hasEnglishSenses);
@@ -147,6 +152,34 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             <span className="text-metadata text-muted-foreground/80 mt-0.5 inline-block">
                                 {statusLabel}
                             </span>
+                        )}
+                        {wordMemory && (
+                            <div
+                                data-testid="word-memory"
+                                className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-metadata text-muted-foreground/80 select-text"
+                            >
+                                <span>
+                                    {t('wordMemory.lastSeen', {
+                                        when: formatMemoryWhen(
+                                            wordMemory.lastSeenAt,
+                                            i18n.language,
+                                            t,
+                                            'wordMemory.neverSeen',
+                                        ),
+                                    })}
+                                </span>
+                                <span aria-hidden="true">·</span>
+                                <span>
+                                    {t('wordMemory.lastReviewed', {
+                                        when: formatMemoryWhen(
+                                            wordMemory.lastReviewedAt,
+                                            i18n.language,
+                                            t,
+                                            'wordMemory.neverReviewed',
+                                        ),
+                                    })}
+                                </span>
+                            </div>
                         )}
                         {hasMeta && (
                             <div className="flex flex-wrap items-center gap-1.5 mt-2 select-none">

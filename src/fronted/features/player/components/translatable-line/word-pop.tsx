@@ -6,6 +6,7 @@ import OpenAIWordPop from './openai-word-pop';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { useTransLineTheme } from './translatable-theme';
 import type { WordStatus } from '@/common/types/vocabulary';
+import type { WordMemoryVO } from '@/common/types/wordMemory';
 
 const logger = getRendererLogger('WordPop');
 
@@ -35,6 +36,8 @@ export interface WordSubParam {
     contextWord?: string;
     /** 单词所在字幕句，供语境解读使用。 */
     contextSentence?: string;
+    /** 你与这个词的历史；加载中或不可用时为 null。 */
+    wordMemory?: WordMemoryVO | null;
     /** 标记为已掌握。 */
     onMarkKnown?: () => void;
     /** 标记为忽略。 */
@@ -74,6 +77,7 @@ const WordPop: React.FC<WordSubParam> = ({
     isUpdatingStatus = false,
     contextWord,
     contextSentence,
+    wordMemory = null,
     classNames,
     floatingStyles,
     getFloatingProps,
@@ -112,6 +116,7 @@ const WordPop: React.FC<WordSubParam> = ({
                         isUpdatingStatus={isUpdatingStatus}
                         contextWord={contextWord}
                         contextSentence={contextSentence}
+                        wordMemory={wordMemory}
                     />
                 </div>
             </div>

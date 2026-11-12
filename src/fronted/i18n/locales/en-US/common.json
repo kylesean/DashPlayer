@@ -191,5 +191,15 @@
     "selectFileFailed": "Failed to select file",
     "wordDeleted": "Word deleted",
     "loadingWords": "Loading words…",
-    "wordListEmpty": "Your word list is empty. Save a few words from the subtitles first."
+    "wordListEmpty": "Your word list is empty. Save a few words from the subtitles first.",
+    "wordMemory": {
+        "lastSeen": "Last seen: {{when}}",
+        "lastReviewed": "Last reviewed: {{when}}",
+        "neverSeen": "not seen in subtitles yet",
+        "neverReviewed": "not reviewed yet",
+        "justNow": "just now",
+        "minutesAgo": "{{count}} min ago",
+        "hoursAgo": "{{count}} h ago",
+        "daysAgo": "{{count}} d ago"
+    }
 }

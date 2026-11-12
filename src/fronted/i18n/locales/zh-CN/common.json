@@ -191,5 +191,15 @@
     "selectFileFailed": "选择文件失败",
     "wordDeleted": "单词已删除",
     "loadingWords": "正在加载单词…",
-    "wordListEmpty": "词表还是空的，先从字幕里收藏几个词吧"
+    "wordListEmpty": "词表还是空的，先从字幕里收藏几个词吧",
+    "wordMemory": {
+        "lastSeen": "上次遇见：{{when}}",
+        "lastReviewed": "上次复习：{{when}}",
+        "neverSeen": "尚未在字幕里遇见",
+        "neverReviewed": "还没有复习过",
+        "justNow": "刚刚",
+        "minutesAgo": "{{count}} 分钟前",
+        "hoursAgo": "{{count}} 小时前",
+        "daysAgo": "{{count}} 天前"
+    }
 }

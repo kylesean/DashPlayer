@@ -13,6 +13,7 @@ vi.mock('electron', () => ({
 import { createMemoryDb, type MemoryDb } from '@/test/database';
 import WordsRepositoryImpl from '@/backend/infrastructure/db/repositories/WordsRepositoryImpl';
 import ReviewCardRepositoryImpl from '@/backend/infrastructure/db/repositories/ReviewCardRepositoryImpl';
+import WordEncounterRepositoryImpl from '@/backend/infrastructure/db/repositories/WordEncounterRepositoryImpl';
 import { VocabularyServiceImpl } from '@/backend/services/VocabularyService';
 import type AiProviderService from '@/backend/services/AiProviderService';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
@@ -32,6 +33,7 @@ const buildService = (memoryDb: MemoryDb) => {
         } as unknown as VideoLearningService,
         repository,
         reviewCardRepository,
+        new WordEncounterRepositoryImpl(memoryDb.db),
         { invalidateVocabularyCache: vi.fn() } as unknown as WordMatchService,
         {} as unknown as AiProviderService,
         {
@@ -130,6 +132,62 @@ describe('VocabularyService 单词状态', () => {
         const row = await repository.findByWord('cancel');
         expect(row?.status).toBe('learning');
         expect(row?.source).toBe('manual');
+    });
+
+    it('词卡历史快照汇总状态、上次遇见与上次复习', async () => {
+        memoryDb = createMemoryDb();
+        const { service, repository, reviewCardRepository } = buildService(memoryDb);
+        const encounters = new WordEncounterRepositoryImpl(memoryDb.db);
+        await repository.insertOne({ word: 'journey', translate: '旅程', status: 'learning', source: 'manual' });
+        await reviewCardRepository.upsert({
+            word: 'journey',
+            due_at: '2026-12-01T00:00:00.000Z',
+            state: 'review',
+            reps: 4,
+            lapses: 1,
+            stability: 6,
+            difficulty: 4,
+            last_review_at: '2026-11-10T08:00:00.000Z',
+            last_rating: 'good',
+        });
+        await encounters.record({
+            word: 'journey',
+            lemma: 'journey',
+            action: 'open',
+            context: 'The journey begins at the station.',
+            sentence_index: 2,
+            created_at: '2026-11-11T09:00:00.000Z',
+        });
+
+        const memory = await service.getWordMemory('journeys');
+
+        expect(memory?.word).toBe('journey');
+        expect(memory?.status).toBe('learning');
+        expect(memory?.reviewCount).toBe(4);
+        expect(memory?.lapseCount).toBe(1);
+        expect(memory?.lastReviewedAt).toBe('2026-11-10T08:00:00.000Z');
+        expect(memory?.lastContext?.text).toBe('The journey begins at the station.');
+        expect(memory?.lastContext?.sentenceIndex).toBe(2);
+    });
+
+    it('未入词表也能返回历史快照，状态为空而不是伪造', async () => {
+        memoryDb = createMemoryDb();
+        const { service } = buildService(memoryDb);
+
+        const memory = await service.getWordMemory('serendipity');
+
+        expect(memory?.word).toBe('serendipity');
+        expect(memory?.status).toBeNull();
+        expect(memory?.source).toBeNull();
+        expect(memory?.lastReviewedAt).toBeNull();
+        expect(memory?.lastContext).toBeNull();
+    });
+
+    it('空词形直接返回 null，不查库', async () => {
+        memoryDb = createMemoryDb();
+        const { service } = buildService(memoryDb);
+
+        await expect(service.getWordMemory('   ')).resolves.toBeNull();
     });
 
     it('仓储默认排除 starter pack，显式请求时才返回', async () => {
