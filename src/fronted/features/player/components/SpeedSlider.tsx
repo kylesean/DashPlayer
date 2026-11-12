@@ -22,7 +22,7 @@ export interface SpeedSliderProps {
      * 触发按钮在宿主控制条上的外观。
      * 默认跟随应用主题的 hover 是给亮色宿主（播客控制条）用的；恒为深色的视频控制条要传
      * DARK_BAR_BUTTON_HOVER，否则浅色主题下 hover 会退化成「背景加暗 + 文字转黑」，
-     * 且会漏掉 shadcn ghost 变体自带的 hover:text-accent-foreground。
+     * 且会漏掉 Astryx ghost 变体自带的 hover 文字色。
      */
     triggerClassName?: string;
     /** 弹窗底边到按钮顶边的间距，按宿主控制条形状取
