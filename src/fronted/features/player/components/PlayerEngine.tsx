@@ -329,6 +329,13 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
       clearTimeout(pendingResolveRef.current.timer);
     }
     pendingResolveRef.current = null;
+    // 200ms 防抖执行器同样作废：真换源时新元素会从 0 起播，残留的执行器会在
+    // metadata 未就绪时 applySeek(0) 抛错并以无序号结算把 exactPlayTime 写回 0。
+    // （同 src 重复 setSource 不会触发本 effect，那次 seek 的执行器得以存活。）
+    if (pendingTimerRef.current) {
+      clearTimeout(pendingTimerRef.current);
+      pendingTimerRef.current = null;
+    }
   }, [src]);
 
   // 看门狗：独立采样媒体状态，检测播放卡死并自愈

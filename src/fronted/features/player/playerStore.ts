@@ -76,6 +76,8 @@ interface TailPreviewState {
   active: boolean;
   untilTs: number;
   returnTarget: Sentence | null;
+  /** 进入预览前的播放意图：预览必须起播才能听到尾部，结束后按此恢复（暂停中校准不破坏暂停态）。 */
+  resumePlaying: boolean;
 }
 
 interface TimeOverrideState {
@@ -180,12 +182,6 @@ interface PlayerState {
   // 源与字幕
   setSource: (src: string | null) => void;
   loadSubtitles: (sentences: Sentence[], tender?: SrtTender<Sentence>) => void;
-  /**
-   * 增量字幕合并：转录进行中每次推送全集时使用。
-   * 只刷新句子列表与索引；保留瞬态播放计划、虚拟组、倍速与影子跟读状态。
-   * @param sentences 到目前为止的全部句子（同一会话内单调追加）
-   */
-  mergeSubtitles: (sentences: Sentence[]) => void;
   clearSubtitles: () => void;
 
   // 播放控制
@@ -315,6 +311,10 @@ let seekRequestCounter = 0;
 let shadowTimer: ReturnType<typeof setTimeout> | null = null;
 // 影子跟读：已给过留白的句子 key；防止留白结束自然续播时，在句间空隙内再次触发暂停（手动跳转/切源/模式开关时重置）
 let shadowedSentenceKey: string | null = null;
+// 播放时间采样间隔的 EMA（毫秒）：前台 rAF ≈45ms，后台标签页退化为原生 timeupdate ≈250ms。
+// 循环提前量按它动态放大，否则后台循环会在回跳前听到下一句开头（过冲 ≈ 采样粒度 × 倍速）。
+let lastSampleTs = 0;
+let sampleIntervalMs = 45;
 
 /** 练习工坊单句/块试听的硬停区间约束。 */
 interface ClipStopBound {
@@ -375,6 +375,18 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const isCurrent = prev.currentSentence && sentenceKey(prev.currentSentence) === keyU;
       return { sentences, currentSentence: isCurrent ? updated : prev.currentSentence };
     });
+    // 循环计划进行中调整锚点句边界：同步更新计划区间，
+    // 否则本遍循环仍按旧边界回跳（新句尾被提前截停或旧句尾多播一段）。
+    const plan = get().internal.transientPlan;
+    if (plan?.anchorKey === keyU) {
+      const { range } = resolvePlanRange(get().currentSentence ?? updated);
+      set((prev) => ({
+        internal: {
+          ...prev.internal,
+          transientPlan: prev.internal.transientPlan ? { ...prev.internal.transientPlan, range } : null,
+        }
+      }));
+    }
   };
 
   /**
@@ -407,7 +419,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     return { start, end };
   };
 
-  /** 意群归并结果的引用缓存：loadSubtitles/mergeSubtitles 换入新 sentences 数组时自动失效重建。 */
+  /** 意群归并结果的引用缓存：loadSubtitles 换入新 sentences 数组时自动失效重建。 */
   let sentenceBlocksCache: { source: Sentence[]; blocks: SentenceBlock[] } | null = null;
   const getSentenceBlocks = (sentences: Sentence[]): SentenceBlock[] => {
     if (sentenceBlocksCache?.source === sentences) {
@@ -524,6 +536,11 @@ export const usePlayer = create<PlayerState>((set, get) => {
    */
   const applyBooleanSentenceMode = (mode: SentenceEndBooleanMode) => {
     clearSentenceLoopMode();
+    // 模式切换可能关掉 shadowing（互斥），此时影子留白与定时器必须一并撤除：
+    // 否则残留的 shadowingPause/shadowTimer 构成 {shadowing:false, 留白非null, 定时器活}
+    // 的非法组合态，UI 倒计时条会继续空转。
+    clearShadowTimer();
+    shadowedSentenceKey = null;
     // 显式选择优先：任何持久模式的切换都取消悬停临时循环
     set({ ...enableSentenceEndMode(mode), hoverRepeat: false });
   };
@@ -714,7 +731,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
    */
   const LOOP_END_EPSILON_SEC = 0.06;
   const reachedLoopEnd = (time: number, start: number, end: number, rate: number): boolean => {
-    const lead = rate * LOOP_END_EPSILON_SEC;
+    // 提前量 = max(基础提前量, 采样间隔 × 0.75)：前台 rAF 45ms 时 0.06s 生效（行为不变）；
+    // 后台 timeupdate ~250ms 时提前量放大到 ~0.19s×倍速，把过冲从最多 0.25s×倍速压到 ~0.06s×倍速。
+    const lead = rate * Math.max(LOOP_END_EPSILON_SEC, Math.min((sampleIntervalMs / 1000) * 0.75, 0.2));
     if (end - start <= lead) {
       return time >= end;
     }
@@ -788,13 +807,14 @@ export const usePlayer = create<PlayerState>((set, get) => {
         set((prev) => ({
           internal: { ...prev.internal, tailPreview: null }
         }));
-        // 统一：预览结束后回到目标句（或当前句）开头
+        // 统一：预览结束后回到目标句（或当前句）开头，并恢复预览前的播放意图
+        // （暂停中校准句尾 → 预览试听 → 回到暂停态，而不是永远被预览拉成播放态）
         const target = tailPreview.returnTarget ?? currentSentence ?? null;
         let startTime = 0;
         if (srtTender && target) {
           startTime = srtTender.mapSeekTime(target).start;
         }
-        state.seekToTarget({ time: startTime, target: target ?? undefined });
+        state.seekToTarget({ time: startTime, target: target ?? undefined, play: tailPreview.resumePlaying });
       }
       return;
     }
@@ -847,7 +867,12 @@ export const usePlayer = create<PlayerState>((set, get) => {
       // （等待期间计划分支会拦截常规回写，这里按时间回写高亮）
       if (transientPlan.completed) {
         const at = srtTender.getByTime(effectiveTime);
-        if (at && sentenceKey(at) !== transientPlan.anchorKey) {
+        // 末句逃逸：getByTime 首尾钳制会让锚点之后的采样永远返回锚点句，
+        // 「进入下一句」的判定在最后一句永不成立，completed 计划会永久滞留并
+        // 拦截全部句末模式。播放头越过锚点句末（留出句尾缓冲）即视为空隙已过。
+        const gapPassed = (at && sentenceKey(at) !== transientPlan.anchorKey)
+          || effectiveTime >= transientPlan.range.end + 0.2;
+        if (gapPassed) {
           set({ currentSentence: at });
           if (sentenceLoop) {
             beginSentencePlan(sentenceLoop, true);
@@ -1041,13 +1066,13 @@ export const usePlayer = create<PlayerState>((set, get) => {
    * @param seekToStart 是否 seek 到循环区间开头（开启模式/续接新锚点句时需要；
    *                    句间续接时 nextSentence 已定位到下一句开头，传 false 避免重复 seek）
    */
-  const beginSentencePlan = (mode: { times: number; rates?: number[]; prevRate: number }, seekToStart: boolean) => {
-    const state = get();
-    const { srtTender, virtualGroup } = state;
-    if (!srtTender) return;
-    const focus = state.currentSentence ?? getFocusedSentence();
-    if (!focus || mode.times < 1) return;
-
+  /**
+   * 解析瞬态计划的循环单元与区间：虚拟组优先，其次意群块，最后单句。
+   * beginSentencePlan 与 patchSentenceInStore（锚点句边界被调整时）共用，保证两处口径一致。
+   */
+  const resolvePlanRange = (focus: Sentence): { anchor: Sentence; range: Range } => {
+    const { srtTender, virtualGroup } = get();
+    if (!srtTender) return { anchor: focus, range: { start: 0, end: 0 } };
     let anchor = focus;
     let range = srtTender.mapSeekTime(focus);
     if (virtualGroup.active && virtualGroup.sentences.length > 0 && isFocusInVirtualGroup()) {
@@ -1065,6 +1090,17 @@ export const usePlayer = create<PlayerState>((set, get) => {
         range = calcRangeForSentences(srtTender, block.sentences);
       }
     }
+    return { anchor, range };
+  };
+
+  const beginSentencePlan = (mode: { times: number; rates?: number[]; prevRate: number }, seekToStart: boolean) => {
+    const state = get();
+    const { srtTender } = state;
+    if (!srtTender) return;
+    const focus = state.currentSentence ?? getFocusedSentence();
+    if (!focus || mode.times < 1) return;
+
+    const { anchor, range } = resolvePlanRange(focus);
 
     set((prev) => ({
       activePlan: {
@@ -1171,6 +1207,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
         playbackStallCount: 0,
         shadowingPause: null,
         activePlan: null,
+        // 旧视频的高亮句不能带进新视频：字幕异步解析完成前 UI 不得停留在旧句上
+        currentSentence: null,
         virtualGroup: { active: false, sentences: [] },
         internal: {
           exactPlayTime: 0,
@@ -1188,6 +1226,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
     loadSubtitles: (sentences, tender) => {
       clearTransientPlan();
       clearClipStopBound(false);
+      // 与 clearSubtitles 对称：换字幕意味着影子留白契约同样作废，
+      // 否则留白定时器到期回调会在新字幕上自动跳句/起播。
+      clearShadowTimer();
       shadowedSentenceKey = null;
       // 换字幕/换视频意味着上一轮的 seek 契约全部作废，否则残留的在途标记会一直挡住时间驱动
       if (currentLockTimer) { clearTimeout(currentLockTimer); currentLockTimer = null; }
@@ -1208,42 +1249,6 @@ export const usePlayer = create<PlayerState>((set, get) => {
           timeOverride: null,
           currentLock: null,
           indexing // 构建索引
-        }
-      }));
-    },
-
-    /**
-     * 转录进行中的增量字幕合并入口：只刷新句子列表与位置索引，保留全部播放期状态。
-     *
-     * 与 loadSubtitles 的区别是语义而非性能：loadSubtitles 代表"换字幕/换视频，一切重来"，
-     * 会清空瞬态播放计划、虚拟组与影子跟读留白记录。转录期间每完成一个音频块就会推送一次，
-     * 若走那条路径，逐句循环的遍数、每遍倍速与循环进度会被反复重置，播放位置也会被拉回句首。
-     * 因此这里只更新句子列表与索引，不触碰计划/虚拟组/倍速等播放期状态。
-     *
-     * @param sentences 到目前为止的全部句子；同一转录会话内只做追加，长度单调不减
-     */
-    mergeSubtitles: (sentences) => {
-      if (sentences.length === 0) return;
-      const prev = get();
-      // 换了转录会话：句子身份与编号体系都变了，旧句不可复用，按重新加载处理
-      if (prev.sentences.length > 0 && prev.sentences[0].fileHash !== sentences[0].fileHash) {
-        get().loadSubtitles(sentences);
-        return;
-      }
-      // 同一会话内后端只追加已完成块，长度不增说明本次推送没带来新句子，无需重建
-      if (sentences.length <= prev.sentences.length) return;
-
-      const srt = new SrtTenderImpl(sentences);
-      const indexing = buildIndexingCache(sentences);
-      // 已有高亮句保持不变；尚未定位过高亮时才按播放时间补一次
-      const currentSentence = prev.currentSentence ?? pickSentenceAtTime(srt, sentences, prev.internal.exactPlayTime);
-      set((state) => ({
-        srtTender: srt,
-        sentences,
-        currentSentence,
-        internal: {
-          ...state.internal,
-          indexing
         }
       }));
     },
@@ -1519,6 +1524,15 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     // 时间同步
     updateExactPlayTime: (currentTime: number) => {
+      // 记录采样间隔（EMA 平滑），供 reachedLoopEnd 的动态提前量感知前台/后台采样粒度
+      const now = Date.now();
+      if (lastSampleTs > 0) {
+        const dt = now - lastSampleTs;
+        if (dt > 0 && dt < 2000) {
+          sampleIntervalMs = sampleIntervalMs * 0.7 + dt * 0.3;
+        }
+      }
+      lastSampleTs = now;
       set((prev) => ({
         internal: { ...prev.internal, exactPlayTime: currentTime }
       }));
@@ -1893,7 +1907,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
           tailPreview: {
             active: true,
             untilTs: Date.now() + previewMs,
-            returnTarget: updated
+            returnTarget: updated,
+            resumePlaying: state.playing,
           }
         }
       }));
