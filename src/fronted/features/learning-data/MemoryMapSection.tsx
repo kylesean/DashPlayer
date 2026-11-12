@@ -30,6 +30,26 @@ export interface MemoryMapSectionProps {
 const STATUS_ORDER: readonly WordStatus[] = ['learning', 'familiar', 'known', 'ignored'];
 
 /**
+ * 主题显示名。
+ *
+ * 优先用视频文件名；没有文件名时用本地关键词拼一个可读的临时名字，
+ * 仍然没有关键词才退回「未命名内容」。这里不生成假标题：关键词本身
+ * 就是「这组词为什么在一起」的证据。
+ */
+const topicLabel = (
+    topic: { label: string | null; keywords?: string[] },
+    t: (key: string, options?: Record<string, unknown>) => string,
+): string => {
+    if (topic.label) {
+        return topic.label;
+    }
+    if (topic.keywords && topic.keywords.length > 0) {
+        return t('keywordTopic', { words: topic.keywords.slice(0, 2).join(' · ') });
+    }
+    return t('untitledTopic');
+};
+
+/**
  * 个人记忆图谱：按真实视频主题聚合词，并按记忆阶段分带。
  *
  * 只读取本地数据；没有词时整段隐藏，避免空面板噪声。
@@ -100,7 +120,8 @@ export default function MemoryMapSection({ onSelectWord, onStartTopicQueue }: Me
                             {topics.map((topic) => (
                                 <TopicCard
                                     key={topic.key}
-                                    label={topic.label ?? t('untitledTopic')}
+                                    label={topicLabel(topic, t)}
+                                    keywords={topic.keywords}
                                     counts={topic.counts}
                                     words={topic.words}
                                     onSelectWord={onSelectWord}
@@ -130,6 +151,7 @@ export default function MemoryMapSection({ onSelectWord, onStartTopicQueue }: Me
  */
 function TopicCard({
     label,
+    keywords,
     counts,
     words,
     onSelectWord,
@@ -137,6 +159,7 @@ function TopicCard({
     hint,
 }: {
     label: string;
+    keywords?: string[];
     counts: Record<WordStatus, number>;
     words: MemoryMapWordVO[];
     onSelectWord: (word: string) => void;
@@ -166,6 +189,11 @@ function TopicCard({
             {hint && (
                 <Text type="supporting" color="secondary" className="mt-0.5">
                     {hint}
+                </Text>
+            )}
+            {keywords && keywords.length > 0 && (
+                <Text type="supporting" color="secondary" className="mt-0.5">
+                    {t('topicKeywords', { words: keywords.join(' · ') })}
                 </Text>
             )}
             <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-muted/50">

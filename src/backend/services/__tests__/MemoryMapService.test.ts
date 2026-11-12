@@ -173,4 +173,35 @@ describe('MemoryMapService', () => {
         expect(map.topics).toHaveLength(1);
         expect(map.looseWords).toBeNull();
     });
+
+    it('从真实字幕推导主题关键词，供无文件名时命名', async () => {
+        const service = buildService({
+            words: [word({ word: 'journey' }), word({ word: 'kitchen' })],
+            encounters: [
+                encounter({ lemma: 'journey', fileHash: 's1', context: 'It was a long journey home.' }),
+                encounter({ lemma: 'journey', fileHash: 's1', context: 'The journey took twelve hours.' }),
+                encounter({ lemma: 'kitchen', fileHash: 's2', context: 'She chopped onions in the kitchen.' }),
+                encounter({ lemma: 'kitchen', fileHash: 's2', context: 'The kitchen smelled of garlic.' }),
+            ],
+        });
+
+        const map = await service.getMap({});
+        const byKey = new Map(map.topics.map((topic) => [topic.key, topic]));
+
+        expect(byKey.get('subtitle:s1')?.keywords).toContain('journey');
+        expect(byKey.get('subtitle:s2')?.keywords).toContain('kitchen');
+        // 关键词不能跨主题串味。
+        expect(byKey.get('subtitle:s1')?.keywords).not.toContain('kitchen');
+    });
+
+    it('没有语境文本时不编造关键词', async () => {
+        const service = buildService({
+            words: [word({ word: 'journey' })],
+            encounters: [encounter({ lemma: 'journey', videoId: 'video-1' })],
+            records: [{ id: 'video-1', file_name: 'one.mp4' }],
+        });
+
+        const map = await service.getMap({});
+        expect(map.topics[0].keywords).toBeUndefined();
+    });
 });

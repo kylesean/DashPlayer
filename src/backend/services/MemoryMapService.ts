@@ -9,6 +9,7 @@ import {
     buildMemoryTopic,
     normalizeTopicLabel,
 } from '@/common/learning/memoryMap';
+import { extractTopicKeywords } from '@/common/learning/topicKeywords';
 import { isActiveWordStatus } from '@/common/types/vocabulary';
 import type {
     MemoryMapParams,
@@ -89,6 +90,8 @@ export class MemoryMapServiceImpl implements MemoryMapService {
             label: string | null;
             words: Map<string, MemoryMapWordVO>;
             lastSeenAt: string;
+            /** 该主题下出现过的真实句子，用于推导关键词。 */
+            contexts: string[];
         }>();
         const looseWords = new Map<string, MemoryMapWordVO>();
 
@@ -111,7 +114,11 @@ export class MemoryMapServiceImpl implements MemoryMapService {
                         : null,
                     words: new Map<string, MemoryMapWordVO>(),
                     lastSeenAt: encounter.created_at,
+                    contexts: [],
                 };
+                if (encounter.context) {
+                    topic.contexts.push(encounter.context);
+                }
                 topic.lastSeenAt = topic.lastSeenAt > encounter.created_at
                     ? topic.lastSeenAt
                     : encounter.created_at;
@@ -141,18 +148,26 @@ export class MemoryMapServiceImpl implements MemoryMapService {
             });
         }
 
-        const topics = Array.from(byTopic.entries())
-            .map(([key, topic]) => ({
-                topic,
-                value: buildMemoryTopic({
-                    key,
-                    label: topic.label,
-                    words: Array.from(topic.words.values()),
-                }),
-            }))
-            .sort((left, right) => right.topic.lastSeenAt.localeCompare(left.topic.lastSeenAt))
-            .slice(0, limit)
-            .map((entry) => entry.value);
+        // 关键词只对最终展示的主题计算：被 limit 截掉的簇不参与 IDF，
+        // 否则用户没看到的主题会影响可见主题的关键词排序。
+        const visibleTopics = Array.from(byTopic.entries())
+            .sort((left, right) => right[1].lastSeenAt.localeCompare(left[1].lastSeenAt))
+            .slice(0, limit);
+        const keywordMap = extractTopicKeywords(
+            visibleTopics.map(([key, topic]) => ({ key, texts: topic.contexts })),
+        );
+        const topics = visibleTopics.map(([key, topic]) => {
+            const value = buildMemoryTopic({
+                key,
+                label: topic.label,
+                words: Array.from(topic.words.values()),
+            });
+            const keywords = keywordMap.get(key);
+            if (keywords && keywords.length > 0) {
+                value.keywords = keywords;
+            }
+            return value;
+        });
 
         const loose = looseWords.size > 0
             ? buildMemoryTopic({

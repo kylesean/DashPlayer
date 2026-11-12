@@ -18,6 +18,14 @@ export interface MemoryMapTopicVO {
     counts: Record<WordStatus, number>;
     /** 该主题下最值得复习的词，最多 8 个。 */
     words: MemoryMapWordVO[];
+    /**
+     * 由该主题真实字幕推导出的关键词，最多 3 个。
+     *
+     * 用途是给「未命名内容」一个可解释的临时名字：主题名优先取视频文件名，
+     * 没有文件名时用关键词说明这组词为什么被放在一起。关键词不是模型生成的
+     * 主题标题，只是本主题高频且能区别于其它主题的词。
+     */
+    keywords?: string[];
 }
 
 /** 图谱中的一个词。 */

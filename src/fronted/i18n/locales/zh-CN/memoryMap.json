@@ -14,5 +14,7 @@
     "viewCards": "主题卡",
     "viewGraph": "关系图",
     "graphLabel": "词与词共现关系图",
-    "graphHint": "点按任意词可查看它的片段；连线表示这些词在同一句字幕里一起出现过。"
+    "graphHint": "点按任意词可查看它的片段；连线表示这些词在同一句字幕里一起出现过。",
+    "keywordTopic": "围绕「{{words}}」",
+    "topicKeywords": "这个主题常出现：{{words}}"
 }

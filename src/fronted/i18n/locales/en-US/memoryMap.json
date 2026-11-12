@@ -14,5 +14,7 @@
     "viewCards": "Topics",
     "viewGraph": "Relations",
     "graphLabel": "Word co-occurrence graph",
-    "graphHint": "Select a word to see its clips. A line means those words appeared in the same subtitle line."
+    "graphHint": "Select a word to see its clips. A line means those words appeared in the same subtitle line.",
+    "keywordTopic": "Around “{{words}}”",
+    "topicKeywords": "Recurring in this topic: {{words}}"
 }
