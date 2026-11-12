@@ -8,7 +8,6 @@ import {
     segmentScenes,
     type SceneBoundary,
     type SceneSentence,
-    type SpeakerInterval,
 } from '@/common/learning/sceneSegmentation';
 import { sceneInputHash } from '@/common/learning/sceneIndexKey';
 import type SpeakerDiarizationService from '@/backend/services/SpeakerDiarizationService';
@@ -70,20 +69,20 @@ export class SceneIndexServiceImpl implements SceneIndexService {
         if (sentences.length < 2) {
             return [];
         }
-        // 声纹分离是可选增强：模型未安装或视频无音轨时返回 null，
-        // 此时退回纯文本启发式，而不是让场景提示整体不可用。
-        const speakerIntervals: SpeakerInterval[] | null = videoPath
-            ? await this.speakerDiarization.getIntervals(videoPath)
-            : null;
-        // 画面切分同样可选：多模态投影未安装时返回 null，不影响其他信号。
-        const visualBoundaries = videoPath
-            ? await this.visualScene.getBoundaries(videoPath, sentences)
-            : null;
+        // 三类视频信号互不依赖，并发获取：串行等待会让首次进入某部视频的
+        // 冷启动时间等于三者之和，而它们各自失败都只意味着降级。
+        //
+        // 声纹分离是可选增强：模型未安装或视频无音轨时返回 null，此时退回
+        // 纯文本启发式；画面切分在多模态投影未安装时同样返回 null；语音韵律
+        // 在无音轨或解码失败时返回 null。三者都不影响其他信号。
+        const [speakerIntervals, visualBoundaries, prosodyShifts] = videoPath
+            ? await Promise.all([
+                this.speakerDiarization.getIntervals(videoPath),
+                this.visualScene.getBoundaries(videoPath, sentences),
+                this.prosodySignal.getShifts(videoPath, sentences),
+            ])
+            : [null, null, null];
         const visualShifts = visualBoundaries?.map((boundary) => boundary.atSec) ?? [];
-        // 语音韵律同样可选：视频无音轨或解码失败时返回 null，不影响其他信号。
-        const prosodyShifts = videoPath
-            ? await this.prosodySignal.getShifts(videoPath, sentences)
-            : null;
         const segmentOptions = {
             ...(speakerIntervals ? { speakerIntervals } : {}),
             ...(visualShifts.length > 0 ? { visualShifts } : {}),

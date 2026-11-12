@@ -51,7 +51,9 @@ export class EnergyEnvelopeBuilder {
         private readonly sampleRate: number,
         private readonly bucketSec: number = PROSODY_ENVELOPE_SEC,
     ) {
-        this.bucketLength = Math.max(1, Math.round(sampleRate * bucketSec));
+        const seconds = Number.isFinite(bucketSec) && bucketSec > 0 ? bucketSec : PROSODY_ENVELOPE_SEC;
+        const rate = Number.isFinite(sampleRate) && sampleRate > 0 ? sampleRate : 16000;
+        this.bucketLength = Math.max(1, Math.round(rate * seconds));
     }
 
     /**
