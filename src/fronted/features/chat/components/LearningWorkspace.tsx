@@ -84,7 +84,7 @@ const SECTION_TITLE = 'text-metadata font-semibold uppercase tracking-wider text
  */
 const PHRASE_GROUP_MARKS = [
     '[text-decoration-color:var(--color-border-blue)]',
-    '[text-decoration-color:var(--color-border-amber)]',
+    '[text-decoration-color:var(--color-border-yellow)]',
     '[text-decoration-color:var(--color-border-green)]',
     '[text-decoration-color:var(--color-border-purple)]',
     '[text-decoration-color:var(--color-border-pink)]',

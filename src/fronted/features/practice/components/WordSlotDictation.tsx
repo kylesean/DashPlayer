@@ -35,7 +35,7 @@ interface WordSlotDictationProps {
  * - 按词展示下划线槽位 + 保留只读标点骨架；
  * - 敲完一词按空格：拼对则变绿锁定并跳向下一空槽；有误则保留橙色草稿并顺滑跳向下一空槽（不卡死听写流）；
  * - 空槽按空格可跳过当前未听清的词；`Backspace` 可退回修改上一词；
- * - `/` 提示当前词下一字母；按住 `\` 临时透视参考；`Tab` / `Shift+Tab` 重播原音与 0.75× 慢听。
+ * - `/` 提示当前词下一字母；按住 `\` 临时透视参考；`Alt+R` / `Alt+Shift+R` 重播原音与 0.75× 慢听。
  */
 export default function WordSlotDictation({
     unit,
@@ -218,7 +218,7 @@ export default function WordSlotDictation({
     }
 
     const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-        if (e.key === 'Tab') {
+        if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             if (e.shiftKey) onSlowReplay();
             else onReplay();
@@ -414,8 +414,8 @@ export default function WordSlotDictation({
                                     : hasDraftMismatch
                                         ? 'border-b-2 border-warning/75 text-warning-text bg-warning-muted/50'
                                         : draft.length > 0
-                                            ? 'border-b-2 border-border-emphasized text-foreground bg-muted/40'
-                                            : 'border-b-2 border-border/80 text-muted-foreground/60 hover:border-border-emphasized',
+                                            ? 'border-b-2 border-input text-foreground bg-muted/40'
+                                            : 'border-b-2 border-border/80 text-muted-foreground/60 hover:border-input',
                             )}
                         >
                             {isLocked ? (

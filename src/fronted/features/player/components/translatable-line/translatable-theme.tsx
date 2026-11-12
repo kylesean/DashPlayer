@@ -26,7 +26,7 @@ export interface TransLineTheme {
 const defaultTheme: TransLineTheme = {
   container: [
     'flex justify-between items-start rounded-xl mx-10 mt-2.5 z-50',
-    'bg-surface text-primary border border-default shadow-xs'
+    'bg-surface text-primary border border-border shadow-xs'
   ].join(' '),
   leftIcon: 'w-10 m-2.5 h-10 flex-shrink-0',
   rightIcon: 'w-10 h-full flex items-end justify-center pb-2 flex-shrink-0',

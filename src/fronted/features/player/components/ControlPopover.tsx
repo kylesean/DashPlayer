@@ -20,7 +20,7 @@ import { cn } from '@/fronted/lib/utils';
  * 开启保留 150ms 淡入；关闭由原生 popover 即时移除，不会出现「旧菜单渐隐 + 新菜单渐显」同屏。
  */
 export const CONTROL_POPOVER_PANEL =
-    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-default text-primary shadow-2xl rounded-2xl [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)] animate-in fade-in-0 zoom-in-95 duration-150';
+    'p-2 outline-none bg-surface/95 backdrop-blur-xl border border-border text-primary shadow-2xl rounded-2xl [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)] animate-in fade-in-0 zoom-in-95 duration-150';
 
 /** 弹窗内的分组标题。 */
 export const CONTROL_POPOVER_LABEL = 'px-2 py-1.5 text-sm font-semibold text-secondary';
