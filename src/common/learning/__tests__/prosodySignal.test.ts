@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     analyzeSentenceProsody,
+    EnergyEnvelopeBuilder,
     analyzeSentencesProsody,
     buildEnergyEnvelope,
     detectProsodyShifts,
@@ -56,6 +57,28 @@ describe('buildEnergyEnvelope', () => {
     it('样本不足一格时返回空数组', () => {
         const samples = synth([0.01]);
         expect(buildEnergyEnvelope({ samples, sampleRate: 16000, bucketSec: 0.1 })).toEqual([]);
+    });
+});
+
+describe('EnergyEnvelopeBuilder', () => {
+    it('分块喂入与整段喂入结果完全一致', () => {
+        const samples = synth([0.7, -0.3, 0.9]);
+        const whole = buildEnergyEnvelope({ samples, sampleRate: 16000, bucketSec: 0.1 });
+
+        const builder = new EnergyEnvelopeBuilder(16000, 0.1);
+        // 故意用不整除桶长的块大小（7 个采样），强制跨块拼接。
+        for (let offset = 0; offset < samples.length; offset += 7) {
+            builder.push(samples.subarray(offset, offset + 7));
+        }
+
+        expect(builder.finish()).toEqual(whole);
+    });
+
+    it('非法采样率或分辨率时退回安全默认值，不产生无限桶长', () => {
+        const builder = new EnergyEnvelopeBuilder(0, 0);
+        builder.push(new Int16Array(16000).fill(16000));
+        // 退回 16kHz / 0.1 秒 = 1600 采样一桶，1 秒应得 10 格。
+        expect(builder.finish()).toHaveLength(10);
     });
 });
 

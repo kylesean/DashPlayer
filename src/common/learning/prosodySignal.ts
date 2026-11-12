@@ -62,10 +62,20 @@ export class EnergyEnvelopeBuilder {
      * @param samples 采样；跨块边界的桶会被正确接续。
      */
     public push(samples: Int16Array): void {
-        for (const raw of samples) {
-            const sample = raw / 32768;
-            this.bucketSum += sample * sample;
-            this.bucketSamples += 1;
+        let index = 0;
+        while (index < samples.length) {
+            // 按「装满当前桶还差多少」分段，而不是每样本判断一次：
+            // 两小时素材有上亿个采样，逐样本分支的成本不可忽略。
+            const take = Math.min(this.bucketLength - this.bucketSamples, samples.length - index);
+            const end = index + take;
+            let sum = this.bucketSum;
+            for (let cursor = index; cursor < end; cursor += 1) {
+                const sample = samples[cursor] / 32768;
+                sum += sample * sample;
+            }
+            this.bucketSum = sum;
+            this.bucketSamples += take;
+            index = end;
             if (this.bucketSamples >= this.bucketLength) {
                 this.flushBucket();
             }
