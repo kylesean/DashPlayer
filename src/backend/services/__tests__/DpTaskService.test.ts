@@ -170,3 +170,79 @@ describe('后台任务保留策略', () => {
         expect(detail?.result).toBe('{"ok":true}');
     });
 });
+
+/**
+ * 终态守卫与 cache-miss 读路径测试。
+ *
+ * 背景：迟到的 onProgress（clearInterval 后仍在飞的 getStatus().then）曾把
+ * CANCELLED 覆写回 IN_PROGRESS；重启恢复的遗留任务不在 cache 里，
+ * notify→detail 走 DB 读只能拿到 300ms 防抖窗口前的旧状态。
+ */
+describe('任务状态终态守卫与 cache-miss 读路径', () => {
+    let memoryDb: MemoryDb;
+    let repository: DpTaskRepositoryImpl;
+    let service: DpTaskServiceImpl;
+
+    beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(BASE_TIME);
+        memoryDb = createMemoryDb();
+        repository = new DpTaskRepositoryImpl(memoryDb.db);
+        service = new DpTaskServiceImpl({
+            dpTaskUpdate: vi.fn(),
+            storeUpdate: vi.fn(),
+            windowStateUpdate: vi.fn(),
+            error: vi.fn(),
+            info: vi.fn(),
+        } as unknown as RendererEvents, repository);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+        memoryDb.close();
+        vi.restoreAllMocks();
+    });
+
+    it('已终态的任务拒绝被非终态更新复活', async () => {
+        const taskId = await service.create();
+        service.update({ id: taskId, status: DpTaskState.CANCELLED, progress: '任务取消' });
+
+        // 迟到的进度回调试图把任务拉回进行中
+        service.process(taskId, { progress: '下载中 80%' });
+
+        const detail = await service.detail(taskId);
+        expect(detail?.status).toBe(DpTaskState.CANCELLED);
+        expect(detail?.progress).toBe('任务取消');
+    });
+
+    it('终态 → 终态的重复收尾幂等放行', async () => {
+        const taskId = await service.create();
+        service.update({ id: taskId, status: DpTaskState.CANCELLED, progress: '任务取消' });
+        // 取消链路的第二处 CANCELLED 写入（checkCancel 与 catch 双写）必须不报错
+        service.update({ id: taskId, status: DpTaskState.CANCELLED, progress: '任务取消' });
+
+        const detail = await service.detail(taskId);
+        expect(detail?.status).toBe(DpTaskState.CANCELLED);
+    });
+
+    it('cache miss 时 detail 把未落库增量合并到 DB 行上', async () => {
+        // 直接插库（不经 service.create），模拟重启恢复的遗留任务：不在 cache 里
+        const stamp = TimeUtil.dateToUtc(new Date(BASE_TIME.getTime() - 1000));
+        const [row] = await memoryDb.db.insert(dpTask).values({
+            status: DpTaskState.IN_PROGRESS,
+            progress: '下载中 10%',
+            created_at: stamp,
+            updated_at: stamp,
+        }).returning();
+
+        // 非终态增量走 300ms 防抖，尚未落库
+        service.update({ id: row.id, status: DpTaskState.IN_PROGRESS, progress: '下载中 80%' });
+
+        // detail 必须返回合并后的最新状态；DB 行仍是旧值（防抖未到期）
+        const detail = await service.detail(row.id);
+        expect(detail?.status).toBe(DpTaskState.IN_PROGRESS);
+        expect(detail?.progress).toBe('下载中 80%');
+        const dbRow = await repository.findById(row.id);
+        expect(dbRow?.progress).toBe('下载中 10%');
+    });
+});

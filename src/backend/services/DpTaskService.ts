@@ -131,7 +131,18 @@ export class DpTaskServiceImpl implements DpTaskService {
             }
         }
 
-        return await this.dpTaskRepository.findById(id);
+        // cache miss（重启恢复的遗留任务）从 DB 读出后必须叠加尚未落库的增量：
+        // notify 先于 300ms 防抖落库，直接返回 DB 行会让渲染端收到旧状态
+        // （终态推送读到 CANCELLED 之前的值且无重推纠正）。
+        const dbTask = await this.dpTaskRepository.findById(id);
+        if (!dbTask) {
+            return null;
+        }
+        const pending = this.pendingUpdates.get(id);
+        if (pending) {
+            return this.toDpTask({ ...dbTask, ...pending });
+        }
+        return dbTask;
     }
 
     /**
@@ -183,6 +194,18 @@ export class DpTaskServiceImpl implements DpTaskService {
      */
     public update(task: DpTaskUpdate): void {
         if (task.id === undefined || task.id === null) {
+            return;
+        }
+        // 终态守卫：已终态的任务拒绝被非终态状态复活。迟到的 onProgress（如
+        // clearInterval 后仍在飞的 getStatus().then）会把 CANCELLED/FAILED 覆写回
+        // IN_PROGRESS，渲染端任务卡片随之回跳。终态 → 终态（如取消的双写收尾）幂等放行。
+        const cached = this.cache.get(task.id);
+        if (cached && this.isFinalState(cached.status) && !this.isFinalState(task.status)) {
+            this.logger.warn('ignored non-terminal update for finalized task', {
+                taskId: task.id,
+                cachedStatus: cached.status,
+                incoming: task.status,
+            });
             return;
         }
         const isFinal = this.isFinalState(task.status);
@@ -291,6 +314,17 @@ export class DpTaskServiceImpl implements DpTaskService {
         }
         this.logger.info('task cancel requested', { taskId: id });
         this.cancelQueue.add(id);
+        if (!cached) {
+            // cache miss（重启恢复的遗留任务）：异步核对 DB 终态，已终态的从队列剔除，
+            // 否则 cancelQueue 会留下永远无法被清理逻辑判定的泄漏条目。
+            void this.dpTaskRepository.findById(id)
+                .then((dbTask) => {
+                    if (dbTask && isTerminalDpTaskState(dbTask.status)) {
+                        this.cancelQueue.delete(id);
+                    }
+                })
+                .catch(() => undefined);
+        }
         const cancelable = this.taskMapping.get(id);
         if (cancelable) {
             cancelable.forEach(c => {
