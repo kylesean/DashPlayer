@@ -70,8 +70,8 @@ export interface SentenceStudyCanvasProps {
 const MEMORY_LABEL_CLASS: Record<NonNullable<SentenceWordEntry['memoryTag']>, { label: string; className: string }> = {
     due: { label: '待复习', className: 'text-warning-text' },
     learning: { label: '在学', className: 'text-accent' },
-    lookup: { label: '常查', className: 'text-muted-foreground' },
-    new: { label: '重点', className: 'text-muted-foreground' },
+    lookup: { label: '常查', className: 'text-secondary' },
+    new: { label: '重点', className: 'text-secondary' },
 };
 
 const splitSentenceTokens = (text: string): Array<{ text: string; lookupKey: string | null }> => {
@@ -132,7 +132,7 @@ export default function SentenceStudyCanvas({
     const subtext = analysis?.sentenceLens?.subtext?.trim();
 
     return (
-        <div className="flex h-full w-full flex-col overflow-hidden bg-background">
+        <div className="flex h-full w-full flex-col overflow-hidden bg-body">
             {/* 顶部微画中画 + 舒展的音频条 */}
             <div className="shrink-0 border-b border-border/45 bg-surface/35 px-4 pt-3 pb-2.5">
                 {!miniVideoCollapsed && (
@@ -144,7 +144,7 @@ export default function SentenceStudyCanvas({
                 )}
 
                 {previewingEvidenceIndex !== null && (
-                    <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-accent/10 px-2.5 py-1 text-sm">
+                    <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-accent-bg/10 px-2.5 py-1 text-sm">
                         <span className="font-medium text-accent">
                             {t('learning.previewingEvidenceShort', { index: previewingEvidenceIndex + 1 })}
                         </span>
@@ -198,9 +198,9 @@ export default function SentenceStudyCanvas({
             {/* 可滚动精读主体 */}
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">
                 {/* Sticky 锁定主句 */}
-                <section className="sticky top-0 z-10 -mx-4 border-b border-border/45 bg-background/95 px-4 pt-3 pb-3 backdrop-blur-md">
+                <section className="sticky top-0 z-10 -mx-4 border-b border-border/45 bg-body/95 px-4 pt-3 pb-3 backdrop-blur-md">
                     <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="text-metadata font-mono text-muted-foreground">
+                        <span className="text-metadata font-mono text-secondary">
                             {sentence.position}
                         </span>
                         {neighbors.length > 1 && (
@@ -219,7 +219,7 @@ export default function SentenceStudyCanvas({
                             {neighbors.map((line) => (
                                 <p
                                     key={line.index}
-                                    className={cn(line.isCurrent ? 'font-medium text-foreground' : 'text-muted-foreground/75')}
+                                    className={cn(line.isCurrent ? 'font-medium text-primary' : 'text-secondary/75')}
                                 >
                                     <span className="mr-1.5 font-mono text-metadata opacity-60">#{line.index + 1}</span>
                                     {line.text}
@@ -228,7 +228,7 @@ export default function SentenceStudyCanvas({
                         </div>
                     )}
 
-                    <p className="text-lg font-semibold leading-relaxed tracking-tight text-foreground select-text">
+                    <p className="text-lg font-semibold leading-relaxed tracking-tight text-primary select-text">
                         {splitSentenceTokens(sentence.en).map((tok, idx) => {
                             const detail = tok.lookupKey ? resolveWordDetail(tok.lookupKey) : null;
                             if (!detail) {
@@ -243,9 +243,9 @@ export default function SentenceStudyCanvas({
                                     className={cn(
                                         'mx-px inline rounded px-0.5 transition-colors cursor-pointer underline decoration-dotted underline-offset-4',
                                         isPicked
-                                            ? 'bg-accent/20 text-foreground decoration-accent'
+                                            ? 'bg-accent-bg/20 text-primary decoration-accent'
                                             : detail.memoryTag && detail.memoryTag !== 'new'
-                                                ? 'decoration-accent/70 hover:bg-accent/10'
+                                                ? 'decoration-accent/70 hover:bg-accent-bg/10'
                                                 : 'decoration-border/80 hover:bg-muted/60',
                                     )}
                                 >
@@ -256,14 +256,14 @@ export default function SentenceStudyCanvas({
                     </p>
 
                     {sentence.zh && (
-                        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground select-text">
+                        <p className="mt-1.5 text-sm leading-relaxed text-secondary select-text">
                             {sentence.zh}
                         </p>
                     )}
 
                     {/* 意群拆分采用轻巧斜线分隔排版，避免一串椭圆遮挡视线 */}
                     {chunks.length > 0 && (
-                        <p className="mt-2 text-metadata leading-relaxed text-muted-foreground/90">
+                        <p className="mt-2 text-metadata leading-relaxed text-secondary/90">
                             {chunks.map((chunk, index) => (
                                 <span key={`${chunk}-${index}`}>
                                     {index > 0 && <span className="mx-1.5 text-border">/</span>}
@@ -277,9 +277,9 @@ export default function SentenceStudyCanvas({
                         <div className="mt-2.5 flex items-start justify-between gap-2 border-t border-border/40 pt-2.5">
                             <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-base font-semibold text-foreground">{activeDetail.word}</span>
+                                    <span className="text-base font-semibold text-primary">{activeDetail.word}</span>
                                     {activeDetail.phonetic && (
-                                        <span className="text-metadata font-mono text-muted-foreground">/{activeDetail.phonetic}/</span>
+                                        <span className="text-metadata font-mono text-secondary">/{activeDetail.phonetic}/</span>
                                     )}
                                     {activeDetail.memoryTag && activeDetail.memoryTag !== 'new' && (
                                         <span className={cn('text-metadata font-medium', MEMORY_LABEL_CLASS[activeDetail.memoryTag].className)}>
@@ -287,7 +287,7 @@ export default function SentenceStudyCanvas({
                                         </span>
                                     )}
                                 </div>
-                                <p className="mt-0.5 text-sm text-muted-foreground leading-snug">{activeDetail.meaning}</p>
+                                <p className="mt-0.5 text-sm text-secondary leading-snug">{activeDetail.meaning}</p>
                             </div>
                             <HStack gap={0.5} vAlign="center">
                                 <IconButton
@@ -356,7 +356,7 @@ export default function SentenceStudyCanvas({
                         </div>
 
                         {analysisStatus === 'idle' && focalPoints.length === 0 && !structureInsight && (
-                            <div className="flex items-center justify-between gap-3 py-2 text-sm text-muted-foreground">
+                            <div className="flex items-center justify-between gap-3 py-2 text-sm text-secondary">
                                 <span>{cloudAvailable ? t('learning.studyIdleCompact') : t('learning.aiOfflineCompact')}</span>
                                 {sessionReady && cloudAvailable && (
                                     <Button
@@ -371,7 +371,7 @@ export default function SentenceStudyCanvas({
                         )}
 
                         {analysisStatus === 'aborted' && (
-                            <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/40 p-2.5 text-sm text-muted-foreground">
+                            <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/40 p-2.5 text-sm text-secondary">
                                 <span>
                                     {t('learning.analysisAborted')}
                                     {focalPoints.length > 0 || structureInsight
@@ -410,7 +410,7 @@ export default function SentenceStudyCanvas({
                                     <Card key={`${fp.expression ?? idx}`} variant="muted" padding={3}>
                                         <div className="flex items-center justify-between gap-2">
                                             <div className="flex flex-wrap items-center gap-2">
-                                                <span className="text-base font-semibold text-foreground">{fp.expression}</span>
+                                                <span className="text-base font-semibold text-primary">{fp.expression}</span>
                                                 {fp.tag && (
                                                     <span className="text-metadata font-medium text-accent">{fp.tag}</span>
                                                 )}
@@ -436,7 +436,7 @@ export default function SentenceStudyCanvas({
                                             )}
                                         </div>
                                         {fp.coreImage && (
-                                            <p className="mt-1.5 text-sm leading-relaxed text-foreground/90">
+                                            <p className="mt-1.5 text-sm leading-relaxed text-primary/90">
                                                 <span className="mr-1.5 font-semibold text-accent">
                                                     {t('learning.physicalImageShort')}
                                                 </span>
@@ -444,7 +444,7 @@ export default function SentenceStudyCanvas({
                                             </p>
                                         )}
                                         {fp.meaningInContext && (
-                                            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                                            <p className="mt-1 text-sm leading-relaxed text-secondary">
                                                 {fp.meaningInContext}
                                             </p>
                                         )}
@@ -468,8 +468,8 @@ export default function SentenceStudyCanvas({
                                         onClick={() => onPlayOriginal(0.75)}
                                         className="flex w-full items-baseline justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-muted/45 transition-colors cursor-pointer"
                                     >
-                                        <span className="font-mono text-sm font-semibold text-foreground">{cue.span}</span>
-                                        <span className="flex-1 text-sm text-muted-foreground">
+                                        <span className="font-mono text-sm font-semibold text-primary">{cue.span}</span>
+                                        <span className="flex-1 text-sm text-secondary">
                                             {cue.phenomenon ? `[${cue.phenomenon}] ` : ''}{cue.tip}
                                         </span>
                                     </button>
@@ -480,14 +480,14 @@ export default function SentenceStudyCanvas({
                         {(structureInsight || subtext) && (
                             <div className="mt-3 space-y-1.5 border-t border-border/35 pt-3 text-sm leading-relaxed">
                                 {structureInsight && (
-                                    <p className="text-foreground/90">
+                                    <p className="text-primary/90">
                                         <span className="mr-1.5 font-semibold text-accent">{t('learning.framingShort')}</span>
                                         {structureInsight}
                                     </p>
                                 )}
                                 {subtext && (
-                                    <p className="text-muted-foreground">
-                                        <span className="mr-1.5 font-semibold text-foreground/75">{t('learning.subtextShort')}</span>
+                                    <p className="text-secondary">
+                                        <span className="mr-1.5 font-semibold text-primary/75">{t('learning.subtextShort')}</span>
                                         {subtext}
                                     </p>
                                 )}
@@ -511,9 +511,9 @@ export default function SentenceStudyCanvas({
                                         <div key={item.word} className="flex items-start justify-between gap-2 py-2">
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <span className="text-base font-semibold text-foreground">{item.word}</span>
+                                                    <span className="text-base font-semibold text-primary">{item.word}</span>
                                                     {item.phonetic && (
-                                                        <span className="text-metadata font-mono text-muted-foreground">/{item.phonetic}/</span>
+                                                        <span className="text-metadata font-mono text-secondary">/{item.phonetic}/</span>
                                                     )}
                                                     {badge && item.memoryTag !== 'new' && (
                                                         <span className={cn('text-metadata font-medium', badge.className)}>
@@ -521,7 +521,7 @@ export default function SentenceStudyCanvas({
                                                         </span>
                                                     )}
                                                 </div>
-                                                <p className="mt-0.5 text-sm text-muted-foreground leading-snug">{item.meaning}</p>
+                                                <p className="mt-0.5 text-sm text-secondary leading-snug">{item.meaning}</p>
                                             </div>
                                             <HStack gap={0.5} vAlign="center">
                                                 <IconButton
@@ -576,7 +576,7 @@ export default function SentenceStudyCanvas({
                             onBlur={onSaveNote}
                             rows={2}
                             placeholder={t('learning.notePlaceholderShort')}
-                            className="w-full resize-y rounded-lg border border-border/50 bg-background/70 p-2 text-sm leading-relaxed text-foreground outline-none focus:border-accent"
+                            className="w-full resize-y rounded-lg border border-border/50 bg-body/70 p-2 text-sm leading-relaxed text-primary outline-none focus:border-accent-bg"
                         />
                     </Section>
                 </div>

@@ -88,14 +88,14 @@ export default function PlaybackStage({ className = '', compact = false, onReady
 
                 {/* 纯音频/播客源打开练习工作台时展示轻氛围指示，避免顶部舞台一片黑屏 */}
                 {showAudioPracticeStage && (
-                    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/95 text-center px-6">
+                    <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-body/95 text-center px-6">
                         <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-border/60 bg-surface text-accent shadow-xs">
                             <AudioLines className="h-5 w-5" />
                         </div>
-                        <p className="text-sm font-medium text-foreground">
+                        <p className="text-sm font-medium text-primary">
                             {t('panel.audioStageTitle', { defaultValue: '音频沉浸练习模式' })}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-secondary">
                             {t('panel.audioStageHint', { defaultValue: '关闭练习台后将自动回到播客字幕视图' })}
                         </p>
                     </div>

@@ -54,7 +54,7 @@ const StartupLoading: React.FC = () => {
         <div
             role="status"
             aria-label={t('loading')}
-            className="flex h-full w-full items-center justify-center gap-2 text-muted-foreground"
+            className="flex h-full w-full items-center justify-center gap-2 text-secondary"
         >
             <Loader2 className="h-4 w-4 animate-spin" />
             <span className="text-sm">{t('loading')}</span>
@@ -195,7 +195,7 @@ export const App = () => {
 
     return (
         <Theme theme={activeTheme} mode={effectiveThemeMode}>
-            <div className="w-full h-screen text-foreground overflow-hidden select-none font-sans">
+            <div className="w-full h-screen text-primary overflow-hidden select-none font-sans">
                 {gate?.kind === 'migration-failure' && (
                     <MigrationFailureGate failure={gate.failure} />
                 )}
@@ -293,8 +293,8 @@ export const App = () => {
             <HotToaster
                 position="top-center"
                 toastOptions={{
-                    // 只用 token 类：react-hot-toast 会挂到 body 下，内联旧 shadcn HSL 变量会绕过 Astryx 主题
-                    className: 'border border-border/80 bg-background/95 text-foreground shadow-lg backdrop-blur-md text-sm font-medium rounded-lg',
+                    // 只用 token 类：react-hot-toast 会挂到 body 下，内联主题变量值会绕过 Astryx 主题切换
+                    className: 'border border-border/80 bg-body/95 text-primary shadow-lg backdrop-blur-md text-sm font-medium rounded-lg',
                 }}
             />
             <GlobalShortCut />

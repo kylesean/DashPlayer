@@ -107,7 +107,7 @@ const SideBar: React.FC<SideBarProps> = ({
                         <button
                             type="button"
                             onClick={navigateHome}
-                            className="focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg cursor-pointer"
+                            className="focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring rounded-lg cursor-pointer"
                             aria-label={t('home', { defaultValue: '首页' })}
                         >
                             <img
@@ -128,14 +128,14 @@ const SideBar: React.FC<SideBarProps> = ({
                                 navigateHome();
                             }
                         }}
-                        className="flex flex-col gap-1.5 px-3 py-2.5 w-full select-none cursor-pointer rounded-xl hover:bg-muted/40 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex flex-col gap-1.5 px-3 py-2.5 w-full select-none cursor-pointer rounded-xl hover:bg-muted/40 transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
                     >
                         <img
                             className="user-drag-none h-6 w-auto object-contain shrink-0"
                             src={isDark ? wordmarkReverse : wordmark}
                             alt={t('appTitle', { defaultValue: 'Refrain' })}
                         />
-                        <span className="text-metadata text-muted-foreground font-medium tracking-wide uppercase truncate">
+                        <span className="text-metadata text-secondary font-medium tracking-wide uppercase truncate">
                             {t('appTagline', { defaultValue: 'Curated English, on repeat.' })}
                         </span>
                     </div>

@@ -608,7 +608,7 @@ export default function VideoLearningPage() {
   }, [clips, currentClipIndex, deletingClipKey, fetchWords, mutate, page, searchKey, t, totalClips]);
 
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden select-none bg-background text-foreground">
+    <div className="w-full h-full flex flex-col overflow-hidden select-none bg-body text-primary">
       {/* 顶栏标题区：统一排版 */}
       <div className="px-6 pt-5 pb-2">
         <PageHeader

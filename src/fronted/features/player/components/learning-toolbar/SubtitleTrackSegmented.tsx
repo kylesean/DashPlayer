@@ -20,7 +20,7 @@ const SEGMENT_SHAPE =
 /** 两套宿主底色下的分段项配色，覆盖 Astryx 默认主题色。 */
 const SEGMENT_TONE: Record<ToolbarTone, string> = {
     panel:
-        '[&_[role=radio]]:text-muted-foreground! [&_[role=radio]:hover]:text-foreground! [&_[role=radio][aria-checked=true]]:bg-background! [&_[role=radio][aria-checked=true]]:text-foreground!',
+        '[&_[role=radio]]:text-secondary! [&_[role=radio]:hover]:text-primary! [&_[role=radio][aria-checked=true]]:bg-body! [&_[role=radio][aria-checked=true]]:text-primary!',
     overlay:
         '[&_[role=radio]]:text-media-fg/70! [&_[role=radio]:hover]:text-media-fg! [&_[role=radio][aria-checked=true]]:bg-media-fg/20! [&_[role=radio][aria-checked=true]]:text-media-fg!',
 };

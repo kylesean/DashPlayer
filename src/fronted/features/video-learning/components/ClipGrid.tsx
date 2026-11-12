@@ -36,7 +36,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
 
   if (clips.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
+      <div className="flex items-center justify-center h-64 text-secondary">
         <div className="text-center">
           <Play className="w-12 h-12 mx-auto mb-4 opacity-70" />
           <p className="text-lg mb-2">{t('clipGridEmptyTitle')}</p>
@@ -60,7 +60,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                 <div
                   key={clip.key}
                   className={cn(
-                    'relative overflow-hidden rounded-lg transition-all duration-200 group bg-card text-card-foreground border border-border/60 flex flex-col',
+                    'relative overflow-hidden rounded-lg transition-all duration-200 group bg-card text-primary border border-border/60 flex flex-col',
                     isPlaying
                       ? 'ring-2 ring-accent-bg border-transparent shadow-sm'
                       : 'hover:border-border hover:shadow-sm',
@@ -105,7 +105,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                         </div>
                       )}
                       <div className="absolute inset-0 bg-media-bg/25 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="w-8 h-8 rounded-full bg-background/90 text-foreground flex items-center justify-center shadow-sm">
+                        <div className="w-8 h-8 rounded-full bg-body/90 text-primary flex items-center justify-center shadow-sm">
                           <Play className="w-4 h-4 fill-current translate-x-0.5" />
                         </div>
                       </div>
@@ -126,8 +126,8 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
 
                     {/* 视频信息：单词检索结果可能跨视频，视频名需要常驻可见而非只在提示里 */}
                     <div className="p-2.5 bg-card flex-1 flex flex-col justify-center gap-0.5">
-                      <p className="text-sm text-muted-foreground line-clamp-2 leading-snug">{subtitle}</p>
-                      <p className="text-metadata text-muted-foreground/80 truncate" title={title}>{title}</p>
+                      <p className="text-sm text-secondary line-clamp-2 leading-snug">{subtitle}</p>
+                      <p className="text-metadata text-secondary/80 truncate" title={title}>{title}</p>
                     </div>
                   </div>
 

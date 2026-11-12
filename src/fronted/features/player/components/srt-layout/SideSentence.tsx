@@ -195,8 +195,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                     // 未在多句选区中的常规状态：依靠文字对比度与时间戳音波动效指示，彻底去除生硬的左侧彩色竖条
                     !selectionState?.isMember && (
                         isCurrent
-                            ? 'bg-surface/70 text-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-surface/40'
+                            ? 'bg-surface/70 text-primary'
+                            : 'text-secondary hover:text-primary hover:bg-surface/40'
                     ),
                     // 激活的搜索匹配高亮项
                     isActiveSearchMatch && 'ring-1 ring-amber-500/80 bg-amber-500/10 shadow-xs',
@@ -235,7 +235,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                         {/* 活跃态声波动效 */}
                         {isCurrent && (
                             playing ? (isRepeat ? <RepeatAudioWave /> : <PlayingAudioWave />) : (
-                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent shrink-0" />
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-accent-bg shrink-0" />
                             )
                         )}
                         {/* 紧凑时间戳 */}
@@ -243,7 +243,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                             <span
                                 className={cn(
                                     'text-metadata font-mono tracking-tight transition-colors',
-                                    isCurrent ? 'text-foreground/75 font-medium' : 'text-muted-foreground/50 group-hover:text-muted-foreground/75',
+                                    isCurrent ? 'text-primary/75 font-medium' : 'text-secondary/50 group-hover:text-secondary/75',
                                 )}
                             >
                                 {timeStr}
@@ -261,8 +261,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                             (!fontSize || fontSize === 'fontSizeMedium') && 'text-side-en-medium',
                             fontSize === 'fontSizeLarge' && 'text-side-en-large',
                             isCurrent
-                                ? 'text-foreground font-medium'
-                                : 'text-muted-foreground/90 group-hover:text-foreground',
+                                ? 'text-primary font-medium'
+                                : 'text-secondary/90 group-hover:text-primary',
                         )}
                     >
                         {renderHighlightedText(primaryText)}
@@ -277,8 +277,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                                 (!fontSize || fontSize === 'fontSizeMedium') && 'text-side-zh-medium',
                                 fontSize === 'fontSizeLarge' && 'text-side-zh-large',
                                 isCurrent
-                                    ? 'text-muted-foreground font-normal'
-                                    : 'text-muted-foreground/60 group-hover:text-muted-foreground/85',
+                                    ? 'text-secondary font-normal'
+                                    : 'text-secondary/60 group-hover:text-secondary/85',
                             )}
                         >
                             {highlightSlice(secondaryText, secondaryText, 0, searchQuery, isActiveSearchMatch)}
@@ -327,8 +327,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                             className={cn(
                                 'p-1 rounded transition-colors cursor-pointer',
                                 isSaved
-                                    ? 'text-accent bg-accent/15 hover:bg-accent/25'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-surface/80',
+                                    ? 'text-accent bg-accent-bg/15 hover:bg-accent-bg/25'
+                                    : 'text-secondary hover:text-primary hover:bg-surface/80',
                             )}
                             aria-label={
                                 isSaved
@@ -362,8 +362,8 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                             className={cn(
                                 'p-1 rounded transition-colors cursor-pointer',
                                 isCurrent && isRepeat
-                                    ? 'text-accent bg-accent/20 hover:bg-accent/30'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-surface/80',
+                                    ? 'text-accent bg-accent-bg/20 hover:bg-accent-bg/30'
+                                    : 'text-secondary hover:text-primary hover:bg-surface/80',
                             )}
                             title={
                                 isCurrent && isRepeat
@@ -402,7 +402,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                         <button
                             type="button"
                             onClick={() => (onReplay ?? onClick)(sentence)}
-                            className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-surface/80 transition-colors cursor-pointer"
+                            className="p-1 rounded text-secondary hover:text-primary hover:bg-surface/80 transition-colors cursor-pointer"
                             title={t('sideSentence.replaySentence', { defaultValue: '从头重播此句' })}
                             aria-label={t('sideSentence.replaySentence', { defaultValue: '从头重播此句' })}
                         >

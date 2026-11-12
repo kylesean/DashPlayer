@@ -44,7 +44,7 @@ const BackNavItem = ({ root, currentPath, onClick }: BackNavItemProps) => {
             tabIndex={0}
             onKeyDown={handleKeyDown}
         >
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-background/80 border border-border/40 text-muted-foreground transition-all duration-200 group-hover:border-accent-bg/30 group-hover:bg-accent-bg/10 group-hover:text-accent shadow-2xs">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-body/80 border border-border/40 text-secondary transition-all duration-200 group-hover:border-accent-bg/30 group-hover:bg-accent-bg/10 group-hover:text-accent shadow-2xs">
                 {React.createElement(icon, {
                     className: cn(
                         'h-3.5 w-3.5 transition-transform duration-200',
@@ -53,9 +53,9 @@ const BackNavItem = ({ root, currentPath, onClick }: BackNavItemProps) => {
                 })}
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="truncate text-sm font-semibold text-foreground/85 transition-colors group-hover:text-accent">{title}</span>
+                <span className="truncate text-sm font-semibold text-primary/85 transition-colors group-hover:text-accent">{title}</span>
                 {subtitle && (
-                    <span className="truncate text-metadata text-muted-foreground/80">{subtitle}</span>
+                    <span className="truncate text-metadata text-secondary/80">{subtitle}</span>
                 )}
             </div>
         </div>

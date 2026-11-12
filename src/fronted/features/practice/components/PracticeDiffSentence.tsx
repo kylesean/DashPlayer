@@ -91,14 +91,14 @@ export default function PracticeDiffSentence({ unit, result, className }: Practi
 
     return (
         <div className={cn('flex flex-col gap-1.5', className)}>
-            <div className="text-lg leading-relaxed font-medium text-foreground select-text">
+            <div className="text-lg leading-relaxed font-medium text-primary select-text">
                 {tokens.map((token, idx) => {
                     if (token.kind === 'gap') {
                         return <span key={`gap-${idx}`}>{token.text}</span>;
                     }
                     if (token.kind === 'punctuation') {
                         return (
-                            <span key={`punct-${idx}`} className="text-muted-foreground">
+                            <span key={`punct-${idx}`} className="text-secondary">
                                 {token.text}
                             </span>
                         );
@@ -125,11 +125,11 @@ export default function PracticeDiffSentence({ unit, result, className }: Practi
                                 classNames={{
                                     word: cn(
                                         'px-0.5 rounded transition-colors cursor-pointer',
-                                        status === 'match' && 'text-foreground',
+                                        status === 'match' && 'text-primary',
                                         status === 'sub' && 'bg-warning-muted/70 text-warning-text underline decoration-warning/60 underline-offset-4',
                                         status === 'missing' && 'bg-error/10 text-error-text underline decoration-dashed decoration-error underline-offset-4',
                                     ),
-                                    hover: 'hover:bg-accent/15 hover:text-accent',
+                                    hover: 'hover:bg-accent-bg/15 hover:text-accent',
                                     vocab: 'underline decoration-accent/70 underline-offset-4 decoration-2',
                                     vocabFamiliar: 'underline decoration-dotted decoration-accent/45 underline-offset-4',
                                 }}
@@ -145,7 +145,7 @@ export default function PracticeDiffSentence({ unit, result, className }: Practi
                     );
                 })}
                 {extraWords.length > 0 && (
-                    <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-muted/70 px-1.5 py-0.5 text-metadata font-normal text-muted-foreground">
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-muted/70 px-1.5 py-0.5 text-metadata font-normal text-secondary">
                         {t('result.extraPrefix', { defaultValue: '+ 多出:' })}{' '}
                         {extraWords.map((w) => w.heard).filter(Boolean).join(' ')}
                     </span>

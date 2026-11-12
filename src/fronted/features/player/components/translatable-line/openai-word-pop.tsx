@@ -136,7 +136,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
         if (!data) {
             return (
                 <div className="h-full flex flex-col">
-                    <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground select-none">
+                    <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-secondary select-none">
                         {t('noDefinition')}
                     </div>
                 </div>
@@ -166,27 +166,27 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                 <div className="px-4.5 pt-4 pb-1.5 flex items-start justify-between shrink-0">
                     <div>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-base font-semibold text-foreground tracking-tight select-text">
+                            <span className="text-base font-semibold text-primary tracking-tight select-text">
                                 <Playable>{data.word}</Playable>
                             </span>
                             {voiceAccent && (
-                                <span className="text-metadata text-muted-foreground/70 select-none">
+                                <span className="text-metadata text-secondary/70 select-none">
                                     {voiceAccent === 'en-GB' ? 'UK' : 'US'}
                                 </span>
                             )}
                         </div>
                         {phonetic && (
-                            <span className="text-sm font-mono text-muted-foreground/75 mt-0.5 inline-flex items-center gap-2 select-text">
+                            <span className="text-sm font-mono text-secondary/75 mt-0.5 inline-flex items-center gap-2 select-text">
                                 <span>{phonetic}</span>
                                 {statusLabel && (
-                                    <span className="font-sans text-metadata text-muted-foreground/80">
+                                    <span className="font-sans text-metadata text-secondary/80">
                                         {statusLabel}
                                     </span>
                                 )}
                             </span>
                         )}
                         {!phonetic && statusLabel && (
-                            <span className="text-metadata text-muted-foreground/80 mt-0.5 inline-block">
+                            <span className="text-metadata text-secondary/80 mt-0.5 inline-block">
                                 {statusLabel}
                             </span>
                         )}
@@ -220,14 +220,14 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             </div>
                         )}
                         {isStreaming && (
-                            <span className="text-sm text-muted-foreground/70 animate-pulse mt-0.5 inline-block select-none font-normal">
+                            <span className="text-sm text-secondary/70 animate-pulse mt-0.5 inline-block select-none font-normal">
                                 ···
                             </span>
                         )}
                         {data.source && (
                             <span
                                 data-testid="word-source"
-                                className="mt-1.5 block text-metadata text-muted-foreground/60 select-none"
+                                className="mt-1.5 block text-metadata text-secondary/60 select-none"
                             >
                                 {t(DICTIONARY_SOURCE_I18N_KEYS[data.source])}
                             </span>
@@ -246,7 +246,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onFavorite}
                                 disabled={isFavoriting}
                                 className={cn(
-                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                    'p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
                                     isFavorited && 'text-warning-text hover:text-warning-text scale-105',
                                     isFavoriting && 'cursor-default'
                                 )}
@@ -265,7 +265,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onMarkKnown}
                                 disabled={isUpdatingStatus}
                                 className={cn(
-                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                    'p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
                                     wordStatus === 'known' && 'text-success-text hover:text-success-text',
                                     isUpdatingStatus && 'cursor-default opacity-60',
                                 )}
@@ -283,8 +283,8 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onMarkIgnored}
                                 disabled={isUpdatingStatus}
                                 className={cn(
-                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                    wordStatus === 'ignored' && 'text-foreground',
+                                    'p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
+                                    wordStatus === 'ignored' && 'text-primary',
                                     isUpdatingStatus && 'cursor-default opacity-60',
                                 )}
                                 title={t('markWordIgnored')}
@@ -299,7 +299,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onRefresh}
                                 disabled={isLoading || isStreaming}
                                 className={cn(
-                                    'p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                    'p-1.5 rounded-md text-secondary hover:text-primary hover:bg-muted/70 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
                                     (isLoading || isStreaming) && 'opacity-50 cursor-not-allowed'
                                 )}
                                 title={t('forceRefresh')}
@@ -326,11 +326,11 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                     {/* 词性与释义单行排版 */}
                                     <div className="flex items-baseline gap-2 leading-snug">
                                         {pos && (
-                                            <span className="text-metadata font-semibold italic text-muted-foreground shrink-0 select-none">
+                                            <span className="text-metadata font-semibold italic text-secondary shrink-0 select-none">
                                                 {pos}
                                             </span>
                                         )}
-                                        <span className="text-sm text-foreground font-medium">
+                                        <span className="text-sm text-primary font-medium">
                                             {def.meaning}
                                         </span>
                                     </div>
@@ -340,11 +340,11 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                         <div className="pl-3 border-l-2 border-border/60 space-y-2.5 my-1.5">
                                             {def.examples.map((ex, exIdx) => (
                                                 <div key={`ex-${exIdx}-${ex.sentence}`} className="space-y-0.5">
-                                                    <div className="text-sm text-foreground/95 font-normal leading-relaxed">
+                                                    <div className="text-sm text-primary/95 font-normal leading-relaxed">
                                                         <Playable>{ex.sentence}</Playable>
                                                     </div>
                                                     {ex.translation && (
-                                                        <div className="text-metadata text-muted-foreground leading-relaxed">
+                                                        <div className="text-metadata text-secondary leading-relaxed">
                                                             {ex.translation}
                                                         </div>
                                                     )}
@@ -356,10 +356,10 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             );
                         })
                     ) : (
-                        <div className="text-sm text-muted-foreground/70 select-none py-3">
+                        <div className="text-sm text-secondary/70 select-none py-3">
                             {isStreaming ? (
-                                <div className="flex items-center gap-2 text-muted-foreground/60 animate-pulse">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40" />
+                                <div className="flex items-center gap-2 text-secondary/60 animate-pulse">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-secondary/40" />
                                     <span>{t('generatingDefinition', { defaultValue: '正在查询释义…' })}</span>
                                 </div>
                             ) : (
@@ -369,7 +369,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                     )}
                     {hasEnglishSenses && (
                         <div className="pt-3 mt-1 border-t border-border/60 space-y-3">
-                            <div className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground select-none">
+                            <div className="text-metadata font-semibold uppercase tracking-wider text-secondary select-none">
                                 {t('englishSenses', { defaultValue: 'English definitions' })}
                             </div>
                             {(data?.englishSenses ?? []).map((sense, senseIdx) => {
@@ -378,19 +378,19 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                     <div key={`en-${senseIdx}-${sense.definition}`} className="space-y-1 select-text">
                                         <div className="flex items-baseline gap-2 leading-snug">
                                             {pos && (
-                                                <span className="text-metadata font-semibold italic text-muted-foreground shrink-0 select-none">
+                                                <span className="text-metadata font-semibold italic text-secondary shrink-0 select-none">
                                                     {pos}
                                                 </span>
                                             )}
-                                            <span className="text-sm text-foreground/90">{sense.definition}</span>
+                                            <span className="text-sm text-primary/90">{sense.definition}</span>
                                         </div>
                                         {sense.synonyms.length > 0 && (
-                                            <div className="text-metadata text-muted-foreground pl-0.5">
+                                            <div className="text-metadata text-secondary pl-0.5">
                                                 {t('englishSynonyms', { defaultValue: '近义' })}: {sense.synonyms.join(', ')}
                                             </div>
                                         )}
                                         {sense.antonyms.length > 0 && (
-                                            <div className="text-metadata text-muted-foreground pl-0.5">
+                                            <div className="text-metadata text-secondary pl-0.5">
                                                 {t('englishAntonyms', { defaultValue: '反义' })}: {sense.antonyms.join(', ')}
                                             </div>
                                         )}
@@ -414,9 +414,9 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 data-testid="word-details-toggle"
                                 className={cn(
                                     'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5',
-                                    'text-metadata text-muted-foreground transition-colors',
-                                    'hover:bg-muted/50 hover:text-foreground cursor-pointer',
-                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                    'text-metadata text-secondary transition-colors',
+                                    'hover:bg-muted/50 hover:text-primary cursor-pointer',
+                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
                                 )}
                             >
                                 <span>{t('wordDetailsToggle')}</span>
@@ -432,7 +432,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                             data-testid="word-prompt-reason"
                                             className="space-y-1"
                                         >
-                                            <div className="text-metadata text-muted-foreground/70 select-none">
+                                            <div className="text-metadata text-secondary/70 select-none">
                                                 {t('wordPromptReasonLabel')}
                                             </div>
                                             {/*
@@ -443,9 +443,9 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                                 {promptReasons.map((reason) => (
                                                     <li
                                                         key={reason}
-                                                        className="flex gap-1.5 text-metadata leading-relaxed text-foreground/80 select-text"
+                                                        className="flex gap-1.5 text-metadata leading-relaxed text-primary/80 select-text"
                                                     >
-                                                        <span aria-hidden="true" className="text-muted-foreground/50">·</span>
+                                                        <span aria-hidden="true" className="text-secondary/50">·</span>
                                                         <span>{reason}</span>
                                                     </li>
                                                 ))}
@@ -455,7 +455,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                     {wordMemory && (
                                         <div
                                             data-testid="word-memory"
-                                            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-metadata text-muted-foreground/80 select-text"
+                                            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-metadata text-secondary/80 select-text"
                                         >
                                             <span>
                                                 {t('wordMemory.lastSeen', {
@@ -497,7 +497,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
     return (
         <div
             className={cn(
-                'w-[360px] h-[400px] bg-popover/95 backdrop-blur-2xl text-popover-foreground shadow-2xl border border-border/70 rounded-2xl overflow-hidden text-left relative flex flex-col',
+                'w-[360px] h-[400px] bg-popover/95 backdrop-blur-2xl text-primary shadow-2xl border border-border/70 rounded-2xl overflow-hidden text-left relative flex flex-col',
                 className
             )}
         >

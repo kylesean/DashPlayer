@@ -77,7 +77,7 @@ export default function StudyWorkbenchShell({
     return (
         <div
             data-testid="learning-workbench"
-            className="flex h-full w-full flex-col overflow-hidden bg-background text-foreground [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)]"
+            className="flex h-full w-full flex-col overflow-hidden bg-body text-primary [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)]"
         >
             <div className={cn('shrink-0 bg-surface/65 backdrop-blur-xl drag-region', isMac && 'pl-20')}>
                 <Toolbar
@@ -126,7 +126,7 @@ export default function StudyWorkbenchShell({
                                     isLabelHidden
                                     variant="ghost"
                                     width={156}
-                                    startIcon={<Bot className="h-3.5 w-3.5 text-muted-foreground" />}
+                                    startIcon={<Bot className="h-3.5 w-3.5 text-secondary" />}
                                     options={selectorOptions}
                                     value={activePresetId}
                                     onChange={(nextId) => onSelectPreset(nextId)}
@@ -182,10 +182,10 @@ export default function StudyWorkbenchShell({
                     <SplitHandle
                         className={cn(
                             'group relative w-1.5 h-full flex items-center justify-center',
-                            'bg-border/35 hover:bg-accent/40 after:hidden transition-colors cursor-col-resize z-10',
+                            'bg-border/35 hover:bg-accent-bg/40 after:hidden transition-colors cursor-col-resize z-10',
                         )}
                     >
-                        <div className="w-0.5 h-12 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:h-16 transition-all" />
+                        <div className="w-0.5 h-12 rounded-full bg-secondary/30 group-hover:bg-accent-bg group-hover:h-16 transition-all" />
                     </SplitHandle>
                     <SplitPane defaultSize={56} minSize={34} className="min-w-0 h-full overflow-hidden bg-surface/30">
                         {rightCopilot}

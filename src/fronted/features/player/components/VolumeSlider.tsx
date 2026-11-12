@@ -58,7 +58,7 @@ const VolumeSlider = ({
                 type="button"
                 onClick={() => onMutedChange(!muted)}
                 className={cn(
-                    'h-8 px-2 rounded-lg text-inherit hover:bg-foreground/10 transition-colors gap-1.5 flex items-center cursor-pointer',
+                    'h-8 px-2 rounded-lg text-inherit hover:bg-primary/10 transition-colors gap-1.5 flex items-center cursor-pointer',
                     triggerClassName
                 )}
                 title={muted ? t('volumeSlider.unmute') : t('volumeSlider.mute')}

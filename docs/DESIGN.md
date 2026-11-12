@@ -59,8 +59,8 @@ Tailwind 提供布局工具类，两者都不提供「本项目怎么用」的�
 
 | 类别 | 允许 | 禁止 |
 | --- | --- | --- |
-| 背景 | `bg-background` / `bg-surface` / `bg-muted` / `bg-card` | `bg-white` / `bg-[#f5f5f5]` |
-| 文字 | `text-foreground` / `text-muted-foreground` / `text-secondary` | `text-black` / `text-gray-500` |
+| 背景 | `bg-body` / `bg-surface` / `bg-muted` / `bg-card` | `bg-white` / `bg-[#f5f5f5]` |
+| 文字 | `text-primary` / `text-secondary` / `text-secondary` | `text-black` / `text-gray-500` |
 | 边框 | `border-border` / `border-border/60` | `border-gray-200` |
 | 状态 | `text-success-text` / `text-warning-text` / `text-error-text` | 直接写红/绿十六进制 |
 

@@ -54,16 +54,16 @@ interface ToneClasses {
 /** 两套底色的取值。新增控件只从这里取，不要在组件里写死颜色。 */
 export const TOOLBAR_TONE: Record<ToolbarTone, ToneClasses> = {
     panel: {
-        idle: 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground',
+        idle: 'text-secondary hover:bg-primary/5 hover:text-primary',
         divider: 'bg-border/70',
         segmented: 'border-border/50 bg-muted/60',
-        segmentIdle: 'text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
-        segmentActive: 'bg-background text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
-        badge: 'bg-foreground/10 text-foreground',
+        segmentIdle: 'text-secondary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
+        segmentActive: 'bg-body text-primary shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
+        badge: 'bg-primary/10 text-primary',
         accent: {
             amber: 'bg-warning/10 text-warning-text ring-1 ring-warning/25 dark:text-warning-text',
             emerald: 'bg-success/10 text-success-text ring-1 ring-success/25 dark:text-success-text',
-            neutral: 'bg-foreground/10 text-foreground',
+            neutral: 'bg-primary/10 text-primary',
         },
     },
     overlay: {

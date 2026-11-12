@@ -764,7 +764,7 @@ export default function Subtitle() {
                                 <button
                                     type="button"
                                     onClick={() => playerActions.clearVirtualGroup()}
-                                    className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                                    className="p-0.5 rounded-full text-secondary hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
                                     aria-label={t('cancelLoop')}
                                 >
                                     <X className="w-3 h-3" />
@@ -790,7 +790,7 @@ export default function Subtitle() {
                                 <span className="relative inline-flex items-center justify-center">
                                     <Filter className="w-3.5 h-3.5" />
                                     {vocabularyFilter !== 'all' && (
-                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent ring-1 ring-background" />
+                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent-bg ring-1 ring-body" />
                                     )}
                                 </span>
                             ),
@@ -840,7 +840,7 @@ export default function Subtitle() {
                                 'p-1 rounded-md transition-colors cursor-pointer',
                                 showSideTranslation
                                     ? 'text-accent hover:bg-accent-muted/20'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                                    : 'text-secondary hover:text-primary hover:bg-muted/80',
                             )}
                         >
                             <Languages className="w-3.5 h-3.5" />
@@ -856,7 +856,7 @@ export default function Subtitle() {
                                 'p-1 rounded-md transition-colors cursor-pointer',
                                 isSearchOpen
                                     ? 'text-accent bg-accent-muted/20'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                                    : 'text-secondary hover:text-primary hover:bg-muted/80',
                             )}
                             aria-label={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })}
                         >
@@ -872,7 +872,7 @@ export default function Subtitle() {
                         <button
                             type="button"
                             onClick={() => setTranscriptVisible(false)}
-                            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                            className="p-1 rounded-md text-secondary hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
                             aria-label={t('controlButton.closeTranscript', { defaultValue: '收起字幕文稿' })}
                         >
                             {transcriptPosition === 'right' ? (
@@ -888,7 +888,7 @@ export default function Subtitle() {
             {/* 即时搜索栏 */}
             {isSearchOpen && (
                 <div className="shrink-0 px-3 py-1.5 border-b border-border/40 bg-surface/80 backdrop-blur-md flex items-center gap-2 text-sm z-20">
-                    <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <Search className="w-3.5 h-3.5 text-secondary shrink-0" />
                     <input
                         ref={searchInputRef}
                         type="text"
@@ -914,14 +914,14 @@ export default function Subtitle() {
                             }
                         }}
                         placeholder={t('searchPlaceholder', { defaultValue: '在文稿中搜索中英文...' })}
-                        className="flex-1 bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/60 text-sm min-w-0"
+                        className="flex-1 bg-transparent border-none outline-none text-primary placeholder:text-secondary/60 text-sm min-w-0"
                     />
                     {searchQuery.trim() && (
-                        <span className="text-metadata font-mono text-muted-foreground shrink-0 select-none">
+                        <span className="text-metadata font-mono text-secondary shrink-0 select-none">
                             {matchedSentenceIndices.length > 0 && safeMatchIndex >= 0 ? (
                                 `${safeMatchIndex + 1}/${matchedSentenceIndices.length}`
                             ) : (
-                                <span className="text-muted-foreground/60">{t('noSearchResults', { defaultValue: '无匹配' })}</span>
+                                <span className="text-secondary/60">{t('noSearchResults', { defaultValue: '无匹配' })}</span>
                             )}
                         </span>
                     )}
@@ -936,7 +936,7 @@ export default function Subtitle() {
                                     if (matchedSentenceIndices.length === 0) return;
                                     handlePrevMatch();
                                 }}
-                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                className="p-1 rounded text-secondary hover:text-primary hover:bg-muted/80 aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition-colors cursor-pointer"
                                 aria-label={t('prevMatch', { defaultValue: '上一个匹配 (Shift+Enter)' })}
                             >
                                 <ChevronUp className="w-3.5 h-3.5" />
@@ -952,7 +952,7 @@ export default function Subtitle() {
                                     if (matchedSentenceIndices.length === 0) return;
                                     handleNextMatch();
                                 }}
-                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition-colors cursor-pointer"
+                                className="p-1 rounded text-secondary hover:text-primary hover:bg-muted/80 aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition-colors cursor-pointer"
                                 aria-label={t('nextMatch', { defaultValue: '下一个匹配 (Enter)' })}
                             >
                                 <ChevronDown className="w-3.5 h-3.5" />
@@ -962,7 +962,7 @@ export default function Subtitle() {
                             <button
                                 type="button"
                                 onClick={handleCloseSearch}
-                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                                className="p-1 rounded text-secondary hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
                                 aria-label={t('closeSearch', { defaultValue: '关闭搜索 (Esc)' })}
                             >
                                 <X className="w-3.5 h-3.5" />
@@ -981,7 +981,7 @@ export default function Subtitle() {
                     className="shrink-0 px-3 py-1.5 border-b border-border/40 bg-accent-muted/10 flex items-center justify-between gap-2 text-metadata"
                     data-testid="transcript-vocabulary-filter-active"
                 >
-                    <span className="text-muted-foreground truncate">
+                    <span className="text-secondary truncate">
                         {t('transcriptVocabulary.filteringHint', {
                             shown: displaySentences.length,
                             total: subtitle.length,
@@ -1023,9 +1023,9 @@ export default function Subtitle() {
                                 aria-label={t('controlButton.backToPlayhead')}
                                 className={cn(
                                     'pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full',
-                                    'bg-accent text-accent-foreground shadow-lg',
+                                    'bg-accent-bg text-on-accent shadow-lg',
                                     'transition-transform hover:scale-105 active:scale-95',
-                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer',
+                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring cursor-pointer',
                                 )}
                             >
                                 <ArrowUpToLine className="h-4 w-4" />
@@ -1035,7 +1035,7 @@ export default function Subtitle() {
                 )}
                 {displaySentences.length === 0 && vocabularyFilter !== 'all' ? (
                     <div className="h-full w-full flex flex-col items-center justify-center gap-2 px-6 text-center">
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-secondary">
                             {t('transcriptVocabulary.emptyTitle', { defaultValue: '这段里没有符合筛选的句子' })}
                         </p>
                         <button

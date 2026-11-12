@@ -299,7 +299,7 @@ const PlayerWithControlsPage = () => {
     }, [uiFullScreen, changeFullScreen]);
 
     return (
-        <div className={cn('relative w-full h-full flex flex-row overflow-hidden bg-background')}>
+        <div className={cn('relative w-full h-full flex flex-row overflow-hidden bg-body')}>
             {/* 全屏沉浸：左右两侧（导航栏 + 字幕面板）都要让位给画面 */}
             {showSideBar && !uiFullScreen && (
                 <div

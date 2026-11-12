@@ -92,10 +92,10 @@ export default function SubtitleList({
             }}
             className={`p-2.5 rounded-lg text-sm transition-all ${
               idx === activeIndex
-                ? 'bg-accent-bg/10 border border-accent-bg/20 text-foreground shadow-2xs font-medium'
+                ? 'bg-accent-bg/10 border border-accent-bg/20 text-primary shadow-2xs font-medium'
                 : line.isClip
-                  ? 'bg-muted/40 hover:bg-muted/70 text-foreground'
-                  : 'hover:bg-muted/40 text-muted-foreground hover:text-foreground'
+                  ? 'bg-muted/40 hover:bg-muted/70 text-primary'
+                  : 'hover:bg-muted/40 text-secondary hover:text-primary'
             }`}
           >
             <div className="flex items-start justify-between">
@@ -111,11 +111,11 @@ export default function SubtitleList({
                 }}
                 className="flex-1 min-w-0 cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
-                <div className="text-sm leading-relaxed text-foreground">
+                <div className="text-sm leading-relaxed text-primary">
                   {renderHighlightedText(line.contentEn, `${idx}-${line.index}`)}
                 </div>
                 {line.contentZh && (
-                  <div className="text-metadata text-muted-foreground mt-1 leading-normal">{line.contentZh}</div>
+                  <div className="text-metadata text-secondary mt-1 leading-normal">{line.contentZh}</div>
                 )}
               </div>
 
@@ -134,9 +134,9 @@ export default function SubtitleList({
                       title={playing ? t('subtitleList.pause') : t('subtitleList.play')}
                     >
                       {playing ? (
-                        <Pause className="w-3 h-3 text-muted-foreground" />
+                        <Pause className="w-3 h-3 text-secondary" />
                       ) : (
-                        <Play className="w-3 h-3 text-muted-foreground" />
+                        <Play className="w-3 h-3 text-secondary" />
                       )}
                     </button>
 
@@ -158,7 +158,7 @@ export default function SubtitleList({
                       <CirclePause className={`w-3 h-3 ${
                         autoPause
                           ? 'text-accent'
-                          : 'text-muted-foreground'
+                          : 'text-secondary'
                       }`} />
                     </button>
 
@@ -180,7 +180,7 @@ export default function SubtitleList({
                       <Repeat className={`w-3 h-3 ${
                         singleRepeat
                           ? 'text-success-text'
-                          : 'text-muted-foreground'
+                          : 'text-secondary'
                       }`} />
                     </button>
                   </>

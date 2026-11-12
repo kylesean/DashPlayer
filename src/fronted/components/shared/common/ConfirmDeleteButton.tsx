@@ -52,7 +52,7 @@ export default function ConfirmDeleteButton({
         disabled={isLoading}
         className={cn(
           'p-1 rounded-md transition-all cursor-pointer shrink-0',
-          'text-muted-foreground hover:text-destructive hover:bg-destructive/10',
+          'text-secondary hover:text-error hover:bg-error/10',
           isLoading && 'opacity-60 cursor-not-allowed',
           triggerClassName
         )}

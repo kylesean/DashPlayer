@@ -426,9 +426,9 @@ export default function StudyCopilotPane({
                                                                 key={hit.index}
                                                                 type="button"
                                                                 onClick={() => onPreviewSubtitleLine(hit.index)}
-                                                                className="flex w-full items-start justify-between gap-2 rounded-lg border border-border/50 bg-background/80 px-2.5 py-1.5 text-left text-sm hover:border-accent/50 transition-colors cursor-pointer"
+                                                                className="flex w-full items-start justify-between gap-2 rounded-lg border border-border/50 bg-body/80 px-2.5 py-1.5 text-left text-sm hover:border-accent-bg/50 transition-colors cursor-pointer"
                                                             >
-                                                                <span className="min-w-0 flex-1 text-foreground/90 leading-snug">
+                                                                <span className="min-w-0 flex-1 text-primary/90 leading-snug">
                                                                     <span className="mr-1.5 font-mono text-metadata text-accent">
                                                                         #{hit.index + 1}
                                                                     </span>

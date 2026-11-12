@@ -71,7 +71,7 @@ export function CardRadio({ value, className, children }: CardRadioProps) {
             onClick={select}
             onKeyDown={handleKeyDown}
             className={cn(
-                'flex items-center justify-center rounded-lg border bg-card p-2 text-card-foreground transition-colors cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-outline-color)]',
+                'flex items-center justify-center rounded-lg border bg-card p-2 text-primary transition-colors cursor-pointer outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-outline-color)]',
                 checked
                     ? 'border-[color:var(--color-accent)] shadow-[inset_0_0_0_2px_var(--color-accent)]'
                     : 'border-border hover:bg-muted/40',

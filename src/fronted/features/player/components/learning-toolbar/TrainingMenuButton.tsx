@@ -59,7 +59,7 @@ function ParamBadge({ label, active }: { label: string; active: boolean }) {
                 'shrink-0 rounded-md px-1.5 py-0.5 font-mono text-metadata leading-none transition-colors',
                 active
                     ? 'bg-success/15 text-success-text'
-                    : 'bg-muted/70 text-muted-foreground'
+                    : 'bg-muted/70 text-secondary'
             )}
         >
             {label}
@@ -102,12 +102,12 @@ function ModeOptionRow({
                 'group flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors cursor-pointer select-none outline-none text-left focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current',
                 isActive
                     ? 'bg-success/10 text-success-text font-medium'
-                    : 'text-secondary hover:bg-muted/40 hover:text-foreground'
+                    : 'text-secondary hover:bg-muted/40 hover:text-primary'
             )}
         >
             <div className="flex items-center gap-2 min-w-0">
                 <RadioIndicator state={isActive ? 'checked' : 'unchecked'} size="sm" />
-                <span className={cn('w-4 h-4 shrink-0 transition-colors', isActive ? 'text-success-text' : 'text-secondary group-hover:text-foreground')}>
+                <span className={cn('w-4 h-4 shrink-0 transition-colors', isActive ? 'text-success-text' : 'text-secondary group-hover:text-primary')}>
                     {icon}
                 </span>
                 <span className="truncate">{label}</span>
@@ -263,7 +263,7 @@ export default function TrainingMenuButton({
                             ) : activePlan ? (
                                 <>
                                     <span className={cn(TOOLBAR_BADGE, style.badge)}>{playbackRate.toFixed(2)}x</span>
-                                    <span className={cn('font-mono text-xs', tone === 'overlay' ? 'text-media-fg/70' : 'text-muted-foreground')}>{`(${loopCountText})`}</span>
+                                    <span className={cn('font-mono text-xs', tone === 'overlay' ? 'text-media-fg/70' : 'text-secondary')}>{`(${loopCountText})`}</span>
                                 </>
                             ) : null}
                         </span>
@@ -392,13 +392,13 @@ export default function TrainingMenuButton({
                                 setSettingsOpen(true);
                             }}
                             data-testid="training-settings-button"
-                            className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground cursor-pointer"
+                            className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm text-secondary transition-colors hover:bg-muted/40 hover:text-primary cursor-pointer"
                         >
                             <span className="flex items-center gap-1.5">
                                 <SlidersHorizontal className="h-3.5 w-3.5 text-secondary group-hover:text-primary transition-colors" />
                                 <span>{t('controlBar.rowSettings')}</span>
                             </span>
-                            <ChevronRight className="h-3.5 w-3.5 text-secondary group-hover:text-foreground transition-colors" />
+                            <ChevronRight className="h-3.5 w-3.5 text-secondary group-hover:text-primary transition-colors" />
                         </button>
                     </div>
                 </>,

@@ -32,11 +32,11 @@ const SummaryStat = ({
     value: number;
     tone?: string;
 }) => (
-    <div className="rounded-lg border border-border/50 bg-background/50 px-2.5 py-2">
-        <div className={cn('text-lg font-semibold tabular-nums', tone ?? 'text-foreground')}>
+    <div className="rounded-lg border border-border/50 bg-body/50 px-2.5 py-2">
+        <div className={cn('text-lg font-semibold tabular-nums', tone ?? 'text-primary')}>
             {value}
         </div>
-        <div className="text-metadata text-muted-foreground">{label}</div>
+        <div className="text-metadata text-secondary">{label}</div>
     </div>
 );
 
@@ -54,8 +54,8 @@ const SessionWordRow = ({
 }) => (
     <li className="flex items-center gap-2 py-1.5">
         <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-foreground">{word.word}</div>
-            <div className="truncate text-metadata text-muted-foreground">
+            <div className="truncate text-sm font-medium text-primary">{word.word}</div>
+            <div className="truncate text-metadata text-secondary">
                 {word.translate?.trim() || t('reviewDock.noTranslation')}
             </div>
         </div>
@@ -68,7 +68,7 @@ const SessionWordRow = ({
                 {t('learningSummary.masteredBadge')}
             </span>
         ) : (
-            <span className="shrink-0 text-metadata tabular-nums text-muted-foreground">
+            <span className="shrink-0 text-metadata tabular-nums text-secondary">
                 {formatLearningClock(word.lastSeenAt, locale)}
             </span>
         )}
@@ -148,15 +148,15 @@ export default function LearningSessionDock({
                 <div data-testid="learning-session-panel">
                 <div className="flex items-start justify-between gap-3 px-1 pb-2 pt-1">
                     <div className="min-w-0">
-                        <div className="text-sm font-semibold text-foreground">
+                        <div className="text-sm font-semibold text-primary">
                             {t('learningSummary.title')}
                         </div>
-                        <div className="mt-0.5 text-metadata leading-relaxed text-muted-foreground">
+                        <div className="mt-0.5 text-metadata leading-relaxed text-secondary">
                             {t('learningSummary.subtitle')}
                         </div>
                     </div>
                     {startedAt && (
-                        <div className="shrink-0 text-right text-metadata text-muted-foreground">
+                        <div className="shrink-0 text-right text-metadata text-secondary">
                             {t('learningSummary.startedAt', { time: startedAt })}
                         </div>
                     )}
@@ -168,14 +168,14 @@ export default function LearningSessionDock({
                         <button
                             type="button"
                             onClick={() => { void mutate(); }}
-                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-foreground transition-colors hover:bg-muted/60 cursor-pointer"
+                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-primary transition-colors hover:bg-muted/60 cursor-pointer"
                         >
                             <RotateCcw className="h-3.5 w-3.5" />
                             {t('learningSummary.retry')}
                         </button>
                     </div>
                 ) : isLoading && !data ? (
-                    <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2 py-8 text-sm text-secondary">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         {t('learningSummary.loading')}
                     </div>
@@ -204,7 +204,7 @@ export default function LearningSessionDock({
 
                         {hasWords ? (
                             <div className="rounded-lg border border-border/60 bg-card px-3 py-1.5">
-                                <div className="pt-1.5 text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
+                                <div className="pt-1.5 text-metadata font-semibold uppercase tracking-wider text-secondary">
                                     {t('learningSummary.recentTitle')}
                                 </div>
                                 <ul className="divide-y divide-border/40">
@@ -220,11 +220,11 @@ export default function LearningSessionDock({
                             </div>
                         ) : (
                             <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-4 py-6 text-center">
-                                <Sparkles className="h-5 w-5 text-muted-foreground" />
-                                <p className="text-sm font-medium text-foreground">
+                                <Sparkles className="h-5 w-5 text-secondary" />
+                                <p className="text-sm font-medium text-primary">
                                     {t('learningSummary.emptyTitle')}
                                 </p>
-                                <p className="text-metadata leading-relaxed text-muted-foreground">
+                                <p className="text-metadata leading-relaxed text-secondary">
                                     {t('learningSummary.emptyHint')}
                                 </p>
                             </div>
@@ -236,16 +236,16 @@ export default function LearningSessionDock({
                                 data-testid="learning-recap-trigger"
                                 title={tRecap('ctaHint')}
                                 onClick={() => setRecapOpen(true)}
-                                className="group flex w-full items-center gap-1.5 rounded-lg px-1 py-1.5 text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                                className="group flex w-full items-center gap-1.5 rounded-lg px-1 py-1.5 text-left text-sm font-medium text-secondary transition-colors hover:text-primary"
                             >
                                 <Sparkles className="h-3.5 w-3.5 shrink-0 text-warning-text/80" />
                                 <span>{tRecap('cta')}</span>
-                                <ChevronRight className="ml-auto h-3 w-3 shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5" />
+                                <ChevronRight className="ml-auto h-3 w-3 shrink-0 text-secondary/50 transition-transform group-hover:translate-x-0.5" />
                             </button>
                         )}
 
                         {data.counts.due === 0 && data.nextDueAt && (
-                            <div className="px-1 pb-1 text-metadata text-muted-foreground">
+                            <div className="px-1 pb-1 text-metadata text-secondary">
                                 {t('learningSummary.nextDue', {
                                     when: formatLearningDue(data.nextDueAt, i18n.language, t),
                                 })}

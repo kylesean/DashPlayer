@@ -126,7 +126,7 @@ export default function SentenceDetailCanvas({
                     <span className="text-metadata font-medium text-accent truncate">
                         {sentence.videoTitle || t('contextStudio.unknownVideo', { defaultValue: '未知视频' })}
                     </span>
-                    <span className="text-metadata text-muted-foreground font-mono shrink-0">
+                    <span className="text-metadata text-secondary font-mono shrink-0">
                         {TimeUtil.secondToTimeStrCompact(sentence.startTime)} - {TimeUtil.secondToTimeStrCompact(sentence.endTime)}
                     </span>
                 </div>
@@ -163,7 +163,7 @@ export default function SentenceDetailCanvas({
                             type="button"
                             disabled={removing}
                             onClick={() => void handleRemove()}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-error-text hover:bg-error/10 transition-colors cursor-pointer disabled:opacity-50"
+                            className="p-1.5 rounded-lg text-secondary hover:text-error-text hover:bg-error/10 transition-colors cursor-pointer disabled:opacity-50"
                             aria-label={t('contextStudio.removeSentence', { defaultValue: '取消收藏' })}
                         >
                             <BookmarkMinus className="w-4 h-4" />
@@ -175,11 +175,11 @@ export default function SentenceDetailCanvas({
             {/* 句型原文与译文卡片 */}
             <Card variant="muted" padding={5}>
                 <div className="flex flex-col gap-3">
-                    <p className="text-lg font-semibold text-foreground leading-relaxed select-text">
+                    <p className="text-lg font-semibold text-primary leading-relaxed select-text">
                         {sentence.text}
                     </p>
                     {sentence.textZh && (
-                        <p className="text-base text-muted-foreground leading-relaxed select-text">
+                        <p className="text-base text-secondary leading-relaxed select-text">
                             {sentence.textZh}
                         </p>
                     )}
@@ -240,8 +240,8 @@ export default function SentenceDetailCanvas({
                     })}
                     rows={5}
                     className={cn(
-                        'w-full rounded-lg border border-border/60 bg-surface px-3.5 py-2.5 text-sm text-foreground',
-                        'placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-accent/40 resize-y',
+                        'w-full rounded-lg border border-border/60 bg-surface px-3.5 py-2.5 text-sm text-primary',
+                        'placeholder:text-secondary/70 focus:outline-none focus:ring-2 focus:ring-accent/40 resize-y',
                     )}
                 />
             </div>

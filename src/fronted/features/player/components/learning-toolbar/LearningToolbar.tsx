@@ -67,7 +67,7 @@ export default function LearningToolbar({
             ref={rootRef}
             className={cn(
                 'flex h-12 shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/40 px-3 bg-surface/30',
-                'text-muted-foreground transition-opacity duration-200',
+                'text-secondary transition-opacity duration-200',
                 'opacity-90 focus-within:opacity-100 group-hover/subtitles:opacity-100',
                 '[scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
             )}

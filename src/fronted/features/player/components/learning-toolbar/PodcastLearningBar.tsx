@@ -39,7 +39,7 @@ export default function PodcastLearningBar({ className }: { className?: string }
     return (
         <div
             className={cn(
-                'inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/85 px-1.5 py-1 shadow-sm backdrop-blur-sm',
+                'inline-flex items-center gap-1 rounded-full border border-border/60 bg-body/85 px-1.5 py-1 shadow-sm backdrop-blur-sm',
                 className
             )}
         >

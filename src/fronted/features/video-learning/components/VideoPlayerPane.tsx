@@ -432,9 +432,9 @@ export default function VideoPlayerPane({
           <div>
             <AspectRatio ratio={16 / 9}>
               <div className="w-full h-full bg-muted/40 rounded-xl flex items-center justify-center border border-border/40">
-                <div className="text-center text-muted-foreground">
+                <div className="text-center text-secondary">
                   <div className="w-9 h-9 bg-muted/80 rounded-full mx-auto mb-1.5 flex items-center justify-center">
-                    <div className="w-4 h-4 text-muted-foreground/70">▶</div>
+                    <div className="w-4 h-4 text-secondary/70">▶</div>
                   </div>
                   <p className="text-metadata">{t('videoLearning.playbackGuide')}</p>
                 </div>

@@ -69,16 +69,16 @@ function BubbleToastContent(props: {
     const toneClass = (() => {
         switch (variant) {
             case 'success':
-                return 'border-success/40 bg-success-muted text-foreground';
+                return 'border-success/40 bg-success-muted text-primary';
             case 'info':
-                return 'border-info/40 bg-info-muted text-foreground';
+                return 'border-info/40 bg-info-muted text-primary';
             case 'warning':
-                return 'border-warning/40 bg-warning-muted text-foreground';
+                return 'border-warning/40 bg-warning-muted text-primary';
             case 'error':
-                return 'border-error/40 bg-error-muted text-foreground';
+                return 'border-error/40 bg-error-muted text-primary';
             case 'default':
             default:
-                return 'border-border/80 bg-background/95 text-foreground shadow-md';
+                return 'border-border/80 bg-body/95 text-primary shadow-md';
         }
     })();
 
@@ -90,7 +90,7 @@ function BubbleToastContent(props: {
                     <div className="text-sm leading-relaxed opacity-90 break-words">{message}</div>
                 </div>
                 {count > 1 ? (
-                    <div className="shrink-0 rounded-full bg-foreground/10 px-2 py-0.5 text-xs font-mono font-semibold leading-4 text-foreground/80">
+                    <div className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-mono font-semibold leading-4 text-primary/80">
                         x{count}
                     </div>
                 ) : null}

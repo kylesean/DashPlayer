@@ -85,7 +85,7 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
                 <TitleBarRightNavigation />
                 <button
                     onClick={handleMinimize}
-                    className="inline-flex items-center justify-center w-[44px] h-full text-muted-foreground/80 hover:text-foreground hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer"
+                    className="inline-flex items-center justify-center w-[44px] h-full text-secondary/80 hover:text-primary hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer"
                     id="minimize"
                     type="button"
                     aria-label={t('minimize')}
@@ -96,7 +96,7 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
                 <button
                     onClick={handleToggleMaximize}
                     className={cn(
-                        'inline-flex items-center justify-center w-[44px] h-full text-muted-foreground/80 hover:text-foreground hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer',
+                        'inline-flex items-center justify-center w-[44px] h-full text-secondary/80 hover:text-primary hover:bg-muted/80 active:bg-muted transition-colors cursor-pointer',
                         !maximizable && 'opacity-40 cursor-not-allowed',
                     )}
                     id="maximize"
@@ -118,7 +118,7 @@ const TitleBarWindows = ({ maximizable = true, className = '' }: TitleBarWindows
                 </button>
                 <button
                     onClick={handleClose}
-                    className="inline-flex items-center justify-center w-[44px] h-full text-muted-foreground/80 hover:text-on-error hover:bg-error active:bg-error/90 transition-colors cursor-pointer"
+                    className="inline-flex items-center justify-center w-[44px] h-full text-secondary/80 hover:text-on-error hover:bg-error active:bg-error/90 transition-colors cursor-pointer"
                     id="close"
                     type="button"
                     aria-label={t('close')}

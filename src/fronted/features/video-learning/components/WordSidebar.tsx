@@ -243,27 +243,27 @@ export default function WordSidebar({
       {/* 列表区域：使用虚拟列表，占满剩余高度 */}
       <div className="flex-1 min-h-0 pt-2">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center h-32 text-sm text-secondary">
             <div className="flex items-center gap-2">
               <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-accent-bg border-t-transparent"></div>
               <span>{t('loadingWords')}</span>
             </div>
           </div>
         ) : error ? (
-          <div role="alert" className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
+          <div role="alert" className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-secondary">
             <span>{error}</span>
             {onRetry && (
               <button
                 type="button"
                 onClick={onRetry}
-                className="rounded-md border border-border px-2.5 py-1 text-metadata text-foreground transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="rounded-md border border-border px-2.5 py-1 text-metadata text-primary transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
               >
                 {t('learning.retry')}
               </button>
             )}
           </div>
         ) : displayedWords.length === 0 ? (
-          <div className="text-center py-10 text-sm text-muted-foreground px-4">
+          <div className="text-center py-10 text-sm text-secondary px-4">
             {searchTerm ? t('noMatchingWords') : t('wordListEmpty')}
           </div>
         ) : (
@@ -281,7 +281,7 @@ export default function WordSidebar({
                     'group px-3 py-2 rounded-lg transition-all text-sm mb-1.5 flex items-start gap-1.5',
                     active
                       ? 'bg-accent-bg text-on-accent font-medium shadow-2xs'
-                      : 'hover:bg-muted/60 text-foreground'
+                      : 'hover:bg-muted/60 text-primary'
                   ].join(' ')}
                 >
                   <div
@@ -306,20 +306,20 @@ export default function WordSidebar({
                               ? 'bg-on-accent/15 text-on-accent/80'
                               : word.status === 'known'
                                 ? 'bg-success-muted text-success-text'
-                                : 'bg-muted text-muted-foreground'
+                                : 'bg-muted text-secondary'
                           )}
                         >
                           {statusLabel(word)}
                         </span>
                       )}
                     </div>
-                    <div className={['flex items-center gap-1.5 text-metadata', active ? 'text-on-accent/80' : 'text-muted-foreground'].join(' ')}>
+                    <div className={['flex items-center gap-1.5 text-metadata', active ? 'text-on-accent/80' : 'text-secondary'].join(' ')}>
                       <span className="truncate">{word.translate || t('noDefinition')}</span>
                       {word.lastClipAddedAt && (
                         <span
                           className={[
                             'shrink-0 text-metadata tabular-nums',
-                            active ? 'text-on-accent/60' : 'text-muted-foreground/80'
+                            active ? 'text-on-accent/60' : 'text-secondary/80'
                           ].join(' ')}
                           title={t('sortByRecentVideo')}
                         >
@@ -333,10 +333,10 @@ export default function WordSidebar({
                       type="button"
                       onClick={() => onEditWord(word)}
                       className={cn(
-                        'p-1 rounded-md transition-all cursor-pointer shrink-0 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        'p-1 rounded-md transition-all cursor-pointer shrink-0 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
                         active
                           ? 'text-on-accent/70 hover:text-on-accent hover:bg-on-accent/10'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/80 opacity-0 group-hover:opacity-100'
+                          : 'text-secondary hover:text-primary hover:bg-muted/80 opacity-0 group-hover:opacity-100'
                       )}
                       title={t('editWord')}
                     >
@@ -359,7 +359,7 @@ export default function WordSidebar({
                           'text-metadata px-1.5 py-0.5 rounded-md font-medium shrink-0 tabular-nums',
                           active
                             ? 'bg-on-accent/20 text-on-accent'
-                            : 'bg-muted text-muted-foreground'
+                            : 'bg-muted text-secondary'
                         ].join(' ')}
                       >
                         {t('videoCount', { count: word.videoCount })}

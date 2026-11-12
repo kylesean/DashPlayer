@@ -164,7 +164,7 @@ export default function WordDetailCanvas({
             <div className="flex flex-wrap items-start justify-between gap-4 border-b border-border/40 pb-5">
                 <div className="flex flex-col gap-2 min-w-0">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-xl font-semibold tracking-tight text-foreground">{word.word}</h2>
+                        <h2 className="text-xl font-semibold tracking-tight text-primary">{word.word}</h2>
                         <Tooltip content={t('contextStudio.speakWord', { defaultValue: '朗读发音' })} placement="below">
                             <button
                                 type="button"
@@ -172,8 +172,8 @@ export default function WordDetailCanvas({
                                 className={cn(
                                     'p-1.5 rounded-lg transition-colors cursor-pointer',
                                     playingId === 'word-head'
-                                        ? 'text-accent bg-accent/15'
-                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                                        ? 'text-accent bg-accent-bg/15'
+                                        : 'text-secondary hover:text-primary hover:bg-muted/80',
                                 )}
                                 aria-label={t('contextStudio.speakWord', { defaultValue: '朗读发音' })}
                             >
@@ -184,11 +184,11 @@ export default function WordDetailCanvas({
                             <Badge variant="warning" label={t('contextStudio.dueBadge', { defaultValue: '今日待复习' })} />
                         )}
                     </div>
-                    <p className="text-base text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                    <p className="text-base text-secondary whitespace-pre-wrap leading-relaxed">
                         {word.translate?.trim() || t('contextStudio.noTranslation', { defaultValue: '暂无释义' })}
                     </p>
                     {memory && (
-                        <div className="flex items-center gap-3 text-metadata text-muted-foreground">
+                        <div className="flex items-center gap-3 text-metadata text-secondary">
                             <span>
                                 {t('contextStudio.reviewCount', {
                                     count: memory.reviewCount,
@@ -238,7 +238,7 @@ export default function WordDetailCanvas({
                         <button
                             type="button"
                             onClick={() => onEdit(word)}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
                             aria-label={t('contextStudio.editWord', { defaultValue: '编辑词条与释义' })}
                         >
                             <Pencil className="w-4 h-4" />
@@ -249,7 +249,7 @@ export default function WordDetailCanvas({
                             type="button"
                             disabled={generatingDef}
                             onClick={() => void handleGenerateDefinition()}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer disabled:opacity-50"
+                            className="p-1.5 rounded-lg text-secondary hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer disabled:opacity-50"
                             aria-label={t('contextStudio.aiDefine', { defaultValue: 'AI 补全释义' })}
                         >
                             <Sparkles className="w-4 h-4" />
@@ -260,7 +260,7 @@ export default function WordDetailCanvas({
                             type="button"
                             disabled={deleting}
                             onClick={() => void handleDelete()}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:text-error-text hover:bg-error/10 transition-colors cursor-pointer disabled:opacity-50"
+                            className="p-1.5 rounded-lg text-secondary hover:text-error-text hover:bg-error/10 transition-colors cursor-pointer disabled:opacity-50"
                             aria-label={t('contextStudio.deleteWord', { defaultValue: '移除词条' })}
                         >
                             <Trash2 className="w-4 h-4" />
@@ -321,7 +321,7 @@ export default function WordDetailCanvas({
                     <Text type="body" weight="semibold">
                         {t('contextStudio.contextsHeading', { defaultValue: '视频语境' })}
                     </Text>
-                    <span className="text-metadata text-muted-foreground tabular-nums">
+                    <span className="text-metadata text-secondary tabular-nums">
                         {contexts.length > 0
                             ? t('contextStudio.contextsCount', { count: contexts.length, defaultValue: `${contexts.length} 条` })
                             : ''}
@@ -329,11 +329,11 @@ export default function WordDetailCanvas({
                 </div>
 
                 {loadingContexts ? (
-                    <div className="rounded-lg border border-border/40 bg-surface/50 p-6 text-center text-sm text-muted-foreground">
+                    <div className="rounded-lg border border-border/40 bg-surface/50 p-6 text-center text-sm text-secondary">
                         {t('contextStudio.loadingContexts', { defaultValue: '加载语境中...' })}
                     </div>
                 ) : contexts.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
+                    <div className="rounded-lg border border-dashed border-border/60 p-6 text-center text-sm text-secondary">
                         {t('contextStudio.emptyContexts', {
                             defaultValue: '暂无视频语境，在播放器中点词查询后会自动关联。',
                         })}
@@ -358,7 +358,7 @@ export default function WordDetailCanvas({
                                                 {occ.videoTitle}
                                             </span>
                                             {typeof occ.startTime === 'number' && (
-                                                <span className="text-metadata font-mono text-muted-foreground shrink-0">
+                                                <span className="text-metadata font-mono text-secondary shrink-0">
                                                     {TimeUtil.secondToTimeStrCompact(occ.startTime)}
                                                 </span>
                                             )}
@@ -377,8 +377,8 @@ export default function WordDetailCanvas({
                                                     className={cn(
                                                         'inline-flex items-center justify-center p-1.5 rounded-md transition-colors cursor-pointer',
                                                         playingId === occ.id
-                                                            ? 'text-accent bg-accent/15'
-                                                            : 'text-muted-foreground hover:text-foreground hover:bg-background/60',
+                                                            ? 'text-accent bg-accent-bg/15'
+                                                            : 'text-secondary hover:text-primary hover:bg-body/60',
                                                     )}
                                                     aria-label={speakLabel}
                                                 >
@@ -390,7 +390,7 @@ export default function WordDetailCanvas({
                                                     <button
                                                         type="button"
                                                         onClick={() => navigate(playerUrl)}
-                                                        className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-background/60 transition-colors cursor-pointer"
+                                                        className="p-1 rounded-md text-secondary hover:text-primary hover:bg-body/60 transition-colors cursor-pointer"
                                                         aria-label={t('contextStudio.openInPlayer', { defaultValue: '定位播放' })}
                                                     >
                                                         <ExternalLink className="w-3.5 h-3.5" />
@@ -400,9 +400,9 @@ export default function WordDetailCanvas({
                                         </div>
                                     </div>
 
-                                    <p className="text-sm text-foreground leading-relaxed">{occ.context}</p>
+                                    <p className="text-sm text-primary leading-relaxed">{occ.context}</p>
                                     {occ.contextZh && (
-                                        <p className="text-sm text-muted-foreground leading-relaxed">{occ.contextZh}</p>
+                                        <p className="text-sm text-secondary leading-relaxed">{occ.contextZh}</p>
                                     )}
                                 </div>
                             </Card>

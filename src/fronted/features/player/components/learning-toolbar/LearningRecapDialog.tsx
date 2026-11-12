@@ -254,7 +254,7 @@ export function LearningRecapContent({
                         <button
                             type="button"
                             onClick={() => { void mutate(); }}
-                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-foreground transition-colors hover:bg-muted/60"
+                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-primary transition-colors hover:bg-muted/60"
                         >
                             <RotateCcw className="h-3.5 w-3.5" />
                             {t('retry')}
@@ -288,7 +288,7 @@ export function LearningRecapContent({
                 <button
                     type="button"
                     onClick={onClose}
-                    className="flex h-7 items-center rounded-lg px-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                    className="flex h-7 items-center rounded-lg px-2.5 text-sm text-secondary transition-colors hover:bg-muted/60 hover:text-primary"
                 >
                     {t('close')}
                 </button>
@@ -344,9 +344,9 @@ function RecapBody({
     if (recap.words.length === 0) {
         return (
             <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-muted/20 px-4 py-8 text-center">
-                <Sparkles className="h-5 w-5 text-muted-foreground" />
-                <p className="text-sm font-medium text-foreground">{t('emptyTitle')}</p>
-                <p className="text-metadata leading-relaxed text-muted-foreground">{t('emptyHint')}</p>
+                <Sparkles className="h-5 w-5 text-secondary" />
+                <p className="text-sm font-medium text-primary">{t('emptyTitle')}</p>
+                <p className="text-metadata leading-relaxed text-secondary">{t('emptyHint')}</p>
             </div>
         );
     }
@@ -356,13 +356,13 @@ function RecapBody({
     return (
         <div className="space-y-3">
             <div className="flex items-start gap-2.5">
-                <p className="min-w-0 flex-1 text-sm leading-relaxed text-foreground">{headline}</p>
+                <p className="min-w-0 flex-1 text-sm leading-relaxed text-primary">{headline}</p>
                 <span
                     className={cn(
                         'shrink-0 rounded-md px-1.5 py-0.5 text-metadata font-medium',
                         recap.source === 'ai'
                             ? 'bg-accent-muted/50 text-accent'
-                            : 'bg-muted text-muted-foreground',
+                            : 'bg-muted text-secondary',
                     )}
                 >
                     {recap.source === 'ai' ? t('aiBadge') : t('localBadge')}
@@ -375,7 +375,7 @@ function RecapBody({
                     aria-busy={refreshing || undefined}
                     disabled={refreshing || retellLoading || recorderPhase !== 'idle'}
                     onClick={onRefresh}
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-secondary transition-colors hover:bg-muted/60 hover:text-primary disabled:opacity-50"
                 >
                     <RefreshCw className={cn('h-3 w-3', refreshing && 'animate-spin')} />
                 </button>
@@ -387,13 +387,13 @@ function RecapBody({
                     {recap.words.map((word) => (
                         <li key={word.word} className="py-2 first:pt-0 last:pb-0">
                             <div className="flex items-baseline gap-2">
-                                <span className="text-sm font-semibold text-foreground">{word.word}</span>
+                                <span className="text-sm font-semibold text-primary">{word.word}</span>
                                 {word.translate && (
-                                    <span className="text-metadata text-muted-foreground">{word.translate}</span>
+                                    <span className="text-metadata text-secondary">{word.translate}</span>
                                 )}
                             </div>
                             {word.note && (
-                                <p className="mt-0.5 text-metadata leading-relaxed text-muted-foreground">
+                                <p className="mt-0.5 text-metadata leading-relaxed text-secondary">
                                     {word.note}
                                 </p>
                             )}
@@ -405,11 +405,11 @@ function RecapBody({
             {recap.sentence && (
                 <section className="rounded-xl border border-border/60 bg-muted/20 px-3.5 py-2.5">
                     <SectionTitle>{t('sentenceTitle')}</SectionTitle>
-                    <p className="mt-1.5 text-sm leading-relaxed text-foreground select-text">
+                    <p className="mt-1.5 text-sm leading-relaxed text-primary select-text">
                         {recap.sentence.text}
                     </p>
                     {recap.sentence.note && (
-                        <p className="mt-1 text-metadata leading-relaxed text-muted-foreground">
+                        <p className="mt-1 text-metadata leading-relaxed text-secondary">
                             {recap.sentence.note}
                         </p>
                     )}
@@ -418,11 +418,11 @@ function RecapBody({
 
             {recap.expression && (
                 <section className="flex items-baseline gap-2 rounded-xl border border-border/60 bg-card px-3.5 py-2.5">
-                    <span className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="text-metadata font-semibold uppercase tracking-wider text-secondary">
                         {t('expressionTitle')}
                     </span>
-                    <span className="text-sm font-medium text-foreground">{recap.expression.text}</span>
-                    <span className="min-w-0 flex-1 text-metadata text-muted-foreground">
+                    <span className="text-sm font-medium text-primary">{recap.expression.text}</span>
+                    <span className="min-w-0 flex-1 text-metadata text-secondary">
                         {recap.expression.meaning}
                     </span>
                 </section>
@@ -434,16 +434,16 @@ function RecapBody({
                         <Mic className="h-3.5 w-3.5 text-accent" />
                         <SectionTitle>{t('speakingTitle')}</SectionTitle>
                     </div>
-                    <p className="mt-1.5 text-sm leading-relaxed text-foreground">
+                    <p className="mt-1.5 text-sm leading-relaxed text-primary">
                         {recap.speakingTask || t('localSpeakingTask')}
                     </p>
-                    <p className="mt-1 text-metadata leading-relaxed text-muted-foreground">
+                    <p className="mt-1 text-metadata leading-relaxed text-secondary">
                         {t('speakingHint')}
                     </p>
                     {lastRetell && (
                         <p
                             data-testid="learning-last-retell"
-                            className="mt-1 text-metadata text-muted-foreground/80"
+                            className="mt-1 text-metadata text-secondary/80"
                         >
                             {t('lastRetell', {
                                 level: t(levelKey('retell', lastRetell.level)),
@@ -461,7 +461,7 @@ function RecapBody({
                                 'flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium transition-colors',
                                 recorderPhase === 'recording'
                                     ? 'border-error/40 bg-error/10 text-error-text'
-                                    : 'border-border/70 text-foreground hover:bg-muted/60',
+                                    : 'border-border/70 text-primary hover:bg-muted/60',
                                 (retellLoading || recorderPhase === 'processing') && 'cursor-not-allowed opacity-60',
                             )}
                         >
@@ -476,14 +476,14 @@ function RecapBody({
                                     ? t('transcribing')
                                     : t('startSpokenRetell')}
                         </button>
-                        <span className="text-metadata text-muted-foreground/70">
+                        <span className="text-metadata text-secondary/70">
                             {t('spokenRetellHint')}
                         </span>
                     </div>
                     {spokenTranscript && (
                         <p
                             data-testid="learning-spoken-transcript"
-                            className="mt-1.5 rounded-lg bg-muted/40 px-2.5 py-1.5 text-metadata leading-relaxed text-muted-foreground"
+                            className="mt-1.5 rounded-lg bg-muted/40 px-2.5 py-1.5 text-metadata leading-relaxed text-secondary"
                         >
                             {t('spokenTranscript', { text: spokenTranscript })}
                         </p>
@@ -502,13 +502,13 @@ function RecapBody({
                                 onCheckRetell();
                             }
                         }}
-                        className="mt-2 min-h-20 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-accent-bg/50 focus-visible:ring-2 focus-visible:ring-ring"
+                        className="mt-2 min-h-20 w-full resize-none rounded-lg border border-border/70 bg-body px-3 py-2 text-sm leading-relaxed text-primary outline-none transition-colors placeholder:text-secondary/70 focus:border-accent-bg/50 focus-visible:ring-2 focus-visible:ring-focus-ring"
                     />
                     <div className="mt-2 flex items-center justify-between gap-3">
                         <span
                             id="learning-retell-error"
                             role={retellError ? 'alert' : undefined}
-                            className="text-metadata text-muted-foreground/70"
+                            className="text-metadata text-secondary/70"
                         >
                             {retellError ?? ''}
                         </span>
@@ -517,7 +517,7 @@ function RecapBody({
                             data-testid="learning-retell-submit"
                             disabled={retellLoading || draft.trim().length === 0}
                             onClick={onCheckRetell}
-                            className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-accent-bg px-3 text-sm font-medium text-on-accent transition-colors hover:bg-accent-bg/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+                            className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg bg-accent-bg px-3 text-sm font-medium text-on-accent transition-colors hover:bg-accent-bg/90 disabled:cursor-not-allowed disabled:bg-muted disabled:text-secondary"
                         >
                             {retellLoading ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -538,7 +538,7 @@ function RecapBody({
                     {lastRolePlay && (
                         <p
                             data-testid="learning-last-role-play"
-                            className="-mb-1 px-1 text-metadata text-muted-foreground/80"
+                            className="-mb-1 px-1 text-metadata text-secondary/80"
                         >
                             {t('lastRolePlay', {
                                 level: t(levelKey('roleplay', lastRolePlay.level)),
@@ -598,7 +598,7 @@ function RetellFeedback({ result }: { result: RetellEvaluationVO }) {
         >
             <div className="flex flex-wrap items-center gap-1.5">
                 <RetellLevelBadge level={result.level} label={levelLabel} />
-                <span className="text-metadata text-muted-foreground">
+                <span className="text-metadata text-secondary">
                     {result.source === 'ai'
                         ? t('retellSourceAi')
                         : result.feedback
@@ -606,7 +606,7 @@ function RetellFeedback({ result }: { result: RetellEvaluationVO }) {
                             : t('retellSourceLocal')}
                 </span>
                 {result.totalKeywords > 0 && (
-                    <span className="ml-auto text-metadata tabular-nums text-muted-foreground">
+                    <span className="ml-auto text-metadata tabular-nums text-secondary">
                         {t('coverage', {
                             matched: result.matchedKeywords,
                             total: result.totalKeywords,
@@ -614,20 +614,20 @@ function RetellFeedback({ result }: { result: RetellEvaluationVO }) {
                     </span>
                 )}
             </div>
-            <p className="mt-1.5 text-sm leading-relaxed text-foreground select-text">
+            <p className="mt-1.5 text-sm leading-relaxed text-primary select-text">
                 {result.feedback || localFeedback}
             </p>
             {result.missingWords.length > 0 && (
-                <p className="mt-1 text-metadata leading-relaxed text-muted-foreground">
+                <p className="mt-1 text-metadata leading-relaxed text-secondary">
                     {t('missingWords')}: {result.missingWords.join(' · ')}
                 </p>
             )}
             {result.improved && (
-                <div className="mt-2 rounded-lg border border-border/50 bg-background/60 px-2.5 py-2">
-                    <div className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="mt-2 rounded-lg border border-border/50 bg-body/60 px-2.5 py-2">
+                    <div className="text-metadata font-semibold uppercase tracking-wider text-secondary">
                         {t('improvedTitle')}
                     </div>
-                    <p className="mt-0.5 text-sm leading-relaxed text-foreground select-text">
+                    <p className="mt-0.5 text-sm leading-relaxed text-primary select-text">
                         {result.improved}
                     </p>
                 </div>
@@ -646,7 +646,7 @@ function RetellLevelBadge({ level, label }: { level: RetellLevel; label: string 
                 'rounded-md px-1.5 py-0.5 text-metadata font-medium',
                 level === 'great' && 'bg-success/10 text-success-text',
                 level === 'good' && 'bg-warning-muted/60 text-warning-text',
-                level === 'retry' && 'bg-muted text-muted-foreground',
+                level === 'retry' && 'bg-muted text-secondary',
             )}
         >
             {label}
@@ -675,7 +675,7 @@ function RecapSkeleton() {
 /** 小节标题。 */
 function SectionTitle({ children }: { children: ReactNode }) {
     return (
-        <span className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className="text-metadata font-semibold uppercase tracking-wider text-secondary">
             {children}
         </span>
     );

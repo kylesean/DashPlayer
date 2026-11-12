@@ -217,7 +217,7 @@ export default function PlayerSettingsPopover({
                             在 flex 行里被挤压就会渲染成「关…/安…」这样的省略号。 */}
                         <div className="flex items-center justify-between gap-2 px-2 py-1">
                             <span
-                                className="shrink-0 whitespace-nowrap text-sm text-muted-foreground"
+                                className="shrink-0 whitespace-nowrap text-sm text-secondary"
                                 title={t('controlBox.subtitleContextHint')}
                             >
                                 {t('controlBox.subtitleContext')}
@@ -245,7 +245,7 @@ export default function PlayerSettingsPopover({
                             保证全语种与全主题下四档均清晰可点且不截断。 */}
                         <div className="flex flex-col items-stretch gap-1.5 px-2 py-1">
                             <span
-                                className="text-sm text-muted-foreground"
+                                className="text-sm text-secondary"
                                 title={t('controlBox.vocabularyGuidanceHint')}
                             >
                                 {t('controlBox.vocabularyGuidance')}
@@ -285,13 +285,13 @@ export default function PlayerSettingsPopover({
                                 popover.hide();
                                 navigate('/settings/appearance');
                             }}
-                            className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground cursor-pointer"
+                            className="group flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-sm text-secondary transition-colors hover:bg-muted/40 hover:text-primary cursor-pointer"
                         >
                             <span className="flex items-center gap-1.5">
                                 <Settings2 className="h-3.5 w-3.5 text-secondary group-hover:text-primary transition-colors" />
                                 <span>{t('controlBox.allSettings', { defaultValue: '全部播放设置' })}</span>
                             </span>
-                            <ChevronRight className="h-3.5 w-3.5 text-secondary group-hover:text-foreground transition-colors" />
+                            <ChevronRight className="h-3.5 w-3.5 text-secondary group-hover:text-primary transition-colors" />
                         </button>
                     </div>
                 ) : (

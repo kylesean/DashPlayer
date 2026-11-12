@@ -92,7 +92,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
                 label={`${speed.toFixed(2)}x`}
                 className={cn(
                     // 默认 hover 跟随应用主题（亮色宿主）；深色控制条由 triggerClassName 覆盖
-                    'h-8 px-2.5 rounded-lg text-sm font-mono text-inherit hover:bg-foreground/10 transition-colors',
+                    'h-8 px-2.5 rounded-lg text-sm font-mono text-inherit hover:bg-primary/10 transition-colors',
                     triggerClassName
                 )}
             />
@@ -145,7 +145,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
 
                 <div className={CONTROL_POPOVER_SEPARATOR} />
                 <div className="px-0.5 pt-2">
-                    <div className="flex items-center gap-1.5 bg-muted/40 hover:bg-muted/60 focus-within:bg-muted/60 border border-border/60 focus-within:border-accent rounded-lg px-2 py-1 transition-colors">
+                    <div className="flex items-center gap-1.5 bg-muted/40 hover:bg-muted/60 focus-within:bg-muted/60 border border-border/60 focus-within:border-accent-bg rounded-lg px-2 py-1 transition-colors">
                         <span className="text-sm text-secondary font-sans shrink-0">{t('speedSlider.custom')}</span>
                         <input
                             ref={inputRef}

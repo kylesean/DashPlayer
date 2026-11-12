@@ -68,7 +68,7 @@ export default function SubtitleGenerationPanel() {
             data-state={phase}
             aria-busy={phase === 'starting' || phase === 'cancelling'}
         >
-            <Captions className="h-10 w-10 text-muted-foreground" />
+            <Captions className="h-10 w-10 text-secondary" />
             <Text type="supporting" color="secondary">{t('subtitleGeneration.title')}</Text>
             <Text type="supporting" color="secondary" role="status" aria-live="polite">
                 {running ? (progress ?? t('subtitleGeneration.running')) : t('subtitleGeneration.description')}

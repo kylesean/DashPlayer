@@ -80,8 +80,8 @@ const ArticleSentenceZhSpan = ({
                 'inline rounded px-1 py-0.5 mr-1 cursor-pointer transition-colors',
                 isCurrent
                     ? 'text-accent font-medium bg-accent-muted/15'
-                    : 'text-muted-foreground/70 hover:text-muted-foreground/95',
-                isActiveMatch && 'ring-1 ring-amber-500/80 bg-amber-500/15 text-foreground',
+                    : 'text-secondary/70 hover:text-secondary/95',
+                isActiveMatch && 'ring-1 ring-amber-500/80 bg-amber-500/15 text-primary',
             )}
         >
             {highlightSlice(zhText, zhText, 0, searchQuery, isActiveMatch)}
@@ -163,10 +163,10 @@ const ArticleBlock = forwardRef<HTMLDivElement, ArticleBlockProps>(
                         <span
                             className={cn(
                                 'inline-block w-1.5 h-1.5 rounded-full transition-colors',
-                                hasActiveCurrent ? 'bg-accent' : 'bg-muted-foreground/40',
+                                hasActiveCurrent ? 'bg-accent-bg' : 'bg-secondary/40',
                             )}
                         />
-                        <span className="text-metadata font-mono text-muted-foreground/60 tracking-tight">
+                        <span className="text-metadata font-mono text-secondary/60 tracking-tight">
                             {timeStr}
                         </span>
                     </div>
@@ -216,9 +216,9 @@ const ArticleBlock = forwardRef<HTMLDivElement, ArticleBlockProps>(
                                     className={cn(
                                         'inline rounded-md px-1 py-0.5 cursor-pointer transition-all duration-150',
                                         isCurrent
-                                            ? 'bg-accent/20 text-foreground font-medium ring-1 ring-accent/35 shadow-xs'
-                                            : 'text-muted-foreground hover:text-foreground hover:bg-surface/80',
-                                        isActiveMatch && 'ring-1 ring-amber-500/80 bg-amber-500/15 text-foreground shadow-xs',
+                                            ? 'bg-accent-bg/20 text-primary font-medium ring-1 ring-accent/35 shadow-xs'
+                                            : 'text-secondary hover:text-primary hover:bg-surface/80',
+                                        isActiveMatch && 'ring-1 ring-amber-500/80 bg-amber-500/15 text-primary shadow-xs',
                                     )}
                                 >
                                     {renderSentenceWords(s, isCurrent, isActiveMatch)}
@@ -230,8 +230,8 @@ const ArticleBlock = forwardRef<HTMLDivElement, ArticleBlockProps>(
                                         className={cn(
                                             'inline-flex items-center justify-center mx-1 p-0.5 rounded cursor-pointer transition-colors align-middle',
                                             isRepeat
-                                                ? 'text-accent bg-accent/25 hover:bg-accent/35'
-                                                : 'text-muted-foreground/60 hover:text-foreground hover:bg-surface/80',
+                                                ? 'text-accent bg-accent-bg/25 hover:bg-accent-bg/35'
+                                                : 'text-secondary/60 hover:text-primary hover:bg-surface/80',
                                         )}
                                         title={
                                             isRepeat

@@ -121,13 +121,13 @@ export default function BlindDictation({
                 width="100%"
             />
             {peekingSpoiler && (
-                <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground">
+                <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-1.5 text-sm text-secondary">
                     <span>{unit.text}</span>
                     {translationText ? <span className="ml-2 text-metadata opacity-80">· {translationText}</span> : null}
                 </div>
             )}
             <div className="flex items-center justify-between gap-2">
-                <span className="text-metadata text-muted-foreground">
+                <span className="text-metadata text-secondary">
                     {t('dictation.blindHint', { defaultValue: '无词数提示 · Shift+Enter 可换行' })}
                 </span>
                 <Button

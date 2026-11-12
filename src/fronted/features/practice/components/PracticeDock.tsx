@@ -543,7 +543,7 @@ export default function PracticeDock() {
         <div
             data-practice-dock="true"
             data-recorder-phase={recorderPhase}
-            className="flex h-full w-full flex-col bg-surface/85 backdrop-blur-xl text-foreground [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)]"
+            className="flex h-full w-full flex-col bg-surface/85 backdrop-blur-xl text-primary [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)]"
         >
             {/* 顶栏：一级模式 + 紧凑子模式 + 筛选进度导航 + 专注/声音/关闭 */}
             <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border/50 px-4">
@@ -603,7 +603,7 @@ export default function PracticeDock() {
                                     navigateOffset(-1, true);
                                 }}
                                 aria-label={t('panel.prevSentence', { defaultValue: '上一句 (↑)' })}
-                                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/70 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
+                                className="rounded p-1 text-secondary hover:text-primary hover:bg-muted/70 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
                             >
                                 <ChevronLeft className="h-3.5 w-3.5" />
                             </button>
@@ -618,12 +618,12 @@ export default function PracticeDock() {
                                 filterPopover.toggle();
                             }}
                             {...filterPopover.triggerProps}
-                            className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono tabular-nums text-foreground hover:bg-muted/60 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono tabular-nums text-primary hover:bg-muted/60 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
                         >
                             <span>
                                 {currentFilteredPos >= 0 ? currentFilteredPos + 1 : 1}/{Math.max(1, filteredUnits.length)}
                             </span>
-                            <span className="inline-flex items-center gap-0.5 font-sans text-muted-foreground">
+                            <span className="inline-flex items-center gap-0.5 font-sans text-secondary">
                                 <Filter className="h-3 w-3" />
                                 {filterLabelMap[sentenceFilter]}
                             </span>
@@ -634,15 +634,15 @@ export default function PracticeDock() {
                                     <label
                                         key={key}
                                         className={cn(
-                                            'flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring',
+                                            'flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-focus-ring',
                                             sentenceFilter === key
-                                                ? 'bg-accent/15 text-accent font-medium'
-                                                : 'text-foreground hover:bg-muted/50',
+                                                ? 'bg-accent-bg/15 text-accent font-medium'
+                                                : 'text-primary hover:bg-muted/50',
                                         )}
                                     >
                                         <span>{filterLabelMap[key]}</span>
                                         <span className="flex items-center gap-2">
-                                            <span className="font-mono text-metadata text-muted-foreground tabular-nums">
+                                            <span className="font-mono text-metadata text-secondary tabular-nums">
                                                 {filterCounts[key]}
                                             </span>
                                             <input
@@ -672,7 +672,7 @@ export default function PracticeDock() {
                                     navigateOffset(1, true);
                                 }}
                                 aria-label={t('panel.nextSentence', { defaultValue: '下一句 (↓)' })}
-                                className="rounded p-1 text-muted-foreground hover:text-foreground hover:bg-muted/70 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
+                                className="rounded p-1 text-secondary hover:text-primary hover:bg-muted/70 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
                             >
                                 <ChevronRight className="h-3.5 w-3.5" />
                             </button>
@@ -692,7 +692,7 @@ export default function PracticeDock() {
                                     'inline-flex h-[var(--size-element-sm)] items-center gap-1 rounded-lg border border-border/60 px-2 text-[length:var(--text-supporting-size)] font-mono tabular-nums transition-colors cursor-pointer',
                                     summary && summary.bestScore >= PRACTICE_PASS_SCORE
                                         ? 'bg-success/10 text-success-text border-success/30'
-                                        : 'bg-muted/40 text-muted-foreground hover:text-foreground',
+                                        : 'bg-muted/40 text-secondary hover:text-primary',
                                 )}
                             >
                                 <History className="h-3 w-3" />
@@ -700,13 +700,13 @@ export default function PracticeDock() {
                             </button>
                             {historyPopover.render(
                                 <>
-                                    <div className="mb-1.5 px-1 text-metadata font-semibold text-muted-foreground">
+                                    <div className="mb-1.5 px-1 text-metadata font-semibold text-secondary">
                                         {t('result.history')} ({history.length})
                                     </div>
                                     <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
                                         {history.slice(0, 12).map((record) => (
                                             <div key={record.id} className="flex items-center justify-between gap-2 py-1.5 px-1 text-sm">
-                                                <span className="text-muted-foreground">
+                                                <span className="text-secondary">
                                                     {record.mode === 'shadowing' ? t('result.modeShadowing') : t('result.modeDictation')}
                                                 </span>
                                                 <div className="flex items-center gap-1.5">
@@ -715,7 +715,7 @@ export default function PracticeDock() {
                                                             type="button"
                                                             aria-label={t('result.playMine')}
                                                             onClick={() => handlePlayHistoryAudio(record.audioPath!)}
-                                                            className="text-muted-foreground hover:text-foreground cursor-pointer"
+                                                            className="text-secondary hover:text-primary cursor-pointer"
                                                         >
                                                             <Volume2 className="h-3.5 w-3.5" />
                                                         </button>
@@ -733,7 +733,7 @@ export default function PracticeDock() {
                                                         {Math.round(record.score)}
                                                     </span>
                                                 </div>
-                                                <span className="font-mono text-muted-foreground/70">{record.createdAt.slice(5, 16)}</span>
+                                                <span className="font-mono text-secondary/70">{record.createdAt.slice(5, 16)}</span>
                                             </div>
                                         ))}
                                     </div>
@@ -885,7 +885,7 @@ export default function PracticeDock() {
             </div>
 
             {/* 底部键盘流提示条 */}
-            <div className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/40 bg-muted/20 px-4 text-metadata text-muted-foreground overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/40 bg-muted/20 px-4 text-metadata text-secondary overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex items-center gap-3 shrink-0">
                     {shortcutLegend.map((item) => (
                         <span key={item.keys + item.text} className="inline-flex items-center gap-1">
@@ -894,7 +894,7 @@ export default function PracticeDock() {
                         </span>
                     ))}
                 </div>
-                <span className="hidden sm:inline text-muted-foreground/75 shrink-0">
+                <span className="hidden sm:inline text-secondary/75 shrink-0">
                     {t('panel.totalPracticed', {
                         defaultValue: '本片已练 {{done}}/{{total}} 句',
                         done: summaryByIndex.size,

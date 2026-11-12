@@ -96,7 +96,7 @@ export default function EmbeddingModelCard({
             <VStack gap={2}>
                 <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
                     <HStack gap={2} vAlign="center">
-                        <Sparkles className="h-4 w-4 text-muted-foreground" />
+                        <Sparkles className="h-4 w-4 text-secondary" />
                         <Text weight="medium" size="sm">{status?.name ?? 'EmbeddingGemma 2'}</Text>
                         {status?.ready && (
                             <Token label={t('resources.embedding.ready')} size="sm" color="green" />
@@ -128,7 +128,7 @@ export default function EmbeddingModelCard({
                 {status?.ready && (
                     <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
                         <HStack gap={2} vAlign="center">
-                            <Image className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Image className="h-3.5 w-3.5 text-secondary" />
                             <Text size="2xs" color="secondary">
                                 {status.multimodalReady
                                     ? t('resources.embedding.multimodalReady')

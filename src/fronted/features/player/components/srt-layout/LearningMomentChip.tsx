@@ -79,7 +79,7 @@ export default function LearningMomentChip({
             <div
                 className={cn(
                     'inline-flex h-6 max-w-full items-center rounded-full border border-primary/30 bg-primary/5',
-                    'pl-2 pr-1 text-metadata text-muted-foreground',
+                    'pl-2 pr-1 text-metadata text-secondary',
                 )}
             >
                 <button
@@ -88,10 +88,10 @@ export default function LearningMomentChip({
                     onClick={popover.toggle}
                     {...popover.triggerProps}
                     data-testid="learning-moment"
-                    className="inline-flex min-w-0 items-center gap-1.5 pr-1.5 cursor-pointer transition-colors hover:text-foreground"
+                    className="inline-flex min-w-0 items-center gap-1.5 pr-1.5 cursor-pointer transition-colors hover:text-primary"
                 >
                     <Brain className="h-3 w-3 shrink-0 text-primary" />
-                    <span className="shrink-0 font-medium text-foreground">
+                    <span className="shrink-0 font-medium text-primary">
                         {candidate.surface}
                     </span>
                     <span className="max-w-[18rem] truncate">
@@ -103,7 +103,7 @@ export default function LearningMomentChip({
                     aria-label={t('dismiss')}
                     title={t('dismiss')}
                     onClick={onDismiss}
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground cursor-pointer"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-secondary/60 transition-colors hover:bg-muted/60 hover:text-primary cursor-pointer"
                 >
                     <X className="h-3 w-3" />
                 </button>
@@ -121,21 +121,21 @@ export default function LearningMomentChip({
 
                     <div className="flex min-h-24 flex-col items-center justify-center py-3 text-center">
                         <div className="flex items-baseline gap-2">
-                            <span className="max-w-full break-words text-2xl font-semibold tracking-tight text-foreground">
+                            <span className="max-w-full break-words text-2xl font-semibold tracking-tight text-primary">
                                 {candidate.surface}
                             </span>
                             {candidate.phonetic && (
-                                <span className="text-metadata text-muted-foreground">
+                                <span className="text-metadata text-secondary">
                                     {candidate.phonetic}
                                 </span>
                             )}
                         </div>
                         {revealed ? (
-                            <p className="mt-2 max-w-full break-words text-sm leading-relaxed text-foreground">
+                            <p className="mt-2 max-w-full break-words text-sm leading-relaxed text-primary">
                                 {candidate.meaning}
                             </p>
                         ) : (
-                            <p className="mt-2 text-sm text-muted-foreground">
+                            <p className="mt-2 text-sm text-secondary">
                                 {t('recallHint')}
                             </p>
                         )}
@@ -186,7 +186,7 @@ export default function LearningMomentChip({
                             type="button"
                             data-testid="learning-moment-reveal"
                             onClick={() => setRevealed(true)}
-                            className="h-8 w-full rounded-lg border border-border/70 bg-background/60 text-sm font-medium text-foreground transition-colors hover:bg-muted/60 cursor-pointer"
+                            className="h-8 w-full rounded-lg border border-border/70 bg-body/60 text-sm font-medium text-primary transition-colors hover:bg-muted/60 cursor-pointer"
                         >
                             {t('reveal')}
                         </button>

@@ -76,7 +76,7 @@ const RetentionChip = ({
         return null;
     }
     return (
-        <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-metadata text-muted-foreground">
+        <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-metadata text-secondary">
             {label} {Math.round(stats.retention * 100)}%
         </span>
     );
@@ -115,7 +115,7 @@ const ReviewCardBody = ({
     return (
         <div className="rounded-lg border border-border/60 bg-card p-3">
             <div className="flex items-center justify-between gap-2">
-                <span className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="text-metadata font-semibold uppercase tracking-wider text-secondary">
                     {t('reviewDock.cardLabel')}
                 </span>
                 {revealed && (
@@ -128,23 +128,23 @@ const ReviewCardBody = ({
             <div className="flex min-h-24 flex-col items-center justify-center py-3 text-center">
                 <div
                     data-testid="review-card-word"
-                    className="max-w-full break-words text-2xl font-semibold tracking-tight text-foreground"
+                    className="max-w-full break-words text-2xl font-semibold tracking-tight text-primary"
                 >
                     {card.word}
                 </div>
                 {revealed ? (
                     <>
-                        <div className="mt-1.5 max-w-full break-words text-sm text-muted-foreground">
+                        <div className="mt-1.5 max-w-full break-words text-sm text-secondary">
                             {card.translate?.trim() || t('reviewDock.noTranslation')}
                         </div>
-                        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-metadata text-muted-foreground/80">
+                        <div className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-metadata text-secondary/80">
                             <span>{t('reviewDock.mastery')}: {masteryLabel(card.mastery, t)}</span>
                             <span aria-hidden>·</span>
                             <span>{t('reviewDock.evidence')}: {confidenceLabel(card.confidence, t)}</span>
                         </div>
                     </>
                 ) : (
-                    <p className="mt-2 text-sm text-muted-foreground">
+                    <p className="mt-2 text-sm text-secondary">
                         {t('reviewDock.recallHint')}
                     </p>
                 )}
@@ -157,7 +157,7 @@ const ReviewCardBody = ({
                     onClick={() => onOpenClips(card.word)}
                     className={cn(
                         'mb-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/25',
-                        'h-8 text-sm font-medium text-foreground transition-colors hover:bg-muted/50 cursor-pointer',
+                        'h-8 text-sm font-medium text-primary transition-colors hover:bg-muted/50 cursor-pointer',
                     )}
                 >
                     <Clapperboard className="h-3.5 w-3.5 text-accent" />
@@ -173,11 +173,11 @@ const ReviewCardBody = ({
                     data-testid="review-card-context"
                     className="mb-2 rounded-lg bg-muted/45 px-2.5 py-2 text-left"
                 >
-                    <p className="text-sm leading-relaxed text-foreground/85">
+                    <p className="text-sm leading-relaxed text-primary/85">
                         “{card.context.text}”
                     </p>
                     {(card.context.videoFileName || card.context.sentenceIndex !== null) && (
-                        <p className="mt-1 truncate text-metadata text-muted-foreground">
+                        <p className="mt-1 truncate text-metadata text-secondary">
                             {[
                                 card.context.videoFileName
                                     ? t('reviewDock.sourceVideo', { name: card.context.videoFileName })
@@ -207,7 +207,7 @@ const ReviewCardBody = ({
                             onClick={() => onRate(rating)}
                             className={cn(
                                 'h-8 rounded-lg border text-sm font-medium transition-colors cursor-pointer',
-                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-card',
+                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-card',
                                 'disabled:cursor-wait disabled:opacity-60',
                                 RATING_STYLES[rating],
                             )}
@@ -222,7 +222,7 @@ const ReviewCardBody = ({
                     ref={revealRef}
                     data-testid="review-reveal"
                     onClick={onReveal}
-                    className="h-8 w-full rounded-lg border border-border/70 bg-background/60 text-sm font-medium text-foreground transition-colors hover:bg-muted/60 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-card"
+                    className="h-8 w-full rounded-lg border border-border/70 bg-body/60 text-sm font-medium text-primary transition-colors hover:bg-muted/60 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-1 focus-visible:ring-offset-card"
                 >
                     {t('reviewDock.reveal')}
                 </button>
@@ -418,7 +418,7 @@ export default function ReviewDock({
                     {dueCount > 0 && (
                         <span
                             aria-hidden
-                            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold leading-none text-background"
+                            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold leading-none text-body"
                         >
                             {dueCount > 99 ? '99+' : dueCount}
                         </span>
@@ -429,14 +429,14 @@ export default function ReviewDock({
                 <div data-testid="review-dock-panel">
                 <div className="flex items-start justify-between gap-3 px-1 pb-2 pt-1">
                     <div className="min-w-0">
-                        <div className="text-sm font-semibold text-foreground">{t('reviewDock.title')}</div>
-                        <div className="mt-0.5 text-metadata leading-relaxed text-muted-foreground">
+                        <div className="text-sm font-semibold text-primary">{t('reviewDock.title')}</div>
+                        <div className="mt-0.5 text-metadata leading-relaxed text-secondary">
                             {t('reviewDock.subtitle')}
                         </div>
                     </div>
                     <div className="shrink-0 text-right">
-                        <div className="text-xl font-semibold tabular-nums text-foreground">{dueCount}</div>
-                        <div className="text-metadata text-muted-foreground">{t('reviewDock.dueWords')}</div>
+                        <div className="text-xl font-semibold tabular-nums text-primary">{dueCount}</div>
+                        <div className="text-metadata text-secondary">{t('reviewDock.dueWords')}</div>
                     </div>
                 </div>
 
@@ -453,20 +453,20 @@ export default function ReviewDock({
                         <button
                             type="button"
                             onClick={() => { void mutate(); }}
-                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-foreground transition-colors hover:bg-muted/60 cursor-pointer"
+                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-primary transition-colors hover:bg-muted/60 cursor-pointer"
                         >
                             <RotateCcw className="h-3.5 w-3.5" />
                             {t('reviewDock.retry')}
                         </button>
                     </div>
                 ) : isLoading && !data ? (
-                    <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-center gap-2 py-8 text-sm text-secondary">
                         <Loader2 className="h-4 w-4 animate-spin" />
                         {t('reviewDock.loading')}
                     </div>
                 ) : card ? (
                     <div className="px-1">
-                        <div className="mb-1.5 flex items-center justify-between gap-2 text-metadata text-muted-foreground">
+                        <div className="mb-1.5 flex items-center justify-between gap-2 text-metadata text-secondary">
                             <span data-testid="review-batch-progress">
                                 {t('reviewDock.batchProgress', {
                                     done: batch.done + 1,
@@ -497,7 +497,7 @@ export default function ReviewDock({
                 ) : (
                     <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-4 py-6 text-center">
                         <Check className="h-5 w-5 text-success-text" />
-                        <p className="text-sm font-medium text-foreground" data-testid="review-batch-done">
+                        <p className="text-sm font-medium text-primary" data-testid="review-batch-done">
                             {batch.done > 0
                                 ? t('reviewDock.batchDone', {
                                     count: batch.done,
@@ -505,7 +505,7 @@ export default function ReviewDock({
                                 })
                                 : t('reviewDock.emptyTitle')}
                         </p>
-                        <p className="text-metadata leading-relaxed text-muted-foreground">
+                        <p className="text-metadata leading-relaxed text-secondary">
                             {batch.isComplete && dueCount > 0
                                 ? t('reviewDock.batchMoreDue', {
                                     count: dueCount,
@@ -522,7 +522,7 @@ export default function ReviewDock({
                                 type="button"
                                 data-testid="review-batch-next"
                                 onClick={() => setReviewedWords([])}
-                                className="mt-1 flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-foreground transition-colors hover:bg-muted/60 cursor-pointer"
+                                className="mt-1 flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-primary transition-colors hover:bg-muted/60 cursor-pointer"
                             >
                                 {t('reviewDock.batchNext', { defaultValue: '继续下一组' })}
                             </button>
@@ -536,7 +536,7 @@ export default function ReviewDock({
                             type="button"
                             data-testid="review-dock-return"
                             onClick={returnToPlayback}
-                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-metadata text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground cursor-pointer"
+                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-metadata text-secondary transition-colors hover:bg-muted/60 hover:text-primary cursor-pointer"
                         >
                             <CornerUpLeft className="h-3 w-3" />
                             {t('reviewDock.returnToPlayback')}
@@ -545,7 +545,7 @@ export default function ReviewDock({
                 )}
 
                 {lastRated && (
-                    <div className="mt-2 flex items-center gap-1.5 px-1 text-metadata text-muted-foreground">
+                    <div className="mt-2 flex items-center gap-1.5 px-1 text-metadata text-secondary">
                         <Check className="h-3 w-3 text-success-text" />
                         <span>
                             {t('reviewDock.ratedWithNext', {

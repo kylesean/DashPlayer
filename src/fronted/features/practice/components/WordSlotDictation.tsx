@@ -325,14 +325,14 @@ export default function WordSlotDictation({
             onClick={focusInput}
         >
             {/* 词槽矩阵 + 静态标点骨架；当前词槽内直接内嵌透明输入框对齐原生光标与 IME */}
-            <div className="flex flex-wrap items-baseline text-lg leading-[2.2] font-medium text-foreground select-none">
+            <div className="flex flex-wrap items-baseline text-lg leading-[2.2] font-medium text-primary select-none">
                 {tokens.map((token, idx) => {
                     if (token.kind === 'gap') {
                         return <span key={`slot-gap-${idx}`} className="whitespace-pre">{token.text}</span>;
                     }
                     if (token.kind === 'punctuation') {
                         return (
-                            <span key={`slot-punct-${idx}`} className="text-muted-foreground whitespace-pre">
+                            <span key={`slot-punct-${idx}`} className="text-secondary whitespace-pre">
                                 {token.text}
                             </span>
                         );
@@ -352,7 +352,7 @@ export default function WordSlotDictation({
                                 key={`slot-active-${unit.key}-${i}`}
                                 style={{ minWidth: `${Math.max(minCh, draft.length + 1)}ch` }}
                                 className={cn(
-                                    'relative inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-center border-b-2 border-accent bg-accent/10 text-foreground',
+                                    'relative inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-center border-b-2 border-accent-bg bg-accent-bg/10 text-primary',
                                     shakeIdx === i && 'practice-shake',
                                 )}
                             >
@@ -362,7 +362,7 @@ export default function WordSlotDictation({
                                         charFeedback.map((cf, cIdx) => (
                                             <span
                                                 key={cIdx}
-                                                className={cf.correct ? 'text-foreground' : 'text-error-text underline decoration-error'}
+                                                className={cf.correct ? 'text-primary' : 'text-error-text underline decoration-error'}
                                             >
                                                 {cf.char}
                                             </span>
@@ -413,7 +413,7 @@ export default function WordSlotDictation({
                                     }}
                                     onBlur={() => onPeekChange(false)}
                                     onPaste={handlePaste}
-                                    className="absolute inset-0 h-full w-full border-0 bg-transparent px-1.5 text-center font-medium tracking-wide text-transparent caret-accent outline-none selection:bg-accent/25"
+                                    className="absolute inset-0 h-full w-full border-0 bg-transparent px-1.5 text-center font-medium tracking-wide text-transparent caret-accent outline-none selection:bg-accent-bg/25"
                                 />
                             </span>
                         );
@@ -442,8 +442,8 @@ export default function WordSlotDictation({
                                     : hasDraftMismatch
                                         ? 'border-b-2 border-warning/75 text-warning-text bg-warning-muted/50'
                                         : draft.length > 0
-                                            ? 'border-b-2 border-input text-foreground bg-muted/40'
-                                            : 'border-b-2 border-border/80 text-muted-foreground/60 hover:border-input',
+                                            ? 'border-b-2 border-border-strong text-primary bg-muted/40'
+                                            : 'border-b-2 border-border/80 text-secondary/60 hover:border-border-strong',
                             )}
                         >
                             {isLocked ? (
@@ -468,7 +468,7 @@ export default function WordSlotDictation({
             </div>
 
             {peekingSpoiler && (
-                <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground">
+                <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-1.5 text-sm text-secondary">
                     <span>{unit.text}</span>
                     {translationText ? <span className="ml-2 text-metadata opacity-80">· {translationText}</span> : null}
                 </div>

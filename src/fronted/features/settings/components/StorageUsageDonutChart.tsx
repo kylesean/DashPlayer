@@ -69,15 +69,15 @@ const UsageTooltip: React.FC<UsageTooltipProps> = ({
     return (
         <div
             className={cn(
-                'min-w-[8rem] rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl',
+                'min-w-[8rem] rounded-lg border border-border/50 bg-body px-2.5 py-1.5 text-xs shadow-xl',
             )}
         >
             <div className="flex min-w-32 items-center justify-between gap-4 leading-none">
-                <span className="text-muted-foreground">{labelFor(category)}</span>
-                <span className="font-mono font-medium tabular-nums text-foreground">
+                <span className="text-secondary">{labelFor(category)}</span>
+                <span className="font-mono font-medium tabular-nums text-primary">
                     {formatBytes(value)}
                     {totalBytes > 0 && (
-                        <span className="ml-2 text-muted-foreground">
+                        <span className="ml-2 text-secondary">
                             {((value / totalBytes) * 100).toFixed(1)}%
                         </span>
                     )}

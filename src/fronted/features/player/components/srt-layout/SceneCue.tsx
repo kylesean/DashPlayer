@@ -110,7 +110,7 @@ export default function SceneCue({
             data-testid="scene-cue"
             className="pointer-events-none absolute inset-x-0 top-2 z-10 flex justify-center"
         >
-            <span className="animate-in fade-in-0 slide-in-from-top-1 duration-300 rounded-full border border-border/40 bg-background/70 px-2.5 py-0.5 text-metadata font-medium tracking-wide text-muted-foreground shadow-sm backdrop-blur-sm">
+            <span className="animate-in fade-in-0 slide-in-from-top-1 duration-300 rounded-full border border-border/40 bg-body/70 px-2.5 py-0.5 text-metadata font-medium tracking-wide text-secondary shadow-sm backdrop-blur-sm">
                 {label}
             </span>
         </div>

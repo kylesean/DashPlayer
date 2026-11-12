@@ -228,7 +228,7 @@ describe('ArticleBlock - Flowing article layout', () => {
 
         // Current sentence has illuminated styling
         const s1Element = container.querySelector('[data-sentence-index="1"]');
-        expect(s1Element?.className).toContain('bg-accent/20');
+        expect(s1Element?.className).toContain('bg-accent-bg/20');
 
         // Clicking sentence triggers callback
         if (s1Element) {

@@ -153,7 +153,7 @@ function PromptPresetDialogBody({
                                 type="button"
                                 disabled={saving}
                                 onClick={handleStartNew}
-                                className="mb-1 flex items-center gap-1.5 rounded-lg border border-dashed border-border/70 px-2.5 py-2 text-sm font-medium text-accent hover:bg-accent/5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                                className="mb-1 flex items-center gap-1.5 rounded-lg border border-dashed border-border/70 px-2.5 py-2 text-sm font-medium text-accent hover:bg-accent-bg/5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <Plus className="h-3.5 w-3.5" />
                                 <span>{t('learning.presetCreate', { defaultValue: '新建私人预设' })}</span>
@@ -169,19 +169,19 @@ function PromptPresetDialogBody({
                                         className={cn(
                                             'flex flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
                                             selected
-                                                ? 'bg-accent/12 text-foreground border border-accent/35'
-                                                : 'hover:bg-muted/60 text-foreground/85 border border-transparent',
+                                                ? 'bg-accent-bg/12 text-primary border border-accent-bg/35'
+                                                : 'hover:bg-muted/60 text-primary/85 border border-transparent',
                                         )}
                                     >
                                         <div className="flex w-full items-center justify-between gap-1">
                                             <span className="truncate text-sm font-medium">{preset.name}</span>
                                             {preset.id === activePresetId && (
-                                                <span className="shrink-0 rounded px-1 py-0.5 text-metadata font-medium bg-accent/15 text-accent">
+                                                <span className="shrink-0 rounded px-1 py-0.5 text-metadata font-medium bg-accent-bg/15 text-accent">
                                                     {t('learning.presetCurrent', { defaultValue: '当前' })}
                                                 </span>
                                             )}
                                         </div>
-                                        <span className="line-clamp-2 text-metadata text-muted-foreground leading-snug">
+                                        <span className="line-clamp-2 text-metadata text-secondary leading-snug">
                                             {preset.description}
                                         </span>
                                     </button>
@@ -192,32 +192,32 @@ function PromptPresetDialogBody({
                         <div className="flex flex-col gap-3">
                             <div className="grid grid-cols-2 gap-2.5">
                                 <label className="flex flex-col gap-1">
-                                    <span className="text-sm font-medium text-muted-foreground">
+                                    <span className="text-sm font-medium text-secondary">
                                         {t('learning.presetNameLabel', { defaultValue: '预设名称' })}
                                     </span>
                                     <input
                                         type="text"
                                         value={draftName}
                                         onChange={(e) => setDraftName(e.target.value)}
-                                        className="rounded-lg border border-border/70 bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+                                        className="rounded-lg border border-border/70 bg-surface px-2.5 py-1.5 text-sm text-primary outline-none focus:border-accent-bg"
                                     />
                                 </label>
                                 <label className="flex flex-col gap-1">
-                                    <span className="text-sm font-medium text-muted-foreground">
+                                    <span className="text-sm font-medium text-secondary">
                                         {t('learning.presetDescLabel', { defaultValue: '一句话简介' })}
                                     </span>
                                     <input
                                         type="text"
                                         value={draftDesc}
                                         onChange={(e) => setDraftDesc(e.target.value)}
-                                        className="rounded-lg border border-border/70 bg-surface px-2.5 py-1.5 text-sm text-foreground outline-none focus:border-accent"
+                                        className="rounded-lg border border-border/70 bg-surface px-2.5 py-1.5 text-sm text-primary outline-none focus:border-accent-bg"
                                     />
                                 </label>
                             </div>
 
                             <label className="flex flex-1 flex-col gap-1">
                                 <div className="flex items-center justify-between gap-2">
-                                    <span className="text-sm font-medium text-muted-foreground">
+                                    <span className="text-sm font-medium text-secondary">
                                         {t('learning.presetPromptLabel', { defaultValue: '教学指令正文（System Persona Layer）' })}
                                     </span>
                                     {activeEditing?.isBuiltin && (
@@ -225,7 +225,7 @@ function PromptPresetDialogBody({
                                             type="button"
                                             disabled={saving}
                                             onClick={() => void handleResetBuiltin()}
-                                            className="inline-flex items-center gap-1 text-metadata text-muted-foreground hover:text-foreground cursor-pointer"
+                                            className="inline-flex items-center gap-1 text-metadata text-secondary hover:text-primary cursor-pointer"
                                         >
                                             <RotateCcw className="h-3 w-3" />
                                             <span>{t('learning.presetReset', { defaultValue: '恢复内置默认' })}</span>
@@ -236,11 +236,11 @@ function PromptPresetDialogBody({
                                     value={draftPrompt}
                                     onChange={(e) => setDraftPrompt(e.target.value)}
                                     rows={10}
-                                    className="w-full flex-1 resize-none rounded-xl border border-border/70 bg-surface/80 p-3 text-sm leading-relaxed text-foreground outline-none focus:border-accent"
+                                    className="w-full flex-1 resize-none rounded-xl border border-border/70 bg-surface/80 p-3 text-sm leading-relaxed text-primary outline-none focus:border-accent-bg"
                                 />
                             </label>
 
-                            <p className="flex items-start gap-1.5 rounded-lg bg-muted/40 px-2.5 py-2 text-metadata text-muted-foreground leading-relaxed">
+                            <p className="flex items-start gap-1.5 rounded-lg bg-muted/40 px-2.5 py-2 text-metadata text-secondary leading-relaxed">
                                 <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent" />
                                 <span>
                                     {t('learning.presetProtocolHint', {

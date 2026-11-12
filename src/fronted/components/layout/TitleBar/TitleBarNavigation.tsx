@@ -34,7 +34,7 @@ const InnerNavigation: React.FC = () => {
                     }}
                     className={cn(
                         'inline-flex items-center justify-center w-[24px] h-[24px] rounded-md cursor-pointer select-none',
-                        'text-muted-foreground/80 hover:text-foreground hover:bg-muted/70 active:bg-muted transition-colors',
+                        'text-secondary/80 hover:text-primary hover:bg-muted/70 active:bg-muted transition-colors',
                     )}
                     aria-label={tNav('backToLibrary', { defaultValue: '返回媒体库' })}
                 >
@@ -59,8 +59,8 @@ const InnerNavigation: React.FC = () => {
                     className={cn(
                         'inline-flex items-center justify-center w-[24px] h-[24px] rounded-md cursor-pointer select-none',
                         showSideBar
-                            ? 'text-accent bg-accent/15 hover:bg-accent/25'
-                            : 'text-muted-foreground/80 hover:text-foreground hover:bg-muted/70 active:bg-muted',
+                            ? 'text-accent bg-accent-bg/15 hover:bg-accent-bg/25'
+                            : 'text-secondary/80 hover:text-primary hover:bg-muted/70 active:bg-muted',
                         'transition-colors',
                     )}
                     aria-label={showSideBar ? tPlayer('controlButton.closePanel') : tPlayer('controlButton.openPanel')}

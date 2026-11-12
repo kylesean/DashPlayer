@@ -177,14 +177,14 @@ export default function RolePlayDialogue({
         >
             <div className="flex items-center gap-1.5">
                 <MessageCircle className="h-3.5 w-3.5 text-accent" />
-                <span className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="text-metadata font-semibold uppercase tracking-wider text-secondary">
                     {t('rolePlayTitle')}
                 </span>
-                <span className="ml-auto text-metadata tabular-nums text-muted-foreground/70">
+                <span className="ml-auto text-metadata tabular-nums text-secondary/70">
                     {t('rolePlayTurnCount', { count: turns.length, max: MAX_TURNS })}
                 </span>
             </div>
-            <p className="mt-1.5 text-metadata leading-relaxed text-muted-foreground">
+            <p className="mt-1.5 text-metadata leading-relaxed text-secondary">
                 {rolePlay.scenario || t('rolePlayScenarioFallback')}
             </p>
 
@@ -200,7 +200,7 @@ export default function RolePlayDialogue({
                 {submitting && (
                     <ChatMessage sender="assistant">
                         <ChatMessageBubble variant="ghost">
-                            <span className="flex items-center gap-1.5 text-metadata text-muted-foreground">
+                            <span className="flex items-center gap-1.5 text-metadata text-secondary">
                                 <Loader2 className="h-3 w-3 animate-spin" />
                                 {t('checkingRolePlay')}
                             </span>
@@ -261,7 +261,7 @@ export default function RolePlayDialogue({
                         setDraft('');
                         setErrorState(null);
                     }}
-                    className="mt-2 flex h-7 items-center gap-1.5 rounded-lg px-2 text-metadata text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-2 flex h-7 items-center gap-1.5 rounded-lg px-2 text-metadata text-secondary transition-colors hover:bg-muted/60 hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <RotateCcw className="h-3 w-3" />
                     {t('rolePlayRestart')}
@@ -336,12 +336,12 @@ function RolePlayTurnFeedback({
                         'rounded-md px-1.5 py-0.5 text-metadata font-medium',
                         level === 'great' && 'bg-success/10 text-success-text',
                         level === 'good' && 'bg-warning-muted/60 text-warning-text',
-                        level === 'retry' && 'bg-muted text-muted-foreground',
+                        level === 'retry' && 'bg-muted text-secondary',
                     )}
                 >
                     {levelLabel}
                 </span>
-                <span className="text-metadata text-muted-foreground">
+                <span className="text-metadata text-secondary">
                     {source === 'ai'
                         ? t('rolePlaySourceAi')
                         : feedback
@@ -349,17 +349,17 @@ function RolePlayTurnFeedback({
                             : t('rolePlaySourceLocal')}
                 </span>
             </div>
-            <p className="mt-1 text-sm leading-relaxed text-foreground select-text">
+            <p className="mt-1 text-sm leading-relaxed text-primary select-text">
                 {feedback || localFeedback}
             </p>
             {usedExpressions.length > 0 && (
-                <p className="mt-1 text-metadata leading-relaxed text-muted-foreground">
+                <p className="mt-1 text-metadata leading-relaxed text-secondary">
                     {t('rolePlayUsedExpressions')}: {usedExpressions.join(' · ')}
                 </p>
             )}
             {improved && (
-                <p className="mt-1 text-metadata leading-relaxed text-muted-foreground">
-                    {t('rolePlayImprovedTitle')}: <span className="text-foreground">{improved}</span>
+                <p className="mt-1 text-metadata leading-relaxed text-secondary">
+                    {t('rolePlayImprovedTitle')}: <span className="text-primary">{improved}</span>
                 </p>
             )}
         </div>

@@ -54,7 +54,7 @@ export default function TimeAdjustPanel() {
                 onClick={() => (field === 'start'
                     ? playerActions.adjustCurrentBegin(-0.2)
                     : playerActions.adjustCurrentEnd(-0.2))}
-                className="flex h-7 flex-1 items-center justify-center rounded-md border border-border/60 bg-muted/40 font-mono text-sm font-medium text-foreground transition-colors hover:bg-muted active:scale-95"
+                className="flex h-7 flex-1 items-center justify-center rounded-md border border-border/60 bg-muted/40 font-mono text-sm font-medium text-primary transition-colors hover:bg-muted active:scale-95"
             >
                 -0.2s
             </button>
@@ -63,7 +63,7 @@ export default function TimeAdjustPanel() {
                 onClick={() => (field === 'start'
                     ? playerActions.adjustCurrentBegin(0.2)
                     : playerActions.adjustCurrentEnd(0.2))}
-                className="flex h-7 flex-1 items-center justify-center rounded-md border border-border/60 bg-muted/40 font-mono text-sm font-medium text-foreground transition-colors hover:bg-muted active:scale-95"
+                className="flex h-7 flex-1 items-center justify-center rounded-md border border-border/60 bg-muted/40 font-mono text-sm font-medium text-primary transition-colors hover:bg-muted active:scale-95"
             >
                 +0.2s
             </button>
@@ -94,7 +94,7 @@ export default function TimeAdjustPanel() {
     return (
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-primary">
                     <History className="w-3.5 h-3.5 text-warning-text" />
                     <span>{t('subtitle.adjustTitle')}</span>
                 </div>
@@ -111,7 +111,7 @@ export default function TimeAdjustPanel() {
                         'flex items-center gap-1 rounded-md px-2 py-0.5 text-metadata transition-colors',
                         adjusted
                             ? 'font-medium text-warning-text hover:bg-warning-muted cursor-pointer'
-                            : 'text-muted-foreground/40 cursor-default'
+                            : 'text-secondary/40 cursor-default'
                     )}
                 >
                     <RotateCcw className="w-3 h-3" />
@@ -121,8 +121,8 @@ export default function TimeAdjustPanel() {
 
             <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground font-medium">{t('subtitle.beginLabel')}</span>
-                    <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                    <span className="text-secondary font-medium">{t('subtitle.beginLabel')}</span>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-primary">
                         {`${diff.start >= 0 ? '+' : ''}${diff.start.toFixed(2)}s`}
                     </span>
                 </div>
@@ -131,8 +131,8 @@ export default function TimeAdjustPanel() {
 
             <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground font-medium">{t('subtitle.endLabel')}</span>
-                    <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                    <span className="text-secondary font-medium">{t('subtitle.endLabel')}</span>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-primary">
                         {`${diff.end >= 0 ? '+' : ''}${diff.end.toFixed(2)}s`}
                     </span>
                 </div>

@@ -159,7 +159,7 @@ export default function ContentCompassSection({
                 <VStack gap={0.5}>
                     <HStack vAlign="center" gap={2}>
                         <Heading level={3}>{t('title')}</Heading>
-                        <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-metadata font-medium text-muted-foreground">
+                        <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-metadata font-medium text-secondary">
                             {t('localBadge')}
                         </span>
                     </HStack>
@@ -215,7 +215,7 @@ function CompassCard({
                 type="button"
                 aria-label={t('open', { name: displayName })}
                 onClick={onOpen}
-                className="w-full text-left outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="w-full text-left outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 focus-visible:ring-offset-body"
             >
                 <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xs transition-[border-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:border-border group-hover:shadow-md">
                     {thumbnail ? (
@@ -226,7 +226,7 @@ function CompassCard({
                         />
                     ) : (
                         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-muted/70 via-card to-muted/30">
-                            <Film className="h-8 w-8 stroke-1 text-muted-foreground/45" />
+                            <Film className="h-8 w-8 stroke-1 text-secondary/45" />
                         </div>
                     )}
                     <div className="absolute inset-0 bg-gradient-to-t from-media-bg/60 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
@@ -268,7 +268,7 @@ function CompassCard({
                         {t('reviewDue', { count: item.reason.dueCount })}
                     </button>
                     {item.reason.words.length > 0 && (
-                        <span className="truncate text-metadata text-muted-foreground">
+                        <span className="truncate text-metadata text-secondary">
                             {item.reason.words.join(' · ')}
                         </span>
                     )}

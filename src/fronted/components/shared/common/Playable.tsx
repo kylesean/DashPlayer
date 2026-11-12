@@ -87,7 +87,7 @@ const Playable = ({ className, children, showIcon = true }: PlayableProps) => {
                     onClick={handleIconClick}
                     disabled={loading}
                     tabIndex={-1}
-                    className="inline-flex items-center justify-center p-0.5 ml-1 rounded text-muted-foreground/60 hover:text-foreground hover:bg-muted/70 align-middle transition-colors cursor-pointer disabled:opacity-50 select-none"
+                    className="inline-flex items-center justify-center p-0.5 ml-1 rounded text-secondary/60 hover:text-primary hover:bg-muted/70 align-middle transition-colors cursor-pointer disabled:opacity-50 select-none"
                     title={t('speakText')}
                 >
                     {loading ? (

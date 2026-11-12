@@ -35,11 +35,11 @@ const SwitchTopic = ({ encoded, label, className }: SwitchTopicProps) => {
         <span
             className={cn('inline-flex flex-wrap items-center gap-x-2 gap-y-1', className)}
         >
-            <span className="text-foreground">{decoded}</span>
+            <span className="text-primary">{decoded}</span>
             <button
                 type="button"
                 className={cn(
-                    'inline-flex items-center text-sm text-muted-foreground underline underline-offset-4 decoration-dashed hover:text-foreground',
+                    'inline-flex items-center text-sm text-secondary underline underline-offset-4 decoration-dashed hover:text-primary',
                 )}
                 onClick={(event) => {
                     event.preventDefault();

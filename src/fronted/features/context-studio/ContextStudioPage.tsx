@@ -333,12 +333,12 @@ export default function ContextStudioPage() {
         cn(
             'w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-sm transition-colors cursor-pointer text-left',
             active
-                ? 'bg-accent/12 text-accent font-medium'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
+                ? 'bg-accent-bg/12 text-accent font-medium'
+                : 'text-secondary hover:text-primary hover:bg-muted/60',
         );
 
     return (
-        <div className="flex flex-col h-full w-full overflow-hidden bg-background">
+        <div className="flex flex-col h-full w-full overflow-hidden bg-body">
             {/* 顶部页面标题栏 */}
             <div className="px-6 pt-5 pb-2 shrink-0">
                 <PageHeader
@@ -402,7 +402,7 @@ export default function ContextStudioPage() {
                     {/* 左栏：分类与记忆阶段筛选 */}
                     <aside className="w-52 shrink-0 border-r border-border/40 bg-surface/40 p-3 flex flex-col gap-4 overflow-y-auto">
                         <div className="flex flex-col gap-1">
-                            <span className="px-2.5 pb-1 text-metadata font-medium text-muted-foreground">
+                            <span className="px-2.5 pb-1 text-metadata font-medium text-secondary">
                                 {t('contextStudio.navCategory', { defaultValue: '资产分类' })}
                             </span>
                             <button
@@ -441,7 +441,7 @@ export default function ContextStudioPage() {
                         </div>
 
                         <div className="flex flex-col gap-1">
-                            <span className="px-2.5 pb-1 text-metadata font-medium text-muted-foreground">
+                            <span className="px-2.5 pb-1 text-metadata font-medium text-secondary">
                                 {t('contextStudio.navMemory', { defaultValue: '记忆与复习' })}
                             </span>
                             <button
@@ -483,10 +483,10 @@ export default function ContextStudioPage() {
                     </aside>
 
                     {/* 中栏：资产卡片流 */}
-                    <section className="w-80 shrink-0 border-r border-border/40 flex flex-col min-h-0 bg-background/40">
+                    <section className="w-80 shrink-0 border-r border-border/40 flex flex-col min-h-0 bg-body/40">
                         <div className="p-3 border-b border-border/40 flex flex-col gap-2.5 shrink-0">
                             <div className="relative flex items-center">
-                                <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 pointer-events-none" />
+                                <Search className="w-3.5 h-3.5 text-secondary absolute left-2.5 pointer-events-none" />
                                 <input
                                     type="text"
                                     value={searchTerm}
@@ -494,7 +494,7 @@ export default function ContextStudioPage() {
                                     placeholder={t('contextStudio.searchPlaceholder', {
                                         defaultValue: '搜索词汇、金句或视频...',
                                     })}
-                                    className="w-full rounded-lg border border-border/50 bg-surface pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
+                                    className="w-full rounded-lg border border-border/50 bg-surface pl-8 pr-3 py-1.5 text-sm text-primary placeholder:text-secondary/70 focus:outline-none focus:ring-2 focus:ring-accent/40"
                                 />
                             </div>
                             <div className="shrink-0">
@@ -523,11 +523,11 @@ export default function ContextStudioPage() {
 
                         <div className="flex-1 min-h-0 overflow-y-auto p-2 flex flex-col gap-1.5">
                             {loading ? (
-                                <div className="p-6 text-center text-sm text-muted-foreground">
+                                <div className="p-6 text-center text-sm text-secondary">
                                     {t('contextStudio.loading', { defaultValue: '正在加载语境资产...' })}
                                 </div>
                             ) : filteredItems.length === 0 ? (
-                                <div className="p-6 text-center text-sm text-muted-foreground">
+                                <div className="p-6 text-center text-sm text-secondary">
                                     {t('contextStudio.emptyList', { defaultValue: '暂无符合条件的语境资产' })}
                                 </div>
                             ) : (
@@ -545,7 +545,7 @@ export default function ContextStudioPage() {
                                                 className={cn(
                                                     'w-full text-left rounded-lg border p-2.5 transition-colors cursor-pointer flex flex-col gap-1',
                                                     isSelected
-                                                        ? 'bg-accent/10 border-accent/40'
+                                                        ? 'bg-accent-bg/10 border-accent-bg/40'
                                                         : 'bg-surface/40 border-transparent hover:bg-muted/60',
                                                 )}
                                             >
@@ -554,15 +554,15 @@ export default function ContextStudioPage() {
                                                         <Bookmark className="w-3 h-3 fill-current" />
                                                         <span>{t('contextStudio.sentenceBadge', { defaultValue: '金句' })}</span>
                                                     </span>
-                                                    <span className="text-metadata text-muted-foreground truncate">
+                                                    <span className="text-metadata text-secondary truncate">
                                                         {entry.sentence.videoTitle}
                                                     </span>
                                                 </div>
-                                                <p className="text-sm font-medium text-foreground line-clamp-2 leading-snug">
+                                                <p className="text-sm font-medium text-primary line-clamp-2 leading-snug">
                                                     {entry.sentence.text}
                                                 </p>
                                                 {entry.sentence.textZh && (
-                                                    <p className="text-metadata text-muted-foreground line-clamp-1">
+                                                    <p className="text-metadata text-secondary line-clamp-1">
                                                         {entry.sentence.textZh}
                                                     </p>
                                                 )}
@@ -584,12 +584,12 @@ export default function ContextStudioPage() {
                                             className={cn(
                                                 'w-full text-left rounded-lg border p-2.5 transition-colors cursor-pointer flex flex-col gap-1',
                                                 isSelected
-                                                    ? 'bg-accent/10 border-accent/40'
+                                                    ? 'bg-accent-bg/10 border-accent-bg/40'
                                                     : 'bg-surface/40 border-transparent hover:bg-muted/60',
                                             )}
                                         >
                                             <div className="flex items-center justify-between gap-2">
-                                                <span className="text-sm font-semibold text-foreground truncate">
+                                                <span className="text-sm font-semibold text-primary truncate">
                                                     {entry.word.word}
                                                 </span>
                                                 <div className="flex items-center gap-1 shrink-0">
@@ -614,7 +614,7 @@ export default function ContextStudioPage() {
                                                     />
                                                 </div>
                                             </div>
-                                            <p className="text-metadata text-muted-foreground line-clamp-1">
+                                            <p className="text-metadata text-secondary line-clamp-1">
                                                 {entry.word.translate?.trim() || t('contextStudio.noTranslation', { defaultValue: '暂无释义' })}
                                             </p>
                                         </button>
@@ -639,7 +639,7 @@ export default function ContextStudioPage() {
                     </section>
 
                     {/* 右栏：沉浸式语境画布 */}
-                    <main className="flex-1 min-w-0 h-full bg-background/60 flex flex-col">
+                    <main className="flex-1 min-w-0 h-full bg-body/60 flex flex-col">
                         {selection?.kind === 'word' ? (
                             <WordDetailCanvas
                                 key={selection.word.word}
@@ -681,7 +681,7 @@ export default function ContextStudioPage() {
                             />
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center p-8 text-center gap-3">
-                                <Sparkles className="w-8 h-8 text-muted-foreground/60" />
+                                <Sparkles className="w-8 h-8 text-secondary/60" />
                                 <Text type="body" weight="medium">
                                     {t('contextStudio.emptyCanvasTitle', { defaultValue: '欢迎来到语境工坊' })}
                                 </Text>

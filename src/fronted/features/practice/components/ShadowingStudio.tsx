@@ -149,7 +149,7 @@ function BeatShadowingView({
         <div className="flex flex-col gap-3">
             <PracticeDiffSentence unit={unit} />
             {translationText ? (
-                <p className="text-sm text-muted-foreground leading-relaxed">{translationText}</p>
+                <p className="text-sm text-secondary leading-relaxed">{translationText}</p>
             ) : null}
 
             {shadowingPause && (
@@ -198,24 +198,24 @@ function BeatShadowingView({
                         ratio: shadowingRatio.toFixed(1),
                         ex: (4 * shadowingRatio).toFixed(1),
                     })}
-                    className="inline-flex h-[var(--size-element-sm)] items-center gap-1 rounded-lg border border-border/60 bg-muted/40 px-1.5 text-[length:var(--text-supporting-size)] text-muted-foreground"
+                    className="inline-flex h-[var(--size-element-sm)] items-center gap-1 rounded-lg border border-border/60 bg-muted/40 px-1.5 text-[length:var(--text-supporting-size)] text-secondary"
                 >
                     <button
                         type="button"
                         aria-label={t('shadowing.ratioDecrease', { defaultValue: '缩短停顿倍率' })}
                         onClick={() => adjustRatio(-0.2)}
-                        className="rounded p-1 hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                        className="rounded p-1 hover:bg-muted hover:text-primary transition-colors cursor-pointer"
                     >
                         <Minus className="h-3 w-3" />
                     </button>
-                    <span className="px-1 font-mono tabular-nums text-foreground">
+                    <span className="px-1 font-mono tabular-nums text-primary">
                         {t('shadowing.beatRatioLabel', { defaultValue: '句末停顿 {{ratio}}×', ratio: shadowingRatio.toFixed(1) })}
                     </span>
                     <button
                         type="button"
                         aria-label={t('shadowing.ratioIncrease', { defaultValue: '延长停顿倍率' })}
                         onClick={() => adjustRatio(0.2)}
-                        className="rounded p-1 hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+                        className="rounded p-1 hover:bg-muted hover:text-primary transition-colors cursor-pointer"
                     >
                         <Plus className="h-3 w-3" />
                     </button>
@@ -526,7 +526,7 @@ function RecordShadowingView({
             {/* 原句区：有 ASR 识别结果时直接原地差分高亮，平时保留干净原文与划词查词 */}
             <PracticeDiffSentence unit={unit} result={result} />
             {translationText ? (
-                <p className="text-sm text-muted-foreground leading-relaxed">{translationText}</p>
+                <p className="text-sm text-secondary leading-relaxed">{translationText}</p>
             ) : null}
 
             {/* 声学反馈条：实时收音动效 或 录制完成后的 40 柱声纹包络 + 语速/得分 */}
@@ -564,7 +564,7 @@ function RecordShadowingView({
                                         key={idx}
                                         className={cn(
                                             'w-[2.5px] rounded-full transition-colors',
-                                            abPhase === 'playing-mine' ? 'bg-accent' : 'bg-foreground/45',
+                                            abPhase === 'playing-mine' ? 'bg-accent-bg' : 'bg-primary/45',
                                         )}
                                         style={{ height: `${Math.round(Math.max(4, bin * 22))}px` }}
                                     />
@@ -575,7 +575,7 @@ function RecordShadowingView({
 
                     <div className="flex flex-wrap items-center gap-2 text-metadata">
                         {abPhase !== 'idle' && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 font-medium text-accent">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-accent-bg/15 px-2 py-0.5 font-medium text-accent">
                                 <Radio className="h-3 w-3 animate-pulse" />
                                 {abPhase === 'playing-original'
                                     ? t('shadowing.abOriginal', { defaultValue: '原声 (A)' })
@@ -585,7 +585,7 @@ function RecordShadowingView({
                             </span>
                         )}
                         {speedRatio !== null && (
-                            <span className="rounded-full bg-background/80 border border-border/50 px-2 py-0.5 font-mono tabular-nums text-muted-foreground">
+                            <span className="rounded-full bg-body/80 border border-border/50 px-2 py-0.5 font-mono tabular-nums text-secondary">
                                 {t('shadowing.speedCompare', {
                                     defaultValue: '语速 {{ratio}}× ({{mine}}s/{{orig}}s)',
                                     ratio: speedRatio.toFixed(2),
@@ -629,7 +629,7 @@ function RecordShadowingView({
             )}
 
             {!asrReady && !localRecording && recorderPhase === 'idle' && (
-                <p className="text-metadata text-muted-foreground flex items-center justify-between gap-2">
+                <p className="text-metadata text-secondary flex items-center justify-between gap-2">
                     <span>{t('shadowing.asrDegradedNote', { defaultValue: '未安装语音识别模型：仍可直接录音并对比原音声纹' })}</span>
                     <button
                         type="button"
@@ -724,7 +724,7 @@ function RecordShadowingView({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1.5 text-sm text-secondary">
                         <Switch
                             label={t('shadowing.autoFlow', { defaultValue: '播完自动开麦' })}
                             value={autoRecordFlow}
@@ -792,10 +792,10 @@ export function RhythmFeedback({
     return (
         <div
             data-testid="practice-rhythm-feedback"
-            className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-background/50 px-3 py-2"
+            className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-body/50 px-3 py-2"
         >
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-secondary">
+                <span className="font-medium text-primary">
                     {t('rhythm.title', { defaultValue: '节奏与重读' })}
                 </span>
                 {paceLabel && (
@@ -840,8 +840,8 @@ export function RhythmFeedback({
                                 : word.stressed
                                 ? 'font-semibold text-accent underline decoration-accent/50 decoration-2 underline-offset-4'
                                 : word.durationSec === null
-                                    ? 'text-muted-foreground/50 line-through'
-                                    : 'text-foreground/80',
+                                    ? 'text-secondary/50 line-through'
+                                    : 'text-primary/80',
                         )}
                     >
                         {word.word}
@@ -849,7 +849,7 @@ export function RhythmFeedback({
                 ))}
             </div>
             {feedback.notes.length > 0 && (
-                <ul className="flex flex-col gap-0.5 text-sm leading-relaxed text-muted-foreground">
+                <ul className="flex flex-col gap-0.5 text-sm leading-relaxed text-secondary">
                     {feedback.notes.map((note) => (
                         <li key={note}>{noteText(note)}</li>
                     ))}
@@ -858,9 +858,9 @@ export function RhythmFeedback({
             {trend && trend.verdict !== 'insufficient' && trend.points.length > 0 && (
                 <div
                     data-testid="practice-rhythm-trend"
-                    className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-1.5 text-metadata text-muted-foreground"
+                    className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-1.5 text-metadata text-secondary"
                 >
-                    <span className="font-medium text-foreground">
+                    <span className="font-medium text-primary">
                         {t('rhythm.trendTitle', { defaultValue: '最近几次' })}
                     </span>
                     <span
@@ -870,7 +870,7 @@ export function RhythmFeedback({
                                 ? 'bg-success/10 text-success-text'
                                 : trend.verdict === 'regressing'
                                     ? 'bg-warning/10 text-warning-text'
-                                    : 'bg-muted text-muted-foreground',
+                                    : 'bg-muted text-secondary',
                         )}
                     >
                         {trend.verdict === 'improving'

@@ -194,7 +194,7 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                     <div
                         className={cn(
                             'inline-flex h-6 max-w-full items-center rounded-full border border-border/50 bg-surface/60',
-                            'pl-2 pr-1 text-metadata text-muted-foreground',
+                            'pl-2 pr-1 text-metadata text-secondary',
                         )}
                     >
                         <button
@@ -203,10 +203,10 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                             onClick={popover.toggle}
                             {...popover.triggerProps}
                             data-testid="context-suggestion"
-                            className="inline-flex min-w-0 items-center gap-1.5 pr-1.5 cursor-pointer transition-colors hover:text-foreground"
+                            className="inline-flex min-w-0 items-center gap-1.5 pr-1.5 cursor-pointer transition-colors hover:text-primary"
                         >
                             <Lightbulb className="h-3 w-3 shrink-0 text-accent" />
-                            <span className="shrink-0 font-medium text-foreground">
+                            <span className="shrink-0 font-medium text-primary">
                                 {suggestion.word}
                             </span>
                             <span className="max-w-[18rem] truncate">
@@ -218,7 +218,7 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                             aria-label={t('contextSuggestion.dismiss')}
                             title={t('contextSuggestion.dismiss')}
                             onClick={() => setDismissedKey(sentenceKey)}
-                            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-colors hover:bg-muted/60 hover:text-foreground cursor-pointer"
+                            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-secondary/60 transition-colors hover:bg-muted/60 hover:text-primary cursor-pointer"
                         >
                             <X className="h-3 w-3" />
                         </button>
@@ -228,11 +228,11 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                         <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                                 <div className="flex items-baseline gap-2">
-                                    <span className="text-lg font-semibold text-foreground">
+                                    <span className="text-lg font-semibold text-primary">
                                         {suggestion.word}
                                     </span>
                                     {suggestion.phonetic && (
-                                        <span className="text-metadata text-muted-foreground">
+                                        <span className="text-metadata text-secondary">
                                             {suggestion.phonetic}
                                         </span>
                                     )}
@@ -242,7 +242,7 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                                         {suggestion.tags.slice(0, 3).map((tag) => (
                                             <span
                                                 key={tag}
-                                                className="rounded bg-muted/60 px-1 py-0.5 text-xs uppercase text-muted-foreground"
+                                                className="rounded bg-muted/60 px-1 py-0.5 text-xs uppercase text-secondary"
                                             >
                                                 {tag}
                                             </span>
@@ -252,21 +252,21 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                             </div>
                         </div>
 
-                        <p className="mt-2 text-sm leading-relaxed text-foreground">
+                        <p className="mt-2 text-sm leading-relaxed text-primary">
                             {suggestion.meaning}
                         </p>
 
                         <div className="mt-2 rounded-lg bg-muted/30 px-2.5 py-2">
-                            <div className="text-metadata font-medium text-muted-foreground">
+                            <div className="text-metadata font-medium text-secondary">
                                 {t('contextSuggestion.why')}
                             </div>
                             <ul className="mt-1 space-y-1">
                                 {suggestion.reasons.map((reason) => (
                                     <li
                                         key={reason}
-                                        className="flex items-start gap-1.5 text-sm text-foreground"
+                                        className="flex items-start gap-1.5 text-sm text-primary"
                                     >
-                                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />
+                                        <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent-bg" />
                                         {reasonLabel(reason, t)}
                                     </li>
                                 ))}

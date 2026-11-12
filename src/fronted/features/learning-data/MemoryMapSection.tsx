@@ -40,16 +40,16 @@ const STATUS_I18N: Record<WordStatus, string> = {
 
 const STATUS_BAR_CLASS: Record<WordStatus, string> = {
     learning: 'bg-warning-text/75',
-    familiar: 'bg-accent/65',
+    familiar: 'bg-accent-bg/65',
     known: 'bg-success/75',
-    ignored: 'bg-muted-foreground/30',
+    ignored: 'bg-secondary/30',
 };
 
 const STATUS_DOT_CLASS: Record<WordStatus, string> = {
     learning: 'bg-warning-text/80',
-    familiar: 'bg-accent/70',
+    familiar: 'bg-accent-bg/70',
     known: 'bg-success/80',
-    ignored: 'bg-muted-foreground/40',
+    ignored: 'bg-secondary/40',
 };
 
 /**
@@ -108,13 +108,13 @@ export default function MemoryMapSection({
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <HStack vAlign="center" gap={3}>
-                    <div className="w-8 h-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-accent-bg/10 text-accent flex items-center justify-center shrink-0">
                         <Brain className="h-4 w-4" />
                     </div>
                     <VStack gap={0.5}>
                         <HStack vAlign="center" gap={2}>
                             <Text type="body" weight="semibold">{t('title')}</Text>
-                            <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-metadata font-medium text-muted-foreground">
+                            <span className="rounded-md bg-muted/60 px-1.5 py-0.5 text-metadata font-medium text-secondary">
                                 {t('localBadge')}
                             </span>
                         </HStack>
@@ -130,7 +130,7 @@ export default function MemoryMapSection({
 
                 <div className="flex items-center gap-3 shrink-0">
                     {isExpanded && (
-                        <div className="hidden sm:flex items-center gap-3 text-metadata text-muted-foreground">
+                        <div className="hidden sm:flex items-center gap-3 text-metadata text-secondary">
                             {(['learning', 'familiar', 'known'] as const).map((st) => (
                                 <span key={st} className="inline-flex items-center gap-1.5">
                                     <span className={cn('w-2 h-2 rounded-full', STATUS_DOT_CLASS[st])} />
@@ -229,7 +229,7 @@ function TopicCard({
                         <span
                             className={cn(
                                 'w-6 h-6 rounded-md flex items-center justify-center shrink-0',
-                                isVideoTopic ? 'bg-accent/10 text-accent' : 'bg-muted text-muted-foreground',
+                                isVideoTopic ? 'bg-accent-bg/10 text-accent' : 'bg-muted text-secondary',
                             )}
                         >
                             {isVideoTopic ? <Film className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
@@ -238,7 +238,7 @@ function TopicCard({
                             {label}
                         </Text>
                     </div>
-                    <span className="shrink-0 rounded-full bg-muted/70 px-2 py-0.5 text-metadata font-medium text-muted-foreground tabular-nums">
+                    <span className="shrink-0 rounded-full bg-muted/70 px-2 py-0.5 text-metadata font-medium text-secondary tabular-nums">
                         {t('wordCount', { count: total })}
                     </span>
                 </div>
@@ -251,7 +251,7 @@ function TopicCard({
 
                 <div className="flex flex-col gap-1">
                     {distributionLabel && (
-                        <div className="text-metadata text-muted-foreground tabular-nums truncate">
+                        <div className="text-metadata text-secondary tabular-nums truncate">
                             {distributionLabel}
                         </div>
                     )}
@@ -332,9 +332,9 @@ function LooseWordsBanner({
         <div className="rounded-lg border border-dashed border-border/60 bg-surface/30 px-4 py-3 flex flex-col gap-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                    <Layers className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <Layers className="w-4 h-4 text-secondary shrink-0" />
                     <Text type="body" weight="medium">{label}</Text>
-                    <span className="rounded-full bg-muted/70 px-2 py-0.5 text-metadata font-medium text-muted-foreground tabular-nums">
+                    <span className="rounded-full bg-muted/70 px-2 py-0.5 text-metadata font-medium text-secondary tabular-nums">
                         {t('wordCount', { count: total })}
                     </span>
                 </div>
@@ -389,7 +389,7 @@ function WordChip({
                     ? 'border-warning-text/30 bg-warning-muted/50 text-warning-text hover:bg-warning-muted'
                     : word.status === 'known'
                         ? 'border-success/25 bg-success/10 text-success-text hover:bg-success/20'
-                        : 'border-border/40 bg-background/70 text-foreground hover:border-accent/50 hover:bg-accent/5',
+                        : 'border-border/40 bg-body/70 text-primary hover:border-accent-bg/50 hover:bg-accent-bg/5',
             )}
         >
             <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', STATUS_DOT_CLASS[word.status])} />

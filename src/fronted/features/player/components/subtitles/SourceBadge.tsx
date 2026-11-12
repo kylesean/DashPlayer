@@ -18,7 +18,7 @@ const SourceBadge = ({ source }: SourceBadgeProps) => {
             className={cn(
                 'inline-flex items-center justify-center px-1.5 py-0.2 rounded text-xs font-medium tracking-wider uppercase select-none opacity-70 hover:opacity-100 transition-opacity shrink-0',
                 source === 'ai'
-                    ? 'text-accent bg-accent-muted/20 border border-accent/30'
+                    ? 'text-accent bg-accent-muted/20 border border-accent-bg/30'
                     : 'text-secondary bg-muted border border-border',
             )}
             title={source === 'ai' ? t('sourceLine.aiTranslation') : t('sourceLine.originalSubtitle')}

@@ -34,7 +34,7 @@ export interface RenderSentenceTokensOptions {
  */
 export const TRANSCRIPT_WORD_CLASS_NAMES: NonNullable<WordParam['classNames']> = {
     word: 'px-0.5 rounded text-inherit transition-colors cursor-pointer select-text',
-    hover: 'hover:bg-accent/15 hover:text-accent',
+    hover: 'hover:bg-accent-bg/15 hover:text-accent',
     vocab: 'underline decoration-accent/70 underline-offset-4 decoration-1 font-medium',
     vocabFamiliar: 'underline decoration-dotted decoration-accent/45 underline-offset-4 decoration-1',
 };

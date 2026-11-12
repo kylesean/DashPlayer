@@ -139,7 +139,7 @@ const ProjectListItem = ({
                                 style={{
                                     aspectRatio: '16/9'
                                 }}
-                                className="w-full bg-muted flex items-center justify-center text-muted-foreground/60"
+                                className="w-full bg-muted flex items-center justify-center text-secondary/60"
                             >
                                 <Film className="w-6 h-6 stroke-1" />
                             </div>

@@ -36,7 +36,7 @@ const highlightWordInSentence = (sentence: string, word: string): React.ReactNod
         parts.push(
             <mark
                 key={`${start}-${match[0]}`}
-                className="rounded bg-accent-muted/40 px-0.5 font-medium text-foreground"
+                className="rounded bg-accent-muted/40 px-0.5 font-medium text-primary"
             >
                 {match[0]}
             </mark>,
@@ -110,14 +110,14 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
                 title={t('aiContextInsightHint')}
                 onClick={() => setRequested(true)}
                 className={cn(
-                    'group flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left text-metadata text-muted-foreground transition-colors hover:text-foreground',
+                    'group flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left text-metadata text-secondary transition-colors hover:text-primary',
                     className,
                 )}
             >
                 <span className="font-medium">{t('aiContextInsight')}</span>
                 <ChevronRight
                     size={12}
-                    className="ml-auto shrink-0 text-muted-foreground/50 transition-transform group-hover:translate-x-0.5"
+                    className="ml-auto shrink-0 text-secondary/50 transition-transform group-hover:translate-x-0.5"
                 />
             </button>
         );
@@ -127,7 +127,7 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
         return (
             <div
                 data-testid="word-context-insight-loading"
-                className={cn('flex items-center gap-1.5 px-1 py-1 text-metadata text-muted-foreground', className)}
+                className={cn('flex items-center gap-1.5 px-1 py-1 text-metadata text-secondary', className)}
             >
                 <Loader2 size={13} className="shrink-0 animate-spin" />
                 <span>{t('aiContextInsightLoading')}</span>
@@ -140,7 +140,7 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
             <div
                 data-testid="word-context-insight-error"
                 className={cn(
-                    'flex items-center gap-2 rounded-lg bg-muted/30 px-2 py-1.5 text-metadata text-muted-foreground',
+                    'flex items-center gap-2 rounded-lg bg-muted/30 px-2 py-1.5 text-metadata text-secondary',
                     className,
                 )}
             >
@@ -148,7 +148,7 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
                 <button
                     type="button"
                     onClick={() => void mutate()}
-                    className="inline-flex shrink-0 items-center gap-1 text-foreground/80 underline underline-offset-2 hover:text-foreground"
+                    className="inline-flex shrink-0 items-center gap-1 text-primary/80 underline underline-offset-2 hover:text-primary"
                 >
                     <RotateCcw size={11} />
                     {t('aiContextInsightRetry')}
@@ -162,7 +162,7 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
             <div
                 data-testid="word-context-insight-unavailable"
                 className={cn(
-                    'flex items-start gap-1.5 px-1 py-1 text-metadata leading-relaxed text-muted-foreground/80',
+                    'flex items-start gap-1.5 px-1 py-1 text-metadata leading-relaxed text-secondary/80',
                     className,
                 )}
             >
@@ -181,23 +181,23 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
                 className,
             )}
         >
-            <div className="flex items-center gap-1.5 text-metadata font-semibold uppercase tracking-wider text-muted-foreground select-none">
+            <div className="flex items-center gap-1.5 text-metadata font-semibold uppercase tracking-wider text-secondary select-none">
                 <span>{t('aiContextInsightInSentence')}</span>
                 {insight.source === 'local' && (
-                    <span className="font-normal normal-case tracking-normal text-muted-foreground/70">
+                    <span className="font-normal normal-case tracking-normal text-secondary/70">
                         · {t('aiContextInsightLocal')}
                     </span>
                 )}
             </div>
-            <div className="text-sm font-medium leading-snug text-foreground select-text">
+            <div className="text-sm font-medium leading-snug text-primary select-text">
                 {insight.meaning}
             </div>
             {insight.nuance && (
-                <div className="text-metadata leading-relaxed text-muted-foreground select-text">
+                <div className="text-metadata leading-relaxed text-secondary select-text">
                     {insight.nuance}
                 </div>
             )}
-            <div className="line-clamp-2 border-l-2 border-border/60 pl-2 text-metadata italic leading-relaxed text-muted-foreground/80 select-text">
+            <div className="line-clamp-2 border-l-2 border-border/60 pl-2 text-metadata italic leading-relaxed text-secondary/80 select-text">
                 “{highlightWordInSentence(sentenceText, word)}”
             </div>
         </div>

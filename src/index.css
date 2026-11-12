@@ -62,31 +62,18 @@
 }
 
 /*
- * 旧 shadcn 语义类名 → Astryx token。
+ * Astryx bridge 未覆盖的补充 token。
  *
- * 只保留 Astryx 官方 Tailwind bridge 没有覆盖的别名；primary/secondary/
- * card/popover/muted 等已经由 bridge 提供。
+ * primary/secondary/accent/surface/body/card/popover/muted/border/border-strong/
+ * error/on-error/on-accent/accent-bg 等已由 `@astryxdesign/core/tailwind-theme.css`
+ * 官方 bridge 提供，这里只补桥外的少数别名；语义直接对齐 Astryx 角色体系：
+ * text-accent 读文字角色（dark 下更亮、专为文字对比度设计），填充色走 accent-bg。
  *
- * reference inline：这些映射只用于生成工具类，不再把变量发射到 :root，
- * 避免 --color-accent / --color-border 这类同名映射形成自引用。
+ * reference inline：这些映射只用于生成工具类，不再把变量发射到 :root。
  */
 @theme reference inline {
-  --color-background: var(--color-background-body);
-  --color-foreground: var(--color-text-primary);
-  --color-border: var(--color-border);
-  --color-input: var(--color-border-emphasized);
-  --color-ring: var(--focus-outline-color);
-
-  --color-card-foreground: var(--color-text-primary);
-  --color-popover-foreground: var(--color-text-primary);
-  --color-muted-foreground: var(--color-text-secondary);
-  --color-accent-foreground: var(--color-on-accent);
-
-  --color-destructive: var(--color-error);
-  --color-destructive-foreground: var(--color-on-error);
-
-  /* Astryx bridge 把 --color-accent 指向文字色；这里刻意指回填充色 */
-  --color-accent: var(--color-accent);
+  /* 焦点环色：与 Astryx 组件的 focus outline 同源 */
+  --color-focus-ring: var(--focus-outline-color);
 }
 
 
@@ -95,7 +82,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-body text-primary;
   }
 }
 

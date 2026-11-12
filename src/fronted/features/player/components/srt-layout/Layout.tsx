@@ -184,7 +184,7 @@ const PlaybackLayout = () => {
 
 
     const containerClass = cn(
-        'relative w-full h-full flex flex-col overflow-hidden bg-background'
+        'relative w-full h-full flex flex-col overflow-hidden bg-body'
     );
 
     if (!hasSource) {
@@ -297,11 +297,11 @@ const PlaybackLayout = () => {
                                 aria-label={t('layout.resetSplitHint')}
                                 className={cn(
                                     'group relative h-1.5 w-full flex items-center justify-center',
-                                    'bg-border/30 hover:bg-accent/40',
+                                    'bg-border/30 hover:bg-accent-bg/40',
                                     'after:hidden transition-colors duration-150 cursor-row-resize z-20'
                                 )}
                             >
-                                <div className="w-10 h-1 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:w-14 transition-all duration-200" />
+                                <div className="w-10 h-1 rounded-full bg-secondary/30 group-hover:bg-accent-bg group-hover:w-14 transition-all duration-200" />
                             </SplitHandle>
                             <SplitPane
                                 className={cn('overflow-hidden bg-surface/70 backdrop-blur-2xl')}
@@ -332,7 +332,7 @@ const PlaybackLayout = () => {
                                                     <button
                                                         type="button"
                                                         onClick={() => setToolbarPinned(true)}
-                                                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface/80 hover:bg-surface text-muted-foreground hover:text-foreground border border-border/60 shadow-xs backdrop-blur-md transition-all cursor-pointer"
+                                                        className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface/80 hover:bg-surface text-secondary hover:text-primary border border-border/60 shadow-xs backdrop-blur-md transition-all cursor-pointer"
                                                         aria-label={t('controlBar.showLearningToolbar', { defaultValue: '展开操作栏' })}
                                                     >
                                                         <PanelBottomOpen className="w-3.5 h-3.5" />
@@ -368,7 +368,7 @@ const PlaybackLayout = () => {
                                 onClick={() => setTranscriptVisible(true)}
                                 className={cn(
                                     'flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-sm font-medium cursor-pointer select-none',
-                                    'bg-surface/85 hover:bg-surface text-muted-foreground hover:text-foreground border border-border/70 shadow-xs backdrop-blur-md transition-all duration-150',
+                                    'bg-surface/85 hover:bg-surface text-secondary hover:text-primary border border-border/70 shadow-xs backdrop-blur-md transition-all duration-150',
                                     'hover:scale-105 active:scale-95'
                                 )}
                                 aria-label={t('controlButton.openTranscript', { defaultValue: '展开字幕文稿' })}
@@ -405,8 +405,8 @@ const PlaybackLayout = () => {
                 <Subtitle />
                 {transcriptSpoilerVeil && (
                     <div className="pointer-events-auto absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 bg-surface/85 backdrop-blur-md transition-opacity duration-150 group-hover/subtitlepanel:opacity-0 group-hover/subtitlepanel:pointer-events-none">
-                        <EyeOff className="h-5 w-5 text-muted-foreground" />
-                        <p className="px-6 text-center text-sm text-muted-foreground">
+                        <EyeOff className="h-5 w-5 text-secondary" />
+                        <p className="px-6 text-center text-sm text-secondary">
                             {t('practice:dictation.spoilerVeilHint', { defaultValue: '听写防剧透保护中 · 鼠标移入或按住 \\ 临时查看原文' })}
                         </p>
                     </div>
@@ -424,11 +424,11 @@ const PlaybackLayout = () => {
             aria-label={t('layout.resetSplitHint')}
             className={cn(
                 'group relative w-1.5 h-full flex items-center justify-center',
-                'bg-border/30 hover:bg-accent/40',
+                'bg-border/30 hover:bg-accent-bg/40',
                 'after:hidden transition-colors duration-150 cursor-col-resize z-20'
             )}
         >
-            <div className="w-1 h-12 rounded-full bg-muted-foreground/30 group-hover:bg-accent group-hover:h-16 transition-all duration-200" />
+            <div className="w-1 h-12 rounded-full bg-secondary/30 group-hover:bg-accent-bg group-hover:h-16 transition-all duration-200" />
         </SplitHandle>
     );
 

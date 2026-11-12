@@ -59,7 +59,7 @@ const PodcastViewer = ({ className }: { className?: string }) => {
             <div
                 className={cn(
                     'relative flex h-full w-full items-center justify-center overflow-hidden',
-                    'bg-background transition-colors duration-300',
+                    'bg-body transition-colors duration-300',
                     className
                 )}
             >
@@ -75,7 +75,7 @@ const PodcastViewer = ({ className }: { className?: string }) => {
             ref={viewerContainerRef}
             className={cn(
                 'relative h-full w-full overflow-hidden select-none',
-                'bg-background transition-colors duration-300',
+                'bg-body transition-colors duration-300',
                 className
             )}
         >
