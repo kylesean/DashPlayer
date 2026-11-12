@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 import { isSecretPersisted, launchAppSession, readConfigValue, test } from '../../support/fixtures';
 import { openSettingsSection, reloadSettingsPage, switchSettingsSection, chooseInRow, selectInRow } from '../../support/settings-page';
 import { SettingKeyObj } from '../../../src/common/types/store_schema';
@@ -30,6 +30,29 @@ const NEW_MODEL = 'e2e-model-alpha';
 const CUSTOM_STYLE = 'E2E 自定义翻译风格：保持原句语序';
 /** 内置默认模型：从产品 schema 取，避免升级模型后用例硬编码过期。 */
 const DEFAULT_MODEL = SettingKeyObj['models.openai.available'];
+/**
+ * 已保存密钥后 API Key 输入框的占位提示。
+ *
+ * 详情接口不下发明文，只给「•••• + 末四位」的脱敏提示；输入框留空表示沿用已保存的值。
+ * 按末四位拼出完整文案，既能抓住「明文回显」回归，也能抓住「脱敏格式退化」。
+ */
+const SAVED_KEY_PLACEHOLDER = `已保存 ••••${API_KEY.slice(-4)}，留空即沿用`;
+
+/**
+ * 删除模型行：先点行内删除，再在统一确认弹窗里确认。
+ *
+ * 删除模型不可撤销，产品是两步交互——只点行内按钮不会落盘，也不会让表格行消失。
+ *
+ * @param page 应用主窗口页面。
+ * @param row 目标模型所在的表格行。
+ */
+async function deleteModelRow(page: Page, row: Locator): Promise<void> {
+    await row.getByRole('button', { name: '删除' }).click();
+    const dialog = page.getByRole('alertdialog');
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole('button', { name: '删除' }).click();
+    await expect(dialog).toBeHidden();
+}
 
 test.describe('服务与资源设置', () => {
     test('[SET-SVC-01] 云端服务填写的密钥、接口地址与模型清单会落盘，重进页面仍回显 @smoke', async ({ session, userDataDir }) => {
@@ -50,10 +73,25 @@ test.describe('服务与资源设置', () => {
         // 模型清单以换行文本落盘；断言包含而不是全等，避免绑死内置默认模型
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).toContain(NEW_MODEL);
 
-        // 重进页面：密钥、地址与模型清单都来自后端回读
+        // 重进页面：密钥不再明文下发，只展示脱敏提示；地址与模型清单仍来自后端回读
         await reloadSettingsPage(page, page.getByRole('heading', { name: '服务与资源' }));
-        await expect(page.getByPlaceholder('sk-...')).toHaveValue(API_KEY);
+        const savedKeyInput = page.getByPlaceholder(SAVED_KEY_PLACEHOLDER);
+        await expect(savedKeyInput).toHaveAttribute('placeholder', SAVED_KEY_PLACEHOLDER);
+        await expect(savedKeyInput).toHaveValue('');
+        await expect(savedKeyInput).not.toHaveAttribute('placeholder', new RegExp(API_KEY));
         await expect(page.getByPlaceholder('https://api.deepseek.com/v1')).toHaveValue(ENDPOINT);
+        await expect(page.getByRole('cell', { name: NEW_MODEL })).toBeVisible();
+
+        // 留空保存必须沿用旧 key：只改接口地址触发一次自动保存，密钥输入框保持为空
+        const rotatedEndpoint = 'https://api.e2e.test/v2';
+        await page.getByPlaceholder('https://api.deepseek.com/v1').fill(rotatedEndpoint);
+        await expect.poll(() => readConfigValue(userDataDir, 'apiKeys.openAi.endpoint')).toBe(rotatedEndpoint);
+        await expect.poll(() => isSecretPersisted(userDataDir, 'apiKeys.openAi.key', API_KEY)).toBe(true);
+
+        // 再重进一次：密钥仍是「已保存」的脱敏态，说明留空保存没有把旧 key 当成清空
+        await reloadSettingsPage(page, page.getByRole('heading', { name: '服务与资源' }));
+        await expect(page.getByPlaceholder(SAVED_KEY_PLACEHOLDER)).toHaveValue('');
+        await expect(page.getByPlaceholder('https://api.deepseek.com/v1')).toHaveValue(rotatedEndpoint);
         await expect(page.getByRole('cell', { name: NEW_MODEL })).toBeVisible();
     });
 
@@ -151,7 +189,7 @@ test.describe('服务与资源设置', () => {
 
         const temporaryRow = page.getByTestId(`model-row-${temporaryModel}`);
         await expect(temporaryRow.getByRole('button', { name: '删除' })).toBeEnabled();
-        await temporaryRow.getByRole('button', { name: '删除' }).click();
+        await deleteModelRow(page, temporaryRow);
 
         // 删除同样要写回配置，而不是只从界面表格里消失
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).not.toContain(temporaryModel);
@@ -178,18 +216,23 @@ test.describe('服务与资源设置', () => {
         await expect(selectInRow(page, 'subtitleTranslation')).toHaveText(NEW_MODEL);
     });
 
-    test('[SET-SVC-07] 字幕翻译切到本地基础资源包后引擎落盘，重进页面回显且提示只支持中文', async ({ session, userDataDir }) => {
+    test('[SET-SVC-07] 字幕翻译下拉不再提供已下线的本地轻量引擎，切到关闭后引擎落盘并回显', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
         await openResourcesTab(page, '翻译与查词');
 
-        await chooseInRow(page, 'subtitleTranslation', '本地基础资源包');
+        // OPUS-MT 轻量管线已移除：下拉里不能再出现「本地基础资源包」，
+        // 否则用户选了它，实际却走别的引擎，提示与真实能力不符。
+        await selectInRow(page, 'subtitleTranslation').click();
+        await expect(page.getByRole('option', { name: '关闭' })).toBeVisible();
+        await expect(page.getByRole('option', { name: '本地基础资源包' })).toHaveCount(0);
+        await expect(page.getByText('轻量翻译只支持中文')).toHaveCount(0);
+        await page.getByRole('option', { name: '关闭' }).click();
 
-        await expect.poll(() => readConfigValue(userDataDir, 'providers.subtitleTranslation')).toBe('local-mt');
-        await expect(page.getByText('轻量翻译只支持中文')).toBeVisible();
+        await expect.poll(() => readConfigValue(userDataDir, 'providers.subtitleTranslation')).toBe('none');
 
         await reloadSettingsPage(page, page.getByRole('heading', { name: '服务与资源' }));
-        await expect(selectInRow(page, 'subtitleTranslation')).toHaveText('本地基础资源包');
+        await expect(selectInRow(page, 'subtitleTranslation')).toHaveText('关闭');
     });
 
     test('[SET-SVC-08] 词典查询切到本地增强资源包后引擎落盘，重进页面回显并提示资源未下载', async ({ session, userDataDir }) => {
@@ -239,13 +282,13 @@ test.describe('服务与资源设置', () => {
         const modelRow = page.getByTestId(`model-row-${NEW_MODEL}`);
         await expect(modelRow.getByRole('button', { name: '删除' })).toBeDisabled();
 
-        // 把字幕翻译切回本地：占用应当当场解除，不需要重进页面
+        // 把字幕翻译关掉：占用应当当场解除，不需要重进页面
         await openResourcesTab(page, '翻译与查词');
-        await chooseInRow(page, 'subtitleTranslation', '本地基础资源包');
+        await chooseInRow(page, 'subtitleTranslation', '关闭');
         await openResourcesTab(page, '云端服务');
         await expect(modelRow.getByRole('button', { name: '删除' })).toBeEnabled();
 
-        await modelRow.getByRole('button', { name: '删除' }).click();
+        await deleteModelRow(page, modelRow);
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).not.toContain(NEW_MODEL);
         await expect(page.getByTestId(`model-row-${NEW_MODEL}`)).toHaveCount(0);
     });
@@ -261,12 +304,15 @@ test.describe('服务与资源设置', () => {
             await first.close();
         }
 
-        // 重启后不做任何操作：密钥必须来自持久化配置，而不是本次进程里的状态
+        // 重启后不做任何操作：密钥必须来自持久化配置，且只以脱敏提示呈现、不回传明文
         const restarted = await launchAppSession(userDataDir);
         try {
             await openResourcesSetting(restarted.page);
             await openResourcesTab(restarted.page, '云端服务');
-            await expect(restarted.page.getByPlaceholder('sk-...')).toHaveValue(API_KEY);
+            const savedKeyInput = restarted.page.getByPlaceholder(SAVED_KEY_PLACEHOLDER);
+            await expect(savedKeyInput).toHaveAttribute('placeholder', SAVED_KEY_PLACEHOLDER);
+            await expect(savedKeyInput).toHaveValue('');
+            await expect(savedKeyInput).not.toHaveAttribute('placeholder', new RegExp(API_KEY));
         } finally {
             await restarted.close();
         }
@@ -286,7 +332,7 @@ test.describe('服务与资源设置', () => {
         await openResourcesTab(page, '云端服务');
         const builtinRow = page.getByTestId(`model-row-${DEFAULT_MODEL}`);
         await expect(builtinRow.getByRole('button', { name: '删除' })).toBeEnabled();
-        await builtinRow.getByRole('button', { name: '删除' }).click();
+        await deleteModelRow(page, builtinRow);
 
         // 清空就是清空：清单在磁盘上留空，不会又被兜底成默认模型塞回来
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).toBe('');
@@ -316,9 +362,12 @@ test.describe('服务与资源设置', () => {
 
         await expect.poll(() => isSecretPersisted(userDataDir, 'apiKeys.openAi.key', API_KEY)).toBe(true);
 
-        // 回到该页：密钥来自后端回读，而不是页面里残留的输入
+        // 回到该页：密钥来自后端回读的脱敏提示，页面里不再残留明文输入
         await switchSettingsSection(page, 'resources', page.getByRole('heading', { name: '服务与资源' }));
         await openResourcesTab(page, '云端服务');
-        await expect(page.getByPlaceholder('sk-...')).toHaveValue(API_KEY);
+        const savedKeyInput = page.getByPlaceholder(SAVED_KEY_PLACEHOLDER);
+        await expect(savedKeyInput).toHaveAttribute('placeholder', SAVED_KEY_PLACEHOLDER);
+        await expect(savedKeyInput).toHaveValue('');
+        await expect(savedKeyInput).not.toHaveAttribute('placeholder', new RegExp(API_KEY));
     });
 });
