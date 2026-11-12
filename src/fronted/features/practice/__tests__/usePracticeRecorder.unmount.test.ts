@@ -231,5 +231,82 @@ describe('跟读录音在面板卸载时的全局状态', () => {
             await scorePending;
         });
         expect(usePracticePanel.getState().recording).toBe(false);
+        expect(usePracticePanel.getState().recorderPhase).toBe('idle');
+    });
+
+    it('requesting 期间取消或卸载时应立即停止后续返回的音轨并回到 idle', async () => {
+        const stopTrack = vi.fn();
+        let resolveStream!: (stream: MediaStream) => void;
+        Object.defineProperty(navigator, 'mediaDevices', {
+            configurable: true,
+            value: {
+                getUserMedia: vi.fn().mockImplementation(
+                    () =>
+                        new Promise<MediaStream>((resolve) => {
+                            resolveStream = resolve;
+                        }),
+                ),
+            },
+        });
+
+        const { result, unmount } = renderHook(() =>
+            usePracticeRecorder({ onRecordingComplete: vi.fn().mockResolvedValue(undefined) }),
+        );
+
+        let pendingStart!: Promise<void>;
+        await act(async () => {
+            pendingStart = result.current.start();
+            await Promise.resolve();
+        });
+        expect(result.current.phase).toBe('requesting');
+        expect(usePracticePanel.getState().recorderPhase).toBe('requesting');
+
+        act(() => {
+            result.current.cancel();
+        });
+        expect(result.current.phase).toBe('idle');
+        expect(usePracticePanel.getState().recorderPhase).toBe('idle');
+
+        await act(async () => {
+            resolveStream({ getTracks: () => [{ stop: stopTrack }] } as unknown as MediaStream);
+            await pendingStart;
+        });
+
+        expect(stopTrack).toHaveBeenCalledTimes(1);
+        expect(FakeMediaRecorder.instances).toHaveLength(0);
+        expect(usePracticePanel.getState().recording).toBe(false);
+        expect(usePracticePanel.getState().recorderPhase).toBe('idle');
+
+        // 再次进入 requesting 后直接卸载
+        let resolveUnmountStream!: (stream: MediaStream) => void;
+        const stopUnmountTrack = vi.fn();
+        Object.defineProperty(navigator, 'mediaDevices', {
+            configurable: true,
+            value: {
+                getUserMedia: vi.fn().mockImplementation(
+                    () =>
+                        new Promise<MediaStream>((resolve) => {
+                            resolveUnmountStream = resolve;
+                        }),
+                ),
+            },
+        });
+
+        let pendingUnmountStart!: Promise<void>;
+        await act(async () => {
+            pendingUnmountStart = result.current.start();
+            await Promise.resolve();
+        });
+        expect(usePracticePanel.getState().recorderPhase).toBe('requesting');
+
+        unmount();
+        expect(usePracticePanel.getState().recorderPhase).toBe('idle');
+
+        await act(async () => {
+            resolveUnmountStream({ getTracks: () => [{ stop: stopUnmountTrack }] } as unknown as MediaStream);
+            await pendingUnmountStart;
+        });
+        expect(stopUnmountTrack).toHaveBeenCalledTimes(1);
+        expect(FakeMediaRecorder.instances).toHaveLength(0);
     });
 });

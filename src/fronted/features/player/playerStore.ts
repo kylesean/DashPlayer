@@ -222,7 +222,7 @@ interface PlayerState {
   playPracticeClip: (
     range: { start: number; end: number },
     target: Sentence,
-    options?: { rate?: number; onEnded?: () => void },
+    options?: { rate?: number; onEnded?: () => void; onAbort?: () => void },
   ) => void;
   /** 取消受控片段播放并恢复暂存倍速。 */
   clearPracticeClip: () => void;
@@ -325,6 +325,7 @@ interface ClipStopBound {
   /** seek 落点进入区间后才允许按句尾截停；避免旧播放位置误触发。 */
   settled: boolean;
   onEnded?: () => void;
+  onAbort?: () => void;
 }
 let clipStopBound: ClipStopBound | null = null;
 
@@ -460,11 +461,14 @@ export const usePlayer = create<PlayerState>((set, get) => {
     }
   };
 
-  const clearClipStopBound = (restoreRate = true) => {
+  const clearClipStopBound = (restoreRate = true, notifyAbort = true) => {
     const activeBound = clipStopBound;
     clipStopBound = null;
     if (restoreRate && activeBound && activeBound.restoreRate !== null && get().playbackRate !== activeBound.restoreRate) {
       set({ playbackRate: activeBound.restoreRate });
+    }
+    if (notifyAbort) {
+      activeBound?.onAbort?.();
     }
   };
 
@@ -839,7 +843,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       }
       if (clipStopBound.settled && t >= end) {
         const onEnded = clipStopBound.onEnded;
-        clearClipStopBound(true);
+        clearClipStopBound(true, false);
         set((prev) => ({
           playing: false,
           currentSentence: anchor,
@@ -1195,7 +1199,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
       if (currentLockTimer) { clearTimeout(currentLockTimer); currentLockTimer = null; }
       clearShadowTimer();
       clearTransientPlan();
-      clearClipStopBound(false);
+      clearClipStopBound(true, true);
       shadowedSentenceKey = null;
       set({
         src,
@@ -1225,7 +1229,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
 
     loadSubtitles: (sentences, tender) => {
       clearTransientPlan();
-      clearClipStopBound(false);
+      clearClipStopBound(true, true);
       // 与 clearSubtitles 对称：换字幕意味着影子留白契约同样作废，
       // 否则留白定时器到期回调会在新字幕上自动跳句/起播。
       clearShadowTimer();
@@ -1256,7 +1260,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     clearSubtitles: () => {
       clearTransientPlan();
       clearShadowTimer();
-      clearClipStopBound(false);
+      clearClipStopBound(true, true);
       shadowedSentenceKey = null;
       set((prev) => ({
         srtTender: null,
@@ -1368,7 +1372,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const padded = padPracticeClipRange(range, get().duration);
       const safeStart = padded.start;
       const safeEnd = padded.end;
-      const prevRestore = clipStopBound?.restoreRate ?? null;
+      const prevBound = clipStopBound;
+      const prevRestore = prevBound?.restoreRate ?? null;
+      clipStopBound = null;
       clearTransientPlan();
       clearTailPreview();
       // 连按慢速试听时沿用最初保存的正常倍速,避免恢复错基准
@@ -1387,7 +1393,10 @@ export const usePlayer = create<PlayerState>((set, get) => {
         restoreRate: options?.rate !== undefined ? restoreRate : null,
         settled: false,
         onEnded: options?.onEnded,
+        onAbort: options?.onAbort,
       };
+      // 若此前已有受控片段（例如 A/B 对比中途被重播打断），通知旧片段清理其 UI 状态。
+      prevBound?.onAbort?.();
       // 立即按目标句高亮；是否能截停由 seek 落点结算（resolveSeek）决定，不依赖请求时刻的墙钟
       applyTargetedSeek({ time: safeStart, target, play: true });
     },

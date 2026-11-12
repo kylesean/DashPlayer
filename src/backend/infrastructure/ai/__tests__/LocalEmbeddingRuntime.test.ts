@@ -152,4 +152,24 @@ describe('LocalEmbeddingRuntime', () => {
         expect(await runtime.isReady()).toBe(false);
         expect(await runtime.isMultimodalReady()).toBe(false);
     });
+
+    it('启动轮询健康检查期间若被 shutdown 叫停，必须终止已生成的子进程而不留孤儿进程', async () => {
+        const runtime = new LocalEmbeddingRuntime({
+            provideDirectory: async () => '/nonexistent',
+            ensurePathAccessible: async () => undefined,
+        } as never);
+
+        const fakeChild = {
+            pid: 99999,
+            killed: false,
+            kill: vi.fn(),
+            once: vi.fn(),
+        };
+        const fakeExited = Promise.resolve();
+        await (runtime as unknown as {
+            terminateChildProcess: (child: unknown, exited: Promise<void>) => Promise<void>;
+        }).terminateChildProcess(fakeChild, fakeExited);
+
+        expect(fakeChild.kill).toHaveBeenCalledTimes(1);
+    });
 });

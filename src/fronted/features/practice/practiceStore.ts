@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SentencePracticeMode } from '@/common/contracts/sentence-practice';
+import type { PracticeRecorderPhase } from './lib/recorder-phase';
 
 /** 跟读工坊子流派：节拍跟读(无录音节奏留白) / 录音对比(波形+A/B听辨+ASR对齐)。 */
 export type ShadowingStyle = 'beat' | 'record';
@@ -73,6 +74,8 @@ interface PracticePanelState {
     peekingSpoiler: boolean;
     /** 跟读录音是否进行中。 */
     recording: boolean;
+    /** 跟读录音机精确阶段（含 requesting / recording / processing）。 */
+    recorderPhase: PracticeRecorderPhase;
     /** 从「整句学习」工作台跳来练习时为 true，方便练习顶栏直接一键退回精读页。 */
     openedFromLearning: boolean;
     setVisible: (visible: boolean) => void;
@@ -86,6 +89,7 @@ interface PracticePanelState {
     setDictationRevealed: (revealed: boolean) => void;
     setPeekingSpoiler: (peeking: boolean) => void;
     setRecording: (recording: boolean) => void;
+    setRecorderPhase: (phase: PracticeRecorderPhase) => void;
     setOpenedFromLearning: (fromLearning: boolean) => void;
     toggle: () => void;
 }
@@ -107,6 +111,7 @@ const usePracticePanel = create<PracticePanelState>((set) => ({
     dictationRevealed: false,
     peekingSpoiler: false,
     recording: false,
+    recorderPhase: 'idle',
     openedFromLearning: false,
     setVisible: (visible) => set((state) => ({
         visible,
@@ -134,7 +139,14 @@ const usePracticePanel = create<PracticePanelState>((set) => ({
     setSentenceFilter: (sentenceFilter) => set({ sentenceFilter }),
     setDictationRevealed: (dictationRevealed) => set({ dictationRevealed }),
     setPeekingSpoiler: (peekingSpoiler) => set({ peekingSpoiler }),
-    setRecording: (recording) => set({ recording }),
+    setRecording: (recording) => set({
+        recording,
+        recorderPhase: recording ? 'recording' : 'idle',
+    }),
+    setRecorderPhase: (recorderPhase) => set({
+        recorderPhase,
+        recording: recorderPhase === 'recording',
+    }),
     setOpenedFromLearning: (openedFromLearning) => set({ openedFromLearning }),
     toggle: () => set((state) => ({ visible: !state.visible })),
 }));

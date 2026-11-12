@@ -105,6 +105,7 @@ export function usePracticeRecorder({
     const startedAtRef = useRef<number>(0);
     const analyserCtxRef = useRef<AudioContext | null>(null);
     const monitorRafRef = useRef<number | null>(null);
+    const mountedRef = useRef<boolean>(true);
 
     const onDoneRef = useRef(onRecordingComplete);
     const vadRef = useRef(vadAutoStop);
@@ -135,10 +136,10 @@ export function usePracticeRecorder({
         mediaStreamRef.current = null;
     }, [stopMonitor]);
 
-    const setRecording = usePracticePanel((s) => s.setRecording);
+    const setRecorderPhase = usePracticePanel((s) => s.setRecorderPhase);
     useEffect(() => {
-        setRecording(phase === 'recording');
-    }, [phase, setRecording]);
+        setRecorderPhase(phase);
+    }, [phase, setRecorderPhase]);
 
     const finishFlow = useCallback((): void => {
         releaseStream();
@@ -168,20 +169,24 @@ export function usePracticeRecorder({
         cancelRef.current = cancel;
     }, [cancel]);
 
-    useEffect(() => () => {
-        const recorder = mediaRecorderRef.current;
-        if (recorder && recorder.state === 'recording') {
-            recorder.onstop = null;
-            try {
-                recorder.stop();
-            } catch {
-                // 卸载兜底路径忽略停止异常
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            const recorder = mediaRecorderRef.current;
+            if (recorder && recorder.state === 'recording') {
+                recorder.onstop = null;
+                try {
+                    recorder.stop();
+                } catch {
+                    // 卸载兜底路径忽略停止异常
+                }
             }
-        }
-        releaseStream();
-        phaseRef.current = 'idle';
-        setRecording(false);
-    }, [releaseStream, setRecording]);
+            finishFlow();
+            phaseRef.current = 'idle';
+            setRecorderPhase('idle');
+        };
+    }, [finishFlow, setRecorderPhase]);
 
     useEffect(() => {
         if (active) {
@@ -216,7 +221,9 @@ export function usePracticeRecorder({
                 dedupeKey: `ipc-error:${message}`,
             });
         } finally {
-            applyEvent('SCORED');
+            if (mountedRef.current) {
+                applyEvent('SCORED');
+            }
         }
     };
 
@@ -280,6 +287,8 @@ export function usePracticeRecorder({
         }
     };
 
+    const isRequestingActive = (): boolean => mountedRef.current && phaseRef.current === 'requesting';
+
     const start = async (): Promise<void> => {
         if (phaseRef.current !== 'idle') return;
         if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
@@ -291,31 +300,48 @@ export function usePracticeRecorder({
         applyEvent('START');
         try {
             const micStatus = await practiceApi.ensureMicrophone();
+            if (!isRequestingActive()) {
+                return;
+            }
             if (micStatus !== 'granted') {
                 logger.warn('麦克风授权未就绪，取消跟读录音', { micStatus });
                 showNotification({ message: t('recorder.denied'), variant: 'error' });
                 applyEvent('CANCEL');
                 return;
             }
-            mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
+            const stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: false,
                     noiseSuppression: false,
                     autoGainControl: false,
                 },
             });
+            if (!isRequestingActive()) {
+                // 授权弹窗尚未落定时若已取消或卸载，立即释放刚拿到的硬件音轨，禁止后台开启 MediaRecorder。
+                stream.getTracks().forEach((track) => track.stop());
+                return;
+            }
+            mediaStreamRef.current = stream;
         } catch (error) {
             logger.error('获取麦克风失败', { error });
+            if (!isRequestingActive()) {
+                return;
+            }
             showNotification({ message: t('recorder.denied'), variant: 'error' });
             releaseStream();
             applyEvent('CANCEL');
             return;
         }
 
+        const stream = mediaStreamRef.current;
+        if (!stream) {
+            return;
+        }
+
         playerActions.pause();
         chunksRef.current = [];
         const mimeType = pickMimeType();
-        const recorder = new MediaRecorder(mediaStreamRef.current, mimeType ? { mimeType } : undefined);
+        const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
         mediaRecorderRef.current = recorder;
         startedAtRef.current = Date.now();
         recorder.ondataavailable = (event: BlobEvent) => {
@@ -328,7 +354,7 @@ export function usePracticeRecorder({
             void handleRecordingDone();
         };
         recorder.start();
-        startAudioMonitor(mediaStreamRef.current, recorder);
+        startAudioMonitor(stream, recorder);
         applyEvent('MIC_READY');
     };
 

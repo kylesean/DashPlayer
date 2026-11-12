@@ -114,7 +114,7 @@ export default function PracticeDock() {
         soundCues,
         sentenceFilter,
         peekingSpoiler,
-        recording,
+        recorderPhase,
         openedFromLearning,
         setMode,
         setShadowingStyle,
@@ -135,7 +135,7 @@ export default function PracticeDock() {
             soundCues: s.soundCues,
             sentenceFilter: s.sentenceFilter,
             peekingSpoiler: s.peekingSpoiler,
-            recording: s.recording,
+            recorderPhase: s.recorderPhase,
             openedFromLearning: s.openedFromLearning,
             setMode: s.setMode,
             setShadowingStyle: s.setShadowingStyle,
@@ -148,6 +148,8 @@ export default function PracticeDock() {
             setOpenedFromLearning: s.setOpenedFromLearning,
         })),
     );
+    const recorderBusy = recorderPhase !== 'idle';
+    const recorderProcessing = recorderPhase === 'processing';
 
     const currentSentence = usePlayerState((s) => s.currentSentence);
     const sentences = usePlayer((s) => s.sentences);
@@ -431,28 +433,28 @@ export default function PracticeDock() {
             const isInteractive = isInteractiveTarget(target);
 
             if (e.key === 'Escape') {
-                if (filterPopover.isOpen || historyPopover.isOpen) return;
+                if (filterPopover.isOpen || historyPopover.isOpen || recorderProcessing) return;
                 e.preventDefault();
                 exitOverlayView();
                 return;
             }
             if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey && !isEditable) {
-                // 录音中禁止试听：外放原声会被正在采集的麦克风录进评分音频
-                if (recording) return;
+                // 非空闲态（请求授权/录音/评分）禁止试听：外放原声会被正在采集的麦克风录进评分音频
+                if (recorderBusy) return;
                 e.preventDefault();
                 if (e.shiftKey) handleSlowReplay();
                 else handleReplay();
                 return;
             }
             if (e.key === 'ArrowUp' && !isEditable && !isInteractive) {
-                // 录音中禁止切句：切句会重挂载录音视图，静默丢弃整段录音
-                if (recording) return;
+                // 非空闲态禁止切句：切句会重挂载录音视图，静默丢弃整段录音
+                if (recorderBusy) return;
                 e.preventDefault();
                 navigateOffset(-1, !(mode === 'shadowing' && shadowingStyle === 'beat'));
                 return;
             }
             if (e.key === 'ArrowDown' && !isEditable && !isInteractive) {
-                if (recording) return;
+                if (recorderBusy) return;
                 e.preventDefault();
                 navigateOffset(1, !(mode === 'shadowing' && shadowingStyle === 'beat'));
                 return;
@@ -487,6 +489,8 @@ export default function PracticeDock() {
         historyPopover.isOpen,
         mode,
         navigateOffset,
+        recorderBusy,
+        recorderProcessing,
         result,
         setFocusMode,
         shadowingStyle,
@@ -536,6 +540,7 @@ export default function PracticeDock() {
     return (
         <div
             data-practice-dock="true"
+            data-recorder-phase={recorderPhase}
             className="flex h-full w-full flex-col bg-surface/85 backdrop-blur-xl text-foreground [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)]"
         >
             {/* 顶栏：一级模式 + 紧凑子模式 + 筛选进度导航 + 专注/声音/关闭 */}
@@ -545,7 +550,10 @@ export default function PracticeDock() {
                         size="sm"
                         label={t('panel.title')}
                         value={mode}
-                        onChange={(next) => setMode(next as SentencePracticeMode)}
+                        onChange={(next) => {
+                            if (recorderProcessing) return;
+                            setMode(next as SentencePracticeMode);
+                        }}
                     >
                         <SegmentedControlItem value="shadowing" label={t('panel.tabShadowing')} />
                         <SegmentedControlItem value="dictation" label={t('panel.tabDictation')} />
@@ -557,7 +565,10 @@ export default function PracticeDock() {
                         <SubStylePills<ShadowingStyle>
                             label={t('panel.tabShadowing')}
                             value={shadowingStyle}
-                            onChange={setShadowingStyle}
+                            onChange={(next) => {
+                                if (recorderProcessing) return;
+                                setShadowingStyle(next);
+                            }}
                             options={[
                                 { value: 'record', label: t('shadowing.styleRecord', { defaultValue: '录音对比' }) },
                                 { value: 'beat', label: t('shadowing.styleBeat', { defaultValue: '节拍流' }) },
@@ -582,9 +593,9 @@ export default function PracticeDock() {
                         <Tooltip content={t('panel.prevSentence', { defaultValue: '上一句 (↑)' })} placement="below">
                             <button
                                 type="button"
-                                aria-disabled={recording}
+                                aria-disabled={recorderBusy}
                                 onClick={() => {
-                                    if (recording) return;
+                                    if (recorderBusy) return;
                                     navigateOffset(-1, true);
                                 }}
                                 aria-label={t('panel.prevSentence', { defaultValue: '上一句 (↑)' })}
@@ -597,9 +608,13 @@ export default function PracticeDock() {
                         <button
                             type="button"
                             ref={filterPopover.triggerRef}
-                            onClick={filterPopover.toggle}
+                            aria-disabled={recorderBusy}
+                            onClick={() => {
+                                if (recorderBusy) return;
+                                filterPopover.toggle();
+                            }}
                             {...filterPopover.triggerProps}
-                            className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono tabular-nums text-foreground hover:bg-muted/60 cursor-pointer"
+                            className="inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 font-mono tabular-nums text-foreground hover:bg-muted/60 aria-disabled:opacity-40 aria-disabled:cursor-not-allowed cursor-pointer"
                         >
                             <span>
                                 {currentFilteredPos >= 0 ? currentFilteredPos + 1 : 1}/{Math.max(1, filteredUnits.length)}
@@ -632,6 +647,7 @@ export default function PracticeDock() {
                                                 className="sr-only"
                                                 checked={sentenceFilter === key}
                                                 onChange={() => {
+                                                    if (recorderBusy) return;
                                                     setSentenceFilter(key);
                                                     filterPopover.hide();
                                                 }}
@@ -646,9 +662,9 @@ export default function PracticeDock() {
                         <Tooltip content={t('panel.nextSentence', { defaultValue: '下一句 (↓)' })} placement="below">
                             <button
                                 type="button"
-                                aria-disabled={recording}
+                                aria-disabled={recorderBusy}
                                 onClick={() => {
-                                    if (recording) return;
+                                    if (recorderBusy) return;
                                     navigateOffset(1, true);
                                 }}
                                 aria-label={t('panel.nextSentence', { defaultValue: '下一句 (↓)' })}
@@ -728,9 +744,10 @@ export default function PracticeDock() {
                             label={t('panel.returnToLearning', { defaultValue: '返回精读' })}
                             size="sm"
                             variant="secondary"
+                            isDisabled={recorderBusy}
                             icon={<BookOpenCheck className="h-3.5 w-3.5 text-accent" />}
                             onClick={() => {
-                                if (!activeUnit) return;
+                                if (!activeUnit || recorderBusy) return;
                                 const failedWords = (result?.words ?? [])
                                     .filter((w) => w.status === 'missing' || w.status === 'sub')
                                     .map((w) => w.expected);
@@ -749,8 +766,9 @@ export default function PracticeDock() {
                                 icon={<BookOpenCheck className="h-3.5 w-3.5 text-accent" />}
                                 variant="ghost"
                                 size="sm"
+                                isDisabled={recorderBusy}
                                 onClick={() => {
-                                    if (!activeUnit) return;
+                                    if (!activeUnit || recorderBusy) return;
                                     const failedWords = (result?.words ?? [])
                                         .filter((w) => w.status === 'missing' || w.status === 'sub')
                                         .map((w) => w.expected);
@@ -796,7 +814,11 @@ export default function PracticeDock() {
                             icon={<X className="h-4 w-4" />}
                             variant="ghost"
                             size="sm"
-                            onClick={() => exitOverlayView()}
+                            isDisabled={recorderProcessing}
+                            onClick={() => {
+                                if (recorderProcessing) return;
+                                exitOverlayView();
+                            }}
                         />
                     </Tooltip>
                 </div>

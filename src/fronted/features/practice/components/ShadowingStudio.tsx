@@ -254,6 +254,8 @@ function RecordShadowingView({
     const liveBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
     const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
     const abRunIdRef = useRef(0);
+    const clipOwnedRef = useRef(false);
+    const mountedRef = useRef(true);
     const abTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const autoCueTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const localUrlRef = useRef<string | null>(null);
@@ -271,26 +273,40 @@ function RecordShadowingView({
             clearTimeout(autoCueTimerRef.current);
             autoCueTimerRef.current = null;
         }
+        if (clipOwnedRef.current) {
+            clipOwnedRef.current = false;
+            playerActions.clearPracticeClip?.();
+        }
         playbackAudioRef.current?.pause();
         playbackAudioRef.current = null;
         setAbPhase('idle');
     }, []);
 
-    // 卸载时回收本地录音 ObjectURL、对比计时器与回放音轨（换句靠外层 key={unit.key} 重挂载清理）
-    useEffect(() => () => {
-        if (autoCueTimerRef.current !== null) {
-            clearTimeout(autoCueTimerRef.current);
-        }
-        abRunIdRef.current += 1;
-        if (abTimerRef.current !== null) {
-            clearTimeout(abTimerRef.current);
-        }
-        playbackAudioRef.current?.pause();
-        playbackAudioRef.current = null;
-        if (localUrlRef.current) {
-            URL.revokeObjectURL(localUrlRef.current);
-            localUrlRef.current = null;
-        }
+    // 卸载时回收本地录音 ObjectURL、对比计时器、受控原声与回放音轨（换句靠外层 key={unit.key} 重挂载清理）
+    useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            if (autoCueTimerRef.current !== null) {
+                clearTimeout(autoCueTimerRef.current);
+                autoCueTimerRef.current = null;
+            }
+            abRunIdRef.current += 1;
+            if (abTimerRef.current !== null) {
+                clearTimeout(abTimerRef.current);
+                abTimerRef.current = null;
+            }
+            if (clipOwnedRef.current) {
+                clipOwnedRef.current = false;
+                playerActions.clearPracticeClip?.();
+            }
+            playbackAudioRef.current?.pause();
+            playbackAudioRef.current = null;
+            if (localUrlRef.current) {
+                URL.revokeObjectURL(localUrlRef.current);
+                localUrlRef.current = null;
+            }
+        };
     }, []);
 
     const handleLevelChange = useCallback((level: number) => {
@@ -310,23 +326,30 @@ function RecordShadowingView({
     const handleRecordingComplete = useCallback(async (audio: Uint8Array, artifact?: RecordedAudioArtifact) => {
         if (artifact?.blob) {
             const nextUrl = URL.createObjectURL(artifact.blob);
+            if (!mountedRef.current) {
+                URL.revokeObjectURL(nextUrl);
+                return;
+            }
             if (localUrlRef.current) {
                 URL.revokeObjectURL(localUrlRef.current);
             }
             localUrlRef.current = nextUrl;
             const summary = await decodeRecordedAudioSummary(artifact.blob, STATIC_WAVE_BIN_COUNT);
+            if (!mountedRef.current) {
+                return;
+            }
             setLocalRecording({
                 audioUrl: nextUrl,
                 bins: summary.bins,
                 durationMs: summary.durationMs > 0 ? summary.durationMs : artifact.durationMs,
             });
         }
-        if (asrReady) {
+        if (asrReady && mountedRef.current) {
             await onScoreRecording(audio);
         }
     }, [asrReady, onScoreRecording]);
 
-    const { phase: recorderPhase, start: startRecording, stop: stopRecording } = usePracticeRecorder({
+    const { phase: recorderPhase, start: startRecording, stop: stopRecording, cancel: cancelRecording } = usePracticeRecorder({
         onRecordingComplete: handleRecordingComplete,
         active: true,
         vadAutoStop: autoRecordFlow,
@@ -363,36 +386,54 @@ function RecordShadowingView({
             return;
         }
         const runId = ++abRunIdRef.current;
+        clipOwnedRef.current = true;
         setAbPhase('playing-original');
         playerActions.playPracticeClip(unit.range, unit.anchor, {
             onEnded: () => {
-                if (abRunIdRef.current !== runId) return;
+                clipOwnedRef.current = false;
+                if (abRunIdRef.current !== runId || !mountedRef.current) return;
                 setAbPhase('gap');
                 abTimerRef.current = setTimeout(() => {
-                    if (abRunIdRef.current !== runId) return;
+                    if (abRunIdRef.current !== runId || !mountedRef.current) return;
                     setAbPhase('playing-mine');
                     playMineAudioOnly(playableMineUrl, () => {
-                        if (abRunIdRef.current === runId) {
+                        if (abRunIdRef.current === runId && mountedRef.current) {
                             setAbPhase('idle');
                         }
                     });
                 }, 280);
+            },
+            onAbort: () => {
+                clipOwnedRef.current = false;
+                if (abRunIdRef.current === runId && mountedRef.current) {
+                    setAbPhase('idle');
+                }
             },
         });
     }, [abPhase, playMineAudioOnly, playableMineUrl, stopContrastAudio, unit]);
 
     const triggerAutoFlow = useCallback(() => {
         stopContrastAudio();
+        const runId = ++abRunIdRef.current;
+        clipOwnedRef.current = true;
         playerActions.playPracticeClip(unit.range, unit.anchor, {
             onEnded: () => {
+                clipOwnedRef.current = false;
+                if (abRunIdRef.current !== runId || !mountedRef.current) return;
                 playMicReadyCue();
                 autoCueTimerRef.current = setTimeout(() => {
+                    if (abRunIdRef.current !== runId || !mountedRef.current) return;
                     setRecordingSeconds(0);
                     void startRecording();
                 }, 180);
             },
+            onAbort: () => {
+                clipOwnedRef.current = false;
+            },
         });
     }, [startRecording, stopContrastAudio, unit]);
+
+    const recorderBusy = recorderPhase !== 'idle';
 
     // 键盘交互：Space 对讲/启停、V 键 A/B 对比、Alt+R / Alt+Shift+R 重播、Enter 下一句
     useEffect(() => {
@@ -402,8 +443,8 @@ function RecordShadowingView({
                 return;
             }
             if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey) {
-                // 录音中禁止试听：外放原声会被正在采集的麦克风录进评分音频
-                if (recorderPhase === 'recording') return;
+                // 请求权限、录音、评分阶段均禁止试听，防止状态竞态或录进外放原声
+                if (recorderBusy) return;
                 e.preventDefault();
                 if (e.shiftKey) onSlowReplay();
                 else onReplay();
@@ -424,13 +465,13 @@ function RecordShadowingView({
                 return;
             }
             if ((e.key === 'v' || e.key === 'V') && !e.metaKey && !e.ctrlKey && !e.altKey) {
-                if (playableMineUrl && recorderPhase === 'idle') {
+                if (playableMineUrl && !recorderBusy) {
                     e.preventDefault();
                     triggerABContrast();
                 }
                 return;
             }
-            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && recorderPhase === 'idle' && (result || localRecording)) {
+            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !recorderBusy && (result || localRecording)) {
                 e.preventDefault();
                 onNextSentence();
             }
@@ -440,8 +481,12 @@ function RecordShadowingView({
             if (e.key !== ' ' || pttDownAtRef.current === null) return;
             const heldMs = Date.now() - pttDownAtRef.current;
             pttDownAtRef.current = null;
-            if (heldMs >= PUSH_TO_TALK_HOLD_MS && recorderPhase === 'recording') {
-                stopRecording();
+            if (heldMs >= PUSH_TO_TALK_HOLD_MS) {
+                if (recorderPhase === 'recording') {
+                    stopRecording();
+                } else if (recorderPhase === 'requesting') {
+                    cancelRecording();
+                }
             }
         };
 
@@ -452,11 +497,13 @@ function RecordShadowingView({
             window.removeEventListener('keyup', onKeyUp);
         };
     }, [
+        cancelRecording,
         localRecording,
         onNextSentence,
         onReplay,
         onSlowReplay,
         playableMineUrl,
+        recorderBusy,
         recorderPhase,
         result,
         startRecording,
@@ -471,7 +518,11 @@ function RecordShadowingView({
         : null;
 
     return (
-        <div className="flex flex-col gap-2.5">
+        <div
+            className="flex flex-col gap-2.5"
+            data-recorder-phase={recorderPhase}
+            data-ab-phase={abPhase}
+        >
             {/* 原句区：有 ASR 识别结果时直接原地差分高亮，平时保留干净原文与划词查词 */}
             <PracticeDiffSentence unit={unit} result={result} />
             {translationText ? (
@@ -596,8 +647,9 @@ function RecordShadowingView({
                     <Button
                         variant={recorderPhase === 'recording' ? 'primary' : 'secondary'}
                         size="sm"
-                        isDisabled={recorderPhase === 'processing'}
-                        icon={recorderPhase === 'processing'
+                        isDisabled={recorderPhase === 'processing' || recorderPhase === 'requesting'}
+                        aria-busy={recorderPhase === 'processing' || recorderPhase === 'requesting'}
+                        icon={recorderPhase === 'processing' || recorderPhase === 'requesting'
                             ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             : recorderPhase === 'recording'
                                 ? <Square className="h-3.5 w-3.5 fill-current" />
@@ -625,8 +677,8 @@ function RecordShadowingView({
                         size="sm"
                         icon={<Volume2 className="h-3.5 w-3.5" />}
                         label={t('panel.playSentence')}
-                        // 录音中禁用试听：外放原声会被麦克风录进评分音频
-                        isDisabled={recorderPhase === 'recording'}
+                        // 非空闲态（请求授权/录音/评分）禁用试听：防止竞态或把外放原声录进评分音频
+                        isDisabled={recorderBusy}
                         onClick={() => {
                             stopContrastAudio();
                             onReplay();
@@ -637,7 +689,7 @@ function RecordShadowingView({
                         variant="ghost"
                         size="sm"
                         label="0.75×"
-                        isDisabled={recorderPhase === 'recording'}
+                        isDisabled={recorderBusy}
                         onClick={() => {
                             stopContrastAudio();
                             onSlowReplay();
@@ -653,7 +705,7 @@ function RecordShadowingView({
                                 label={abPhase !== 'idle'
                                     ? t('shadowing.abStop', { defaultValue: '停止对比' })
                                     : t('shadowing.abButton', { defaultValue: 'A/B 对比' })}
-                                isDisabled={recorderPhase === 'recording'}
+                                isDisabled={recorderBusy}
                                 onClick={triggerABContrast}
                             />
                             <Button
@@ -661,7 +713,7 @@ function RecordShadowingView({
                                 size="sm"
                                 icon={<Volume2 className="h-3.5 w-3.5" />}
                                 label={t('result.playMine')}
-                                isDisabled={recorderPhase === 'recording'}
+                                isDisabled={recorderBusy}
                                 onClick={() => {
                                     stopContrastAudio();
                                     playMineAudioOnly(playableMineUrl);
@@ -676,6 +728,7 @@ function RecordShadowingView({
                         <Switch
                             label={t('shadowing.autoFlow', { defaultValue: '播完自动开麦' })}
                             value={autoRecordFlow}
+                            isDisabled={recorderBusy}
                             onChange={(val) => setAutoRecordFlow(val)}
                         />
                     </div>
@@ -684,8 +737,8 @@ function RecordShadowingView({
                             variant="primary"
                             size="sm"
                             label={t('panel.nextSentenceEnter', { defaultValue: '下一句 ↵' })}
-                            // 录音中禁止切句：切句会重挂载本视图，静默丢弃整段录音
-                            isDisabled={recorderPhase === 'recording'}
+                            // 非空闲态禁止切句：防止重挂载静默丢弃录音或评分结果
+                            isDisabled={recorderBusy}
                             onClick={onNextSentence}
                         />
                     )}

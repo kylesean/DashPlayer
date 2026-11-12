@@ -48,9 +48,7 @@ export default function SubtitleTrackSegmented({
     const showEn = usePlayerUi((s) => s.showEn);
     const showCn = usePlayerUi((s) => s.showCn);
     const showSourceZh = usePlayerUi((s) => s.showSourceZh);
-    const changeShowEn = usePlayerUi((s) => s.changeShowEn);
-    const changeShowCn = usePlayerUi((s) => s.changeShowCn);
-    const changeShowSourceZh = usePlayerUi((s) => s.changeShowSourceZh);
+    const selectTrackPreset = usePlayerUi((s) => s.selectTrackPreset);
     const sourceZhAvailable = useSourceChineseAvailability();
     const enShortcut = useSetting((s) => s.setting('shortcut.toggleEnglishDisplay'));
     const cnShortcut = useSetting((s) => s.setting('shortcut.toggleChineseDisplay'));
@@ -65,36 +63,9 @@ export default function SubtitleTrackSegmented({
     const selectedTrack = isEnOnly ? 'english' : isCnOnly ? 'chinese' : isBilingual ? 'bilingual' : '';
     const style = TOOLBAR_TONE[tone];
 
-    /** 只留英文：关掉两路中文。 */
-    const showEnglishOnly = () => {
-        if (!showEn) changeShowEn();
-        if (showCn) changeShowCn();
-        if (showSourceZh) changeShowSourceZh();
-    };
-    /**
-     * 只留中文：英文关掉。
-     *
-     * 判断必须用 `sourceZhVisible` 而不是原始的 `showSourceZh`：字幕文件不带中文时，
-     * `showSourceZh` 仍可能是 true，但画面上一行中文都没有。此时若按原始值跳过
-     * `changeShowCn()`，三档会同时不选中且点「中」毫无反应——用户被困在空白字幕里。
-     */
-    const showChineseOnly = () => {
-        if (showEn) changeShowEn();
-        if (!showCn && !sourceZhVisible) changeShowCn();
-    };
-    /** 双语：英文 + AI 翻译都打开。 */
-    const showBilingual = () => {
-        if (!showEn) changeShowEn();
-        if (!showCn) changeShowCn();
-    };
-
     const handleChange = (next: string) => {
-        if (next === 'english') {
-            showEnglishOnly();
-        } else if (next === 'chinese') {
-            showChineseOnly();
-        } else if (next === 'bilingual') {
-            showBilingual();
+        if (next === 'english' || next === 'chinese' || next === 'bilingual') {
+            selectTrackPreset(next, sourceZhAvailable);
         }
     };
 

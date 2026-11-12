@@ -64,6 +64,8 @@ export class LocalEmbeddingRuntime {
     private readonly apiKey = randomBytes(32).toString('hex');
     /** 进行中的下载任务；同一时间只允许一个，防止双写 .part 互相覆写。 */
     private downloadTask: Promise<void> | null = null;
+    /** 当前下载任务的取消控制器；remove() 删除模型前可先中止在途写入。 */
+    private downloadController: AbortController | null = null;
 
     public constructor(
         @inject(TYPES.StorageDirectoryProvider) private readonly directories: StorageDirectoryProvider,
@@ -218,9 +220,10 @@ export class LocalEmbeddingRuntime {
      * @returns 下载完成时为 true；失败抛错。
      */
     public async download(onProgress?: (downloaded: number) => void): Promise<void> {
-        await this.runExclusiveDownload(async () => this.downloadOne(
+        await this.runExclusiveDownload(async (signal) => this.downloadOne(
             LOCAL_EMBEDDING_MODEL,
             await this.modelPath(),
+            signal,
             onProgress,
         ));
     }
@@ -233,25 +236,31 @@ export class LocalEmbeddingRuntime {
      * @param onProgress 可选进度回调，参数为已下载字节数。
      */
     public async downloadMultimodal(onProgress?: (downloaded: number) => void): Promise<void> {
-        await this.runExclusiveDownload(async () => this.downloadOne(
+        await this.runExclusiveDownload(async (signal) => this.downloadOne(
             LOCAL_EMBEDDING_MMPROJ,
             await this.mmprojPath(),
+            signal,
             onProgress,
         ));
     }
 
     /** 串行执行下载任务；进行中再发起直接拒绝。 */
-    private async runExclusiveDownload(task: () => Promise<void>): Promise<void> {
+    private async runExclusiveDownload(task: (signal: AbortSignal) => Promise<void>): Promise<void> {
         if (this.downloadTask) {
             throw new Error('语义模型正在下载，请等待完成后再试');
         }
-        const running = task();
+        const controller = new AbortController();
+        this.downloadController = controller;
+        const running = task(controller.signal);
         this.downloadTask = running;
         try {
             await running;
         } finally {
             if (this.downloadTask === running) {
                 this.downloadTask = null;
+            }
+            if (this.downloadController === controller) {
+                this.downloadController = null;
             }
         }
     }
@@ -268,6 +277,7 @@ export class LocalEmbeddingRuntime {
     private async downloadOne(
         definition: typeof LOCAL_EMBEDDING_MODEL,
         modelPath: string,
+        signal: AbortSignal,
         onProgress?: (downloaded: number) => void,
     ): Promise<void> {
         try {
@@ -287,10 +297,9 @@ export class LocalEmbeddingRuntime {
         }
         await fs.promises.mkdir(path.dirname(modelPath), { recursive: true });
         const partialPath = `${modelPath}.part`;
-        const controller = new AbortController();
-        const url = await probeReachableDownloadUrl(definition.urls, controller.signal)
+        const url = await probeReachableDownloadUrl(definition.urls, signal)
             ?? definition.urls[0];
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(url, { signal });
         if (!response.ok || !response.body) {
             throw new Error(`语义模型下载失败：HTTP ${response.status}`);
         }
@@ -301,7 +310,7 @@ export class LocalEmbeddingRuntime {
             downloaded += chunk.length;
             onProgress?.(downloaded);
         });
-        await pipeline(source, sink);
+        await pipeline(source, sink, { signal });
         // 校验必须重读落盘文件而不是在下载流上顺手累积：并发写入器写过同一
         // `.part` 时，流哈希对应的是自己流过的字节，磁盘上可能是另一个写入器的
         // 数据。体积也以落盘为准。
@@ -332,6 +341,8 @@ export class LocalEmbeddingRuntime {
      * @returns 实际删除的文件数。
      */
     public async remove(): Promise<number> {
+        this.downloadController?.abort();
+        await this.downloadTask?.catch(() => undefined);
         await this.shutdown();
         let removed = 0;
         for (const target of [await this.modelPath(), await this.mmprojPath()]) {
@@ -369,7 +380,7 @@ export class LocalEmbeddingRuntime {
             return [];
         }
         const endpoint = await this.ensureStarted();
-        if (!endpoint) {
+        if (!endpoint || this.endpoint !== endpoint) {
             return null;
         }
         this.touch();
@@ -405,7 +416,7 @@ export class LocalEmbeddingRuntime {
             return null;
         }
         const endpoint = await this.ensureStarted();
-        if (!endpoint) {
+        if (!endpoint || this.endpoint !== endpoint) {
             return null;
         }
         this.touch();
@@ -418,6 +429,22 @@ export class LocalEmbeddingRuntime {
             results.push(vector);
         }
         return results;
+    }
+
+    private async terminateChildProcess(child: ChildProcess, exited: Promise<void> | null): Promise<void> {
+        if (this.child === child) {
+            this.child = null;
+            this.endpoint = null;
+            this.childExit = null;
+        }
+        child.kill();
+        const forceTimer = setTimeout(() => child.kill('SIGKILL'), 3000);
+        try {
+            await exited;
+        } finally {
+            clearTimeout(forceTimer);
+        }
+        this.logger.info('embedding runtime stopped', { pid: child.pid });
     }
 
     /**
@@ -441,14 +468,7 @@ export class LocalEmbeddingRuntime {
         if (!child) {
             return;
         }
-        child.kill();
-        const forceTimer = setTimeout(() => child.kill('SIGKILL'), 3000);
-        try {
-            await exited;
-        } finally {
-            clearTimeout(forceTimer);
-        }
-        this.logger.info('embedding runtime stopped', { pid: child.pid });
+        await this.terminateChildProcess(child, exited);
     }
 
     /**
@@ -470,9 +490,9 @@ export class LocalEmbeddingRuntime {
     }
 
     private async start(): Promise<string | null> {
-        // 生命周期代数：本代启动若被 shutdown 叫停，健康轮询必须放弃并把状态让给新启动。
+        // 生命周期代数：本代启动若被 shutdown 叫停，必须停止并清理已启动进程。
         const generation = ++this.generation;
-        if (!await this.isReady()) {
+        if (!await this.isReady() || generation !== this.generation) {
             this.logger.debug('embedding model not installed, skip semantic index');
             return null;
         }
@@ -485,13 +505,16 @@ export class LocalEmbeddingRuntime {
             this.logger.warn('embedding model integrity check failed', { error });
             return null;
         }
+        if (generation !== this.generation) {
+            return null;
+        }
         const runtimePath = this.runtimePath();
         if (!fs.existsSync(runtimePath)) {
             this.logger.warn('embedding runtime missing, skip semantic index', { runtimePath });
             return null;
         }
         const port = await this.reservePort();
-        if (!port) {
+        if (!port || generation !== this.generation) {
             return null;
         }
         const args = [
@@ -517,13 +540,17 @@ export class LocalEmbeddingRuntime {
                 args.push('--mmproj', await this.mmprojPath());
             }
         }
+        if (generation !== this.generation) {
+            return null;
+        }
         const child = spawn(runtimePath, args, {
             windowsHide: true,
             stdio: ['ignore', 'ignore', 'pipe'],
             env: { ...process.env, LLAMA_API_KEY: this.apiKey },
         });
         this.child = child;
-        this.childExit = new Promise<void>((resolve) => child.once('close', () => resolve()));
+        const exited = new Promise<void>((resolve) => child.once('close', () => resolve()));
+        this.childExit = exited;
         const failureRef: { current: Error | null } = { current: null };
         child.once('error', (error) => {
             failureRef.current = error;
@@ -532,6 +559,7 @@ export class LocalEmbeddingRuntime {
             if (this.child === child) {
                 this.child = null;
                 this.endpoint = null;
+                this.childExit = null;
             }
             failureRef.current = failureRef.current ?? new Error(`本地向量进程退出：${code}`);
         });
@@ -539,12 +567,13 @@ export class LocalEmbeddingRuntime {
         const deadline = Date.now() + 30_000;
         while (Date.now() < deadline) {
             if (generation !== this.generation) {
-                // 启动期间被 shutdown 叫停：不再复活已被清理的状态。
+                // 启动期间被 shutdown 叫停：显式杀掉刚 spawn 的子进程，防止孤儿进程驻留。
+                await this.terminateChildProcess(child, exited);
                 return null;
             }
             if (failureRef.current) {
                 this.logger.warn('embedding runtime failed to start', { error: failureRef.current.message });
-                await this.shutdown();
+                await this.terminateChildProcess(child, exited);
                 return null;
             }
             try {
@@ -555,7 +584,7 @@ export class LocalEmbeddingRuntime {
                 });
                 if (response.ok) {
                     if (generation !== this.generation) {
-                        await this.shutdown();
+                        await this.terminateChildProcess(child, exited);
                         return null;
                     }
                     this.endpoint = endpoint;
@@ -568,7 +597,7 @@ export class LocalEmbeddingRuntime {
             await delay(250);
         }
         this.logger.warn('embedding runtime start timed out');
-        await this.shutdown();
+        await this.terminateChildProcess(child, exited);
         return null;
     }
 

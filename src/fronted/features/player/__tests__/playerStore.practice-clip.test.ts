@@ -97,4 +97,33 @@ describe('playerStore 练习受控区间试听 playPracticeClip', () => {
         expect(usePlayer.getState().playing).toBe(false);
         expect(onEnded).toHaveBeenCalledTimes(1);
     });
+
+    it('pause / setSource 中断受控片段试听时回调 onAbort 且恢复原倍速', () => {
+        const s0 = usePlayer.getState().sentences[0];
+        const onEnded = vi.fn();
+        const onAbort = vi.fn();
+
+        usePlayer.getState().playPracticeClip({ start: 1, end: 3 }, s0, {
+            rate: 0.75,
+            onEnded,
+            onAbort,
+        });
+        expect(usePlayer.getState().playbackRate).toBe(0.75);
+
+        usePlayer.getState().pause();
+
+        expect(onAbort).toHaveBeenCalledTimes(1);
+        expect(onEnded).not.toHaveBeenCalled();
+        expect(usePlayer.getState().playbackRate).toBe(1.0);
+
+        const onAbortOnSwitch = vi.fn();
+        usePlayer.getState().playPracticeClip({ start: 1, end: 3 }, s0, {
+            rate: 0.75,
+            onAbort: onAbortOnSwitch,
+        });
+        usePlayer.getState().setSource('file:///next.mp4');
+
+        expect(onAbortOnSwitch).toHaveBeenCalledTimes(1);
+        expect(usePlayer.getState().playbackRate).toBe(1.0);
+    });
 });

@@ -39,7 +39,11 @@ export class PlayerActions {
   seekToTarget(opts: { time: number; target?: Sentence; play?: boolean }) {
     this.s.seekToTarget(opts);
   }
-  playPracticeClip(range: { start: number; end: number }, target: Sentence, options?: { rate?: number; onEnded?: () => void }) {
+  playPracticeClip(
+    range: { start: number; end: number },
+    target: Sentence,
+    options?: { rate?: number; onEnded?: () => void; onAbort?: () => void },
+  ) {
     this.s.playPracticeClip(range, target, options);
   }
   clearPracticeClip() {

@@ -54,6 +54,8 @@ type PlayerUiState = {
    * 视频控制条据此让位：两者都是「悬停才现身」的浮层，压在同一块区域会互相抢事件。
    */
   hardsubMaskHovering: boolean;
+  /** 仅从双语/中文切到纯英文时暂存“原有内嵌中文字幕偏好”，切回双语/中文时恢复。 */
+  restorableSourceZh: boolean;
 };
 
 type PlayerUiActions = {
@@ -63,6 +65,7 @@ type PlayerUiActions = {
   setSubtitleContext: (mode: SubtitleContextMode) => void;
   changeShowSideTranslation: () => void;
   changeShowEnCn: () => void;
+  selectTrackPreset: (preset: 'english' | 'chinese' | 'bilingual', sourceZhAvailable: boolean) => void;
   changeShowWordLevel: () => void;
   toggleControlBarPinned: () => void;
   toggleHardsubMask: () => void;
@@ -195,6 +198,19 @@ function pickPersisted(
   };
 }
 
+/**
+ * 双语快捷键/切换纯转移：非双语状态切入中英双语；已处于中英双语时退回仅英文，绝不隐藏全部字幕。
+ */
+export function toggleBilingualTracks(state: { showEn: boolean; showCn: boolean }): {
+  showEn: boolean;
+  showCn: boolean;
+} {
+  if (state.showEn && state.showCn) {
+    return { showEn: true, showCn: false };
+  }
+  return { showEn: true, showCn: true };
+}
+
 export const usePlayerUi = create(
   persist(
     subscribeWithSelector<PlayerUiState & PlayerUiActions>((set) => ({
@@ -205,13 +221,40 @@ export const usePlayerUi = create(
       hardsubMaskStageHeight: 0,
       hardsubMaskDragging: false,
       hardsubMaskHovering: false,
+      restorableSourceZh: false,
 
       changeShowEn: () => set((s) => ({ showEn: !s.showEn })),
       changeShowCn: () => set((s) => ({ showCn: !s.showCn })),
-      changeShowSourceZh: () => set((s) => ({ showSourceZh: !s.showSourceZh })),
+      changeShowSourceZh: () => set((s) => ({ showSourceZh: !s.showSourceZh, restorableSourceZh: false })),
       setSubtitleContext: (mode) => set(() => ({ subtitleContext: mode })),
       changeShowSideTranslation: () => set((s) => ({ showSideTranslation: !s.showSideTranslation })),
-      changeShowEnCn: () => set((s) => ({ showEn: !s.showEn, showCn: !s.showEn })),
+      changeShowEnCn: () => set((s) => toggleBilingualTracks(s)),
+      selectTrackPreset: (preset, sourceZhAvailable) => set((s) => {
+        if (preset === 'english') {
+          return {
+            showEn: true,
+            showCn: false,
+            showSourceZh: false,
+            restorableSourceZh: s.showSourceZh || s.restorableSourceZh,
+          };
+        }
+        const restoredSourceZh = s.showSourceZh || s.restorableSourceZh;
+        if (preset === 'chinese') {
+          const hasVisibleSourceZh = restoredSourceZh && sourceZhAvailable;
+          return {
+            showEn: false,
+            showCn: !hasVisibleSourceZh ? true : s.showCn,
+            showSourceZh: restoredSourceZh,
+            restorableSourceZh: false,
+          };
+        }
+        return {
+          showEn: true,
+          showCn: true,
+          showSourceZh: restoredSourceZh,
+          restorableSourceZh: false,
+        };
+      }),
       changeShowWordLevel: () => set((s) => ({ showWordLevel: !s.showWordLevel })),
       toggleControlBarPinned: () => set((s) => ({ controlBarPinned: !s.controlBarPinned })),
       toggleHardsubMask: () => set((s) => ({ hardsubMaskOn: !s.hardsubMaskOn })),
