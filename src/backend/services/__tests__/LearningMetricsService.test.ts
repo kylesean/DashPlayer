@@ -115,7 +115,8 @@ describe('LearningMetricsService', () => {
     it('窗口查询使用 ISO 时间，且确实回看整个窗口', async () => {
         const { service, repository } = buildService();
         await service.getMetrics({ windowDays: 30 });
-        const since = repository.listReviewEventsSince.mock.calls[0][0] as string;
+        const calls = repository.listReviewEventsSince.mock.calls as unknown as string[][];
+        const since = calls[0][0];
         expect(since).toBe(new Date(since).toISOString());
         const ageDays = (Date.now() - new Date(since).getTime()) / DAY_MS;
         expect(ageDays).toBeGreaterThan(29.9);

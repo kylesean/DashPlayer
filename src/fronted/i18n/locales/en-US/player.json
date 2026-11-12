@@ -342,7 +342,10 @@
         "emptyHint": "Save, shadow, or mark a word as mastered and it will show up here",
         "loadFailed": "Couldn't load this session's learning data",
         "retry": "Retry",
-        "loading": "Summarizing this session…"
+        "loading": "Summarizing this session…",
+        "endedTitle": "You finished this video",
+        "endedHint": "Take a minute to review the words and sentences you met while they are still fresh.",
+        "endedDismiss": "Dismiss recap prompt"
     },
     "contextSuggestion": {
         "dismiss": "Dismiss this suggestion",

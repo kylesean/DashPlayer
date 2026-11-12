@@ -342,7 +342,10 @@
         "emptyHint": "收藏、跟读或标记已掌握后，会在这里汇总",
         "loadFailed": "本次学习数据加载失败",
         "retry": "重试",
-        "loading": "正在汇总本次学习…"
+        "loading": "正在汇总本次学习…",
+        "endedTitle": "这一段看完了",
+        "endedHint": "趁记忆还热，花一分钟回顾本次遇到的词和句子。",
+        "endedDismiss": "关闭复盘提示"
     },
     "contextSuggestion": {
         "dismiss": "忽略本句建议",

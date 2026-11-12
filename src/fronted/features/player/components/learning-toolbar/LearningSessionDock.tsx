@@ -1,5 +1,4 @@
 /* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
-import { useState } from 'react';
 import { Activity, ChevronRight, Loader2, RotateCcw, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
@@ -19,6 +18,7 @@ import {
 } from './toolbarStyles';
 import { formatLearningClock, formatLearningDue } from './learningTime';
 import LearningRecapDialog from './LearningRecapDialog';
+import { useRecapPromptStore } from './recapPromptStore';
 
 /**
  * 单个统计数字。
@@ -90,7 +90,8 @@ export default function LearningSessionDock({
 }) {
     const { t, i18n } = useTranslation('player');
     const { t: tRecap } = useTranslation('recap');
-    const [recapOpen, setRecapOpen] = useState(false);
+    const recapOpen = useRecapPromptStore((state) => state.recapOpen);
+    const setRecapOpen = useRecapPromptStore((state) => state.setRecapOpen);
     const popover = usePopover({
         className: cn('w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden', CONTROL_POPOVER_PANEL),
         hasSurface: false,
@@ -101,7 +102,6 @@ export default function LearningSessionDock({
     const videoId = usePlaybackSession((state) => state.videoId);
     const fileHash = usePlaybackSession((state) => state.srtHash);
     const { since } = useLearningSessionSince(videoId, fileHash);
-
     const summaryKey = open && since
         ? ['learning-data/session-summary', videoId, fileHash, since] as const
         : null;

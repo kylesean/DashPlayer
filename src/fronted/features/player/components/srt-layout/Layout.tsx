@@ -5,7 +5,7 @@ import PodcastViewer from '@/fronted/features/player/components/subtitles/Podcas
 import MainSubtitle from './MainSubtitle';
 import Subtitle from './components/Subtitle';
 import LearningToolbar from '@/fronted/features/player/components/learning-toolbar/LearningToolbar';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { ImperativePanelGroupHandle } from 'react-resizable-panels';
 import { BookOpen, EyeOff, PanelBottomOpen } from 'lucide-react';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
@@ -16,6 +16,9 @@ import StrUtil from '@/common/utils/str-util';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { usePlayerBridge } from '@/fronted/features/player/hooks/usePlayerBridge';
 import { useLearningRouteSync } from '@/fronted/features/player/hooks/useLearningRouteSync';
+import { buildLearningSessionKey } from '@/fronted/features/player/learningSessionStore';
+import { useRecapPromptStore } from '@/fronted/features/player/components/learning-toolbar/recapPromptStore';
+import RecapEndedPrompt from '@/fronted/features/player/components/learning-toolbar/RecapEndedPrompt';
 import { useNavigate } from 'react-router-dom';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import PlaybackEmptyState from './EmptyState';
@@ -80,6 +83,15 @@ const PlaybackLayout = () => {
     const isLeftTranscript = transcriptPosition === 'left';
     const navigate = useNavigate();
     const { handlePlayerReady, handleAutoPlayNext } = usePlayerBridge(navigate);
+    const handleStageEnded = useCallback(() => {
+        // 先提示复盘，再考虑自动连播：这是用户刚看完一段内容的时刻，
+        // 提示不阻断任何操作，用户可以继续看下一集或直接关闭。
+        const { videoId, srtHash } = usePlaybackSession.getState();
+        useRecapPromptStore.getState().requestPrompt(
+            buildLearningSessionKey(videoId ?? null, srtHash ?? null),
+        );
+        void handleAutoPlayNext();
+    }, [handleAutoPlayNext]);
     // 学习页的地址同步：/player/:id/learn 是入口与退出依据，不再依赖工具条是否可见
     useLearningRouteSync();
 
@@ -211,7 +223,7 @@ const PlaybackLayout = () => {
                         <PlaybackStage
                             className="w-full h-full"
                             onReady={handlePlayerReady}
-                            onEnded={handleAutoPlayNext}
+                            onEnded={handleStageEnded}
                         />
                     </SplitPane>
                     {(!fullScreen || practiceVisible) && !podcastMode && (
@@ -247,6 +259,7 @@ const PlaybackLayout = () => {
                                         <div className="min-h-0 flex-1">
                                             {hasSubTitle ? <MainSubtitle /> : <SubtitleGenerationPanel />}
                                         </div>
+                                        <RecapEndedPrompt />
                                         <LearningToolbar
                                             pinned={toolbarPinned}
                                             onTogglePinned={() => setToolbarPinned(!toolbarPinned)}
