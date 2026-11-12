@@ -585,7 +585,7 @@ interface LearningDataDef {
         params: MemoryMapParams,
         return: MemoryMapVO
     };
-    /** 学习指标看板：北极星指标与辅助指标。 */
+    /** 学习指标看板：成功回忆指标与辅助指标。 */
     'learning-data/metrics': {
         params: LearningMetricsParams,
         return: LearningMetricsVO

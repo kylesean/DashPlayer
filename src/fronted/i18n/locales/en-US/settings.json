@@ -393,7 +393,7 @@
             "learningData": "Learning Data",
             "learningDataDesc": "Portable backup and learning history governance",
             "metrics": "Learning Metrics",
-            "metricsDesc": "North-star metric plus review, recommendation and practice auxiliaries",
+            "metricsDesc": "Key metrics for recall, review, recommendations and practice",
             "danger": "Danger Zone",
             "dangerDesc": "These actions cannot be undone"
         },

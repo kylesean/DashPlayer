@@ -45,7 +45,7 @@ describe('LearningMetricsSection', () => {
         vi.clearAllMocks();
     });
 
-    it('北极星指标单独展示，辅助指标按固定顺序渲染', () => {
+    it('成功回忆指标单独展示，辅助指标按固定顺序渲染', () => {
         mockSwr({ data: metrics, error: undefined, isLoading: false });
         render(<LearningMetricsSection />);
 

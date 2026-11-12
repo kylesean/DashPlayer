@@ -71,7 +71,7 @@ export const learningDataApi = {
         backendClient.call('learning-data/memory-map', params),
 
     /**
-     * 学习指标看板：北极星指标与辅助指标。
+     * 学习指标看板：成功回忆指标与辅助指标。
      */
     getMetrics: (params: LearningMetricsParams = {}): Promise<LearningMetricsVO> =>
         backendClient.call('learning-data/metrics', params),

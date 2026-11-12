@@ -84,7 +84,7 @@ export interface ReviewRetentionStats {
 /**
  * 一次复习事件的最小信息。
  *
- * 北极星指标按词去重，所以必须带 lemma；同时保留评级以便区分成功回忆。
+ * 成功回忆指标按词去重，所以必须带 lemma；同时保留评级以便区分成功回忆。
  */
 export interface ReviewEventRow {
     lemma: string;

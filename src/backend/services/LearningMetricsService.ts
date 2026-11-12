@@ -19,7 +19,7 @@ const DEFAULT_WINDOW_DAYS: LearningMetricsWindow = 7;
  */
 export default interface LearningMetricsService {
     /**
-     * 汇总北极星指标与辅助指标。
+     * 汇总成功回忆指标与辅助指标。
      *
      * 只读本地数据库；不调用模型、不访问网络。
      */

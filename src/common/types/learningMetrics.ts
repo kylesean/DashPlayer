@@ -3,7 +3,7 @@ import type { ReviewRetentionStats } from '@/common/types/review';
 /**
  * 学习指标看板的统计窗口。
  *
- * 只提供固定窗口而不是任意日期：北极星指标按「周」定义，7/30 天留存
+ * 只提供固定窗口而不是任意日期：成功回忆指标按窗口定义，7/30 天复习成功率
  * 也需要与导出里已有的口径保持一致，避免同一数字出现两种解释。
  */
 export type LearningMetricsWindow = 7 | 30;
@@ -51,7 +51,7 @@ export interface LearningMetricsVO {
     /** 主窗口；默认 7 天。 */
     windowDays: LearningMetricsWindow;
     /**
-     * 北极星指标：窗口内至少成功回忆过一次的 learning 词数。
+     * 成功回忆指标：窗口内至少成功回忆过一次的 learning 词数。
      *
      * 只统计 `review` 事件里评级为 good / easy 的**去重词数**，同一词在窗口内
      * 复习多次只算一次——它衡量的是「记住了多少个词」，不是「复习了多少次」。

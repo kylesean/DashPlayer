@@ -5,21 +5,21 @@
     "loadFailed": "Could not load metrics. Try again later.",
     "retry": "Retry",
     "northStar": {
-        "label": "Words recalled this week",
+        "label": "Words recalled",
         "hint": "Distinct words successfully recalled at least once in the window (rated Good or Easy). Reviewing the same word repeatedly still counts as one — this measures how many words stuck, not how many reviews you did.",
-        "caption": "This is the one number worth watching."
+        "caption": "The number to watch: it grows only when words are successfully recalled."
     },
     "weeklyRecallWords": {
-        "label": "Words recalled this week",
-        "hint": "Distinct words successfully recalled at least once."
+        "label": "Words recalled in window",
+        "hint": "Distinct words successfully recalled at least once in the window."
     },
     "retention7": {
-        "label": "7-day recall",
-        "hint": "Share of reviews in the last 7 days rated Good or Easy. Shows whether short-term memory is holding."
+        "label": "7-day review success rate",
+        "hint": "Share of reviews completed in the last 7 days rated Good or Easy. This measures recent review quality, not first-learn cohort retention."
     },
     "retention30": {
-        "label": "30-day recall",
-        "hint": "Share of successful recalls over 30 days. Compare with 7 days to see if words are reaching long-term memory."
+        "label": "30-day review success rate",
+        "hint": "Share of successful recalls among reviews completed in the last 30 days. Compare with 7 days to see recent review quality, not first-learn cohort retention."
     },
     "reviewCompletion": {
         "label": "Review completion",
@@ -31,7 +31,7 @@
     },
     "feedbackRate": {
         "label": "Explicit feedback rate",
-        "hint": "Share of learning/familiar words the user explicitly marked as Known or Ignored. A low value suggests the word states are drifting out of date."
+        "hint": "Share of learning words exposed or interacted with in the window that the user explicitly marked as Known or Ignored. A low value suggests the word states are drifting out of date."
     },
     "dueBacklog": {
         "label": "Due backlog",
@@ -39,7 +39,7 @@
     },
     "practiceCoverage": {
         "label": "Practice coverage",
-        "hint": "Share of learning/familiar words that were shadowed, dictated, or reviewed at least once. Opening a word card does not count."
+        "hint": "Share of learning/familiar words that were shadowed, dictated, retold, role-played, or reviewed at least once. Opening a word card does not count."
     },
     "interventionsPerTenMinutes": {
         "label": "Interventions per 10 min",

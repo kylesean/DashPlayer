@@ -105,7 +105,7 @@ export default class LearningDataController implements Controller {
     }
 
     /**
-     * 学习指标看板：北极星指标与辅助指标。
+     * 学习指标看板：成功回忆指标与辅助指标。
      */
     public async getMetrics(params: LearningMetricsParams) {
         return this.learningMetricsService.getMetrics(params);
