@@ -1,26 +1,60 @@
 {
     "entry": {
-        "button": "Import URL"
+        "button": "Import YouTube video",
+        "active": "Importing {{count}}"
     },
     "hero": {
         "title": "Start immersive learning from YouTube",
-        "description": "Paste a curated English video link; when the download finishes you'll jump straight into the player.",
-        "start": "Import",
+        "description": "Paste a curated English video link. The full video and English subtitles are saved to your local media library; open the player in one click when it's done.",
+        "start": "Download & import",
         "orLocal": "or start from a local video"
     },
     "dialog": {
-        "title": "Import from YouTube",
-        "description": "Paste a video watch URL. The video and its subtitles will be downloaded into your library automatically.",
+        "title": "Download & import a YouTube video",
+        "description": "Saves the full video and English subtitles to your local media library for offline study. Open the player from the task row when it's done. YouTube only.",
+        "urlLabel": "YouTube video link",
+        "urlHelp": "YouTube links only. Downloads the best available MP4 quality.",
         "placeholder": "https://www.youtube.com/watch?v=...",
-        "start": "Import",
-        "pending": "Queued…",
+        "invalidUrl": "Enter a valid YouTube link (youtube.com or youtu.be).",
+        "start": "Download & import",
+        "close": "Close",
+        "pending": "Waiting to start…",
+        "processing": "Processing…",
         "play": "Play",
         "cancel": "Cancel",
+        "cancelUnavailable": "This task has already ended or cannot be cancelled.",
         "cancelled": "Cancelled",
         "failed": "Import failed",
+        "retry": "Retry",
+        "copyUrl": "Copy link",
+        "copied": "Link copied",
+        "copyFailed": "Couldn't copy the link. Copy it manually.",
         "noSubtitle": "No subtitles found; generate AI subtitles in the player",
         "completed": "Completed",
-        "inProgress": "Downloading"
+        "inProgress": "In progress"
+    },
+    "stages": {
+        "queued": "Waiting for another download…",
+        "preparing": "Preparing…",
+        "binaryDownload": "Downloading helper",
+        "connecting": "Connecting to YouTube…",
+        "downloading": "Downloading video",
+        "finalizing": "Finalizing files…",
+        "reusing": "Reusing downloaded file"
+    },
+    "errors": {
+        "generic": "Download failed. Check your network or link and try again.",
+        "rateLimited": "Too many requests. Please try again later.",
+        "needCookies": "Sign-in verification required. Configure cookies.txt in settings.",
+        "regionBlocked": "This video isn't available in your region.",
+        "unavailable": "This video is unavailable, removed, or private.",
+        "diskFull": "Not enough disk space.",
+        "ffmpegMissing": "ffmpeg is missing, so audio and video can't be merged."
+    },
+    "notify": {
+        "done": "Download finished: {{identity}}. Open the import dialog to play it.",
+        "failed": "Import failed: {{identity}}",
+        "duplicate": "This video is already importing."
     },
     "settings": {
         "title": "YouTube Import",

@@ -1,26 +1,60 @@
 {
     "entry": {
-        "button": "链接导入"
+        "button": "导入 YouTube 视频",
+        "active": "导入中 {{count}}"
     },
     "hero": {
         "title": "从 YouTube 开始沉浸学习",
-        "description": "粘贴精选英文视频链接，下载完成后自动进入播放页。",
-        "start": "开始导入",
+        "description": "粘贴精选英文视频链接，完整视频与英文字幕会下载到本地媒体库，完成后可一键打开播放页。",
+        "start": "下载并导入",
         "orLocal": "或从本地视频开始"
     },
     "dialog": {
-        "title": "从 YouTube 导入视频",
-        "description": "粘贴视频观看地址，下载完成后自动进入视频库并挂载字幕。",
+        "title": "下载并导入 YouTube 视频",
+        "description": "将完整视频与英文字幕保存到本地媒体库，可离线精听；完成后可在任务行打开播放页。仅支持 YouTube。",
+        "urlLabel": "YouTube 视频链接",
+        "urlHelp": "仅支持 YouTube 链接，默认下载最高画质的 MP4。",
         "placeholder": "https://www.youtube.com/watch?v=...",
-        "start": "导入",
-        "pending": "排队中…",
+        "invalidUrl": "请输入有效的 YouTube 视频链接（youtube.com 或 youtu.be）。",
+        "start": "下载并导入",
+        "close": "关闭",
+        "pending": "等待开始…",
+        "processing": "处理中…",
         "play": "去播放",
         "cancel": "取消",
+        "cancelUnavailable": "任务已结束或无法取消。",
         "cancelled": "已取消",
         "failed": "导入失败",
+        "retry": "重试",
+        "copyUrl": "复制链接",
+        "copied": "链接已复制",
+        "copyFailed": "复制失败，请手动复制。",
         "noSubtitle": "未找到字幕，可在播放页用 AI 字幕生成",
         "completed": "已完成",
-        "inProgress": "下载中"
+        "inProgress": "进行中"
+    },
+    "stages": {
+        "queued": "等待其他下载完成…",
+        "preparing": "准备中…",
+        "binaryDownload": "下载组件",
+        "connecting": "连接 YouTube…",
+        "downloading": "下载视频",
+        "finalizing": "整理文件…",
+        "reusing": "复用已下载文件"
+    },
+    "errors": {
+        "generic": "下载失败，请检查网络或链接后重试。",
+        "rateLimited": "请求过于频繁，请稍后再试。",
+        "needCookies": "需要登录验证，请在设置中配置 cookies.txt。",
+        "regionBlocked": "该视频在当前地区不可用。",
+        "unavailable": "视频不可用、已删除或为私享视频。",
+        "diskFull": "磁盘空间不足。",
+        "ffmpegMissing": "缺少 ffmpeg，无法合并音视频。"
+    },
+    "notify": {
+        "done": "下载完成：{{identity}}，可在导入弹窗中打开播放页。",
+        "failed": "导入失败：{{identity}}",
+        "duplicate": "该视频已在导入中，请勿重复提交。"
     },
     "settings": {
         "title": "YouTube 导入",
