@@ -54,7 +54,8 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
     const proactive = isProactiveGuidance(guidance);
     const sentenceKey = `${sentence.fileHash}:${sentence.index}`;
     // 与词卡共用同一个键：同一句只请求一次，chip 与词卡看到的是同一份候选。
-    const swrKey = contextPackKey(sentence, proactive ? guidance : 'calm');
+    // 非主动模式不展示建议，key 置空避免默认 calm 下逐句触发完整 ContextPack 计算。
+    const swrKey = proactive ? contextPackKey(sentence, guidance) : null;
     const { data } = useSWR(
         swrKey,
         () => videoLearningApi.contextPack({

@@ -199,5 +199,6 @@ describe('ContextSuggestionChip', () => {
         const { container } = render(<ContextSuggestionChip sentence={sentence} />);
 
         expect(container.firstChild).toBeNull();
+        expect(vi.mocked(useSWR)).toHaveBeenCalledWith(null, expect.any(Function), expect.any(Object));
     });
 });
