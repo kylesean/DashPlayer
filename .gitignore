@@ -116,3 +116,6 @@ worktrees/
 ios/build/
 ios/build-sim/
 ios/DashPlayerMobile.xcodeproj/
+
+# 本地审查报告与产物
+2026-11-12/
