@@ -64,3 +64,30 @@ describe('OpenAIWordPop 历史行', () => {
         expect(screen.queryByText('wordStatusLearning')).toBeNull();
     });
 });
+
+describe('OpenAIWordPop 提示理由', () => {
+    it('有系统理由时展示「为什么此刻提示」', () => {
+        render(
+            <OpenAIWordPop
+                data={data}
+                promptReasons={['现在到期，复习正合适', '你之前查过它']}
+            />,
+        );
+
+        const block = screen.getByTestId('word-prompt-reason');
+        expect(block.textContent).toContain('wordPromptReasonLabel');
+        expect(block.textContent).toContain('现在到期，复习正合适');
+    });
+
+    /**
+     * 用户自己主动查的词通常没有系统理由；此时必须不渲染这一行，
+     * 而不是编一个「高频」出来。
+     */
+    it('没有系统理由时不渲染该行', () => {
+        render(<OpenAIWordPop data={data} />);
+        expect(screen.queryByTestId('word-prompt-reason')).toBeNull();
+
+        render(<OpenAIWordPop data={data} promptReasons={[]} />);
+        expect(screen.queryByTestId('word-prompt-reason')).toBeNull();
+    });
+});

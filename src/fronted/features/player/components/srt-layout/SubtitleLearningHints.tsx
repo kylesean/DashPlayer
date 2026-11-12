@@ -21,6 +21,8 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { revalidateReviewQueue } from '@/fronted/features/video-learning/reviewQueue';
+import { playerActions } from '@/fronted/features/player/components/PlayerActions';
+import { togglePlayerView } from '@/fronted/features/player/lib/player-view-controller';
 import ContextSuggestionChip from './ContextSuggestionChip';
 import LearningMomentChip from './LearningMomentChip';
 
@@ -221,6 +223,23 @@ export default function SubtitleLearningHints({
         }
     };
 
+    /**
+     * 从微回忆直接进入这句的跟读。
+     *
+     * 只有「强化」档才提供：此时用户已经选择专门的学习时段，把一次回忆推进
+     * 到口语产出是合理的下一步。练习台会读取当前句，因此这里只需要切换视图，
+     * 不再自己传句子。先暂停，避免原句声音混进录音。
+     */
+    const startShadowing = (): void => {
+        rememberMoment();
+        setDismissedKey(sentenceHash);
+        setOpenForKey(null);
+        const next = togglePlayerView('practice');
+        if (next === 'practice') {
+            playerActions.pause();
+        }
+    };
+
     if (!visible || !decision.candidate) {
         return <ContextSuggestionChip sentence={sentence} />;
     }
@@ -234,6 +253,7 @@ export default function SubtitleLearningHints({
             onOpenChange={handleOpenChange}
             onDismiss={dismissMoment}
             onRate={(rating) => { void handleRate(rating); }}
+            {...(guidance === 'intensive' ? { onStartShadowing: startShadowing } : {})}
         />
     );
 }

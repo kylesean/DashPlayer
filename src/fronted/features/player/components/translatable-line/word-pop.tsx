@@ -38,6 +38,8 @@ export interface WordSubParam {
     contextSentence?: string;
     /** 你与这个词的历史；加载中或不可用时为 null。 */
     wordMemory?: WordMemoryVO | null;
+    /** 为什么此刻提示这个词；用户主动查的词通常没有系统理由。 */
+    promptReasons?: string[];
     /** 标记为已掌握。 */
     onMarkKnown?: () => void;
     /** 标记为忽略。 */
@@ -78,6 +80,7 @@ const WordPop: React.FC<WordSubParam> = ({
     contextWord,
     contextSentence,
     wordMemory = null,
+    promptReasons,
     classNames,
     floatingStyles,
     getFloatingProps,
@@ -117,6 +120,7 @@ const WordPop: React.FC<WordSubParam> = ({
                         contextWord={contextWord}
                         contextSentence={contextSentence}
                         wordMemory={wordMemory}
+                        promptReasons={promptReasons}
                     />
                 </div>
             </div>

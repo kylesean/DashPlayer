@@ -10,5 +10,6 @@
     "statusFamiliar": "Familiar",
     "ratedGood": "Scheduled for later review",
     "ratedAgain": "Scheduled to come back soon",
+    "shadowing": "Shadow this line",
     "rateFailed": "Failed to record review"
 }

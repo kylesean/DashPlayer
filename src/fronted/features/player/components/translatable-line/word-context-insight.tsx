@@ -8,6 +8,50 @@ import { playerApi } from '@/fronted/features/player/playerApi';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { cn } from '@/fronted/lib/utils';
 
+/**
+ * 在例句里高亮目标词。
+ *
+ * §6.2 要求词卡先给「当前句子，目标词高亮」：用户点开词卡时，眼睛应该立刻落在
+ * 这个词在句中的位置，而不是自己去一行文字里找。按词边界、忽略大小写匹配，
+ * 找不到时原样返回——屈折变化（running / ran）不强行猜测，宁可不高亮也不高亮错词。
+ *
+ * @param sentence 原句。
+ * @param word 目标词。
+ * @returns 带高亮片段的可渲染节点。
+ */
+const highlightWordInSentence = (sentence: string, word: string): React.ReactNode => {
+    const target = word.trim();
+    if (!target) {
+        return sentence;
+    }
+    const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`\\b${escaped}\\b`, 'gi');
+    const parts: React.ReactNode[] = [];
+    let cursor = 0;
+    for (const match of sentence.matchAll(pattern)) {
+        const start = match.index ?? 0;
+        if (start > cursor) {
+            parts.push(sentence.slice(cursor, start));
+        }
+        parts.push(
+            <mark
+                key={`${start}-${match[0]}`}
+                className="rounded bg-accent-muted/40 px-0.5 font-medium text-foreground"
+            >
+                {match[0]}
+            </mark>,
+        );
+        cursor = start + match[0].length;
+    }
+    if (parts.length === 0) {
+        return sentence;
+    }
+    if (cursor < sentence.length) {
+        parts.push(sentence.slice(cursor));
+    }
+    return parts;
+};
+
 /** 词卡语境解读区块入参。 */
 export interface WordContextInsightProps {
     /** 用户点击的单词原文。 */
@@ -156,7 +200,7 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
                 </div>
             )}
             <div className="line-clamp-2 border-l-2 border-border/60 pl-2 text-metadata italic leading-relaxed text-muted-foreground/80 select-text">
-                “{sentenceText}”
+                “{highlightWordInSentence(sentenceText, word)}”
             </div>
         </div>
     );

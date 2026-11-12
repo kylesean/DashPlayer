@@ -62,6 +62,28 @@ describe('LearningMomentChip', () => {
         expect(onRate).toHaveBeenCalledWith('again');
     });
 
+    /**
+     * §6.4「强化：更积极的复习和口语任务」。口语入口只在父级传入时出现，
+     * 安静/教练档不传，因此同一个组件不会在低强度下多出一个动作。
+     */
+    it('强化档揭示后可以从回忆直接进入跟读', () => {
+        const onStartShadowing = vi.fn();
+        renderChip({ open: true, onStartShadowing });
+
+        expect(screen.queryByTestId('learning-moment-shadowing')).toBeNull();
+        fireEvent.click(screen.getByTestId('learning-moment-reveal'));
+        fireEvent.click(screen.getByTestId('learning-moment-shadowing'));
+
+        expect(onStartShadowing).toHaveBeenCalledTimes(1);
+    });
+
+    it('未传入口语入口时不渲染该按钮', () => {
+        renderChip({ open: true });
+        fireEvent.click(screen.getByTestId('learning-moment-reveal'));
+
+        expect(screen.queryByTestId('learning-moment-shadowing')).toBeNull();
+    });
+
     it('稍后再说只关闭当前时刻', () => {
         const onDismiss = vi.fn();
         renderChip({ onDismiss });

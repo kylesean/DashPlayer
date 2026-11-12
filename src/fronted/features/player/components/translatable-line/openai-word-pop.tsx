@@ -47,6 +47,13 @@ interface OpenAIWordPopProps {
     contextSentence?: string;
     /** 你与这个词的历史；加载中或不可用时为 null。 */
     wordMemory?: WordMemoryVO | null;
+    /**
+     * 为什么此刻提示这个词。
+     *
+     * 只在本句 ContextPack 里确实有这条候选时才有值；用户自己主动查的词
+     * 通常没有系统理由，此时不渲染这一行，避免编造一个「高频 / 你查过」。
+     */
+    promptReasons?: string[];
     className?: string;
 }
 
@@ -65,6 +72,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
     contextWord,
     contextSentence,
     wordMemory = null,
+    promptReasons,
     className
 }) => {
     const { t, i18n } = useTranslation('common');
@@ -152,6 +160,17 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             <span className="text-metadata text-muted-foreground/80 mt-0.5 inline-block">
                                 {statusLabel}
                             </span>
+                        )}
+                        {promptReasons && promptReasons.length > 0 && (
+                            <div
+                                data-testid="word-prompt-reason"
+                                className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-metadata text-muted-foreground/80 select-text"
+                            >
+                                <span>{t('wordPromptReasonLabel')}</span>
+                                <span className="text-foreground/75">
+                                    {promptReasons.join(' · ')}
+                                </span>
+                            </div>
                         )}
                         {wordMemory && (
                             <div

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Brain, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePopover } from '@astryxdesign/core/Popover';
+import { Button } from '@astryxdesign/core/Button';
 
 import { cn } from '@/fronted/lib/utils';
 import type { LearningMomentCandidate } from '@/common/learning/learningMoment';
@@ -14,6 +15,13 @@ export interface LearningMomentChipProps {
     onOpenChange: (open: boolean) => void;
     onDismiss: () => void;
     onRate: (rating: 'again' | 'good') => void;
+    /**
+     * 用这句话做一次跟读任务。
+     *
+     * 只在「强化」强度下由父级传入：此时用户明确处于专门学习时段，
+     * 才值得从一次微回忆再推进一步到口语产出。`coach` 下不传，保持安静。
+     */
+    onStartShadowing?: () => void;
 }
 
 /**
@@ -29,6 +37,7 @@ export default function LearningMomentChip({
     onOpenChange,
     onDismiss,
     onRate,
+    onStartShadowing,
 }: LearningMomentChipProps) {
     const { t } = useTranslation('moment');
     const [revealed, setRevealed] = useState(false);
@@ -133,33 +142,44 @@ export default function LearningMomentChip({
                     </div>
 
                     {revealed ? (
-                        <div className="grid grid-cols-2 gap-1.5">
-                            <button
-                                type="button"
-                                data-testid="learning-moment-forgotten"
-                                disabled={pending}
-                                onClick={() => onRate('again')}
-                                className={cn(
-                                    'h-8 rounded-lg border text-sm font-medium transition-colors cursor-pointer',
-                                    'border-warning/30 bg-warning/5 text-warning-text hover:bg-warning/10',
-                                    'disabled:cursor-wait disabled:opacity-60',
-                                )}
-                            >
-                                {t('forgotten')}
-                            </button>
-                            <button
-                                type="button"
-                                data-testid="learning-moment-remembered"
-                                disabled={pending}
-                                onClick={() => onRate('good')}
-                                className={cn(
-                                    'h-8 rounded-lg border text-sm font-medium transition-colors cursor-pointer',
-                                    'border-success/30 bg-success/5 text-success-text hover:bg-success/10',
-                                    'disabled:cursor-wait disabled:opacity-60',
-                                )}
-                            >
-                                {t('remembered')}
-                            </button>
+                        <div className="space-y-1.5">
+                            <div className="grid grid-cols-2 gap-1.5">
+                                <button
+                                    type="button"
+                                    data-testid="learning-moment-forgotten"
+                                    disabled={pending}
+                                    onClick={() => onRate('again')}
+                                    className={cn(
+                                        'h-8 rounded-lg border text-sm font-medium transition-colors cursor-pointer',
+                                        'border-warning/30 bg-warning/5 text-warning-text hover:bg-warning/10',
+                                        'disabled:cursor-wait disabled:opacity-60',
+                                    )}
+                                >
+                                    {t('forgotten')}
+                                </button>
+                                <button
+                                    type="button"
+                                    data-testid="learning-moment-remembered"
+                                    disabled={pending}
+                                    onClick={() => onRate('good')}
+                                    className={cn(
+                                        'h-8 rounded-lg border text-sm font-medium transition-colors cursor-pointer',
+                                        'border-success/30 bg-success/5 text-success-text hover:bg-success/10',
+                                        'disabled:cursor-wait disabled:opacity-60',
+                                    )}
+                                >
+                                    {t('remembered')}
+                                </button>
+                            </div>
+                            {onStartShadowing && (
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('shadowing')}
+                                    data-testid="learning-moment-shadowing"
+                                    onClick={onStartShadowing}
+                                />
+                            )}
                         </div>
                     ) : (
                         <button

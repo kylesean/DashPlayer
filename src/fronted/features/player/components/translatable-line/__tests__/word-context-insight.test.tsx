@@ -59,6 +59,36 @@ describe('WordContextInsight', () => {
         });
     });
 
+    /**
+     * §6.2 第 1 项：词卡先给「当前句子，目标词高亮」。用户点开词卡时眼睛要立刻
+     * 落在目标词上，而不是自己去一行文字里找。
+     */
+    it('在语境原句里高亮目标词', async () => {
+        vi.mocked(playerApi.wordContextInsight).mockResolvedValue({
+            status: 'ok',
+            insight: {
+                meaning: '取消（会议）',
+                nuance: '',
+                source: 'cloud',
+                cached: false,
+            },
+        });
+        const { container } = render(
+            <WordContextInsight
+                word="cancel"
+                sentence="Please cancel the meeting, then cancel the room."
+                definitions={['v. 取消']}
+            />,
+        );
+
+        fireEvent.click(screen.getByTestId('word-context-insight-trigger'));
+        await screen.findByText('取消（会议）');
+
+        const marks = container.querySelectorAll('mark');
+        expect(marks).toHaveLength(2);
+        expect(marks[0].textContent).toBe('cancel');
+    });
+
     it('词典 AI 关闭时不渲染入口', () => {
         setDictionaryEngine('none');
         render(

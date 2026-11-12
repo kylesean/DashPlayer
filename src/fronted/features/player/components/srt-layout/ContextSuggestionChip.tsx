@@ -14,6 +14,7 @@ import useSetting from '@/fronted/features/settings/settingsStore';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { revalidateReviewQueue } from '@/fronted/features/video-learning/reviewQueue';
 import type { ContextReasonCode } from '@/common/types/contextPack';
+import { contextPackKey } from '@/fronted/features/player/contextPackKey';
 import type { Sentence } from '@/common/types/SentenceC';
 import {
     isProactiveGuidance,
@@ -52,16 +53,15 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
 
     const proactive = isProactiveGuidance(guidance);
     const sentenceKey = `${sentence.fileHash}:${sentence.index}`;
-    const swrKey = proactive
-        ? ['vocabulary/context-pack', sentence.fileHash, sentence.index, sentence.text] as const
-        : null;
+    // 与词卡共用同一个键：同一句只请求一次，chip 与词卡看到的是同一份候选。
+    const swrKey = contextPackKey(sentence, proactive ? guidance : 'calm');
     const { data } = useSWR(
         swrKey,
         () => videoLearningApi.contextPack({
             text: sentence.text,
             fileHash: sentence.fileHash,
             sentenceIndex: sentence.index,
-            guidance: 'coach',
+            guidance,
         }),
         {
             revalidateOnFocus: false,

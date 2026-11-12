@@ -30,8 +30,11 @@ import { usePlayer } from '@/fronted/features/player/playerStore';
 import useDictionaryStream, { createDictionaryRequestId } from '@/fronted/features/player/dictionaryStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
+import { contextPackKey } from '@/fronted/features/player/contextPackKey';
+import type { ContextReasonCode } from '@/common/types/contextPack';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import {
+    isProactiveGuidance,
     VOCABULARY_GUIDANCE_LEVELS,
     type VocabularyGuidance,
     type WordStatus,
@@ -230,6 +233,47 @@ export default function Word({
             revalidateOnFocus: false,
             shouldRetryOnError: false,
         },
+    );
+
+    /**
+     * 本句 ContextPack：只为了拿「为什么此刻提示」这一行。
+     *
+     * 与建议 chip 共用同一个 SWR 键，同一句不会重复请求；词不在候选里时
+     * 就是没有系统理由（用户自己查的词），此时不渲染这一行。
+     */
+    const { data: contextPack } = useSWR(
+        shouldFetch && sentenceText
+            ? contextPackKey(
+                { fileHash: sentenceHash ?? '', index: sentenceIndex ?? 0, text: sentenceText },
+                isProactiveGuidance(vocabularyGuidance) ? vocabularyGuidance : 'calm',
+            )
+            : null,
+        () => videoLearningApi.contextPack({
+            text: sentenceText ?? '',
+            fileHash: sentenceHash,
+            sentenceIndex,
+            guidance: vocabularyGuidance,
+        }),
+        {
+            revalidateOnFocus: false,
+            shouldRetryOnError: false,
+        },
+    );
+
+    /** 当前词在本句候选里的理由代码；不在候选里时为 undefined。 */
+    const promptReasonCodes: ContextReasonCode[] | undefined = React.useMemo(() => {
+        const target = (lemma ?? word).toLowerCase().trim();
+        const surface = original.toLowerCase().trim();
+        const match = (contextPack?.candidates ?? []).find((candidate) =>
+            candidate.word.toLowerCase() === target
+            || candidate.surface.toLowerCase() === surface,
+        );
+        return match?.reasons;
+    }, [contextPack, lemma, word, original]);
+
+    const promptReasons = React.useMemo(
+        () => promptReasonCodes?.map((code) => t(`contextSuggestion.reasons.${code}`)),
+        [promptReasonCodes, t],
     );
 
     const {
@@ -459,6 +503,9 @@ export default function Word({
         className: 'rounded cursor-pointer inline',
         role: 'button',
         tabIndex: 0,
+        // §6.1 要求 familiar 的弱提示在悬停时给出「有印象」。用原生 title 而不是
+        // 再叠一层 Tooltip：词卡本身已经由 Floating UI 接管，多一个浮层会互相抢位置。
+        title: annotationKind === 'familiar' ? t('wordStatusFamiliar') : undefined,
         onMouseEnter: (e: React.MouseEvent) => {
             recordEncounter('hover');
             // 用户开启了悬浮暂停设置或正在按住 Alt 时暂停播放
@@ -519,6 +566,7 @@ export default function Word({
                         contextWord={original}
                         contextSentence={sentenceText}
                         wordMemory={wordMemory ?? null}
+                        promptReasons={promptReasons}
                         onMarkKnown={() => { void handleStatusChange('known'); }}
                         onMarkIgnored={() => { void handleStatusChange('ignored'); }}
                     />

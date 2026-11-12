@@ -8,6 +8,8 @@ import type { Sentence } from '@/common/types/SentenceC';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
+import { togglePlayerView } from '@/fronted/features/player/lib/player-view-controller';
+import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 
 vi.mock('swr', () => ({
     default: vi.fn(),
@@ -43,6 +45,14 @@ vi.mock('@/fronted/features/video-learning/videoLearningApi', () => ({
 
 vi.mock('@/fronted/features/video-learning/reviewQueue', () => ({
     revalidateReviewQueue: vi.fn(),
+}));
+
+vi.mock('@/fronted/features/player/lib/player-view-controller', () => ({
+    togglePlayerView: vi.fn(() => 'practice'),
+}));
+
+vi.mock('@/fronted/features/player/components/PlayerActions', () => ({
+    playerActions: { pause: vi.fn() },
 }));
 
 const sentence = {
@@ -170,6 +180,39 @@ describe('SubtitleLearningHints', () => {
         });
 
         expect(screen.queryByTestId('learning-moment')).toBeNull();
+    });
+
+    /**
+     * §6.4「强化：更积极的复习和口语任务」。强化档在揭示释义后多一个
+     * 「跟读这句」，直接复用练习台；教练档不出现，避免日常观看被打断。
+     */
+    it('强化档揭示后可以进入跟读，并暂停原声', () => {
+        useSetting.setState({
+            values: new Map([['player.vocabularyGuidance', 'intensive']]),
+        });
+        renderHints();
+        act(() => {
+            vi.advanceTimersByTime(2_000);
+        });
+
+        fireEvent.click(screen.getByTestId('learning-moment'));
+        fireEvent.click(screen.getByTestId('learning-moment-reveal'));
+        fireEvent.click(screen.getByTestId('learning-moment-shadowing'));
+
+        expect(togglePlayerView).toHaveBeenCalledWith('practice');
+        expect(playerActions.pause).toHaveBeenCalledTimes(1);
+    });
+
+    it('教练档不提供口语入口', () => {
+        renderHints();
+        act(() => {
+            vi.advanceTimersByTime(5_000);
+        });
+
+        fireEvent.click(screen.getByTestId('learning-moment'));
+        fireEvent.click(screen.getByTestId('learning-moment-reveal'));
+
+        expect(screen.queryByTestId('learning-moment-shadowing')).toBeNull();
     });
 
     it('想起来了会提交 good 复习并写入限频记忆', async () => {

@@ -32,6 +32,20 @@ describe('vocabulary annotation projection', () => {
         expect(resolveVocabularyAnnotation('ignored', 'coach')).toBeNull();
     });
 
+    /**
+     * §6.1 要求 familiar 的交互是「悬停显示有印象」。这里锁定渲染层真的挂了提示，
+     * 而不是只在下划线样式上有区别。
+     */
+    it('familiar 词渲染时带「有印象」悬停提示', () => {
+        const source = fs.readFileSync(
+            path.resolve(__dirname, '..', 'components', 'translatable-line', 'word.tsx'),
+            'utf8',
+        );
+
+        expect(source).toContain("annotationKind === 'familiar'");
+        expect(source).toContain("t('wordStatusFamiliar')");
+    });
+
     it('familiar 只在右侧文稿弱提示，主字幕不标记', () => {
         for (const guidance of ['coach', 'intensive'] as const) {
             expect(resolveVocabularyAnnotation('familiar', guidance, 'subtitle')).toBeNull();
