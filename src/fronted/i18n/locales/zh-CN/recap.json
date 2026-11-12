@@ -59,5 +59,11 @@
     "rolePlayTurnLimit": "对话到这里就够了（最多 {{max}} 轮），先消化一下这几轮。",
     "rolePlayEnded": "这段字幕已经用完了，对话自然结束。",
     "rolePlayRestoring": "正在恢复上次的对话…",
-    "rolePlayRestart": "从头再来一遍"
+    "rolePlayRestart": "从头再来一遍",
+    "startSpokenRetell": "开口复述",
+    "stopSpokenRetell": "停止录音",
+    "transcribing": "正在转写…",
+    "spokenRetellHint": "说出来也行，本地转写后同样按关键词评分。",
+    "spokenTranscript": "系统听到：{{text}}",
+    "spokenRetellFailed": "语音复述检查失败，请重试或改用文字"
 }

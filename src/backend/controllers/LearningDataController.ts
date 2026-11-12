@@ -26,6 +26,7 @@ import type {
     RolePlayFeedbackParams,
     RolePlaySessionParams,
     RolePlayTurnParams,
+    SpokenRetellParams,
 } from '@/common/types/learningRecap';
 
 /**
@@ -59,6 +60,13 @@ export default class LearningDataController implements Controller {
      */
     public async evaluateRetell(params: RetellEvaluationParams) {
         return this.learningRecapService.evaluateRetell(params);
+    }
+
+    /**
+     * 检查用户的口头复述：本地 ASR 转写后复用书面复述评分。
+     */
+    public async evaluateSpokenRetell(params: SpokenRetellParams) {
+        return this.learningRecapService.evaluateSpokenRetell(params);
     }
 
     /**
@@ -192,6 +200,17 @@ export default class LearningDataController implements Controller {
                 response: z.string().min(1).max(2_000),
                 locale: z.enum(['zh-CN', 'en-US']).optional(),
                 forceRefresh: z.boolean().optional(),
+                videoId: z.string().min(1).optional(),
+                fileHash: z.string().min(1).optional(),
+                sentenceIndex: z.number().int().min(0).optional(),
+            }),
+        });
+        registerRoute('learning-data/spoken-retell', (p) => this.evaluateSpokenRetell(p), {
+            schema: z.object({
+                original: z.string().min(1).max(1_000),
+                audio: z.instanceof(Uint8Array),
+                referenceDurationSec: z.number().positive().max(600).optional(),
+                locale: z.enum(['zh-CN', 'en-US']).optional(),
                 videoId: z.string().min(1).optional(),
                 fileHash: z.string().min(1).optional(),
                 sentenceIndex: z.number().int().min(0).optional(),

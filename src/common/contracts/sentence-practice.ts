@@ -164,3 +164,30 @@ export interface SentencePracticeDictationParams {
     /** 用于对齐评分的原句文本。 */
     expectedText: string;
 }
+
+/**
+ * 一次性语音转写的入参。
+ *
+ * 与跟读不同，这里不落练习记录：调用方（例如语音复述）只需要转写文本
+ * 与节奏信号，音频本身没有留存价值，转写完成后立即清理。
+ */
+export interface SpeechTranscriptionParams {
+    /** MediaRecorder 采集的 webm/opus 音频字节。 */
+    audio: Uint8Array;
+    /** 参照文本：用于节奏对齐，不参与「说得对不对」的判断。 */
+    referenceText: string;
+    /** 任务标识，写进 ASR 日志便于排查。 */
+    jobKey: string;
+    /** 参照音频时长（秒），用于语速对比；未知时省略。 */
+    referenceDurationSec?: number;
+}
+
+/**
+ * 一次性语音转写的结果。
+ */
+export interface SpeechTranscriptionVO {
+    /** 本地 ASR 转写文本。 */
+    transcript: string;
+    /** 节奏与重读信号；录音无法分析时为 null。 */
+    rhythm: SentencePracticeRhythmFeedback | null;
+}

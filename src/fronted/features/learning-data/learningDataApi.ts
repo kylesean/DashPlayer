@@ -7,6 +7,7 @@ import type {
     RolePlayFeedbackParams,
     RolePlaySessionParams,
     RolePlayTurnParams,
+    SpokenRetellParams,
 } from '@/common/types/learningRecap';
 import type { MemoryMapParams } from '@/common/types/memoryMap';
 import type { LearningMetricsParams, LearningMetricsVO } from '@/common/types/learningMetrics';
@@ -32,6 +33,12 @@ export const learningDataApi = {
      */
     evaluateRetell: (params: RetellEvaluationParams) =>
         backendClient.call('learning-data/retell-feedback', params),
+
+    /**
+     * 检查用户的口头复述：录音在本地转写后复用书面复述评分。
+     */
+    evaluateSpokenRetell: (params: SpokenRetellParams) =>
+        backendClient.call('learning-data/spoken-retell', params),
 
     /**
      * 检查用户对场景开场白的书面回应。

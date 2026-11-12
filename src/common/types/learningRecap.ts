@@ -1,4 +1,5 @@
 import type { LearningSessionSummaryVO } from '@/common/types/learningSession';
+import type { SentencePracticeRhythmFeedback } from '@/common/contracts/sentence-practice';
 
 /** 复盘内容的生成来源。 */
 export type LearningRecapSource = 'ai' | 'local';
@@ -269,4 +270,34 @@ export interface RolePlaySessionParams {
 export interface RolePlaySessionVO {
     sessionKey: string;
     turns: RolePlayTurnVO[];
+}
+
+/**
+ * 语音复述参数。
+ *
+ * 与书面复述共用同一套评分与掌握度链路，区别只是答案来自本地 ASR 转写。
+ */
+export interface SpokenRetellParams {
+    /** 原字幕句。 */
+    original: string;
+    /** MediaRecorder 采集的录音字节。 */
+    audio: Uint8Array;
+    /** 原句音频时长（秒），用于语速对比；未知时省略。 */
+    referenceDurationSec?: number;
+    locale?: 'zh-CN' | 'en-US';
+    videoId?: string;
+    fileHash?: string;
+    sentenceIndex?: number;
+}
+
+/**
+ * 语音复述结果。
+ *
+ * 在书面复述结果之上补充转写文本与节奏信号，让用户看到「系统听到的是什么」。
+ */
+export interface SpokenRetellVO extends RetellEvaluationVO {
+    /** 本地 ASR 转写文本；这是实际参与评分的答案。 */
+    transcript: string;
+    /** 节奏与重读信号；录音无法分析时为 null。 */
+    rhythm: SentencePracticeRhythmFeedback | null;
 }

@@ -25,12 +25,33 @@ vi.mock('@/fronted/features/learning-data/learningDataApi', () => ({
     learningDataApi: {
         getRecap: vi.fn(),
         evaluateRetell: vi.fn(),
+        evaluateSpokenRetell: vi.fn(),
         evaluateRolePlayTurn: vi.fn(),
         getRolePlaySession: vi.fn(async ({ sessionKey }: { sessionKey: string }) => ({
             sessionKey,
             turns: [],
         })),
         listProductionPractice: vi.fn(async () => []),
+    },
+}));
+
+// 录音 hook 依赖真实麦克风；组件测试只关心「录完之后的链路」。
+const recorderStub = vi.hoisted(() => ({
+    phase: 'idle' as 'idle' | 'recording' | 'processing',
+    start: vi.fn(),
+    stop: vi.fn(),
+    /** 最近一次注册的录音完成回调，测试里直接调用它模拟「录完了」。 */
+    onComplete: null as null | ((audio: Uint8Array) => Promise<void>),
+}));
+
+vi.mock('@/fronted/features/practice/usePracticeRecorder', () => ({
+    usePracticeRecorder: (options: { onRecordingComplete: (audio: Uint8Array) => Promise<void> }) => {
+        recorderStub.onComplete = options.onRecordingComplete;
+        return {
+            phase: recorderStub.phase,
+            start: recorderStub.start,
+            stop: recorderStub.stop,
+        };
     },
 }));
 
@@ -271,6 +292,39 @@ describe('LearningRecapContent', () => {
 
         expect(await screen.findByText('上一轮的点评')).toBeDefined();
         expect(screen.getByText('I was, but I slept for twelve hours.')).toBeDefined();
+    });
+
+    it('语音复述把转写文本回填输入框，并展示系统听到的内容', async () => {
+        vi.mocked(learningDataApi.getRecap).mockResolvedValue(aiRecap);
+        vi.mocked(learningDataApi.evaluateSpokenRetell).mockResolvedValue({
+            level: 'good',
+            feedback: '主要意思到了。',
+            improved: '',
+            coverage: 2 / 3,
+            matchedKeywords: 2,
+            totalKeywords: 3,
+            missingWords: ['home'],
+            source: 'local',
+            cached: false,
+            transcript: 'It was a long journey.',
+            rhythm: null,
+        });
+        renderContent('video-spoken-retell');
+
+        expect(await screen.findByTestId('learning-retell-record')).toBeDefined();
+        fireEvent.click(screen.getByTestId('learning-retell-record'));
+        expect(recorderStub.start).toHaveBeenCalled();
+
+        // 模拟录音完成：转写文本应回填输入框并显示「系统听到」。
+        await recorderStub.onComplete!(new Uint8Array([1, 2, 3]));
+        expect(await screen.findByTestId('learning-spoken-transcript')).toBeDefined();
+        expect(screen.getByText('spokenTranscript')).toBeDefined();
+        expect((screen.getByTestId('learning-retell-input') as HTMLTextAreaElement).value)
+            .toBe('It was a long journey.');
+        expect(learningDataApi.evaluateSpokenRetell).toHaveBeenCalledWith(expect.objectContaining({
+            original: 'It was a long journey home.',
+            videoId: 'video-spoken-retell',
+        }));
     });
 
     it('加载失败时展示重试入口', async () => {

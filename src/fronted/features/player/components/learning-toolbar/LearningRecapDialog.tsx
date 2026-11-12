@@ -14,6 +14,7 @@ import type {
     RetellLevel,
 } from '@/common/types/learningRecap';
 import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
+import { usePracticeRecorder } from '@/fronted/features/practice/usePracticeRecorder';
 import { cn } from '@/fronted/lib/utils';
 import RolePlayDialogue from './RolePlayDialogue';
 
@@ -93,6 +94,7 @@ export function LearningRecapContent({
     const [retellResult, setRetellResult] = useState<RetellEvaluationVO | null>(null);
     const [retellLoading, setRetellLoading] = useState(false);
     const [retellError, setRetellError] = useState<string | null>(null);
+    const [spokenTranscript, setSpokenTranscript] = useState<string | null>(null);
 
     const enabled = Boolean(videoId || fileHash);
     const summaryKey = enabled
@@ -141,6 +143,7 @@ export function LearningRecapContent({
             setDraft('');
             setRetellResult(null);
             setRetellError(null);
+            setSpokenTranscript(null);
         } catch {
             toast.error(t('loadFailed'));
         } finally {
@@ -179,7 +182,45 @@ export function LearningRecapContent({
         setDraft(value);
         if (retellResult) setRetellResult(null);
         if (retellError) setRetellError(null);
+        if (spokenTranscript) setSpokenTranscript(null);
     };
+
+    /**
+     * 口头复述：录音交给本地 ASR 转写，再复用书面复述的评分与掌握度链路。
+     *
+     * 转写文本会回填到输入框：用户可以看清系统到底听到了什么，也方便直接改。
+     */
+    const handleSpokenRecording = async (audio: Uint8Array) => {
+        const original = data?.sentence?.text;
+        if (!original || retellLoading) {
+            return;
+        }
+        setRetellLoading(true);
+        setRetellError(null);
+        try {
+            const result = await learningDataApi.evaluateSpokenRetell({
+                original,
+                audio,
+                locale,
+                videoId,
+                fileHash,
+            });
+            setRetellResult(result);
+            setSpokenTranscript(result.transcript);
+            setDraft(result.transcript);
+            void mutateHistory();
+        } catch {
+            setRetellError(t('spokenRetellFailed'));
+        } finally {
+            setRetellLoading(false);
+        }
+    };
+
+    const { phase: recorderPhase, start: startRecording, stop: stopRecording } = usePracticeRecorder({
+        onRecordingComplete: handleSpokenRecording,
+        active: Boolean(data?.sentence?.text),
+        vadAutoStop: true,
+    });
 
     return (
         <div className="flex w-full flex-col gap-3">
@@ -207,6 +248,10 @@ export function LearningRecapContent({
                         retellError={retellError}
                         onDraftChange={handleDraftChange}
                         onCheckRetell={() => { void handleCheckRetell(); }}
+                        spokenTranscript={spokenTranscript}
+                        recorderPhase={recorderPhase}
+                        onStartRecording={() => { void startRecording(); }}
+                        onStopRecording={stopRecording}
                         lastRetell={lastRetell}
                         lastRolePlay={lastRolePlay}
                         videoId={videoId}
@@ -242,6 +287,10 @@ function RecapBody({
     retellError,
     onDraftChange,
     onCheckRetell,
+    spokenTranscript,
+    recorderPhase,
+    onStartRecording,
+    onStopRecording,
     lastRetell,
     lastRolePlay,
     videoId,
@@ -257,6 +306,10 @@ function RecapBody({
     retellError: string | null;
     onDraftChange: (value: string) => void;
     onCheckRetell: () => void;
+    spokenTranscript: string | null;
+    recorderPhase: 'idle' | 'recording' | 'processing';
+    onStartRecording: () => void;
+    onStopRecording: () => void;
     lastRetell: ProductionPracticeRecordVO | null;
     lastRolePlay: ProductionPracticeRecordVO | null;
     videoId?: string;
@@ -374,6 +427,43 @@ function RecapBody({
                                 level: t(levelKey('retell', lastRetell.level)),
                                 date: formatPracticeDate(lastRetell.createdAt),
                             })}
+                        </p>
+                    )}
+                    <div className="mt-2 flex items-center gap-2">
+                        <button
+                            type="button"
+                            data-testid="learning-retell-record"
+                            disabled={retellLoading || recorderPhase === 'processing'}
+                            onClick={recorderPhase === 'recording' ? onStopRecording : onStartRecording}
+                            className={cn(
+                                'flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium transition-colors',
+                                recorderPhase === 'recording'
+                                    ? 'border-error/40 bg-error/10 text-error-text'
+                                    : 'border-border/70 text-foreground hover:bg-muted/60',
+                                (retellLoading || recorderPhase === 'processing') && 'cursor-not-allowed opacity-60',
+                            )}
+                        >
+                            {recorderPhase === 'processing' || retellLoading ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                                <Mic className="h-3.5 w-3.5" />
+                            )}
+                            {recorderPhase === 'recording'
+                                ? t('stopSpokenRetell')
+                                : retellLoading
+                                    ? t('transcribing')
+                                    : t('startSpokenRetell')}
+                        </button>
+                        <span className="text-metadata text-muted-foreground/70">
+                            {t('spokenRetellHint')}
+                        </span>
+                    </div>
+                    {spokenTranscript && (
+                        <p
+                            data-testid="learning-spoken-transcript"
+                            className="mt-1.5 rounded-lg bg-muted/40 px-2.5 py-1.5 text-metadata leading-relaxed text-muted-foreground"
+                        >
+                            {t('spokenTranscript', { text: spokenTranscript })}
                         </p>
                     )}
                     <textarea

@@ -59,5 +59,11 @@
     "rolePlayTurnLimit": "That is enough for one sitting ({{max}} turns). Let these turns sink in.",
     "rolePlayEnded": "The subtitle for this scene has run out, so the conversation ends here.",
     "rolePlayRestoring": "Restoring your last conversation…",
-    "rolePlayRestart": "Start over"
+    "rolePlayRestart": "Start over",
+    "startSpokenRetell": "Speak your retelling",
+    "stopSpokenRetell": "Stop recording",
+    "transcribing": "Transcribing…",
+    "spokenRetellHint": "Speaking works too: it is transcribed locally and scored the same way.",
+    "spokenTranscript": "We heard: {{text}}",
+    "spokenRetellFailed": "Could not check the spoken retelling. Try again or type it."
 }

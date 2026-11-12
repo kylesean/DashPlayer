@@ -55,6 +55,8 @@ import type {
     RolePlaySessionVO,
     RolePlayTurnParams,
     RolePlayTurnResultVO,
+    SpokenRetellParams,
+    SpokenRetellVO,
 } from '@/common/types/learningRecap';
 import type { MemoryMapParams, MemoryMapVO } from '@/common/types/memoryMap';
 import type { LearningMetricsParams, LearningMetricsVO } from '@/common/types/learningMetrics';
@@ -548,6 +550,11 @@ interface LearningDataDef {
         params: RetellEvaluationParams,
         return: RetellEvaluationVO
     };
+    /** 检查用户的口头复述：本地 ASR 转写后复用书面复述评分。 */
+    'learning-data/spoken-retell': {
+        params: SpokenRetellParams,
+        return: SpokenRetellVO
+    };
     /** 检查用户对场景开场白的书面回应；目标表达使用始终由本地计算。 */
     'learning-data/role-play-feedback': {
         params: RolePlayFeedbackParams,
@@ -752,6 +759,7 @@ export const API_ROUTE_KEYS = [
     'learning-data/recap',
     'learning-data/reset',
     'learning-data/retell-feedback',
+    'learning-data/spoken-retell',
     'learning-data/role-play-feedback',
     'learning-data/role-play-turn',
     'learning-data/role-play-session',

@@ -32,6 +32,7 @@ import type LocalAiService from '@/backend/services/LocalAiService';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
 import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
 import type RolePlayTurnRepository from '@/backend/services/repositories/RolePlayTurnRepository';
+import type SentencePracticeService from '@/backend/services/SentencePracticeService';
 import type WordEncounterService from '@/backend/services/WordEncounterService';
 import type { WordEncounter } from '@/backend/infrastructure/db/tables/wordEncounter';
 import type { LearningSessionSummaryVO } from '@/common/types/learningSession';
@@ -156,6 +157,13 @@ const buildService = (options: {
                 .sort((a, b) => Number(a.turn) - Number(b.turn))
         )),
     } as unknown as RolePlayTurnRepository;
+    // 语音转述：默认返回固定转写，单测按需覆盖。
+    const sentencePracticeService = {
+        transcribeOnce: vi.fn(async () => ({
+            transcript: 'It was a long journey, and I was tired.',
+            rhythm: null,
+        })),
+    } as unknown as SentencePracticeService;
     const service = new LearningRecapServiceImpl(
         learningDataService,
         learningDataRepository,
@@ -164,6 +172,7 @@ const buildService = (options: {
         cache,
         productionPracticeRepository,
         rolePlayTurnRepository,
+        sentencePracticeService,
         wordEncounterService,
     );
     return {
@@ -174,6 +183,7 @@ const buildService = (options: {
         productionPractice,
         rolePlayTurns,
         rolePlayTurnRepository,
+        sentencePracticeService,
         recordedEvidence,
     };
 };
@@ -621,6 +631,60 @@ describe('LearningRecapService', () => {
         await expect(service.listRolePlayTurns({ sessionKey: 'missing' }))
             .resolves
             .toEqual({ sessionKey: 'missing', turns: [] });
+    });
+
+    it('语音复述用本地转写文本评分，并回传转写与节奏', async () => {
+        const { service, sentencePracticeService } = buildService({});
+        const rhythm = {
+            speechDurationSec: 2.4,
+            averageWordDurationSec: 0.4,
+            paceRatio: 1.1,
+            pace: 'steady' as const,
+            words: [],
+            notes: [],
+        };
+        vi.mocked(sentencePracticeService.transcribeOnce).mockResolvedValueOnce({
+            transcript: 'It was a long journey, and I was tired.',
+            rhythm,
+        });
+
+        const result = await service.evaluateSpokenRetell({
+            original: 'It was a long journey home.',
+            audio: new Uint8Array([1, 2, 3]),
+            referenceDurationSec: 2.2,
+            videoId: 'video-1',
+            fileHash: 'subtitle-1',
+            sentenceIndex: 4,
+        });
+
+        expect(sentencePracticeService.transcribeOnce).toHaveBeenCalledWith(expect.objectContaining({
+            referenceText: 'It was a long journey home.',
+            referenceDurationSec: 2.2,
+            jobKey: 'video-1:4',
+        }));
+        // 转写文本就是实际参与评分的答案：关键词覆盖由本地计算。
+        expect(result.transcript).toBe('It was a long journey, and I was tired.');
+        expect(result.rhythm).toEqual(rhythm);
+        expect(result.totalKeywords).toBeGreaterThan(0);
+        expect(result.level).toBe('great');
+    });
+
+    it('录音为空或没有识别到语音时明确报错，不伪造 retry 结果', async () => {
+        const { service, sentencePracticeService } = buildService({});
+
+        await expect(service.evaluateSpokenRetell({
+            original: 'It was a long journey home.',
+            audio: new Uint8Array(),
+        })).rejects.toThrow('录音内容为空');
+
+        vi.mocked(sentencePracticeService.transcribeOnce).mockResolvedValueOnce({
+            transcript: '',
+            rhythm: null,
+        });
+        await expect(service.evaluateSpokenRetell({
+            original: 'It was a long journey home.',
+            audio: new Uint8Array([1]),
+        })).rejects.toThrow('没有识别到语音内容');
     });
 
     it('提示词把会话词、真实句子与本地覆盖信号作为 grounding', () => {

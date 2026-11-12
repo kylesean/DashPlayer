@@ -18,6 +18,8 @@ import type {
     SentencePracticeRhythmFeedback,
     SentencePracticeShadowingParams,
     SentencePracticeSummaryVO,
+    SpeechTranscriptionParams,
+    SpeechTranscriptionVO,
 } from '@/common/contracts/sentence-practice';
 import type FfmpegService from '@/backend/services/FfmpegService';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
@@ -70,6 +72,14 @@ export default interface SentencePracticeService {
         sentenceIndex: number;
         resegmented: boolean;
     }): Promise<RhythmTrendVO>;
+
+    /**
+     * 一次性转写一段录音，不落练习记录。
+     *
+     * 供语音复述这类「只要文本、不要音频留存」的路径复用同一条
+     * ffmpeg → 本地 ASR → 节奏分析管线，避免两套实现漂移。
+     */
+    transcribeOnce(params: SpeechTranscriptionParams): Promise<SpeechTranscriptionVO>;
 }
 
 /**
@@ -211,6 +221,43 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             ))
             .filter((point) => point.paceRatio !== null || point.stressShiftedWords !== null);
         return buildRhythmTrend(points);
+    }
+
+    public async transcribeOnce(params: SpeechTranscriptionParams): Promise<SpeechTranscriptionVO> {
+        const audio = params.audio;
+        if (audio.byteLength === 0) {
+            throw new Error('录音内容为空');
+        }
+        const practiceRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.PRACTICE);
+        // 一次性转写用完即删：放在临时子目录里，不与可回放的跟读录音混在一起。
+        const audioFile = `transient/${randomUUID()}.webm`;
+        const audioAbs = path.join(practiceRoot, audioFile);
+        const wavPath = `${audioAbs}.wav`;
+        try {
+            await this.fileSystemGateway.ensureDirectory(path.dirname(audioAbs));
+            await this.fileSystemGateway.writeBinaryFile(audioAbs, audio);
+            await this.ffmpegService.convertToWav(audioAbs, wavPath);
+            const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
+            const gateway = this.transcriptionEngineSelector.select();
+            const result = await gateway.transcribe({
+                audioPath: wavPath,
+                modelsRoot,
+                job: `transcribe:${params.jobKey}:${randomUUID()}`,
+            });
+            const transcript = result.text.trim();
+            const rhythm = await this.analyzeRhythm(
+                wavPath,
+                params.referenceText,
+                transcript,
+                result.tokens,
+                params.referenceDurationSec,
+            );
+            return { transcript, rhythm };
+        } finally {
+            // 无论成功失败都不留存：这条路径的音频没有回放需求。
+            await this.fileSystemGateway.removeFileIfExists(wavPath).catch(() => undefined);
+            await this.fileSystemGateway.removeFileIfExists(audioAbs).catch(() => undefined);
+        }
     }
 
     /**

@@ -17,6 +17,7 @@ import type WordEncounterService from '@/backend/services/WordEncounterService';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
 import type ProductionPracticeRecordRepository from '@/backend/services/repositories/ProductionPracticeRecordRepository';
 import type RolePlayTurnRepository from '@/backend/services/repositories/RolePlayTurnRepository';
+import type SentencePracticeService from '@/backend/services/SentencePracticeService';
 import { isContentLemma } from '@/common/learning/contentWords';
 import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
 import type {
@@ -37,6 +38,8 @@ import type {
     RolePlayTurnParams,
     RolePlayTurnResultVO,
     RolePlayTurnVO,
+    SpokenRetellParams,
+    SpokenRetellVO,
 } from '@/common/types/learningRecap';
 import type {
     LearningSessionSummaryVO,
@@ -147,6 +150,14 @@ export default interface LearningRecapService {
     evaluateRetell(params: RetellEvaluationParams): Promise<RetellEvaluationVO>;
 
     /**
+     * 检查用户的口头复述。
+     *
+     * 先用本地 ASR 转写录音，再复用书面复述的评分与掌握度链路；
+     * 转写文本会一并返回，让用户看到系统实际听到了什么。
+     */
+    evaluateSpokenRetell(params: SpokenRetellParams): Promise<SpokenRetellVO>;
+
+    /**
      * 检查用户对场景开场白的书面回应。
      *
      * 目标表达使用情况始终由本地逐字匹配；AI 只补充点评与更自然的回应。
@@ -193,6 +204,8 @@ export class LearningRecapServiceImpl implements LearningRecapService {
         private readonly productionPracticeRepository: ProductionPracticeRecordRepository,
         @inject(TYPES.RolePlayTurnRepository)
         private readonly rolePlayTurnRepository: RolePlayTurnRepository,
+        @inject(TYPES.SentencePracticeService)
+        private readonly sentencePracticeService: SentencePracticeService,
         @inject(TYPES.WordEncounterService) private readonly wordEncounterService: WordEncounterService,
     ) {}
 
@@ -400,6 +413,37 @@ export class LearningRecapServiceImpl implements LearningRecapService {
             improved: record.improved,
             createdAt: record.created_at,
         }));
+    }
+
+    public async evaluateSpokenRetell(params: SpokenRetellParams): Promise<SpokenRetellVO> {
+        const original = params.original?.trim().slice(0, MAX_CONTEXT_CHARS) ?? '';
+        if (!original) {
+            throw new Error('原句不能为空');
+        }
+        if (!params.audio || params.audio.byteLength === 0) {
+            throw new Error('录音内容为空');
+        }
+
+        // 转写失败直接抛出：没有转写就没有答案，用空字符串评分只会给一个假的 retry。
+        const { transcript, rhythm } = await this.sentencePracticeService.transcribeOnce({
+            audio: params.audio,
+            referenceText: original,
+            jobKey: `${params.videoId ?? params.fileHash ?? 'unknown'}:${params.sentenceIndex ?? 0}`,
+            referenceDurationSec: params.referenceDurationSec,
+        });
+        if (!transcript) {
+            throw new Error('没有识别到语音内容');
+        }
+
+        const evaluation = await this.evaluateRetell({
+            original,
+            response: transcript,
+            locale: params.locale,
+            videoId: params.videoId,
+            fileHash: params.fileHash,
+            sentenceIndex: params.sentenceIndex,
+        });
+        return { ...evaluation, transcript, rhythm };
     }
 
     public async evaluateRolePlayTurn(params: RolePlayTurnParams): Promise<RolePlayTurnResultVO> {
