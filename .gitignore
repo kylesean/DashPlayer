@@ -105,7 +105,6 @@ playwright-report/
 /lib/
 /dist/
 /my-new-app/
-.cindy-worktrees/
 
 # 本地开发工具状态
 .local/
@@ -117,5 +116,3 @@ ios/build/
 ios/build-sim/
 ios/DashPlayerMobile.xcodeproj/
 
-# 本地审查报告与产物
-2026-11-12/
