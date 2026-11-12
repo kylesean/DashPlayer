@@ -112,7 +112,7 @@ describe('ReviewDock 片段入口', () => {
      * 把复习从「认词」推回「回到真实语境再听一遍」。
      */
     it('该词有片段时给出入口，点击进入词表并按词筛选', () => {
-        render(<ReviewDock tone="idle" popoverOffset={0} />);
+        render(<ReviewDock tone="panel" popoverOffset={0} />);
 
         // 入口只在揭示之后出现：还没想起词义就先去看视频，等于跳过回忆这一步。
         expect(screen.queryByTestId('review-open-clips')).toBeNull();

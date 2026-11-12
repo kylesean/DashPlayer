@@ -1731,6 +1731,56 @@ R3 第十八阶段。
 - 全量单测 1342 passed / 9 skipped；`typecheck`、`eslint`、renderer 构建通过；
   controllers 行覆盖 58.22%（门槛 55%）。
 
+#### R0 补记十一：移动端冻结与模型管理收敛（2026-11-12）
+
+审计第二、三档里，两条「改动不大但一直在付利息」的问题按决策收口。
+
+**1. iOS 与移动网页版进入功能冻结（决策：冻结）**
+
+`ios/DashPlayerMobile/` 与 `src/mobile/` 各自实现了一套播放器领域逻辑
+（`WatchModel.swift` 606 行、`useWatchPlayer.ts` 1035 行）和一份字幕索引
+（`SubtitleIndex.swift` 76 行、`subtitleTender.ts` 115 行），与桌面端
+`SrtTender` 构成三份同构实现。每加一个播放器功能就要在三条链路上各写一遍，
+而移动端的使用频率远低于桌面端——这是「功能越多、分歧越大」的结构，不是可以
+靠一次对齐解决的债务。
+
+处置是划定边界而不是继续追平：iOS 与移动网页版只接安全修复、回归修复，以及与
+桌面端接口契约变更配套的适配；新功能一律先落桌面端。边界写在 `ios/README.md`
+的「维护状态：功能冻结」一节（含判断依据与「连续 30 天不用即整块删除」的退出
+条件），并在 `src/mobile/MobileApp.tsx` 的模块注释里留了同一条指针，避免后来者
+在移动端目录里就地扩写。桌面端的 `vite.mobile.config.ts` 构建与 `pnpm run
+build:mobile` 保持不变——冻结是功能口径，不是停止发布。
+
+**2. 三个 21 行同构 controller 与三个同构 service 收敛**
+
+`WhisperCppModelController` / `ParakeetModelController` /
+`SherpaTtsModelController` 逐字相同，只有路由前缀和注入的服务类型不同；
+它们背后的三个 `*ModelServiceImpl` 也只有一份安装配置的差异，四个方法
+（`getStatus` / `download` / `cancelDownload` / `deleteModel`）全是直通
+`ModelArchiveInstaller`。
+
+- 新增 `controllers/ipc/registerModelRoutes.ts`：接收 `{ 前缀, service }`，
+  机械派生 `models/status|download|cancel-download|delete` 四条路由。前缀是
+  联合类型 `LocalModelRoutePrefix`，新增同构模型时补一个前缀即可，路径不可能
+  在三个控制器里各写一遍再漂移。
+- 新增 `services/models/LocalModelService.ts`（统一契约）与
+  `services/models/ModelArchiveService.ts`（抽象基类，持有
+  `ModelArchiveInstaller`）。三个 `*ModelServiceImpl` 现在只剩构造函数里的差异
+  配置，`SettingsController`、`LocalTtsService` 与三个 controller 的注入类型统一
+  收口到 `LocalModelService`。
+- 三个 controller 各剩 3 行有效逻辑，服务层净减约 250 行；`api-def.ts` 的
+  三组路由定义与 `API_ROUTE_KEYS` 保持不变——这次只合并实现，没有改契约。
+
+顺带修掉一处已提交测试里的类型错误：`reviewDockClips.test.tsx` 用了
+`tone="idle"`，而 `ToolbarTone` 只有 `panel | overlay`，`typecheck` 一直是红的。
+
+验证：
+
+- `routeContract.test.ts` 3 项通过：三个引擎的四条路由仍逐条注册，注册集合与
+  `API_ROUTE_KEYS` 完全一致，重复注册仍立即抛错。
+- `reviewDockClips.test.tsx` 通过；全量单测 1342 passed / 9 skipped；
+  `typecheck`、`eslint --max-warnings=0` 通过。
+
 #### R3 完成度总览（2026-11-12）
 
 R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。

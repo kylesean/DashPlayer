@@ -14,9 +14,7 @@ import {
 import type ResourceFallbackService from '@/backend/services/ResourceFallbackService';
 import type { ResourceFallbackSnapshot } from '@/common/contracts/resource-fallback';
 import type { ResourceStatusSnapshot } from '@/common/contracts/resource-status';
-import type SherpaTtsModelService from '@/backend/services/SherpaTtsModelService';
-import type WhisperCppModelService from '@/backend/services/WhisperCppModelService';
-import type ParakeetModelService from '@/backend/services/ParakeetModelService';
+import type LocalModelService from '@/backend/services/models/LocalModelService';
 import type SpeakerDiarizationModelService from '@/backend/services/SpeakerDiarizationModelService';
 import type LocalAiService from '@/backend/services/LocalAiService';
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
@@ -68,9 +66,9 @@ export default class SettingsController implements Controller {
     constructor(
         @inject(TYPES.SettingService) private readonly settingService: SettingService,
         @inject(TYPES.ResourceFallbackService) private readonly resourceFallback: ResourceFallbackService,
-        @inject(TYPES.SherpaTtsModelService) private readonly sherpaTtsModelService: SherpaTtsModelService,
-        @inject(TYPES.WhisperCppModelService) private readonly whisperCppModelService: WhisperCppModelService,
-        @inject(TYPES.ParakeetModelService) private readonly parakeetModelService: ParakeetModelService,
+        @inject(TYPES.SherpaTtsModelService) private readonly sherpaTtsModelService: LocalModelService,
+        @inject(TYPES.WhisperCppModelService) private readonly whisperCppModelService: LocalModelService,
+        @inject(TYPES.ParakeetModelService) private readonly parakeetModelService: LocalModelService,
         @inject(TYPES.SpeakerDiarizationModelService)
         private readonly speakerDiarizationModelService: SpeakerDiarizationModelService,
         @inject(TYPES.LocalAiService) private readonly localAiService: LocalAiService,

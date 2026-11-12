@@ -86,14 +86,13 @@ import WatchHistoryController from '@/backend/controllers/WatchHistoryController
 import SettingsController from '@/backend/controllers/SettingsController';
 import { ParakeetModelController } from '@/backend/controllers/ParakeetModelController';
 import WhisperCppModelController from '@/backend/controllers/WhisperCppModelController';
-import type ParakeetModelService from '@/backend/services/ParakeetModelService';
+import type LocalModelService from '@/backend/services/models/LocalModelService';
 import { ParakeetModelServiceImpl } from '@/backend/services/ParakeetModelService';
 import type YoutubeImportService from '@/backend/services/YoutubeImportService';
 import { YoutubeImportServiceImpl } from '@/backend/services/YoutubeImportService';
 import type YtDlpGateway from '@/backend/services/gateways/ytdlp/YtDlpGateway';
 import { YtDlpProcessGatewayImpl } from '@/backend/infrastructure/ytdlp/YtDlpProcessGatewayImpl';
 import { YoutubeImportController } from '@/backend/controllers/YoutubeImportController';
-import type WhisperCppModelService from '@/backend/services/WhisperCppModelService';
 import { WhisperCppModelServiceImpl } from '@/backend/services/WhisperCppModelService';
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
 import { TranscriptionEngineSelectorImpl } from '@/backend/services/TranscriptionEngineSelector';
@@ -102,7 +101,6 @@ import SherpaOnnxGatewayImpl from '@/backend/infrastructure/media/sherpa/SherpaO
 import { WhisperCppCli } from '@/backend/infrastructure/media/whispercpp/WhisperCppCli';
 import WhisperCppGatewayImpl from '@/backend/infrastructure/media/whispercpp/WhisperCppGatewayImpl';
 import { SherpaOnnxTtsCli } from '@/backend/infrastructure/media/sherpa/SherpaOnnxTtsCli';
-import type SherpaTtsModelService from '@/backend/services/SherpaTtsModelService';
 import { SherpaTtsModelServiceImpl } from '@/backend/services/SherpaTtsModelService';
 import type LocalTtsService from '@/backend/services/LocalTtsService';
 import { LocalTtsServiceImpl } from '@/backend/services/LocalTtsService';
@@ -280,7 +278,7 @@ container.bind<RendererEvents>(TYPES.RendererEvents).to(RendererEventsImpl).inSi
 container.bind<MainWindowRegistry>(TYPES.MainWindowRegistry).to(MainWindowRegistryImpl).inSingletonScope();
 container.bind<WindowPort>(TYPES.WindowPort).to(WindowPortImpl).inSingletonScope();
 container.bind<AiFuncService>(TYPES.AiFuncService).to(AiFuncServiceImpl).inSingletonScope();
-container.bind<ParakeetModelService>(TYPES.ParakeetModelService).to(ParakeetModelServiceImpl).inSingletonScope();
+container.bind<LocalModelService>(TYPES.ParakeetModelService).to(ParakeetModelServiceImpl).inSingletonScope();
 container.bind<YtDlpGateway>(TYPES.YtDlpGateway).to(YtDlpProcessGatewayImpl).inSingletonScope();
 container.bind<YoutubeImportService>(TYPES.YoutubeImportService).to(YoutubeImportServiceImpl).inSingletonScope();
 container.bind<SherpaOnnxCli>(TYPES.SherpaOnnxCli).to(SherpaOnnxCli).inSingletonScope();
@@ -288,9 +286,9 @@ container.bind<WhisperCppCli>(TYPES.WhisperCppCli).to(WhisperCppCli).inSingleton
 container.bind<SherpaOnnxGatewayImpl>(TYPES.SherpaOnnxGateway).to(SherpaOnnxGatewayImpl).inSingletonScope();
 container.bind<WhisperCppGatewayImpl>(TYPES.WhisperCppGateway).to(WhisperCppGatewayImpl).inSingletonScope();
 container.bind<TranscriptionEngineSelector>(TYPES.TranscriptionEngineSelector).to(TranscriptionEngineSelectorImpl).inSingletonScope();
-container.bind<WhisperCppModelService>(TYPES.WhisperCppModelService).to(WhisperCppModelServiceImpl).inSingletonScope();
+container.bind<LocalModelService>(TYPES.WhisperCppModelService).to(WhisperCppModelServiceImpl).inSingletonScope();
 container.bind<SherpaOnnxTtsCli>(TYPES.SherpaOnnxTtsCli).to(SherpaOnnxTtsCli).inSingletonScope();
-container.bind<SherpaTtsModelService>(TYPES.SherpaTtsModelService).to(SherpaTtsModelServiceImpl).inSingletonScope();
+container.bind<LocalModelService>(TYPES.SherpaTtsModelService).to(SherpaTtsModelServiceImpl).inSingletonScope();
 container.bind<LocalTtsService>(TYPES.LocalTtsService).to(LocalTtsServiceImpl).inSingletonScope();
 container.bind<WordsRepository>(TYPES.WordsRepository).to(WordsRepositoryImpl).inSingletonScope();
 container.bind<ReviewCardRepository>(TYPES.ReviewCardRepository).to(ReviewCardRepositoryImpl).inSingletonScope();

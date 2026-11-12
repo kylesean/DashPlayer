@@ -7,7 +7,9 @@ import type StorageDirectoryProvider from '@/backend/services/gateways/storage/S
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import TYPES from '@/backend/ioc/types';
 import { SherpaOnnxTtsCli } from '@/backend/infrastructure/media/sherpa/SherpaOnnxTtsCli';
-import type SherpaTtsModelService from '@/backend/services/SherpaTtsModelService';/**
+import type LocalModelService from '@/backend/services/models/LocalModelService';
+
+/**
  * LocalTtsService 的业务契约。
  */
 export default interface LocalTtsService {
@@ -28,7 +30,7 @@ export default interface LocalTtsService {
 export class LocalTtsServiceImpl implements LocalTtsService {
     constructor(
         @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
-        @inject(TYPES.SherpaTtsModelService) private readonly modelService: SherpaTtsModelService,
+        @inject(TYPES.SherpaTtsModelService) private readonly modelService: LocalModelService,
         @inject(TYPES.SherpaOnnxTtsCli) private readonly cli: SherpaOnnxTtsCli,
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
     ) {}

@@ -1,7 +1,7 @@
 import { inject, injectable } from 'inversify';
 import type Controller from '@/backend/controllers/Controller';
-import registerRoute from '@/backend/controllers/ipc/registerRoute';
-import type WhisperCppModelService from '@/backend/services/WhisperCppModelService';
+import registerModelRoutes from '@/backend/controllers/ipc/registerModelRoutes';
+import type LocalModelService from '@/backend/services/models/LocalModelService';
 import TYPES from '@/backend/ioc/types';
 
 /**
@@ -9,13 +9,10 @@ import TYPES from '@/backend/ioc/types';
  */
 @injectable()
 export default class WhisperCppModelController implements Controller {
-    constructor(@inject(TYPES.WhisperCppModelService) private readonly modelService: WhisperCppModelService) {}
+    constructor(@inject(TYPES.WhisperCppModelService) private readonly modelService: LocalModelService) {}
 
     /** 注册模型状态、下载、取消下载与删除路由。 */
     public registerRoutes(): void {
-        registerRoute('whisper-cpp/models/status', () => this.modelService.getStatus());
-        registerRoute('whisper-cpp/models/download', () => this.modelService.download());
-        registerRoute('whisper-cpp/models/cancel-download', () => this.modelService.cancelDownload());
-        registerRoute('whisper-cpp/models/delete', () => this.modelService.deleteModel());
+        registerModelRoutes('whisper-cpp', this.modelService);
     }
 }

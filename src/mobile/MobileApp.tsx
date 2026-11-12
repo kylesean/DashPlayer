@@ -23,6 +23,9 @@ const PageChrome = () => {
  *
  * 用 HashRouter 是为了在手机浏览器里右滑返回时能正常回退，也不需要服务端做
  * SPA fallback；静态资源仍然由主进程的 HTTP 服务按路径直接提供。
+ *
+ * 维护边界：移动网页版处于功能冻结（见 `ios/README.md`）。这里只接安全与回归
+ * 修复，以及桌面端接口契约变更的配套适配；新功能先落桌面端，不在此处扩写。
  */
 const MobileApp = () => {
     React.useEffect(() => {

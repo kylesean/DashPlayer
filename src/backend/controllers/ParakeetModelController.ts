@@ -1,7 +1,7 @@
 import { inject, injectable } from 'inversify';
 import type Controller from '@/backend/controllers/Controller';
-import registerRoute from '@/backend/controllers/ipc/registerRoute';
-import type ParakeetModelService from '@/backend/services/ParakeetModelService';
+import registerModelRoutes from '@/backend/controllers/ipc/registerModelRoutes';
+import type LocalModelService from '@/backend/services/models/LocalModelService';
 import TYPES from '@/backend/ioc/types';
 
 /**
@@ -9,13 +9,10 @@ import TYPES from '@/backend/ioc/types';
  */
 @injectable()
 export class ParakeetModelController implements Controller {
-    constructor(@inject(TYPES.ParakeetModelService) private readonly modelService: ParakeetModelService) {}
+    constructor(@inject(TYPES.ParakeetModelService) private readonly modelService: LocalModelService) {}
 
     /** 注册模型状态、下载、取消下载与删除路由。 */
     public registerRoutes(): void {
-        registerRoute('parakeet/models/status', () => this.modelService.getStatus());
-        registerRoute('parakeet/models/download', () => this.modelService.download());
-        registerRoute('parakeet/models/cancel-download', () => this.modelService.cancelDownload());
-        registerRoute('parakeet/models/delete', () => this.modelService.deleteModel());
+        registerModelRoutes('parakeet', this.modelService);
     }
 }

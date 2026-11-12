@@ -1,21 +1,18 @@
 import { inject, injectable } from 'inversify';
 import type Controller from '@/backend/controllers/Controller';
-import registerRoute from '@/backend/controllers/ipc/registerRoute';
+import registerModelRoutes from '@/backend/controllers/ipc/registerModelRoutes';
 import TYPES from '@/backend/ioc/types';
-import type SherpaTtsModelService from '@/backend/services/SherpaTtsModelService';
+import type LocalModelService from '@/backend/services/models/LocalModelService';
 
 /**
  * 暴露 Sherpa TTS 模型管理 IPC。
  */
 @injectable()
 export class SherpaTtsModelController implements Controller {
-    constructor(@inject(TYPES.SherpaTtsModelService) private readonly modelService: SherpaTtsModelService) {}
+    constructor(@inject(TYPES.SherpaTtsModelService) private readonly modelService: LocalModelService) {}
 
     /** 注册模型状态、下载、取消下载与删除路由。 */
     public registerRoutes(): void {
-        registerRoute('sherpa-tts/models/status', () => this.modelService.getStatus());
-        registerRoute('sherpa-tts/models/download', () => this.modelService.download());
-        registerRoute('sherpa-tts/models/cancel-download', () => this.modelService.cancelDownload());
-        registerRoute('sherpa-tts/models/delete', () => this.modelService.deleteModel());
+        registerModelRoutes('sherpa-tts', this.modelService);
     }
 }
