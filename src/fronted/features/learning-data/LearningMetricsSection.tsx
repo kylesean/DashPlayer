@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 import { Activity } from 'lucide-react';
+import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { Grid } from '@astryxdesign/core/Grid';
 import { HStack } from '@astryxdesign/core/HStack';
@@ -50,7 +51,7 @@ function formatMetricValue(
  */
 export default function LearningMetricsSection() {
     const { t } = useTranslation('metrics');
-    const { data, error, isLoading } = useSWR<LearningMetricsVO>(
+    const { data, error, isLoading, mutate } = useSWR<LearningMetricsVO>(
         'learning-data/metrics',
         () => learningDataApi.getMetrics({ windowDays: 7 }),
         { revalidateOnFocus: false, shouldRetryOnError: false },
@@ -63,6 +64,7 @@ export default function LearningMetricsSection() {
         return (
             <VStack gap={2} data-testid="learning-metrics-error">
                 <Text type="supporting" color="secondary">{t('loadFailed')}</Text>
+                <Button variant="secondary" size="sm" label={t('retry')} onClick={() => { void mutate(); }} />
             </VStack>
         );
     }

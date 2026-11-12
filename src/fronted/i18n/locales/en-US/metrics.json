@@ -3,6 +3,7 @@
     "windowHint": "Computed locally from the last {{days}} days. Nothing leaves this device.",
     "noData": "No data",
     "loadFailed": "Could not load metrics. Try again later.",
+    "retry": "Retry",
     "northStar": {
         "label": "Words recalled this week",
         "hint": "Distinct words successfully recalled at least once in the window (rated Good or Easy). Reviewing the same word repeatedly still counts as one — this measures how many words stuck, not how many reviews you did.",

@@ -75,6 +75,7 @@ export default function VideoLearningPage() {
     };
   }, [deepLinkWord, explicitWord, words]);
   const [loading, setLoading] = useState(false);
+  const [wordsError, setWordsError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   /**
    * 主题内连续学习队列：按记忆图谱给的顺序排列的词。
@@ -254,6 +255,7 @@ export default function VideoLearningPage() {
         videoLearningApi.getWordClipStats()
       ]);
       if (result.success) {
+        setWordsError(null);
         const wordData: WordItem[] = Array.isArray(result.data) ? result.data as WordItem[] : [];
         let clipStats: Record<string, { count: number; lastAddedAt: string }> = {};
         if (statsResult?.success && statsResult.data) {
@@ -272,10 +274,12 @@ export default function VideoLearningPage() {
 
         setWords(wordsWithVideoCount);
       } else {
+        setWordsError(result.error || t('vocabularyStudio.fetchWordsFailed'));
         toast.error(result.error || t('vocabularyStudio.fetchWordsFailed'));
       }
     } catch (error) {
       logger.error('获取单词失败', { error });
+      setWordsError(t('vocabularyStudio.fetchWordsFailed'));
       toast.error(t('vocabularyStudio.fetchWordsFailed'));
     } finally {
       setLoading(false);
@@ -615,6 +619,8 @@ export default function VideoLearningPage() {
           <WordSidebar
             words={sidebarWords}
             loading={loading}
+            error={wordsError}
+            onRetry={() => { void fetchWords(); }}
             selectedWord={selectedWord}
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
