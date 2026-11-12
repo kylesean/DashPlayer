@@ -20,6 +20,13 @@ export interface RenderSentenceTokensOptions {
     wordClassNames?: WordParam['classNames'];
     /** 遭遇事件使用的句子标识；主字幕沿用 sentence.key，讲稿流使用 fileHash:index。 */
     sentenceHash?: string;
+    /**
+     * 所在界面层：主字幕还是右侧文稿。
+     *
+     * `familiar` 在两处的呈现不同（§6.1）：主字幕默认不标记，右侧文稿给弱提示。
+     * 渲染逻辑共用，差异只由这一个开关表达，避免两侧各写一份判定。
+     */
+    surface?: 'subtitle' | 'transcript';
 }
 
 /**
@@ -50,6 +57,7 @@ export function renderSentenceTokens({
     alwaysDark = true,
     wordClassNames = TRANSCRIPT_WORD_CLASS_NAMES,
     sentenceHash,
+    surface = 'transcript',
 }: RenderSentenceTokensOptions): React.ReactNode {
     const textHash = sentenceHash ?? `${sentence.fileHash}:${sentence.index}`;
     const gapClass = cn('whitespace-pre-wrap select-text', !show && 'text-transparent');
@@ -87,6 +95,7 @@ export function renderSentenceTokens({
                         show={show}
                         alwaysDark={alwaysDark}
                         classNames={wordClassNames}
+                        surface={surface}
                     >
                         {highlightSlice(text, part.content, start, searchQuery, isActiveMatch)}
                     </Word>,
@@ -134,6 +143,7 @@ export function renderSentenceTokens({
                     show={show}
                     alwaysDark={alwaysDark}
                     classNames={wordClassNames}
+                    surface={surface}
                 >
                     {highlightSlice(text, w, actualStart, searchQuery, isActiveMatch)}
                 </Word>

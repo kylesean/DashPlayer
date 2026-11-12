@@ -81,6 +81,7 @@ const TranslatableLine = ({
                 alwaysDark: hoverDark,
                 // 主字幕使用主题默认词样式
                 wordClassNames: wordClassNames ?? {},
+                surface: 'subtitle',
                 sentenceHash: sentence.key,
             })}
         </div>

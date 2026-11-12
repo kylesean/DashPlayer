@@ -32,6 +32,15 @@ describe('vocabulary annotation projection', () => {
         expect(resolveVocabularyAnnotation('ignored', 'coach')).toBeNull();
     });
 
+    it('familiar 只在右侧文稿弱提示，主字幕不标记', () => {
+        for (const guidance of ['coach', 'intensive'] as const) {
+            expect(resolveVocabularyAnnotation('familiar', guidance, 'subtitle')).toBeNull();
+            expect(resolveVocabularyAnnotation('familiar', guidance, 'transcript')).toBe('familiar');
+            // learning 是必学词，两层都必须可见。
+            expect(resolveVocabularyAnnotation('learning', guidance, 'subtitle')).toBe('learning');
+        }
+    });
+
     /**
      * 主字幕与右侧文稿必须走同一套投影。
      *

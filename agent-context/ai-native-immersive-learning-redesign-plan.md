@@ -1495,6 +1495,34 @@ R3 第十八阶段。
 - 复习坞 8 项测试通过（新增：打开时记录位置并跳回、未打开不展示入口）。
 - `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1294 passed / 9 skipped。
 
+#### R0 补记四：主字幕与右侧文稿的 familiar 分层呈现（2026-11-12）
+
+§6.1 的表格里 `learning` 与 `familiar` 在两层的呈现是不同的，但此前两侧共用
+同一个投影函数、没有任何界面层参数，等于把「文稿的弱提示」也画进了主字幕。
+
+已落地：
+
+- 新增 `VocabularyAnnotationSurface = 'subtitle' | 'transcript'`，
+  `resolveVocabularyAnnotation` 增加可选的 `surface` 参数（缺省 `transcript`，
+  保持既有调用点行为不变）。
+- `familiar` 只在 `surface === 'transcript'` 且提示强度为教练/强化时返回；
+  主字幕一律不标记。`learning` 不受影响，两层都必须可见——它是用户的显式学习意图，
+  不是系统的建议。
+- 界面层由渲染链一路显式传下去（`TranslatableLine → Word` 传 `subtitle`；
+  右侧文稿分词渲染器默认 `transcript`），没有在任一侧另写一份判定。
+
+核心实现：
+
+- `src/fronted/features/player/vocabularyAnnotations.ts`
+- `src/fronted/features/player/components/translatable-line/word.tsx`
+- `src/fronted/features/player/components/srt-layout/sentence-token-renderer.tsx`
+
+验证：
+
+- 新增用例锁定「familiar 在 subtitle 为 null、在 transcript 为 familiar，
+  learning 两层都在」。
+- `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1295 passed / 9 skipped。
+
 #### R3 完成度总览（2026-11-12）
 
 R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
@@ -1504,6 +1532,7 @@ R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
 - ContextPack、候选评分、每句一个建议、可解释理由、密度约束。
 - 自适应中文字幕、词卡 AI 语境解读、会话复盘、书面与口头复述、多轮场景对话（对方台词严格取自真实字幕）。
 - 四级提示强度（关闭 / 安静 / 教练 / 强化），强度只改提示密度不改标注语义。
+- 注释语法分层：`familiar` 只在右侧文稿弱提示，主字幕默认不标记，`learning` 两层可见。
 - 词卡的「你与这个词的历史」：上次遇见、上次复习、到期与复习次数，纯只读投影。
 - 复习坞的「回到刚才的播放位置」：打开时记录，复习完一键跳回。
 - 句子/视频主题向量、内容指南针、语义模型（EmbeddingGemma 2）、持久化向量索引与增量失效。

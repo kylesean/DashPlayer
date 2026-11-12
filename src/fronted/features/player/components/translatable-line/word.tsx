@@ -96,6 +96,13 @@ export interface WordParam {
     requestPop: () => void;
     show: boolean;
     alwaysDark?: boolean;
+    /**
+     * 所在界面层；缺省按右侧文稿处理。
+     *
+     * `familiar` 在主字幕默认不标记、在文稿给弱提示（§6.1）。这个开关只影响
+     * `familiar`，`learning` 在两处都必须可见。
+     */
+    surface?: 'subtitle' | 'transcript';
     classNames?: {
         word?: string;    // 单词文本容器（非弹层）
         hover?: string;   // 覆盖 hover 背景
@@ -120,6 +127,7 @@ export default function Word({
     requestPop,
     show,
     alwaysDark = false,
+    surface = 'transcript',
     classNames,
     children,
 }: WordParam) {
@@ -163,7 +171,11 @@ export default function Word({
     )
         ? guidanceRaw as VocabularyGuidance
         : 'calm';
-    const annotationKind = resolveVocabularyAnnotation(wordStatus, vocabularyGuidance);
+    const annotationKind = resolveVocabularyAnnotation(
+        wordStatus,
+        vocabularyGuidance,
+        surface === 'subtitle' ? 'subtitle' : 'transcript',
+    );
     const vocabCls = annotationKind === 'learning'
         ? (classNames?.vocab ?? theme.word.vocabHighlightClass)
         : annotationKind === 'familiar'
