@@ -100,22 +100,26 @@
 }
 
 /*
- * 排版尺度锚定：字号不随主题变化。
+ * 排版、间距与控件尺寸尺度锚定：只让主题改变风格，不改变尺寸契约。
  *
- * Astryx 把 text-sm / text-base 映射到主题的 --font-size-sm / --font-size-base，
- * 而各主题基数差异极大（stone/butter 0.6875rem，matcha/gothic/y2k 0.8125rem，
- * 相差约 30%）。结果是同一个弹层换主题后字号整体跳一档：行高变、控件变宽、
- * 分段控件文字被挤到截断，同一控件在不同主题下尺寸不一致。
+ * Astryx 各主题除了换色与换字体外，还会大幅改动尺度 token：
+ * - 字号：stone/butter 的 `--font-size-sm` 为 `0.6875rem`，matcha/gothic/y2k 为 `0.8125rem`；
+ *   butter/stone/y2k 还把 `--text-supporting-size` 改成了 `12px`。
+ * - 间距：matcha/y2k 把 `--spacing-0-5`..`--spacing-12` 整体放大到 1.5 倍（`--spacing-1: 0.375rem`），
+ *   导致 Astryx 组件与所有 Tailwind `p-* / gap-* / m-*` 工具类同时膨胀 50%。
+ * - 控件高度：butter/y2k（32/40/48px）与 matcha（36/40/44px）拉高了 `--size-element-sm/md/lg`
+ *   （标准基线为 28/32/36px），让 SegmentedControl / Tabs / Button 撑破紧凑弹层。
  *
- * 主题应当只改变**风格**（配色、字体族、圆角），不改变**排版尺度**：
+ * 主题应当只改变**风格**（配色、字体族、阴影、容器圆角），不改变**尺度**（字号、间距、控件高度）：
  * 可读性与点击区域必须是常量，否则跨主题一致性无从谈起。
  *
- * 主题的 token 在 `astryx-theme` 层声明（`@scope` 到 [data-astryx-theme]），
+ * 主题的 token 在 `astryx-theme` 层声明（`@scope` 到 `[data-astryx-theme]`），
  * 因此锚定必须放在层序更靠后的 `utilities` 层才生效。
  */
 @layer utilities {
   :root,
   [data-astryx-theme] {
+    --font-size-4xs: 0.375rem;
     --font-size-3xs: 0.4375rem;
     --font-size-2xs: 0.5rem;
     --font-size-xs: 0.625rem;
@@ -127,6 +131,27 @@
     --font-size-3xl: 1.875rem;
     --font-size-4xl: 2.25rem;
     --font-size-5xl: 2.75rem;
+    --text-supporting-size: var(--font-size-sm);
+
+    --spacing-0: 0rem;
+    --spacing-0-5: 0.125rem;
+    --spacing-1: 0.25rem;
+    --spacing-1-5: 0.375rem;
+    --spacing-2: 0.5rem;
+    --spacing-3: 0.75rem;
+    --spacing-4: 1rem;
+    --spacing-5: 1.25rem;
+    --spacing-6: 1.5rem;
+    --spacing-7: 1.75rem;
+    --spacing-8: 2rem;
+    --spacing-9: 2.25rem;
+    --spacing-10: 2.5rem;
+    --spacing-11: 2.75rem;
+    --spacing-12: 3rem;
+
+    --size-element-sm: 28px;
+    --size-element-md: 32px;
+    --size-element-lg: 36px;
   }
 }
 

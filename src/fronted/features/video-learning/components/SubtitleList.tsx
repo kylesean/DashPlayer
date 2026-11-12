@@ -90,7 +90,7 @@ export default function SubtitleList({
             ref={(r) => {
               itemRefs.current[idx] = r;
             }}
-            className={`p-2.5 rounded-xl text-sm transition-all ${
+            className={`p-2.5 rounded-lg text-sm transition-all ${
               idx === activeIndex
                 ? 'bg-accent-bg/10 border border-accent-bg/20 text-foreground shadow-2xs font-medium'
                 : line.isClip

@@ -80,16 +80,18 @@ function SubStylePills<T extends string>({
     onChange: (next: T) => void;
 }) {
     return (
-        <SegmentedControl
-            size="sm"
-            label={label}
-            value={value}
-            onChange={(next) => onChange(next as T)}
-        >
-            {options.map((opt) => (
-                <SegmentedControlItem key={opt.value} value={opt.value} label={opt.label} />
-            ))}
-        </SegmentedControl>
+        <div className="shrink-0">
+            <SegmentedControl
+                size="sm"
+                label={label}
+                value={value}
+                onChange={(next) => onChange(next as T)}
+            >
+                {options.map((opt) => (
+                    <SegmentedControlItem key={opt.value} value={opt.value} label={opt.label} />
+                ))}
+            </SegmentedControl>
+        </div>
     );
 }
 
@@ -546,18 +548,20 @@ export default function PracticeDock() {
             {/* 顶栏：一级模式 + 紧凑子模式 + 筛选进度导航 + 专注/声音/关闭 */}
             <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border/50 px-4">
                 <div className="flex items-center gap-2.5 min-w-0">
-                    <SegmentedControl
-                        size="sm"
-                        label={t('panel.title')}
-                        value={mode}
-                        onChange={(next) => {
-                            if (recorderProcessing) return;
-                            setMode(next as SentencePracticeMode);
-                        }}
-                    >
-                        <SegmentedControlItem value="shadowing" label={t('panel.tabShadowing')} />
-                        <SegmentedControlItem value="dictation" label={t('panel.tabDictation')} />
-                    </SegmentedControl>
+                    <div className="shrink-0">
+                        <SegmentedControl
+                            size="sm"
+                            label={t('panel.title')}
+                            value={mode}
+                            onChange={(next) => {
+                                if (recorderProcessing) return;
+                                setMode(next as SentencePracticeMode);
+                            }}
+                        >
+                            <SegmentedControlItem value="shadowing" label={t('panel.tabShadowing')} />
+                            <SegmentedControlItem value="dictation" label={t('panel.tabDictation')} />
+                        </SegmentedControl>
+                    </div>
 
                     <span className="h-3.5 w-px bg-border/55" aria-hidden />
 

@@ -37,7 +37,7 @@ const BackNavItem = ({ root, currentPath, onClick }: BackNavItemProps) => {
     return (
         <div
             className={cn(
-                'group flex cursor-pointer items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm transition-all duration-200 hover:border-accent-bg/40 hover:bg-muted/70 hover:shadow-2xs active:scale-[0.99]'
+                'group flex cursor-pointer items-center gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm transition-all duration-200 hover:border-accent-bg/40 hover:bg-muted/70 hover:shadow-2xs active:scale-[0.99]'
             )}
             onClick={onClick}
             role="button"

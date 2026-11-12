@@ -76,6 +76,7 @@ export default function SubtitleTrackSegmented({
             onChange={handleChange}
             size={tone === 'overlay' ? 'md' : 'sm'}
             className={cn(
+                'shrink-0',
                 TOOLBAR_SEGMENTED,
                 style.segmented,
                 tone === 'overlay' ? 'h-8 bg-media-fg/10!' : 'bg-muted/60!',

@@ -50,7 +50,7 @@ export default function LearningMomentChip({
         onOpenChange(false);
     }, [onOpenChange]);
     const popover = usePopover({
-        className: 'w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-border/60 bg-popover p-3 shadow-lg',
+        className: 'w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-border/60 bg-popover p-3 shadow-lg',
         hasSurface: false,
         isModal: false,
         dialogLabel: t('title'),

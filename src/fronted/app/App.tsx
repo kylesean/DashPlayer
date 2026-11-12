@@ -294,7 +294,7 @@ export const App = () => {
                 position="top-center"
                 toastOptions={{
                     // 只用 token 类：react-hot-toast 会挂到 body 下，内联旧 shadcn HSL 变量会绕过 Astryx 主题
-                    className: 'border border-border/80 bg-background/95 text-foreground shadow-lg backdrop-blur-md text-sm font-medium rounded-xl',
+                    className: 'border border-border/80 bg-background/95 text-foreground shadow-lg backdrop-blur-md text-sm font-medium rounded-lg',
                 }}
             />
             <GlobalShortCut />

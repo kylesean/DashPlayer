@@ -163,7 +163,7 @@ export default function LearningSessionDock({
                 </div>
 
                 {error ? (
-                    <div className="flex flex-col items-center gap-2 rounded-xl border border-error/30 bg-error/5 px-3 py-5 text-center">
+                    <div className="flex flex-col items-center gap-2 rounded-lg border border-error/30 bg-error/5 px-3 py-5 text-center">
                         <p className="text-sm text-error-text">{t('learningSummary.loadFailed')}</p>
                         <button
                             type="button"
@@ -203,7 +203,7 @@ export default function LearningSessionDock({
                         </div>
 
                         {hasWords ? (
-                            <div className="rounded-xl border border-border/60 bg-card px-3 py-1.5">
+                            <div className="rounded-lg border border-border/60 bg-card px-3 py-1.5">
                                 <div className="pt-1.5 text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
                                     {t('learningSummary.recentTitle')}
                                 </div>
@@ -219,7 +219,7 @@ export default function LearningSessionDock({
                                 </ul>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-center">
+                            <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-4 py-6 text-center">
                                 <Sparkles className="h-5 w-5 text-muted-foreground" />
                                 <p className="text-sm font-medium text-foreground">
                                     {t('learningSummary.emptyTitle')}

@@ -222,7 +222,7 @@ function TopicCard({
         .join(' · ');
 
     return (
-        <div className="h-full rounded-xl border border-border/50 bg-surface/50 hover:border-border/90 hover:bg-surface/80 transition-colors p-3.5 flex flex-col justify-between gap-3">
+        <div className="h-full rounded-lg border border-border/50 bg-surface/50 hover:border-border/90 hover:bg-surface/80 transition-colors p-3.5 flex flex-col justify-between gap-3">
             <div className="flex flex-col gap-2">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -329,7 +329,7 @@ function LooseWordsBanner({
     const statusLabel = (status: WordStatus) => t(`common:${STATUS_I18N[status]}`);
 
     return (
-        <div className="rounded-xl border border-dashed border-border/60 bg-surface/30 px-4 py-3 flex flex-col gap-2.5">
+        <div className="rounded-lg border border-dashed border-border/60 bg-surface/30 px-4 py-3 flex flex-col gap-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
                     <Layers className="w-4 h-4 text-muted-foreground shrink-0" />

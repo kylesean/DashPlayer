@@ -113,7 +113,7 @@ const ReviewCardBody = ({
         : t('reviewDock.statusLearning');
 
     return (
-        <div className="rounded-xl border border-border/60 bg-card p-3">
+        <div className="rounded-lg border border-border/60 bg-card p-3">
             <div className="flex items-center justify-between gap-2">
                 <span className="text-metadata font-semibold uppercase tracking-wider text-muted-foreground">
                     {t('reviewDock.cardLabel')}
@@ -418,7 +418,7 @@ export default function ReviewDock({
                     {dueCount > 0 && (
                         <span
                             aria-hidden
-                            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-background"
+                            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-xs font-semibold leading-none text-background"
                         >
                             {dueCount > 99 ? '99+' : dueCount}
                         </span>
@@ -448,7 +448,7 @@ export default function ReviewDock({
                 )}
 
                 {error ? (
-                    <div className="flex flex-col items-center gap-2 rounded-xl border border-error/30 bg-error/5 px-3 py-5 text-center">
+                    <div className="flex flex-col items-center gap-2 rounded-lg border border-error/30 bg-error/5 px-3 py-5 text-center">
                         <p className="text-sm text-error-text">{t('reviewDock.loadFailed')}</p>
                         <button
                             type="button"
@@ -495,7 +495,7 @@ export default function ReviewDock({
                         />
                     </div>
                 ) : (
-                    <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-center">
+                    <div className="flex flex-col items-center gap-1.5 rounded-lg border border-border/60 bg-muted/20 px-4 py-6 text-center">
                         <Check className="h-5 w-5 text-success-text" />
                         <p className="text-sm font-medium text-foreground" data-testid="review-batch-done">
                             {batch.done > 0

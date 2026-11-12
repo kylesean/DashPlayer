@@ -102,7 +102,7 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
     const handlePopoverShow = useCallback(() => handleOpenChange(true), [handleOpenChange]);
     const handlePopoverHide = useCallback(() => handleOpenChange(false), [handleOpenChange]);
     const popover = usePopover({
-        className: 'w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-border/60 bg-popover p-3 shadow-lg',
+        className: 'w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border border-border/60 bg-popover p-3 shadow-lg',
         hasSurface: false,
         isModal: false,
         dialogLabel: suggestion?.word ?? t('contextSuggestion.why'),
@@ -242,7 +242,7 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
                                         {suggestion.tags.slice(0, 3).map((tag) => (
                                             <span
                                                 key={tag}
-                                                className="rounded bg-muted/60 px-1 py-0.5 text-[10px] uppercase text-muted-foreground"
+                                                className="rounded bg-muted/60 px-1 py-0.5 text-xs uppercase text-muted-foreground"
                                             >
                                                 {tag}
                                             </span>

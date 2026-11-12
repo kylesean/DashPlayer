@@ -65,9 +65,8 @@ export default function PlayerSettingsPopover({
         onMenuOpenChange?.(false);
     }, [onMenuOpenChange]);
     const popover = usePopover({
-        // 340px：容纳「关闭/安静/教练/强化」四项分段 + 左侧「词汇提示」标签。
-        // 更窄时要么标签被逐字压成竖排，要么分段项被压成「关…」。
-        className: cn('w-[340px] p-2.5', CONTROL_POPOVER_PANEL),
+        // 与 TrainingMenuButton 统一为 340px，并预留窄屏余量，避免英文与不同主题字体撑破弹层。
+        className: cn('w-[340px] max-w-[calc(100vw-2rem)] p-2.5', CONTROL_POPOVER_PANEL),
         hasSurface: false,
         isModal: false,
         dialogLabel: t('controlBox.title'),
@@ -242,21 +241,21 @@ export default function PlayerSettingsPopover({
                             </div>
                         </div>
 
-                        {/* 4 项分段控件（关闭/安静/教练/强化）宽度固定，压缩它会让每项
-                            变成「关…/安…」。控件与标签都 shrink-0，靠加宽弹层容纳；
-                            标签若可收缩，四字中文会在极窄宽度里被逐字压成竖排。 */}
-                        <div className="flex items-center justify-between gap-2 px-2 py-1">
+                        {/* 4 项分段控件在英文等较长语种下与左侧标题同行必定溢出，改为上下排布并等宽铺满，
+                            保证全语种与全主题下四档均清晰可点且不截断。 */}
+                        <div className="flex flex-col items-stretch gap-1.5 px-2 py-1">
                             <span
-                                className="shrink-0 whitespace-nowrap text-sm text-muted-foreground"
+                                className="text-sm text-muted-foreground"
                                 title={t('controlBox.vocabularyGuidanceHint')}
                             >
                                 {t('controlBox.vocabularyGuidance')}
                             </span>
-                            <div className="shrink-0">
+                            <div className="w-full shrink-0">
                                 <SegmentedControl
                                     value={vocabularyGuidance}
                                     onChange={(next) => { void changeVocabularyGuidance(next); }}
                                     label={t('controlBox.vocabularyGuidance')}
+                                    layout="fill"
                                     size="sm"
                                 >
                                     <SegmentedControlItem
@@ -298,7 +297,7 @@ export default function PlayerSettingsPopover({
                 ) : (
                     /* 时间微调选项卡：单一任务、原地微调 */
                     <div className="space-y-3 pt-1">
-                        <div className="rounded-xl border border-border/40 bg-muted/20 p-2.5">
+                        <div className="rounded-lg border border-border/40 bg-muted/20 p-2.5">
                             <TimeAdjustPanel />
                         </div>
 

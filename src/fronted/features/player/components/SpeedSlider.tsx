@@ -98,7 +98,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
             />
             {popover.render(
                 <>
-                <div className="flex flex-col max-h-72 overflow-y-auto pr-0.5 media-scrollbar [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-media-fg/20">
+                <div className="flex flex-col max-h-72 overflow-y-auto pr-0.5 media-scrollbar [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
                     {SPEED_PRESETS.map((num) => {
                         const isSelected = Math.abs(speed - num) < 0.001;
                         const isFavorite = favoriteList.includes(num);
@@ -145,7 +145,7 @@ const SpeedSlider = ({ speed, onSpeedChange, onSelectFinish, triggerClassName, p
 
                 <div className={CONTROL_POPOVER_SEPARATOR} />
                 <div className="px-0.5 pt-2">
-                    <div className="flex items-center gap-1.5 bg-media-fg/5 hover:bg-media-fg/10 focus-within:bg-media-fg/10 border border-media-fg/10 focus-within:border-primary/60 rounded-lg px-2 py-1 transition-colors">
+                    <div className="flex items-center gap-1.5 bg-muted/40 hover:bg-muted/60 focus-within:bg-muted/60 border border-border/60 focus-within:border-accent rounded-lg px-2 py-1 transition-colors">
                         <span className="text-sm text-secondary font-sans shrink-0">{t('speedSlider.custom')}</span>
                         <input
                             ref={inputRef}

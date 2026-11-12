@@ -60,7 +60,7 @@ export default function ClipGrid({ clips, playingKey, thumbnails, onClickClip, d
                 <div
                   key={clip.key}
                   className={cn(
-                    'relative overflow-hidden rounded-xl transition-all duration-200 group bg-card text-card-foreground border border-border/60 flex flex-col',
+                    'relative overflow-hidden rounded-lg transition-all duration-200 group bg-card text-card-foreground border border-border/60 flex flex-col',
                     isPlaying
                       ? 'ring-2 ring-accent-bg border-transparent shadow-sm'
                       : 'hover:border-border hover:shadow-sm',

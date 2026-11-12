@@ -70,7 +70,7 @@ export default function PlaybackBarShell({
                 '@container relative z-20 w-full border bg-media-bg/60 text-media-fg/90 shadow-2xl backdrop-blur-md transition-[opacity,transform] duration-200 ease-out',
                 tone === 'inline'
                     ? 'rounded-2xl border-media-fg/15 px-2 py-3 @[760px]:px-4'
-                    : 'max-w-7xl rounded-xl border-media-fg/15 px-3.5 py-1.5',
+                    : 'max-w-7xl rounded-2xl border-media-fg/15 px-3.5 py-1.5',
                 ghost
                     ? 'pointer-events-none opacity-40'
                     : visible

@@ -83,7 +83,7 @@ function BubbleToastContent(props: {
     })();
 
     return (
-        <div className={`relative rounded-xl border px-3.5 py-2.5 shadow-lg backdrop-blur-md transition-all ${toneClass}`}>
+        <div className={`relative rounded-lg border px-3.5 py-2.5 shadow-lg backdrop-blur-md transition-all ${toneClass}`}>
             <div className="flex items-start gap-2.5">
                 <div className="min-w-0">
                     {title ? <div className="text-sm font-semibold leading-5">{title}</div> : null}

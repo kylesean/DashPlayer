@@ -144,7 +144,7 @@ export default function TrainingMenuButton({
     const { t } = useI18nTranslation('player');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const popover = usePopover({
-        className: cn('w-[340px] p-2.5', CONTROL_POPOVER_PANEL),
+        className: cn('w-[340px] max-w-[calc(100vw-2rem)] p-2.5', CONTROL_POPOVER_PANEL),
         hasSurface: false,
         isModal: false,
         dialogLabel: t('controlBar.trainingMenuLabel'),

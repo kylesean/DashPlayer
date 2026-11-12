@@ -278,7 +278,7 @@ export default function WordSidebar({
               return (
                 <div
                   className={[
-                    'group px-3 py-2 rounded-xl transition-all text-sm mb-1.5 flex items-start gap-1.5',
+                    'group px-3 py-2 rounded-lg transition-all text-sm mb-1.5 flex items-start gap-1.5',
                     active
                       ? 'bg-accent-bg text-on-accent font-medium shadow-2xs'
                       : 'hover:bg-muted/60 text-foreground'

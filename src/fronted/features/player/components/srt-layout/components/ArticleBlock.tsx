@@ -151,7 +151,7 @@ const ArticleBlock = forwardRef<HTMLDivElement, ArticleBlockProps>(
             <div
                 ref={ref}
                 className={cn(
-                    'mx-2.5 my-2 px-3.5 py-3 rounded-xl transition-all duration-200 border',
+                    'mx-2.5 my-2 px-3.5 py-3 rounded-lg transition-all duration-200 border',
                     hasActiveCurrent
                         ? 'bg-surface/75 border-border/60 shadow-xs'
                         : 'bg-surface/30 hover:bg-surface/50 border-border/25',
