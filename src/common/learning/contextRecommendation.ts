@@ -2,9 +2,10 @@ import type {
     ContextCandidateVO,
     ContextReasonCode,
 } from '@/common/types/contextPack';
-import type {
-    VocabularyGuidance,
-    WordStatus,
+import {
+    isProactiveGuidance,
+    type VocabularyGuidance,
+    type WordStatus,
 } from '@/common/types/vocabulary';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -158,7 +159,8 @@ export const recommendContext = (input: ContextScoringInput): ContextScoringResu
             || left.word.localeCompare(right.word)
         ));
     const top = candidates[0] ?? null;
-    const suggestion = input.guidance === 'coach'
+    // 教练与强化都给出建议；两者的差别在提示节奏，不在「要不要建议」。
+    const suggestion = isProactiveGuidance(input.guidance)
         && top !== null
         && top.score >= MIN_SUGGESTION_SCORE
         ? top

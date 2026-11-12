@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    COACH_MOMENT_CADENCE,
+    INTENSIVE_MOMENT_CADENCE,
     LEARNING_MOMENT_GLOBAL_COOLDOWN_MS,
     LEARNING_MOMENT_SESSION_LIMIT,
     evaluateLearningMoment,
     pickDueWordForMoment,
+    resolveMomentCadence,
     type LearningMomentCandidate,
     type LearningMomentMemory,
 } from '@/common/learning/learningMoment';
@@ -131,5 +134,64 @@ describe('learning moment', () => {
         ], NOW);
 
         expect(picked?.word).toBe('journey');
+    });
+
+    it('off 与 calm 没有节奏，coach 与 intensive 各有一套', () => {
+        expect(resolveMomentCadence('off')).toBeNull();
+        expect(resolveMomentCadence('calm')).toBeNull();
+        expect(resolveMomentCadence('coach')).toBe(COACH_MOMENT_CADENCE);
+        expect(resolveMomentCadence('intensive')).toBe(INTENSIVE_MOMENT_CADENCE);
+    });
+
+    it('强化档更短停留就能出现，而教练档此时仍在等待', () => {
+        expect(evaluate({ dwellMs: 2_500 }).reason).toBe('dwell');
+        expect(evaluate({
+            dwellMs: 2_500,
+            cadence: INTENSIVE_MOMENT_CADENCE,
+        }).shouldPrompt).toBe(true);
+    });
+
+    it('强化档允许更密集的冷却与会话上限，但掌握度门槛不变', () => {
+        // 教练档 2 分钟仍被同句冷却拦住；强化档全局冷却只有 90 秒，已放行。
+        expect(evaluate({ memory: memory({ at: NOW - 2 * 60_000 }) }).reason)
+            .toBe('sentence_cooldown');
+        expect(evaluate({
+            memory: memory({ at: NOW - 2 * 60_000 }),
+            cadence: INTENSIVE_MOMENT_CADENCE,
+        }).shouldPrompt).toBe(true);
+        // 强化档的 90 秒全局冷却仍然生效。
+        expect(evaluate({
+            memory: memory({ at: NOW - 60_000, sentenceHash: 'another-sentence' }),
+            cadence: INTENSIVE_MOMENT_CADENCE,
+        }).reason).toBe('global_cooldown');
+        // 单次会话上限从 3 提到 8。
+        expect(evaluate({
+            memory: memory({ at: NOW - 20 * 60_000, sentenceHash: 'another-sentence', count: 5 }),
+            cadence: INTENSIVE_MOMENT_CADENCE,
+        }).shouldPrompt).toBe(true);
+        expect(evaluate({
+            memory: memory({ at: NOW - 20 * 60_000, sentenceHash: 'another-sentence', count: 8 }),
+            cadence: INTENSIVE_MOMENT_CADENCE,
+        }).reason).toBe('session_limit');
+        // 掌握度足够高的词在任何档位都不再打断。
+        expect(evaluate({
+            candidate: candidate({ mastery: 0.6 }),
+            cadence: INTENSIVE_MOMENT_CADENCE,
+        }).reason).toBe('mastered');
+    });
+
+    it('强化档下按传入的掌握度上限筛选候选词', () => {
+        const pool = [{
+            word: 'journey',
+            surface: 'journey',
+            phonetic: '',
+            meaning: '旅程',
+            status: 'learning' as const,
+            mastery: 0.5,
+            dueAt: '2026-11-11T11:00:00.000Z',
+            score: 0.6,
+        }];
+        expect(pickDueWordForMoment(pool, NOW)?.word).toBe('journey');
+        expect(pickDueWordForMoment(pool, NOW, 0.4)).toBeNull();
     });
 });

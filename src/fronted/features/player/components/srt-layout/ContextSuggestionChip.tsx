@@ -16,6 +16,7 @@ import { revalidateReviewQueue } from '@/fronted/features/video-learning/reviewQ
 import type { ContextReasonCode } from '@/common/types/contextPack';
 import type { Sentence } from '@/common/types/SentenceC';
 import {
+    isProactiveGuidance,
     VOCABULARY_GUIDANCE_LEVELS,
     type VocabularyGuidance,
 } from '@/common/types/vocabulary';
@@ -31,8 +32,8 @@ const reasonLabel = (
 /**
  * 当前句子的低干扰上下文建议。
  *
- * 只在「教练」提示强度下请求后端；系统建议永远不直接画在正文上，
- * 而是以句子下方的一枚 chip 出现，默认每句最多一个。
+ * 只在会主动提示的强度（教练 / 强化）下请求后端；系统建议永远不直接画在
+ * 正文上，而是以句子下方的一枚 chip 出现，默认每句最多一个。
  */
 export default function ContextSuggestionChip({ sentence }: { sentence: Sentence }) {
     const { t } = useTranslation('player');
@@ -49,8 +50,9 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
     const displayedRef = useRef(new Set<string>());
     const openedRef = useRef(new Set<string>());
 
+    const proactive = isProactiveGuidance(guidance);
     const sentenceKey = `${sentence.fileHash}:${sentence.index}`;
-    const swrKey = guidance === 'coach'
+    const swrKey = proactive
         ? ['vocabulary/context-pack', sentence.fileHash, sentence.index, sentence.text] as const
         : null;
     const { data } = useSWR(
@@ -117,7 +119,7 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
     }, [open, popover]);
 
     useEffect(() => {
-        if (guidance !== 'coach' || !visible || !suggestion) {
+        if (!proactive || !visible || !suggestion) {
             return;
         }
         if (displayedRef.current.has(sentenceKey)) {
@@ -125,9 +127,9 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
         }
         displayedRef.current.add(sentenceKey);
         recordEncounter('seen', suggestion.word);
-    }, [guidance, recordEncounter, sentenceKey, suggestion, visible]);
+    }, [proactive, recordEncounter, sentenceKey, suggestion, visible]);
 
-    if (guidance !== 'coach') {
+    if (!proactive) {
         return null;
     }
 

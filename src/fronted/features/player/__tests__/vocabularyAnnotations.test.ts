@@ -15,6 +15,13 @@ describe('vocabulary annotation projection', () => {
         expect(resolveVocabularyAnnotation('familiar', 'coach')).toBe('familiar');
     });
 
+    it('强化档与教练档的标注规则一致，差别只在主动提示密度', () => {
+        expect(resolveVocabularyAnnotation('learning', 'intensive')).toBe('learning');
+        expect(resolveVocabularyAnnotation('familiar', 'intensive')).toBe('familiar');
+        expect(resolveVocabularyAnnotation('known', 'intensive')).toBeNull();
+        expect(resolveVocabularyAnnotation('ignored', 'intensive')).toBeNull();
+    });
+
     it('关闭提示后不标记任何状态', () => {
         expect(resolveVocabularyAnnotation('learning', 'off')).toBeNull();
         expect(resolveVocabularyAnnotation('familiar', 'off')).toBeNull();

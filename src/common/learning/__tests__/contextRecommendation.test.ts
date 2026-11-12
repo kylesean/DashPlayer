@@ -56,6 +56,23 @@ describe('上下文建议评分', () => {
         expect(result.candidates[0].score).toBeGreaterThan(result.candidates[1].score);
     });
 
+    it('强化模式同样产生主动建议，与教练档的评分口径一致', () => {
+        const candidates = [
+            candidate({
+                word: 'journey',
+                isUserWord: true,
+                status: 'learning',
+                mastery: 0.2,
+                dueAt: '2026-01-10T11:00:00.000Z',
+            }),
+        ];
+        const coach = score(candidates, 'coach');
+        const intensive = score(candidates, 'intensive');
+
+        expect(intensive.suggestion?.word).toBe('journey');
+        expect(intensive.suggestion?.score).toBe(coach.suggestion?.score);
+    });
+
     it('安静模式不产生主动建议，但仍保留候选评分', () => {
         const result = score([
             candidate({

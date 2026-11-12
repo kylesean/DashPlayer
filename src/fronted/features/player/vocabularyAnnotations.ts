@@ -12,7 +12,9 @@ export type VocabularyAnnotationKind = 'learning' | 'familiar' | null;
  * 这是播放器里唯一决定「词要不要画线」的纯函数：
  * - off: 全部不标记；
  * - calm: 只标记 learning；
- * - coach: 标记 learning，并用更弱的样式标记 familiar。
+ * - coach: 标记 learning，并用更弱的样式标记 familiar；
+ * - intensive: 与 coach 相同的标注规则——强度档位只改变主动提示的密度，
+ *   不改变「哪些状态该画线」这个语义。
  *
  * known / ignored 永远不标记，推荐层未来也只通过独立通道出现，不污染正文。
  *
@@ -30,7 +32,7 @@ export function resolveVocabularyAnnotation(
     if (status === 'learning') {
         return 'learning';
     }
-    if (status === 'familiar' && guidance === 'coach') {
+    if (status === 'familiar' && (guidance === 'coach' || guidance === 'intensive')) {
         return 'familiar';
     }
     return null;

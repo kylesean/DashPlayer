@@ -47,11 +47,27 @@ export interface WordStateSnapshot {
  * 播放器提示强度。
  *
  * - off: 只保留用户主动查词；
- * - calm: 只标注 learning；
- * - coach: 标注 learning + familiar，为后续主动推荐预留。
+ * - calm: 只标注 learning，不主动推荐；
+ * - coach: 标注 learning + familiar，每句最多 1 个建议，自然停顿处给微练习；
+ * - intensive: 在 coach 之上收紧节奏（更短的停留阈值与冷却、更高的单次会话
+ *   上限），用于用户自己选择的专门学习时段。
+ *
+ * 四级的差别只在「密度」，不在「能力」：intensive 不会解锁 coach 没有的
+ * 提示类型，也不会把建议画到正文上。
  */
-export const VOCABULARY_GUIDANCE_LEVELS = ['off', 'calm', 'coach'] as const;
+export const VOCABULARY_GUIDANCE_LEVELS = ['off', 'calm', 'coach', 'intensive'] as const;
 export type VocabularyGuidance = (typeof VOCABULARY_GUIDANCE_LEVELS)[number];
+
+/**
+ * 是否会主动给出上下文建议与微练习。
+ *
+ * calm 与 off 只做被动标注：用户不点词就不打扰。
+ *
+ * @param guidance 当前提示强度。
+ * @returns coach 或 intensive 时为 true。
+ */
+export const isProactiveGuidance = (guidance: VocabularyGuidance): boolean =>
+    guidance === 'coach' || guidance === 'intensive';
 
 /** 单词遭遇事件类型。 */
 export const WORD_ENCOUNTER_ACTIONS = [

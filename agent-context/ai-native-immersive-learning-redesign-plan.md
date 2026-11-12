@@ -1388,6 +1388,50 @@ R3 第十八阶段。
 - 音高（F0）与语调轮廓；当前只用能量与语速，不做基频估计。
 - 情感/情绪分类；不做模型推断，只报可测量的语速与音量变化。
 
+#### R0 补记：第四级提示强度「强化」（2026-11-12）
+
+§5.3 与 §6.4 要求四级提示强度（`关闭 / 安静 / 教练 / 强化`），此前只落地了
+前三档，第四档一直空缺。本轮补齐。
+
+已落地：
+
+- `intensive` 成为正式档位，进入 `VOCABULARY_GUIDANCE_LEVELS`，因此设置校验、
+  前端枚举、i18n 与播放面板的选项都只有一处事实来源，不会再出现「文档四档、
+  代码三档」的分叉。
+- **强化只改密度，不改语义**：正文标注规则与教练档完全一致（learning 实线、
+  familiar 弱提示、known/ignored 不标记）。强度档位不是「看得见多少」，而是
+  「多久提示一次」。
+- 把「多久算停留够了 / 两次之间至少隔多久 / 一次会话最多几次 / 掌握度门槛」
+  抽成 `LearningMomentCadence`，两档各一套常量：
+  教练 5s / 5min / 30min / 3 次；强化 2s / 90s / 10min / 8 次。
+- `maxMastery` 两档相同（0.6）：提高提示密度不等于降低证据门槛，掌握度足够的词
+  在任何档位都不该再打断。
+- `off` / `calm` 通过 `resolveMomentCadence()` 直接返回 null，整条主动提示链路
+  （停留计时、ContextPack 请求、微回忆）根本不启动，而不是启动了再隐藏。
+- 前端两个主动提示入口（句子建议 chip、暂停微回忆）统一改用
+  `isProactiveGuidance()` 判断，避免再出现「加了新档位但某处漏改」的静默失效。
+
+核心实现：
+
+- `src/common/types/vocabulary.ts`（`intensive` 档位与 `isProactiveGuidance`）
+- `src/common/learning/learningMoment.ts`（`LearningMomentCadence` / `COACH_MOMENT_CADENCE` / `INTENSIVE_MOMENT_CADENCE` / `resolveMomentCadence`）
+- `src/common/learning/contextRecommendation.ts`（建议判定改用 `isProactiveGuidance`）
+- `src/fronted/features/player/vocabularyAnnotations.ts`（强化档标注规则）
+- `src/fronted/features/player/components/srt-layout/{ContextSuggestionChip,SubtitleLearningHints}.tsx`
+- `src/fronted/features/player/components/learning-toolbar/PlayerSettingsPopover.tsx`
+- `src/backend/services/SettingService.ts`（校验改用共享枚举）
+- i18n `player` 命名空间新增 `vocabularyGuidanceIntensive`，并改写提示文案（中英对齐）
+
+验证：
+
+- 学习时刻 9 项测试通过（含两档节奏解析、强化档更短停留、90 秒全局冷却、
+  会话上限 3→8、掌握度门槛不随档位放宽、候选筛选按传入上限）。
+- 上下文评分 6 项测试通过（含强化档与教练档评分口径一致、安静档无建议）。
+- 注释投影 6 项测试通过（含强化档标注规则与教练档一致）。
+- 播放面板 7 项测试通过（含四档选项齐全）。
+- 句子建议 chip 7 项测试通过（含强化档同样展示建议）。
+- `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1282 passed / 9 skipped。
+
 #### R3 完成度总览（2026-11-12）
 
 R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
@@ -1396,6 +1440,7 @@ R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
 
 - ContextPack、候选评分、每句一个建议、可解释理由、密度约束。
 - 自适应中文字幕、词卡 AI 语境解读、会话复盘、书面与口头复述、多轮场景对话（对方台词严格取自真实字幕）。
+- 四级提示强度（关闭 / 安静 / 教练 / 强化），强度只改提示密度不改标注语义。
 - 句子/视频主题向量、内容指南针、语义模型（EmbeddingGemma 2）、持久化向量索引与增量失效。
 - 场景切分（时间/话题/声纹/画面/语音韵律五类信号）、场景索引持久化。
 - 学习时刻检测与微回忆、复习坞、FSRS-lite 调度、跟读/听写/复述/角色扮演写入掌握度。

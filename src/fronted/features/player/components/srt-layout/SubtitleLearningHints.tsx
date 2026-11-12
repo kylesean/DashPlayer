@@ -6,7 +6,7 @@ import useSWR from 'swr';
 import {
     evaluateLearningMoment,
     pickDueWordForMoment,
-    LEARNING_MOMENT_MIN_DWELL_MS,
+    resolveMomentCadence,
     type LearningMomentMemory,
 } from '@/common/learning/learningMoment';
 import type { ContextPackVO } from '@/common/types/contextPack';
@@ -95,6 +95,8 @@ export default function SubtitleLearningHints({
     const playing = usePlayerState((state) => state.playing);
     const playRequestId = usePlayerState((state) => state.playRequestId);
     const paused = !playing;
+    // off / calm 不主动提示，节奏为 null，整条链路直接跳过。
+    const cadence = resolveMomentCadence(guidance);
 
     const sentenceHash = `${sentence.fileHash}:${sentence.index}`;
     const pauseKey = `${sentenceHash}:${playRequestId}`;
@@ -106,21 +108,22 @@ export default function SubtitleLearningHints({
     const [rememberedForKey, setRememberedForKey] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!paused || guidance !== 'coach') {
+        if (!paused || !cadence) {
             return;
         }
         const timer = window.setTimeout(() => {
             setDwell({ key: pauseKey, at: Date.now() });
-        }, LEARNING_MOMENT_MIN_DWELL_MS);
+        }, cadence.minDwellMs);
         return () => window.clearTimeout(timer);
-    }, [guidance, pauseKey, paused]);
+    }, [cadence, pauseKey, paused]);
 
     const dwellAt = dwell?.key === pauseKey ? dwell.at : null;
-    const enabled = paused && guidance === 'coach' && dwellAt !== null;
+    const enabled = paused && cadence !== null && dwellAt !== null;
     const isPanelOpen = openForKey === pauseKey;
 
+    // 强度进入请求键：切换档位后候选排序可能变化，不能复用上一档的结果。
     const swrKey = enabled
-        ? ['vocabulary/context-pack', sentence.fileHash, sentence.index, sentence.text] as const
+        ? ['vocabulary/context-pack', sentence.fileHash, sentence.index, sentence.text, guidance] as const
         : null;
     const { data } = useSWR<ContextPackVO>(
         swrKey,
@@ -128,7 +131,7 @@ export default function SubtitleLearningHints({
             text: sentence.text,
             fileHash: sentence.fileHash,
             sentenceIndex: sentence.index,
-            guidance: 'coach',
+            guidance,
         }),
         {
             revalidateOnFocus: false,
@@ -138,22 +141,24 @@ export default function SubtitleLearningHints({
     );
 
     const candidate = useMemo(
-        () => (data && dwellAt !== null
-            ? pickDueWordForMoment(data.candidates, dwellAt)
+        () => (data && dwellAt !== null && cadence
+            ? pickDueWordForMoment(data.candidates, dwellAt, cadence.maxMastery)
             : null),
-        [data, dwellAt],
+        [cadence, data, dwellAt],
     );
     const decision = useMemo(
         () => evaluateLearningMoment({
             paused: enabled,
-            dwellMs: enabled ? LEARNING_MOMENT_MIN_DWELL_MS : 0,
+            // 停留计时器已按当前节奏触发，这里只需表示「已满足停留」。
+            dwellMs: enabled && cadence ? cadence.minDwellMs : 0,
             now: dwellAt ?? 0,
             sentenceHash,
             sessionKey: session.key,
             candidate,
             memory: isPanelOpen ? null : memory,
+            ...(cadence ? { cadence } : {}),
         }),
-        [candidate, dwellAt, enabled, isPanelOpen, memory, sentenceHash, session.key],
+        [cadence, candidate, dwellAt, enabled, isPanelOpen, memory, sentenceHash, session.key],
     );
     const visible = enabled
         && decision.shouldPrompt

@@ -181,6 +181,16 @@ describe('ContextSuggestionChip', () => {
         expect(useVocabularyStore.getState().getWordStatus('journey')).toBe('learning');
     });
 
+    it('强化模式与教练模式一样展示建议', () => {
+        mockSWR(newWordPack);
+        useSetting.setState({
+            values: new Map([['player.vocabularyGuidance', 'intensive']]),
+        });
+        render(<ContextSuggestionChip sentence={sentence} />);
+
+        expect(screen.getByTestId('context-suggestion').textContent).toContain('journey');
+    });
+
     it('安静模式不渲染建议位', () => {
         mockSWR(newWordPack);
         useSetting.setState({

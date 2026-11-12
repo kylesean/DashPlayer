@@ -16,6 +16,70 @@ export const LEARNING_MOMENT_SESSION_LIMIT = 3;
 export const LEARNING_MOMENT_MAX_MASTERY = 0.6;
 
 /**
+ * 一套学习时刻节奏。
+ *
+ * 把「多久算停留够了」「两次之间至少隔多久」「一次会话最多几次」打包成
+ * 一组常量，强度档位只切换这一组，而不是在判定函数里到处写 if。
+ */
+export interface LearningMomentCadence {
+    /** 暂停后至少停留多久。 */
+    minDwellMs: number;
+    /** 任意两次之间的最小间隔。 */
+    globalCooldownMs: number;
+    /** 同一句再次出现的最小间隔。 */
+    sentenceCooldownMs: number;
+    /** 单次会话上限。 */
+    sessionLimit: number;
+    /** 超过该掌握度后不再打断。 */
+    maxMastery: number;
+}
+
+/** `coach` 的节奏：日常观看的默认值。 */
+export const COACH_MOMENT_CADENCE: LearningMomentCadence = {
+    minDwellMs: LEARNING_MOMENT_MIN_DWELL_MS,
+    globalCooldownMs: LEARNING_MOMENT_GLOBAL_COOLDOWN_MS,
+    sentenceCooldownMs: LEARNING_MOMENT_SENTENCE_COOLDOWN_MS,
+    sessionLimit: LEARNING_MOMENT_SESSION_LIMIT,
+    maxMastery: LEARNING_MOMENT_MAX_MASTERY,
+};
+
+/**
+ * `intensive` 的节奏：专门学习时段。
+ *
+ * 更短的停留阈值让「想了一下」就够；更短的冷却与更高的上限允许连续处理
+ * 多张到期卡；`maxMastery` 不动——掌握度足够高的词本来就不该再打断，
+ * 提高密度不等于降低证据门槛。
+ */
+export const INTENSIVE_MOMENT_CADENCE: LearningMomentCadence = {
+    minDwellMs: 2_000,
+    globalCooldownMs: 90_000,
+    sentenceCooldownMs: 10 * 60_000,
+    sessionLimit: 8,
+    maxMastery: LEARNING_MOMENT_MAX_MASTERY,
+};
+
+/**
+ * 按提示强度取对应的节奏。
+ *
+ * `off` / `calm` 不主动出现，返回 null；调用方据此直接跳过整条链路，
+ * 不必自己判断强度。
+ *
+ * @param guidance 当前提示强度。
+ * @returns 对应节奏；不主动提示时为 null。
+ */
+export const resolveMomentCadence = (
+    guidance: string,
+): LearningMomentCadence | null => {
+    if (guidance === 'intensive') {
+        return INTENSIVE_MOMENT_CADENCE;
+    }
+    if (guidance === 'coach') {
+        return COACH_MOMENT_CADENCE;
+    }
+    return null;
+};
+
+/**
  * 可进入学习时刻的候选词。
  *
  * 只接受已到期、仍在学习中的词；已掌握或忽略的词不参与。
@@ -79,6 +143,8 @@ export interface LearningMomentInput {
     sessionKey: string | null;
     candidate: LearningMomentCandidate | null;
     memory: LearningMomentMemory | null;
+    /** 节奏；缺省为 `coach`。 */
+    cadence?: LearningMomentCadence;
 }
 
 /**
@@ -109,11 +175,13 @@ const isActiveStatus = (
  *
  * @param candidates ContextPack 候选词。
  * @param now 当前时间戳（毫秒）。
+ * @param maxMastery 掌握度上限；达到后不再用暂停打断用户。
  * @returns 可用的到期词；没有时为 null。
  */
 export const pickDueWordForMoment = (
     candidates: ReadonlyArray<LearningMomentCandidateSource>,
     now: number,
+    maxMastery: number = LEARNING_MOMENT_MAX_MASTERY,
 ): LearningMomentCandidate | null => {
     const eligible = candidates
         .filter((candidate): candidate is LearningMomentCandidateSource & {
@@ -126,7 +194,7 @@ export const pickDueWordForMoment = (
             const dueAt = Date.parse(candidate.dueAt);
             return Number.isFinite(dueAt)
                 && dueAt <= now
-                && candidate.mastery < LEARNING_MOMENT_MAX_MASTERY;
+                && candidate.mastery < maxMastery;
         })
         .sort((left, right) => (
             Date.parse(left.dueAt) - Date.parse(right.dueAt)
@@ -169,10 +237,11 @@ export const evaluateLearningMoment = (
         candidate: null,
     });
 
+    const cadence = input.cadence ?? COACH_MOMENT_CADENCE;
     if (!input.paused) {
         return noPrompt('not_paused');
     }
-    if (input.dwellMs < LEARNING_MOMENT_MIN_DWELL_MS) {
+    if (input.dwellMs < cadence.minDwellMs) {
         return noPrompt('dwell');
     }
     const candidate = input.candidate;
@@ -183,20 +252,20 @@ export const evaluateLearningMoment = (
     if (!Number.isFinite(dueAt) || dueAt > input.now) {
         return noPrompt('not_due');
     }
-    if (candidate.mastery >= LEARNING_MOMENT_MAX_MASTERY) {
+    if (candidate.mastery >= cadence.maxMastery) {
         return noPrompt('mastered');
     }
 
     const memory = input.memory;
     if (memory) {
         const sameSession = input.sessionKey !== null && memory.sessionKey === input.sessionKey;
-        if (sameSession && memory.count >= LEARNING_MOMENT_SESSION_LIMIT) {
+        if (sameSession && memory.count >= cadence.sessionLimit) {
             return noPrompt('session_limit');
         }
         const elapsed = input.now - memory.at;
-        if (elapsed >= 0 && elapsed < LEARNING_MOMENT_GLOBAL_COOLDOWN_MS) {
+        if (elapsed >= 0 && elapsed < cadence.globalCooldownMs) {
             if (memory.sentenceHash === input.sentenceHash
-                && elapsed < LEARNING_MOMENT_SENTENCE_COOLDOWN_MS) {
+                && elapsed < cadence.sentenceCooldownMs) {
                 return noPrompt('sentence_cooldown');
             }
             return noPrompt('global_cooldown');

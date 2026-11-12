@@ -44,6 +44,20 @@ describe('PlayerSettingsPopover', () => {
         expect(screen.getByTestId('player-setting-auto-play-next')).toBeDefined();
     });
 
+    it('exposes all four vocabulary guidance levels including intensive', () => {
+        render(<PlayerSettingsPopover tone="panel" popoverOffset={8} />);
+        fireEvent.click(screen.getByRole('button', { name: /controlBox\.title/i }));
+
+        for (const key of [
+            'controlBox.vocabularyGuidanceOff',
+            'controlBox.vocabularyGuidanceCalm',
+            'controlBox.vocabularyGuidanceCoach',
+            'controlBox.vocabularyGuidanceIntensive',
+        ]) {
+            expect(screen.getByText(key)).toBeDefined();
+        }
+    });
+
     it('can switch to timing calibration tab without opening secondary popover', () => {
         render(<PlayerSettingsPopover tone="panel" popoverOffset={8} />);
         const trigger = screen.getByRole('button', { name: /controlBox\.title/i });

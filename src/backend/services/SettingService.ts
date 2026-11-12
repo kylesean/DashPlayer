@@ -28,6 +28,7 @@ import {
     type AppearanceSettingVO,
 } from '@/common/contracts/appearance-setting-vo';
 import type { StorageSettingVO } from '@/common/contracts/storage-setting-vo';
+import { VOCABULARY_GUIDANCE_LEVELS } from '@/common/types/vocabulary';
 import { getSubtitleDefaultStyle } from '@/common/constants/openaiSubtitlePrompts';
 import { readSystemProxy } from '@/backend/infrastructure/system/proxy/readSystemProxy';
 import { AI_API_FORMATS } from '@/common/utils/cloud-ai-api-format';
@@ -282,7 +283,7 @@ export class SettingServiceImpl implements SettingService {
         this.warnInvalidEnum(values['player.pauseOnWordHover'], ['true', 'false'] as const, 'player.pauseOnWordHover');
         this.warnInvalidEnum(
             values['player.vocabularyGuidance'],
-            ['off', 'calm', 'coach'] as const,
+            VOCABULARY_GUIDANCE_LEVELS,
             'player.vocabularyGuidance',
         );
         this.warnInvalidEnum(values['player.sceneCues'], ['true', 'false'] as const, 'player.sceneCues');
@@ -329,7 +330,7 @@ export class SettingServiceImpl implements SettingService {
                 value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
                 break;
             case 'player.vocabularyGuidance':
-                value = this.requireEnumValue(value, ['off', 'calm', 'coach'] as const, request.key);
+                value = this.requireEnumValue(value, VOCABULARY_GUIDANCE_LEVELS, request.key);
                 break;
             case 'userSelect.playbackRateStack':
                 if (!this.isValidPlaybackRateStack(value)) {

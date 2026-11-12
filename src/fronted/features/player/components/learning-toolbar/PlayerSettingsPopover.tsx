@@ -243,6 +243,10 @@ export default function PlayerSettingsPopover({
                                     value="coach"
                                     label={t('controlBox.vocabularyGuidanceCoach')}
                                 />
+                                <SegmentedControlItem
+                                    value="intensive"
+                                    label={t('controlBox.vocabularyGuidanceIntensive')}
+                                />
                             </SegmentedControl>
                         </div>
 
