@@ -82,7 +82,18 @@
         "noteFast": "Your overall pace is fast, so stressed words blur together.",
         "noteSlow": "Your overall pace is slow; try linking the words more smoothly.",
         "noteFlat": "Stress is quite flat. Pick one or two key words and say them more strongly.",
-        "missingWord": "This word was missing"
+        "missingWord": "This word was missing",
+        "noteSyllablesFewer": "Fewer syllables than the reference — some may have been swallowed or run together.",
+        "noteSyllablesMore": "More syllables than the reference — consonants may have been split into separate syllables.",
+        "noteStressShifted": "Most words place stress differently from the dictionary; move stress back to the marked syllable.",
+        "stressShiftedWord": "Stress differs from the dictionary",
+        "syllablesHint": "Reference has {{reference}} syllables; your pace suggests about {{estimated}}",
+        "trendTitle": "Recent attempts",
+        "trendImproving": "Getting steadier",
+        "trendRegressing": "Fluctuating",
+        "trendSteady": "Holding steady",
+        "trendSamples": "{{count}} recorded attempts",
+        "trendStress": "Stress shifts {{delta}}"
     },
     "dictation": {
         "hiddenHint": "Dictation mode: listen to the sentence first, then type what you hear",

@@ -18,6 +18,7 @@ import { toast } from 'react-hot-toast';
 import { Button } from '@astryxdesign/core/Button';
 import { Switch } from '@astryxdesign/core/Switch';
 import type { SentencePracticeResultVO } from '@/common/contracts/sentence-practice';
+import type { RhythmTrendVO } from '@/common/learning/rhythmTrend';
 import UrlUtil from '@/common/utils/UrlUtil';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayer } from '@/fronted/features/player/playerStore';
@@ -43,6 +44,8 @@ interface ShadowingStudioProps {
     asrReady: boolean;
     translationText: string;
     result: SentencePracticeResultVO | null;
+    /** 跨次节奏趋势；样本不足或拉取失败时为 null/undefined。 */
+    trend?: RhythmTrendVO | null;
     onScoreRecording: (audio: Uint8Array) => Promise<SentencePracticeResultVO | null>;
     onReplay: () => void;
     onSlowReplay: () => void;
@@ -233,6 +236,7 @@ function RecordShadowingView({
     asrReady,
     translationText,
     result,
+    trend,
     onScoreRecording,
     onReplay,
     onSlowReplay,
@@ -541,7 +545,12 @@ function RecordShadowingView({
                 </div>
             )}
 
-            {result?.rhythm && <RhythmFeedback feedback={result.rhythm} />}
+            {result?.rhythm && (
+                <RhythmFeedback
+                    feedback={result.rhythm}
+                    trend={trend}
+                />
+            )}
 
             {!asrReady && !localRecording && recorderPhase === 'idle' && (
                 <p className="text-xs text-muted-foreground flex items-center justify-between gap-2">
@@ -659,7 +668,13 @@ function RecordShadowingView({
  *
  * 只展示本地声学信号，不冒充发音准确度评分。
  */
-export function RhythmFeedback({ feedback }: { feedback: NonNullable<SentencePracticeResultVO['rhythm']> }) {
+export function RhythmFeedback({
+    feedback,
+    trend,
+}: {
+    feedback: NonNullable<SentencePracticeResultVO['rhythm']>;
+    trend?: RhythmTrendVO | null;
+}) {
     const { t } = useTranslation('practice');
     const paceLabel = feedback.pace === 'fast'
         ? t('rhythm.paceFast', { defaultValue: '偏快' })
@@ -754,6 +769,46 @@ export function RhythmFeedback({ feedback }: { feedback: NonNullable<SentencePra
                         <li key={note}>{noteText(note)}</li>
                     ))}
                 </ul>
+            )}
+            {trend && trend.verdict !== 'insufficient' && trend.points.length > 0 && (
+                <div
+                    data-testid="practice-rhythm-trend"
+                    className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-1.5 text-xs text-muted-foreground"
+                >
+                    <span className="font-medium text-foreground">
+                        {t('rhythm.trendTitle', { defaultValue: '最近几次' })}
+                    </span>
+                    <span
+                        className={cn(
+                            'rounded-full px-2 py-0.5 font-medium',
+                            trend.verdict === 'improving'
+                                ? 'bg-success/10 text-success-text'
+                                : trend.verdict === 'regressing'
+                                    ? 'bg-warning/10 text-warning-text'
+                                    : 'bg-muted text-muted-foreground',
+                        )}
+                    >
+                        {trend.verdict === 'improving'
+                            ? t('rhythm.trendImproving', { defaultValue: '在变稳' })
+                            : trend.verdict === 'regressing'
+                                ? t('rhythm.trendRegressing', { defaultValue: '有波动' })
+                                : t('rhythm.trendSteady', { defaultValue: '基本持平' })}
+                    </span>
+                    <span className="font-mono tabular-nums">
+                        {t('rhythm.trendSamples', {
+                            defaultValue: '{{count}} 次有录音的练习',
+                            count: trend.points.length,
+                        })}
+                    </span>
+                    {trend.stressDelta !== null && trend.stressDelta !== 0 && (
+                        <span className="font-mono tabular-nums">
+                            {t('rhythm.trendStress', {
+                                defaultValue: '重音错位 {{delta}}',
+                                delta: trend.stressDelta > 0 ? `+${trend.stressDelta}` : trend.stressDelta,
+                            })}
+                        </span>
+                    )}
+                </div>
             )}
         </div>
     );

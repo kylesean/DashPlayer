@@ -82,7 +82,18 @@
         "noteFast": "整体语速偏快，重读容易糊在一起。",
         "noteSlow": "整体语速偏慢，可以试着更连贯地连读。",
         "noteFlat": "重音起伏不明显，找一两个关键词说得更重。",
-        "missingWord": "这句没有说完整"
+        "missingWord": "这句没有说完整",
+        "noteSyllablesFewer": "比参考音节少了一些，可能有音节被吞掉或连读过度。",
+        "noteSyllablesMore": "比参考音节多了一些，可能把辅音拆成了独立音节。",
+        "noteStressShifted": "多数词的重音位置和词典不同，试着把重音放回标注的音节。",
+        "stressShiftedWord": "重音位置与词典不同",
+        "syllablesHint": "参考 {{reference}} 个音节，按语速估算你说了约 {{estimated}} 个",
+        "trendTitle": "最近几次",
+        "trendImproving": "在变稳",
+        "trendRegressing": "有波动",
+        "trendSteady": "基本持平",
+        "trendSamples": "{{count}} 次有录音的练习",
+        "trendStress": "重音错位 {{delta}}"
     },
     "dictation": {
         "hiddenHint": "听写模式：先听原句，把你听到的内容写下来",

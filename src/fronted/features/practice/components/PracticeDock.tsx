@@ -53,6 +53,7 @@ import {
 import { recordPracticeWordEvidence } from '../practiceWordEvidence';
 import BlindDictation from './BlindDictation';
 import ShadowingStudio from './ShadowingStudio';
+import type { RhythmTrendVO } from '@/common/learning/rhythmTrend';
 import WordSlotDictation from './WordSlotDictation';
 
 const logger = getRendererLogger('PracticeDock');
@@ -262,6 +263,20 @@ export default function PracticeDock() {
         }),
     );
     const history = Array.isArray(rawHistory) ? rawHistory : [];
+
+    // 跨次节奏趋势：只有跟读录音才产生节奏快照，听写模式不必查询。
+    const trendKey = activeUnit && visible && mode === 'shadowing'
+        ? ['practice/rhythm-trend', activeUnit.fileHash, activeUnit.index, srtResegmented]
+        : null;
+    const { data: rhythmTrend } = useSWR<RhythmTrendVO>(
+        trendKey,
+        () => practiceApi.getRhythmTrend({
+            fileHash: activeUnit!.fileHash,
+            sentenceIndex: activeUnit!.index,
+            resegmented: srtResegmented,
+        }),
+        { revalidateOnFocus: false, shouldRetryOnError: false },
+    );
 
     // 换句或切换跟读/听写主模式时重置单次局部结果；Zustand 跨组件防剧透标记放到副作用中同步
     const resetStamp = `${unitKey ?? ''}:${mode}`;
@@ -745,6 +760,7 @@ export default function PracticeDock() {
                         asrReady={asrReady}
                         translationText={translationText}
                         result={result}
+                        trend={rhythmTrend}
                         onScoreRecording={handleScoreShadowing}
                         onReplay={handleReplay}
                         onSlowReplay={handleSlowReplay}

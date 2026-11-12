@@ -100,6 +100,7 @@ import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installa
 import type { VideoInfo } from '@/common/types/video-info';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams, SentencePracticeSummaryVO } from '@/common/contracts/sentence-practice';
+import type { RhythmTrendVO } from '@/common/learning/rhythmTrend';
 
 /** 跨进程请求与返回值契约。 */
 interface ApiDefinition {
@@ -642,6 +643,11 @@ interface PracticeDef {
         params: { fileHash: string; resegmented: boolean },
         return: SentencePracticeSummaryVO[]
     };
+    /** 同一意群跨次练习的节奏趋势。 */
+    'practice/rhythm-trend': {
+        params: { fileHash: string; sentenceIndex: number; resegmented: boolean },
+        return: RhythmTrendVO
+    };
 }
 
 // 使用交叉类型合并 ApiDefinitions 和 ExtraApiDefinition
@@ -749,6 +755,7 @@ export const API_ROUTE_KEYS = [
     'parakeet/models/status',
     'practice/list-by-file',
     'practice/list-by-sentence',
+    'practice/rhythm-trend',
     'practice/score-dictation',
     'practice/score-shadowing',
     'settings/appearance/detail',

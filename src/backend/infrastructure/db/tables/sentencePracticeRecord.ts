@@ -42,6 +42,14 @@ export const sentencePracticeRecord = sqliteTable('dp_sentence_practice_record',
      */
     detail_json: text('detail_json'),
     /**
+     * 节奏快照(JSON 序列化的 SentencePracticeRhythmFeedback)。
+     *
+     * 只存聚合信号而不是整段音频：跨次趋势要比较「语速倍率 / 音节数偏差 /
+     * 重音错位数」这几个数，把它们从 detail_json 里二次解析会让查询变脆，
+     * 也不便于给趋势单独建索引。听写与无录音的跟读为 null。
+     */
+    rhythm_json: text('rhythm_json'),
+    /**
      * 创建时间
      */
     created_at: text('created_at')

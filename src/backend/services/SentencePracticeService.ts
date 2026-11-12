@@ -5,6 +5,11 @@ import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import { alignPracticeTokens } from '@/common/utils/practice/pronunciationScoring';
 import { buildRhythmFeedback, decodePcm16Wav, type RhythmToken } from '@/common/utils/practice/rhythmFeedback';
+import {
+    buildRhythmTrend,
+    toRhythmTrendPoint,
+    type RhythmTrendVO,
+} from '@/common/learning/rhythmTrend';
 import type {
     SentencePracticeDictationParams,
     SentencePracticeMode,
@@ -54,6 +59,17 @@ export default interface SentencePracticeService {
      * 查询整片各意群的练习摘要(最高分、总次数、最近一次模式)。
      */
     listByFile(params: { fileHash: string; resegmented: boolean }): Promise<SentencePracticeSummaryVO[]>;
+
+    /**
+     * 查询同一意群跨次练习的节奏趋势。
+     *
+     * 只读本地练习记录；样本不足时返回 insufficient，不假装有趋势。
+     */
+    getRhythmTrend(params: {
+        fileHash: string;
+        sentenceIndex: number;
+        resegmented: boolean;
+    }): Promise<RhythmTrendVO>;
 }
 
 /**
@@ -97,7 +113,17 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             referenceDurationSec,
         );
         const alignment = alignPracticeTokens(expectedText, transcript);
-        await this.persistRecord(fileHash, sentenceIndex, resegmented, 'shadowing', alignment.score, transcript, alignment.words, audioFile);
+        await this.persistRecord(
+            fileHash,
+            sentenceIndex,
+            resegmented,
+            'shadowing',
+            alignment.score,
+            transcript,
+            alignment.words,
+            audioFile,
+            rhythm,
+        );
         return {
             score: alignment.score,
             transcript,
@@ -111,7 +137,17 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         const { fileHash, sentenceIndex, resegmented, typedText, expectedText } = params;
         this.validateKeys(fileHash, sentenceIndex, resegmented);
         const alignment = alignPracticeTokens(expectedText, typedText);
-        await this.persistRecord(fileHash, sentenceIndex, resegmented, 'dictation', alignment.score, typedText, alignment.words, null);
+        await this.persistRecord(
+            fileHash,
+            sentenceIndex,
+            resegmented,
+            'dictation',
+            alignment.score,
+            typedText,
+            alignment.words,
+            null,
+            null,
+        );
         return { score: alignment.score, transcript: typedText, words: alignment.words, audioPath: null, rhythm: null };
     }
 
@@ -154,6 +190,42 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             }
         }
         return Array.from(byIndex.values());
+    }
+
+    public async getRhythmTrend(params: {
+        fileHash: string;
+        sentenceIndex: number;
+        resegmented: boolean;
+    }): Promise<RhythmTrendVO> {
+        const { fileHash, sentenceIndex, resegmented } = params;
+        this.validateKeys(fileHash, sentenceIndex, resegmented);
+        const records = await this.repository.listBySentence(fileHash, sentenceIndex, resegmented);
+        // 仓储按 id 倒序返回；趋势要按时间升序看，这里反转并只保留有节奏快照的记录。
+        const points = records
+            .slice()
+            .reverse()
+            .map((record) => toRhythmTrendPoint(
+                record.created_at,
+                record.score,
+                this.parseRhythm(record.rhythm_json),
+            ))
+            .filter((point) => point.paceRatio !== null || point.stressShiftedWords !== null);
+        return buildRhythmTrend(points);
+    }
+
+    /**
+     * 解析节奏快照；旧记录没有该字段或 JSON 损坏时返回 null。
+     */
+    private parseRhythm(raw: string | null): SentencePracticeRhythmFeedback | null {
+        if (!raw) {
+            return null;
+        }
+        try {
+            return JSON.parse(raw) as SentencePracticeRhythmFeedback;
+        } catch {
+            this.logger.warn('练习记录里的节奏快照不是合法 JSON，按缺失处理');
+            return null;
+        }
     }
 
     /**
@@ -270,6 +342,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         transcript: string,
         words: SentencePracticeResultVO['words'],
         audioFile: string | null,
+        rhythm: SentencePracticeRhythmFeedback | null,
     ): Promise<void> {
         try {
             await this.repository.insertOne({
@@ -281,6 +354,8 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
                 transcript: transcript || null,
                 audio_file: audioFile,
                 detail_json: JSON.stringify(words),
+                // 只存聚合信号，不存整段音频；趋势查询不必再解析逐词对齐结果。
+                rhythm_json: rhythm ? JSON.stringify(rhythm) : null,
             });
         } catch (error) {
             // 落库失败不影响本次评分返回(练习结果以实时响应为准),仅记录告警。
