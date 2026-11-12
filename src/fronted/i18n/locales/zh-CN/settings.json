@@ -21,7 +21,8 @@
         "openInBrowser": "在浏览器中打开",
         "openUrlFailed": "打开链接失败",
         "copyFailed": "复制失败",
-        "delete": "删除"
+        "delete": "删除",
+        "cancel": "取消"
     },
     "sections": {
         "shortcut": "快捷键",
@@ -425,6 +426,7 @@
             "addButton": "添加",
             "usedByHint": "被功能占用的模型不可删除",
             "duplicateModel": "模型已存在：{{model}}",
+            "deleteModelConfirm": "确定删除模型「{{model}}」？该模型会从可用列表移除，引用它的功能将无法再调用。",
             "usageSentenceLearning": "整句讲解",
             "usageSubtitleTranslation": "字幕翻译",
             "usageDictionary": "词典查询"

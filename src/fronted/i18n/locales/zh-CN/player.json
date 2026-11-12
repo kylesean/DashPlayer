@@ -31,6 +31,8 @@
         "pause": "暂停",
         "play": "播放",
         "progressLabel": "播放进度",
+        "groupPlayback": "播放控制",
+        "groupLearning": "学习动作",
         "nextSentence": "下一句",
         "modeSingleRepeat": "单句循环",
         "modeAutoPause": "句末自动暂停",

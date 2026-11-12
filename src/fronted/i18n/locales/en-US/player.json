@@ -31,6 +31,8 @@
         "pause": "Pause",
         "play": "Play",
         "progressLabel": "Playback progress",
+        "groupPlayback": "Playback controls",
+        "groupLearning": "Learning actions",
         "nextSentence": "Next",
         "modeSingleRepeat": "Loop sentence",
         "modeAutoPause": "Auto-pause at end",

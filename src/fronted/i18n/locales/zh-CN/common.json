@@ -69,6 +69,7 @@
     "deleteWord": "删除单词",
     "deleteClip": "删除片段",
     "confirmDelete": "确认删除？",
+    "deleteIrreversibleHint": "此操作无法撤销，确定继续吗？",
     "wordDeleteFailed": "删除单词失败",
     "wordField": "单词",
     "definitionField": "释义",

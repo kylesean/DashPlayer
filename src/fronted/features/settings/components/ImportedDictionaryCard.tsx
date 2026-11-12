@@ -135,7 +135,7 @@ export default function ImportedDictionaryCard() {
                 title={t('resources.dictionaryPack.remove')}
                 description={t('resources.dictionaryPack.removeConfirm', { name: pendingDelete?.name ?? '' })}
                 actionLabel={t('resources.dictionaryPack.remove')}
-                cancelLabel={t('cancel', { defaultValue: '取消' })}
+                cancelLabel={t('common.cancel')}
                 actionVariant="destructive"
                 isActionLoading={removing}
                 onAction={async () => {

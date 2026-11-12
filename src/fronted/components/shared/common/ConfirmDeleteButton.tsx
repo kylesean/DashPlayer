@@ -64,9 +64,9 @@ export default function ConfirmDeleteButton({
         isOpen={open}
         onOpenChange={setOpen}
         title={title}
-        description={description ?? t('deleteIrreversibleHint', { defaultValue: '此操作无法撤销，确定继续吗？' })}
+        description={description ?? t('deleteIrreversibleHint')}
         actionLabel={confirmLabel}
-        cancelLabel={t('cancel', { defaultValue: '取消' })}
+        cancelLabel={t('cancel')}
         actionVariant="destructive"
         isActionLoading={isLoading}
         onAction={async () => {

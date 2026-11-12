@@ -394,10 +394,9 @@ export const OpenAiCredentialCard: React.FC<OpenAiCredentialCardProps> = ({
                 title={t('common.delete')}
                 description={t('serviceCredentials.openai.deleteModelConfirm', {
                     model: pendingDeleteModel ?? '',
-                    defaultValue: '删除模型 {{model}}？此操作无法撤销。',
                 })}
                 actionLabel={t('common.delete')}
-                cancelLabel={t('common.cancel', { defaultValue: '取消' })}
+                cancelLabel={t('common.cancel')}
                 actionVariant="destructive"
                 onAction={() => {
                     const target = pendingDeleteModel;

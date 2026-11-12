@@ -631,7 +631,7 @@ const ServiceResourceSetting: React.FC = () => {
                                             title={t('resources.preference.clearCache')}
                                             description={t('resources.preference.cacheDesc')}
                                             actionLabel={t('resources.preference.clearCache')}
-                                            cancelLabel={t('common.cancel', { defaultValue: '取消' })}
+                                            cancelLabel={t('common.cancel')}
                                             actionVariant="destructive"
                                             isActionLoading={clearingCache}
                                             onAction={async () => {

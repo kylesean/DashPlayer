@@ -69,6 +69,7 @@
     "deleteWord": "Delete word",
     "deleteClip": "Delete clip",
     "confirmDelete": "Confirm?",
+    "deleteIrreversibleHint": "This action cannot be undone. Continue?",
     "wordDeleteFailed": "Failed to delete word",
     "wordField": "Word",
     "definitionField": "Definition",

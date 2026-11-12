@@ -21,7 +21,8 @@
         "openInBrowser": "Open in browser",
         "openUrlFailed": "Failed to open link",
         "copyFailed": "Copy failed",
-        "delete": "Delete"
+        "delete": "Delete",
+        "cancel": "Cancel"
     },
     "sections": {
         "shortcut": "Shortcuts",
@@ -425,6 +426,7 @@
             "addButton": "Add",
             "usedByHint": "Models in use by a feature can't be deleted",
             "duplicateModel": "Model already exists: {{model}}",
+            "deleteModelConfirm": "Delete model \"{{model}}\"? It will be removed from the available models list and can no longer be used by related features.",
             "usageSentenceLearning": "Sentence explanation",
             "usageSubtitleTranslation": "Subtitle translation",
             "usageDictionary": "Dictionary"
