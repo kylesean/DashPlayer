@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
-import { useCallback, useEffect, useState } from 'react';
-import { BookOpenCheck, Check, Loader2, RotateCcw } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BookOpenCheck, Check, CornerUpLeft, Loader2, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
@@ -24,6 +24,7 @@ import {
 import { formatLearningDue } from './learningTime';
 import { useReviewDockStore } from './reviewDockStore';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
+import { usePlayer } from '@/fronted/features/player/playerStore';
 
 const RATING_STYLES: Record<ReviewRating, string> = {
     again: 'border-error/30 bg-error/5 text-error-text hover:bg-error/10',
@@ -222,10 +223,18 @@ export default function ReviewDock({
         rating: ReviewRating;
         dueAt: string;
     } | null>(null);
+    // 打开复习坞时记住当时的播放位置：复习是临时插入的动作，结束后应当能回到
+    // 刚才那句话，而不是让用户自己拖进度条找回来。
+    //
+    // 用 ref 存位置、用 state 只存「有没有可回去的位置」：effect 里同步 setState
+    // 会触发级联渲染，而 ref 的写入本来就是外部快照，不需要参与渲染。
+    const returnToSecRef = useRef<number | null>(null);
+    const [hasReturnPoint, setHasReturnPoint] = useState(false);
     const handlePopoverHide = useCallback(() => {
         setRevealedFor(null);
         setLastRated(null);
     }, []);
+
     const popover = usePopover({
         className: cn('w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden', CONTROL_POPOVER_PANEL),
         hasSurface: false,
@@ -233,6 +242,30 @@ export default function ReviewDock({
         dialogLabel: t('reviewDock.title'),
         onHide: handlePopoverHide,
     });
+
+    /**
+     * 打开复习坞并记住当前播放位置。
+     *
+     * 只在「未打开 → 打开」时记录：重复点击不该把位置刷成复习后的时间。
+     */
+    const openDock = useCallback(() => {
+        if (!popover.isOpen) {
+            returnToSecRef.current = usePlayer.getState().getExactPlayTime();
+            setHasReturnPoint(true);
+        }
+        popover.show();
+    }, [popover]);
+
+    /**
+     * 回到进入复习前的播放位置并关闭弹层。
+     */
+    const returnToPlayback = useCallback(() => {
+        const target = returnToSecRef.current;
+        if (target !== null) {
+            usePlayer.getState().seekToTarget({ time: target });
+        }
+        popover.hide();
+    }, [popover]);
 
     const { data, error, isLoading, mutate } = useSWR(
         REVIEW_QUEUE_SWR_KEY,
@@ -258,6 +291,8 @@ export default function ReviewDock({
         if (requestId > consumedId) {
             consumeRequest(requestId);
             if (!popover.isOpen) {
+                // 只在真正打开时记录一次；这里写 ref 不触发渲染。
+                returnToSecRef.current = usePlayer.getState().getExactPlayTime();
                 popover.show();
             }
         }
@@ -290,7 +325,7 @@ export default function ReviewDock({
                 <button
                     type="button"
                     ref={popover.triggerRef}
-                    onClick={popover.toggle}
+                    onClick={() => (popover.isOpen ? popover.hide() : openDock())}
                     {...popover.triggerProps}
                     data-testid="review-dock-trigger"
                     aria-label={t('reviewDock.trigger')}
@@ -371,6 +406,20 @@ export default function ReviewDock({
                                 })
                                 : t('reviewDock.emptyHint')}
                         </p>
+                    </div>
+                )}
+
+                {hasReturnPoint && (
+                    <div className="mt-2 flex justify-end px-1">
+                        <button
+                            type="button"
+                            data-testid="review-dock-return"
+                            onClick={returnToPlayback}
+                            className="flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-metadata text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground cursor-pointer"
+                        >
+                            <CornerUpLeft className="h-3 w-3" />
+                            {t('reviewDock.returnToPlayback')}
+                        </button>
                     </div>
                 )}
 

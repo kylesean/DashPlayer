@@ -325,7 +325,8 @@
         "dueInMinutes": "{{count}} 分钟后",
         "dueInHours": "{{count}} 小时后",
         "dueInDays": "{{count}} 天后",
-        "dueUnknown": "稍后"
+        "dueUnknown": "稍后",
+        "returnToPlayback": "回到刚才的播放位置"
     },
     "learningSummary": {
         "trigger": "本次学习",

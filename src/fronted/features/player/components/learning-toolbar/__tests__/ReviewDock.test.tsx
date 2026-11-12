@@ -6,6 +6,7 @@ import ReviewDock from '../ReviewDock';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import type { ReviewQueueVO } from '@/common/types/review';
 import { useReviewDockStore } from '../reviewDockStore';
+import { usePlayer } from '@/fronted/features/player/playerStore';
 
 vi.mock('swr', () => ({
     default: vi.fn(),
@@ -112,6 +113,28 @@ describe('ReviewDock', () => {
         // 该测试的 i18n mock 只返回 key，来源信息断言到 key 即可验证已渲染。
         expect(context.textContent).toContain('reviewDock.sourceVideo');
         expect(context.textContent).toContain('reviewDock.sourceSentence');
+    });
+
+    it('打开复习坞时记住播放位置，可一键回到该位置', () => {
+        mockSWR(queue);
+        const seekToTarget = vi.fn();
+        usePlayer.setState({ seekToTarget } as never);
+        const getExactPlayTime = vi.fn(() => 42.5);
+        usePlayer.setState({ getExactPlayTime } as never);
+        render(<ReviewDock tone="panel" popoverOffset={8} />);
+
+        fireEvent.click(screen.getByTestId('review-dock-trigger'));
+        fireEvent.click(screen.getByTestId('review-dock-return'));
+
+        expect(getExactPlayTime).toHaveBeenCalled();
+        expect(seekToTarget).toHaveBeenCalledWith({ time: 42.5 });
+    });
+
+    it('未打开过复习坞时不展示回到播放位置', () => {
+        mockSWR(queue);
+        render(<ReviewDock tone="panel" popoverOffset={8} />);
+
+        expect(screen.queryByTestId('review-dock-return')).toBeNull();
     });
 
     it('提交反馈后调用评分接口并刷新队列', async () => {

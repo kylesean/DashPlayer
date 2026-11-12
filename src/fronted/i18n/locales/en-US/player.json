@@ -325,7 +325,8 @@
         "dueInMinutes": "in {{count}} min",
         "dueInHours": "in {{count}} h",
         "dueInDays": "in {{count}} d",
-        "dueUnknown": "soon"
+        "dueUnknown": "soon",
+        "returnToPlayback": "Back to where I was"
     },
     "learningSummary": {
         "trigger": "This session",
