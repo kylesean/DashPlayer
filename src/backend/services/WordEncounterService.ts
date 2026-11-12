@@ -227,8 +227,8 @@ export class WordEncounterServiceImpl implements WordEncounterService {
         sentenceIndex?: number | null;
         context?: string | null;
     }): Promise<void> {
-        // 产出型练习的分数是 0–100；映射到练习证据的 0–1。
-        const normalized = Math.max(0, Math.min(1, params.score / 100));
+        // 产出型练习的分数与掌握度证据契约一致，都是 0–100。
+        const score = this.normalizeScore(params.score) ?? 0;
         const unique = Array.from(new Set(
             params.words.map((word) => word.trim().toLowerCase()).filter((word) => word.length > 0),
         ));
@@ -241,7 +241,7 @@ export class WordEncounterServiceImpl implements WordEncounterService {
             }
             const mastery = applyMasteryEvidence(this.masteryOf(existing), {
                 kind: 'practice',
-                score: normalized,
+                score,
             });
             const nextStatus = this.resolveNextStatus(existing.status, mastery.suggestedStatus);
             await this.wordsRepository.updateLearning(lemma, {
