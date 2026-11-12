@@ -326,7 +326,11 @@
         "dueInHours": "{{count}} 小时后",
         "dueInDays": "{{count}} 天后",
         "dueUnknown": "稍后",
-        "returnToPlayback": "回到刚才的播放位置"
+        "returnToPlayback": "回到刚才的播放位置",
+        "batchProgress": "第 {{done}} / {{total}} 张",
+        "batchDone": "这一组已完成 {{count}} 张",
+        "batchMoreDue": "还有 {{count}} 个到期词",
+        "batchNext": "继续下一组"
     },
     "learningSummary": {
         "trigger": "本次学习",

@@ -326,7 +326,11 @@
         "dueInHours": "in {{count}} h",
         "dueInDays": "in {{count}} d",
         "dueUnknown": "soon",
-        "returnToPlayback": "Back to where I was"
+        "returnToPlayback": "Back to where I was",
+        "batchProgress": "Card {{done}} of {{total}}",
+        "batchDone": "Finished {{count}} in this set",
+        "batchMoreDue": "{{count}} more due",
+        "batchNext": "Next set"
     },
     "learningSummary": {
         "trigger": "This session",

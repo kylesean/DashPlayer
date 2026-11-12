@@ -23,6 +23,7 @@ import {
 } from './toolbarStyles';
 import { formatLearningDue } from './learningTime';
 import { useReviewDockStore } from './reviewDockStore';
+import { selectReviewBatch } from './reviewBatch';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 
@@ -223,6 +224,13 @@ export default function ReviewDock({
         rating: ReviewRating;
         dueAt: string;
     } | null>(null);
+    /**
+     * 本组已复习的词。
+     *
+     * 分组的进度必须由「已经处理过什么」推导，而不是在打开时把队列拍成快照：
+     * 服务端评完一张就会重新排期，快照会留下一张点不动的幽灵卡。
+     */
+    const [reviewedWords, setReviewedWords] = useState<string[]>([]);
     // 打开复习坞时记住当时的播放位置：复习是临时插入的动作，结束后应当能回到
     // 刚才那句话，而不是让用户自己拖进度条找回来。
     //
@@ -233,6 +241,8 @@ export default function ReviewDock({
     const handlePopoverHide = useCallback(() => {
         setRevealedFor(null);
         setLastRated(null);
+        // 关闭即结束本组：下次打开从新的一组开始，不把上次的进度带过来。
+        setReviewedWords([]);
     }, []);
 
     const popover = usePopover({
@@ -281,7 +291,14 @@ export default function ReviewDock({
     const videoId = usePlaybackSession((state) => state.videoId);
     const fileHash = usePlaybackSession((state) => state.srtHash);
     const dueCount = data?.dueCount ?? 0;
-    const card = data?.items[0] ?? null;
+    /**
+     * 当前这一组的进度。
+     *
+     * 到期词可能远多于一组，这里只取前几张：一组是注意力单位，
+     * 用户做完一组就知道自己完成了一小段，而不是面对一条看不到头的队列。
+     */
+    const batch = selectReviewBatch(data?.items ?? [], reviewedWords);
+    const card = batch.card;
     const revealed = card !== null && revealedFor === card.word;
     const hasRetentionSample = (data?.stats.last7Days.reviewed ?? 0) > 0
         || (data?.stats.last30Days.reviewed ?? 0) > 0;
@@ -310,6 +327,7 @@ export default function ReviewDock({
                 rating,
                 dueAt: result.card.schedule.dueAt,
             });
+            setReviewedWords((words) => [...words, card.word]);
             setRevealedFor(null);
             await mutate();
         } catch (error) {
@@ -387,6 +405,20 @@ export default function ReviewDock({
                     </div>
                 ) : card ? (
                     <div className="px-1">
+                        <div className="mb-1.5 flex items-center justify-between gap-2 text-metadata text-muted-foreground">
+                            <span data-testid="review-batch-progress">
+                                {t('reviewDock.batchProgress', {
+                                    done: batch.done + 1,
+                                    total: batch.total,
+                                    defaultValue: '第 {{done}} / {{total}} 张',
+                                })}
+                            </span>
+                            <span className="font-mono tabular-nums">
+                                {dueCount}
+                                {' '}
+                                {t('reviewDock.dueWords')}
+                            </span>
+                        </div>
                         <ReviewCardBody
                             card={card}
                             revealed={revealed}
@@ -398,14 +430,36 @@ export default function ReviewDock({
                 ) : (
                     <div className="flex flex-col items-center gap-1.5 rounded-xl border border-border/60 bg-muted/20 px-4 py-6 text-center">
                         <Check className="h-5 w-5 text-success-text" />
-                        <p className="text-sm font-medium text-foreground">{t('reviewDock.emptyTitle')}</p>
-                        <p className="text-metadata leading-relaxed text-muted-foreground">
-                            {data?.nextDueAt
-                                ? t('reviewDock.nextDue', {
-                                    when: formatLearningDue(data.nextDueAt, i18n.language, t),
+                        <p className="text-sm font-medium text-foreground" data-testid="review-batch-done">
+                            {batch.done > 0
+                                ? t('reviewDock.batchDone', {
+                                    count: batch.done,
+                                    defaultValue: '这一组已完成 {{count}} 张',
                                 })
-                                : t('reviewDock.emptyHint')}
+                                : t('reviewDock.emptyTitle')}
                         </p>
+                        <p className="text-metadata leading-relaxed text-muted-foreground">
+                            {batch.isComplete && dueCount > 0
+                                ? t('reviewDock.batchMoreDue', {
+                                    count: dueCount,
+                                    defaultValue: '还有 {{count}} 个到期词',
+                                })
+                                : data?.nextDueAt
+                                    ? t('reviewDock.nextDue', {
+                                        when: formatLearningDue(data.nextDueAt, i18n.language, t),
+                                    })
+                                    : t('reviewDock.emptyHint')}
+                        </p>
+                        {batch.isComplete && dueCount > 0 && (
+                            <button
+                                type="button"
+                                data-testid="review-batch-next"
+                                onClick={() => setReviewedWords([])}
+                                className="mt-1 flex h-7 items-center gap-1.5 rounded-lg border border-border/60 px-2 text-sm text-foreground transition-colors hover:bg-muted/60 cursor-pointer"
+                            >
+                                {t('reviewDock.batchNext', { defaultValue: '继续下一组' })}
+                            </button>
+                        )}
                     </div>
                 )}
 

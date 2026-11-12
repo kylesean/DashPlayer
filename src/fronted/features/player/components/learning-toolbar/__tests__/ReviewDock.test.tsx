@@ -203,4 +203,53 @@ describe('ReviewDock', () => {
         fireEvent.click(screen.getByTestId('review-dock-trigger'));
         await waitFor(() => expect(useReviewDockStore.getState().consumedId).toBe(1));
     });
+
+    /**
+     * 计划要求到期词「以 3–5 个为一组」：一组做完要给明确的收束与继续入口，
+     * 而不是让用户面对一条看不到头的队列。
+     */
+    it('一组做完后给出收束文案与继续下一组的入口', async () => {
+        const manyCards: ReviewQueueVO = {
+            ...queue,
+            dueCount: 7,
+            items: ['a', 'b', 'c', 'd', 'e', 'f', 'g'].map((word, index) => ({
+                ...queue.items[0],
+                id: index + 1,
+                word,
+            })),
+        };
+        let current = manyCards;
+        const mutate = vi.fn(async () => undefined);
+        vi.mocked(useSWR).mockImplementation(() => ({
+            data: current,
+            error: null,
+            isLoading: false,
+            mutate,
+        } as unknown as ReturnType<typeof useSWR>));
+        vi.mocked(videoLearningApi.rateReview).mockImplementation(async (word) => {
+            // 服务端评完就把该词移出到期列表，这里如实模拟。
+            current = { ...current, items: current.items.filter((item) => item.word !== word) };
+            return {
+                card: { ...queue.items[0], word, schedule: { ...queue.items[0].schedule, state: 'learning' } },
+                status: 'learning',
+            };
+        });
+
+        render(<ReviewDock tone="panel" popoverOffset={8} />);
+        fireEvent.click(screen.getByTestId('review-dock-trigger'));
+
+        expect(screen.getByTestId('review-batch-progress')).toBeDefined();
+
+        for (let i = 0; i < 5; i += 1) {
+            fireEvent.click(screen.getByTestId('review-reveal'));
+            fireEvent.click(screen.getByTestId('review-rating-good'));
+            await waitFor(() => expect(videoLearningApi.rateReview).toHaveBeenCalledTimes(i + 1));
+        }
+
+        expect(screen.getByTestId('review-batch-done')).toBeDefined();
+        expect(screen.getByTestId('review-batch-next')).toBeDefined();
+
+        fireEvent.click(screen.getByTestId('review-batch-next'));
+        expect(screen.getByTestId('review-card-word').textContent).toBe('f');
+    });
 });
