@@ -306,6 +306,8 @@
     },
     "storage": {
         "title": "Storage",
+        "chooseLibraryFolder": "Choose media library folder",
+        "refreshUsage": "Refresh storage usage",
         "resetDatabase": "Reset Database",
         "resetSuccess": "Database reset successfully",
         "resetFailed": "Failed to reset the database",

@@ -141,7 +141,8 @@ const StorageUsageCard: React.FC<StorageUsageCardProps> = ({
                     )}
                 </HStack>
                 <IconButton
-                    label={t('storage.usage.title')}
+                    label={t('storage.refreshUsage')}
+                    tooltip={t('storage.refreshUsage')}
                     icon={<Icon icon={RefreshCw} size="sm" />}
                     variant="secondary"
                     size="sm"

@@ -306,6 +306,8 @@
     },
     "storage": {
         "title": "存储管理",
+        "chooseLibraryFolder": "选择媒体库目录",
+        "refreshUsage": "刷新存储用量",
         "resetDatabase": "重置数据库",
         "resetSuccess": "数据库已成功重置",
         "resetFailed": "数据库重置失败",

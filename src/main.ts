@@ -231,6 +231,9 @@ const createWindow = () => {
     const mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
+        // 学习页使用 480px 固定左栏，窗口过窄会把右栏挤到不可用。
+        minWidth: 1024,
+        minHeight: 640,
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             // 本地媒体改由 media:// 协议提供，同源策略不再需要关闭。

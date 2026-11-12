@@ -372,8 +372,8 @@ const StorageSetting: React.FC = () => {
                                 )}
                             />
                             <IconButton
-                                label={t('storage.libraryPathTitle')}
-                                tooltip={t('storage.libraryPathTitle')}
+                                label={t('storage.chooseLibraryFolder')}
+                                tooltip={t('storage.chooseLibraryFolder')}
                                 icon={<Icon icon={FolderOpen} size="sm" />}
                                 variant="secondary"
                                 size="sm"
