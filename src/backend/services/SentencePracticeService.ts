@@ -80,6 +80,15 @@ export default interface SentencePracticeService {
      * ffmpeg → 本地 ASR → 节奏分析管线，避免两套实现漂移。
      */
     transcribeOnce(params: SpeechTranscriptionParams): Promise<SpeechTranscriptionVO>;
+
+    /**
+     * 删除一批练习录音文件。
+     *
+     * 只处理调用方给出的相对路径；不整目录清空，避免误删用户尚未清理的数据。
+     * 单个文件删除失败只记日志，不向调用方抛错：清理是清除流程的收尾动作，
+     * 不能因为磁盘上一两个文件失败就让整次清除回滚。
+     */
+    removeRecordings(audioFiles: readonly string[]): Promise<void>;
 }
 
 /**
@@ -373,6 +382,48 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             });
             return null;
         }
+    }
+
+    public async removeRecordings(audioFiles: readonly string[]): Promise<void> {
+        if (audioFiles.length === 0) {
+            return;
+        }
+        const practiceRoot = await this.storageDirectoryProvider
+            .provideDirectory(StorageDirectoryTarget.PRACTICE)
+            .catch((error: unknown) => {
+                this.logger.warn('定位练习录音目录失败，跳过清理', {
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                return null;
+            });
+        if (!practiceRoot) {
+            return;
+        }
+        await Promise.allSettled(audioFiles.map(async (audioFile) => {
+            if (!this.isSafeRecordingPath(audioFile)) {
+                this.logger.warn('练习录音路径不合法，跳过清理', { audioFile });
+                return;
+            }
+            const audioAbs = path.join(practiceRoot, audioFile);
+            await this.fileSystemGateway.removeFileIfExists(audioAbs).catch((error: unknown) => {
+                this.logger.warn('删除练习录音失败', {
+                    audioFile,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            });
+            // 评分异常中断时可能残留派生的 WAV；一并清掉，失败同样不影响。
+            await this.fileSystemGateway.removeFileIfExists(`${audioAbs}.wav`).catch(() => undefined);
+        }));
+    }
+
+    /**
+     * 只接受 `fileHash/uuid.webm` 形式，拒绝绝对路径与 `..` 逃逸。
+     */
+    private isSafeRecordingPath(audioFile: string): boolean {
+        const segments = audioFile.split('/');
+        return segments.length === 2 && segments.every((segment) => (
+            SAFE_KEY_PATTERN.test(segment) && !DOT_ONLY_SEGMENT_PATTERN.test(segment)
+        ));
     }
 
     private async resolveAudioPath(audioFile: string): Promise<string> {

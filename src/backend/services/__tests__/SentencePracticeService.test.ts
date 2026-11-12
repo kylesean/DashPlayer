@@ -157,6 +157,34 @@ describe('句子练习服务', () => {
         });
     });
 
+    describe('录音清理', () => {
+        it('只删除给定录音及其派生 WAV', async () => {
+            const removeSpy = vi.spyOn(fsGateway, 'removeFileIfExists');
+            const target = `${FILE_HASH}/recording.webm`;
+            const targetAbs = path.join(practiceRoot, target);
+
+            await service.removeRecordings([target]);
+
+            expect(removeSpy).toHaveBeenCalledWith(targetAbs);
+            expect(removeSpy).toHaveBeenCalledWith(`${targetAbs}.wav`);
+        });
+
+        it('单个文件删除失败不会让清理整体失败', async () => {
+            const target = `${FILE_HASH}/locked.webm`;
+            vi.spyOn(fsGateway, 'removeFileIfExists').mockRejectedValueOnce(new Error('locked'));
+
+            await expect(service.removeRecordings([target])).resolves.toBeUndefined();
+        });
+
+        it('拒绝越界路径，不触碰文件系统', async () => {
+            const removeSpy = vi.spyOn(fsGateway, 'removeFileIfExists');
+
+            await service.removeRecordings(['../secret.webm', `${FILE_HASH}/../escape.webm`, '/abs.webm']);
+
+            expect(removeSpy).not.toHaveBeenCalled();
+        });
+    });
+
     describe('跟读评分', () => {
         it('录音转写后落库,录音文件随记录留存供回放', async () => {
             speechGateway.transcriptText = EXPECTED_TEXT;

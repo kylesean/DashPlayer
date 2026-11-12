@@ -54,13 +54,24 @@ const buildService = (memoryDb: MemoryDb) => {
     const subtitleService = {
         invalidateVocabularyAnalysisCache: vi.fn(),
     };
+    const sentencePracticeService = {
+        removeRecordings: vi.fn(async () => undefined),
+    };
     const service = new LearningDataServiceImpl(
         repository,
         new FileSystemGatewayImpl(),
         wordMatchService as never,
         subtitleService as never,
+        sentencePracticeService as never,
     );
-    return { service, repository, wordsRepository, wordMatchService, subtitleService };
+    return {
+        service,
+        repository,
+        wordsRepository,
+        wordMatchService,
+        subtitleService,
+        sentencePracticeService,
+    };
 };
 
 /**
@@ -705,9 +716,9 @@ describe('LearningDataService 导出与清除', () => {
         }
     });
 
-    it('清除学习记录会删除事件与复习卡，但保留词表、释义与用户状态', async () => {
+    it('清除学习记录会删除事件与复习卡，并把用户词重置为 learning/manual', async () => {
         memoryDb = createMemoryDb();
-        const { service } = buildService(memoryDb);
+        const { service, sentencePracticeService } = buildService(memoryDb);
         const now = new Date().toISOString();
         await seedWords(memoryDb, [
             { word: 'journey', translate: '旅程', status: 'known', source: 'manual', mastery: 1, confidence: 1, masteredAt: now },
@@ -730,6 +741,7 @@ describe('LearningDataService 导出与清除', () => {
             sentence_index: 0,
             mode: 'shadowing',
             score: 90,
+            audio_file: 'subtitle-1/recording.webm',
         });
         await memoryDb.db.insert(productionPracticeRecord).values({
             mode: 'retell',
@@ -754,7 +766,7 @@ describe('LearningDataService 导出与清除', () => {
             reviewCardsDeleted: 1,
             recommendationsDeleted: 1,
             rolePlayTurnsDeleted: 1,
-            wordsReset: 2,
+            wordsReset: 1,
         });
         expect(await memoryDb.db.select().from(wordEncounter)).toHaveLength(0);
         expect(await memoryDb.db.select().from(reviewCard)).toHaveLength(0);
@@ -762,12 +774,14 @@ describe('LearningDataService 导出与清除', () => {
         expect(await memoryDb.db.select().from(sentencePracticeRecord)).toHaveLength(0);
         expect(await memoryDb.db.select().from(productionPracticeRecord)).toHaveLength(0);
         expect(await memoryDb.db.select().from(rolePlayTurn)).toHaveLength(0);
+        expect(sentencePracticeService.removeRecordings).toHaveBeenCalledWith(['subtitle-1/recording.webm']);
         const remaining = await memoryDb.db.select().from(words);
         expect(remaining).toHaveLength(2);
         expect(remaining.find((word) => word.word === 'journey')).toMatchObject({
             word: 'journey',
             translate: '旅程',
-            status: 'known',
+            status: 'learning',
+            source: 'manual',
             mastery: 0,
             confidence: 0,
             last_seen_at: null,
@@ -776,6 +790,20 @@ describe('LearningDataService 导出与清除', () => {
         expect(remaining.find((word) => word.word === 'the')).toMatchObject({
             status: 'learning',
             source: 'default',
+        });
+    });
+
+    it('录音清理失败不会让清除流程失败', async () => {
+        memoryDb = createMemoryDb();
+        const { service, sentencePracticeService } = buildService(memoryDb);
+        sentencePracticeService.removeRecordings.mockRejectedValueOnce(new Error('disk busy'));
+
+        await expect(service.resetLearningData()).resolves.toMatchObject({
+            encountersDeleted: 0,
+            reviewCardsDeleted: 0,
+            recommendationsDeleted: 0,
+            rolePlayTurnsDeleted: 0,
+            wordsReset: 0,
         });
     });
 });

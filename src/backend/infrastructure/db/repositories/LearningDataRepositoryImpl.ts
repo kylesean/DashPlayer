@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, ne, or, sql } from 'drizzle-orm';
 import { inject, injectable } from 'inversify';
 
 import type { Db } from '@/backend/infrastructure/db/createDb';
@@ -200,6 +200,16 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             .orderBy(asc(productionPracticeRecord.id));
     }
 
+    public async listPracticeAudioFiles(): Promise<string[]> {
+        const rows = await this.db
+            .select({ audioFile: sentencePracticeRecord.audio_file })
+            .from(sentencePracticeRecord)
+            .where(isNotNull(sentencePracticeRecord.audio_file));
+        return rows
+            .map((row) => row.audioFile)
+            .filter((audioFile): audioFile is string => typeof audioFile === 'string' && audioFile.length > 0);
+    }
+
     public async listRolePlayTurns(): Promise<RolePlayTurn[]> {
         return this.db
             .select()
@@ -223,13 +233,17 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             tx.delete(sentencePracticeRecord).run();
             tx.delete(productionPracticeRecord).run();
             const rolePlayTurns = tx.delete(rolePlayTurn).run();
+            // 只重置用户自己的词：内置词（source=default）带着产品词标记，
+            // 把它们改成 manual 会让内置词混进用户词表，之后导出/清除都失真。
             const updatedWords = tx.update(words).set({
+                status: 'learning',
+                source: 'manual',
                 mastery: 0,
                 confidence: 0,
                 last_seen_at: null,
                 mastered_at: null,
                 updated_at: now,
-            }).run();
+            }).where(ne(words.source, 'default')).run();
             return {
                 encountersDeleted: Number(encounters.changes),
                 reviewCardsDeleted: Number(cards.changes),

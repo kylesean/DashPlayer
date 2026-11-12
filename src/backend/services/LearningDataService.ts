@@ -4,6 +4,7 @@ import TYPES from '@/backend/ioc/types';
 import type { Word } from '@/backend/infrastructure/db/tables/words';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type LearningDataRepository from '@/backend/services/repositories/LearningDataRepository';
+import type SentencePracticeService from '@/backend/services/SentencePracticeService';
 import type { WordMatchService } from '@/backend/services/WordMatchService';
 import type SubtitleService from '@/backend/services/SubtitleService';
 import {
@@ -102,6 +103,7 @@ export class LearningDataServiceImpl implements LearningDataService {
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
         @inject(TYPES.WordMatchService) private readonly wordMatchService: WordMatchService,
         @inject(TYPES.SubtitleService) private readonly subtitleService: SubtitleService,
+        @inject(TYPES.SentencePracticeService) private readonly sentencePracticeService: SentencePracticeService,
     ) {}
 
     /**
@@ -355,7 +357,17 @@ export class LearningDataServiceImpl implements LearningDataService {
     }
 
     public async resetLearningData(): Promise<LearningDataResetResultVO> {
+        // 先记下被练习记录引用的录音，再清库；这样只删有主文件，
+        // 不会整目录清空误伤用户从备份恢复但尚未入库的音频。
+        const audioFiles = await this.repository.listPracticeAudioFiles().catch(() => []);
         const result = await this.repository.resetLearningData();
+        // 录音清理是收尾动作：失败不能把已完成的清除变成失败。
+        // 具体文件删除失败由 SentencePracticeService 内部兜底。
+        try {
+            await this.sentencePracticeService.removeRecordings(audioFiles);
+        } catch {
+            // 清理失败不影响学习数据已经清除的结果。
+        }
         this.invalidateVocabularyDerivedCaches();
         return result;
     }

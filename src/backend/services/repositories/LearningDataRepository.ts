@@ -77,7 +77,7 @@ export default interface LearningDataRepository {
     /**
      * 查询某时间之后的复习事件，带上 lemma 与评级。
      *
-     * 北极星指标要按「词」去重，而 `listReviewOutcomesSince` 只返回评级与分数，
+     * 成功回忆指标要按「词」去重，而 `listReviewOutcomesSince` 只返回评级与分数，
      * 无法区分是不是同一个词，因此单独提供带 lemma 的窗口查询。
      */
     listReviewEventsSince(since: string): Promise<ReviewEventRow[]>;
@@ -104,6 +104,9 @@ export default interface LearningDataRepository {
 
     /** 读取全部角色扮演轮次，用于可移植导出。 */
     listRolePlayTurns(): Promise<RolePlayTurn[]>;
+
+    /** 读取被练习记录引用的录音相对路径，供清除后定向清理。 */
+    listPracticeAudioFiles(): Promise<string[]>;
 
     /**
      * 删除遭遇事件、复习卡、推荐事件、练习记录与角色扮演轮次，并重置词条掌握字段。
