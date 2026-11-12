@@ -34,6 +34,7 @@ import AiFuncController from '../AiFuncController';
 import AiTransController from '../AiTransController';
 import ChatStreamController from '../ChatStreamController';
 import ContentCompassController from '../ContentCompassController';
+import ContextStudioController from '../ContextStudioController';
 import DictionaryImportController from '../DictionaryImportController';
 import DpTaskController from '../DpTaskController';
 import EnglishDictionaryController from '../EnglishDictionaryController';
@@ -69,6 +70,7 @@ function registerAllControllers(): void {
     new AiTransController(stub(), stub(), stub()).registerRoutes();
     new ChatStreamController(stub(), stub(), stub(), stub(), stub()).registerRoutes();
     new ContentCompassController(stub()).registerRoutes();
+    new ContextStudioController(stub()).registerRoutes();
     new DictionaryImportController(stub(), stub()).registerRoutes();
     new DpTaskController(stub()).registerRoutes();
     new EnglishDictionaryController(stub()).registerRoutes();
