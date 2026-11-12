@@ -1,12 +1,15 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download } from 'lucide-react';
-import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { Download, X } from 'lucide-react';
+import { Dialog } from '@astryxdesign/core/Dialog';
 import { Button } from '@astryxdesign/core/Button';
 import { TextInput } from '@astryxdesign/core/TextInput';
+import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
-import { StackItem } from '@astryxdesign/core/Stack';
-import useYoutubeImportTasks from './useYoutubeImportTasks';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { parseYoutubeVideoId } from '@/common/utils/youtubeUrl';
+import useYoutubeImportUi from './youtubeImportUiStore';
 import YoutubeImportTaskRow from './YoutubeImportTaskRow';
 
 interface YoutubeImportDialogProps {
@@ -17,16 +20,21 @@ interface YoutubeImportDialogProps {
 }
 
 /**
- * YouTube 链接导入弹窗：粘贴地址发起下载，实时展示任务进度，
- * 登记的全部任务结束后自动跳转最近一个成功入库的视频。
+ * YouTube 链接导入弹窗：粘贴地址发起「下载并导入」，实时展示任务进度，
+ * 任务结束后由任务行显式「去播放」进入播放页（不做自动跳转）。
  */
 const YoutubeImportDialog = ({ open, onOpenChange }: YoutubeImportDialogProps) => {
     const { t } = useTranslation('youtubeImport');
-    const { url, setUrl, submitting, taskIds, startImport, playVideo } = useYoutubeImportTasks({
-        // 弹窗关闭后任务才结束（或用户已手动跳转）时不再自动跳转。
-        canAutoJump: () => open,
-        onBeforeJump: () => onOpenChange(false),
-    });
+    const url = useYoutubeImportUi((s) => s.url);
+    const setUrl = useYoutubeImportUi((s) => s.setUrl);
+    const submitting = useYoutubeImportUi((s) => s.submitting);
+    const tasks = useYoutubeImportUi((s) => s.tasks);
+    const startImport = useYoutubeImportUi((s) => s.startImport);
+
+    const videoId = parseYoutubeVideoId(url);
+    const isInvalid = url.trim().length > 0 && !videoId;
+    const canSubmit = Boolean(videoId) && !submitting;
+    const titleId = useId();
 
     return (
         <Dialog
@@ -35,43 +43,60 @@ const YoutubeImportDialog = ({ open, onOpenChange }: YoutubeImportDialogProps) =
             purpose="form"
             width={520}
             padding={4}
+            aria-labelledby={titleId}
         >
-            <DialogHeader
-                title={t('dialog.title')}
-                subtitle={t('dialog.description')}
-                onOpenChange={onOpenChange}
-            />
             <VStack gap={4} width="100%">
-                <HStack vAlign="center" gap={2} width="100%">
-                    <StackItem size="fill">
-                        <TextInput
-                            label={t('dialog.placeholder')}
-                            isLabelHidden
-                            value={url}
-                            onChange={(val) => setUrl(val)}
-                            placeholder={t('dialog.placeholder')}
-                            onEnter={() => void startImport()}
-                            type="url"
-                            width="100%"
+                <VStack gap={1} width="100%">
+                    <HStack hAlign="between" vAlign="start" gap={2} width="100%">
+                        <Text as="h2" id={titleId} type="large" size="2xl" weight="bold">
+                            {t('dialog.title')}
+                        </Text>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            isIconOnly
+                            label={t('dialog.close')}
+                            icon={<Icon icon={X as unknown as IconType} size="sm" />}
+                            onClick={() => onOpenChange(false)}
                         />
-                    </StackItem>
-                    <Button
-                        label={t('dialog.start')}
-                        variant="primary"
-                        icon={<Download className="h-4 w-4" />}
-                        isLoading={submitting}
-                        isDisabled={!url.trim()}
-                        onClick={() => void startImport()}
+                    </HStack>
+                    <Text type="supporting" color="secondary">
+                        {t('dialog.description')}
+                    </Text>
+                </VStack>
+                <VStack gap={2} width="100%">
+                    <TextInput
+                        label={t('dialog.urlLabel')}
+                        description={t('dialog.urlHelp')}
+                        value={url}
+                        onChange={(val) => setUrl(val)}
+                        placeholder={t('dialog.placeholder')}
+                        onEnter={() => {
+                            if (canSubmit) void startImport();
+                        }}
+                        type="url"
+                        width="100%"
+                        hasClear
+                        hasAutoFocus
+                        status={isInvalid
+                            ? { type: 'error', message: t('dialog.invalidUrl') }
+                            : undefined}
                     />
-                </HStack>
-                {taskIds.length > 0 && (
+                    <HStack hAlign="end">
+                        <Button
+                            label={t('dialog.start')}
+                            variant="primary"
+                            icon={<Icon icon={Download as unknown as IconType} size="sm" />}
+                            isLoading={submitting}
+                            isDisabled={!canSubmit}
+                            onClick={() => void startImport()}
+                        />
+                    </HStack>
+                </VStack>
+                {tasks.length > 0 && (
                     <VStack gap={2} isScrollable className="max-h-72">
-                        {taskIds.map((taskId) => (
-                            <YoutubeImportTaskRow
-                                key={taskId}
-                                taskId={taskId}
-                                onPlay={(result) => void playVideo(result)}
-                            />
+                        {tasks.map((entry) => (
+                            <YoutubeImportTaskRow key={entry.taskId} entry={entry} />
                         ))}
                     </VStack>
                 )}

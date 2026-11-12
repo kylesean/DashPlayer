@@ -10,19 +10,21 @@ import { Heading } from '@astryxdesign/core/Heading';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
-import { StackItem } from '@astryxdesign/core/Stack';
 import { Divider } from '@astryxdesign/core/Divider';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import FolderSelector, { FolderSelectAction } from '@/fronted/features/file-browser/components/FolderSelector';
 import FileSelector, { FileAction } from '@/fronted/features/file-browser/components/FileSelector';
 import useLayout from '@/fronted/app/stores/layoutStore';
+import { parseYoutubeVideoId } from '@/common/utils/youtubeUrl';
 import { youtubeImportApi } from './youtubeImportApi';
-import useYoutubeImportTasks from './useYoutubeImportTasks';
+import useYoutubeImportUi from './youtubeImportUiStore';
 import YoutubeImportTaskRow from './YoutubeImportTaskRow';
 
 /**
- * 无播放历史时的主视觉：YouTube 链接导入是一等入口，粘贴即导入、完成自动跳转播放；
- * 本地文件选择降级为次要路径。功能开关关闭时回退为旧版本地文件空状态。
+ * 无播放历史时的主视觉：YouTube 链接导入是一等入口，粘贴即下载导入、
+ * 完成后在任务行「去播放」；本地文件选择降级为次要路径。
+ * 功能开关关闭时回退为旧版本地文件空状态。
  */
 const YoutubeImportHero = () => {
     const { t } = useTranslation('youtubeImport');
@@ -34,7 +36,15 @@ const YoutubeImportHero = () => {
         onError: () => toast.error(t('settings.loadFailed'), { id: 'youtube-import-setting' }),
     });
     const ytEnabled = setting?.enabled ?? false;
-    const { url, setUrl, submitting, taskIds, startImport, playVideo } = useYoutubeImportTasks();
+    const url = useYoutubeImportUi((s) => s.url);
+    const setUrl = useYoutubeImportUi((s) => s.setUrl);
+    const submitting = useYoutubeImportUi((s) => s.submitting);
+    const tasks = useYoutubeImportUi((s) => s.tasks);
+    const startImport = useYoutubeImportUi((s) => s.startImport);
+
+    const videoId = parseYoutubeVideoId(url);
+    const isInvalid = url.trim().length > 0 && !videoId;
+    const canSubmit = Boolean(videoId) && !submitting;
 
     const localSelectors = (
         <HStack vAlign="center" hAlign="center" gap={3} width="100%">
@@ -61,7 +71,7 @@ const YoutubeImportHero = () => {
                     height={64}
                     className="rounded-3xl bg-accent-muted text-accent shadow-xs mb-2"
                 >
-                    <PlayCircle className="h-8 w-8 stroke-[1.75]" />
+                    <PlayCircle style={{ width: 32, height: 32 }} strokeWidth={1.75} />
                 </Center>
                 <Heading level={2} justify="center">
                     {tc('emptyWatchTitle')}
@@ -81,7 +91,7 @@ const YoutubeImportHero = () => {
                 height={64}
                 className="rounded-3xl bg-accent-muted text-accent shadow-xs mb-2"
             >
-                <Clapperboard className="h-8 w-8 stroke-[1.75]" />
+                <Clapperboard style={{ width: 32, height: 32 }} strokeWidth={1.75} />
             </Center>
             <Heading level={2} justify="center">
                 {t('hero.title')}
@@ -90,39 +100,42 @@ const YoutubeImportHero = () => {
                 {t('hero.description')}
             </Text>
 
-            <HStack vAlign="center" gap={2} width="100%">
-                <StackItem size="fill">
-                    <TextInput
-                        label={t('dialog.placeholder')}
-                        isLabelHidden
-                        value={url}
-                        onChange={(val) => setUrl(val)}
-                        placeholder={t('dialog.placeholder')}
-                        onEnter={() => void startImport()}
-                        type="url"
-                        width="100%"
-                        size="lg"
-                    />
-                </StackItem>
-                <Button
-                    label={t('hero.start')}
-                    variant="primary"
+            <VStack gap={2} width="100%">
+                <TextInput
+                    label={t('dialog.urlLabel')}
+                    description={t('dialog.urlHelp')}
+                    value={url}
+                    onChange={(val) => setUrl(val)}
+                    placeholder={t('dialog.placeholder')}
+                    onEnter={() => {
+                        if (canSubmit) void startImport();
+                    }}
+                    type="url"
+                    width="100%"
                     size="lg"
-                    icon={<Download className="h-4 w-4" />}
-                    isLoading={submitting}
-                    isDisabled={!url.trim()}
-                    onClick={() => void startImport()}
+                    hasClear
+                    hasAutoFocus
+                    status={isInvalid
+                        ? { type: 'error', message: t('dialog.invalidUrl') }
+                        : undefined}
                 />
-            </HStack>
+                <HStack hAlign="end">
+                    <Button
+                        label={t('hero.start')}
+                        variant="primary"
+                        size="lg"
+                        icon={<Icon icon={Download as unknown as IconType} size="sm" />}
+                        isLoading={submitting}
+                        isDisabled={!canSubmit}
+                        onClick={() => void startImport()}
+                    />
+                </HStack>
+            </VStack>
 
-            {taskIds.length > 0 && (
+            {tasks.length > 0 && (
                 <VStack gap={2} width="100%" isScrollable className="max-h-72 mt-2">
-                    {taskIds.map((taskId) => (
-                        <YoutubeImportTaskRow
-                            key={taskId}
-                            taskId={taskId}
-                            onPlay={(result) => void playVideo(result)}
-                        />
+                    {tasks.map((entry) => (
+                        <YoutubeImportTaskRow key={entry.taskId} entry={entry} />
                     ))}
                 </VStack>
             )}
