@@ -41,6 +41,7 @@ export default class WordEncounterRepositoryImpl implements WordEncounterReposit
             .select({
                 rating: wordEncounter.rating,
                 score: wordEncounter.score,
+                createdAt: wordEncounter.created_at,
             })
             .from(wordEncounter)
             .where(and(

@@ -8,6 +8,8 @@ import type { WordEncounterAction } from '@/common/types/vocabulary';
 export interface ReviewOutcome {
     rating: ReviewRating | null;
     score: number | null;
+    /** 复习发生时间；推荐归因需要它判断复习是否晚于推荐。 */
+    createdAt: string;
 }
 
 /**

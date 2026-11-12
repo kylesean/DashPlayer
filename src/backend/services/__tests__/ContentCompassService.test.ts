@@ -490,6 +490,42 @@ My grandmother baked a lemon cake in the kitchen.
         expect(events).toHaveLength(6);
     });
 
+    it('只有复习晚于推荐进入复习时间才记为回忆', async () => {
+        harness = await buildHarness();
+        const base = new Date();
+        base.setUTCDate(base.getUTCDate() - 1);
+        base.setUTCHours(12, 0, 0, 0);
+        const at = (offsetMinutes: number): string =>
+            new Date(base.getTime() + offsetMinutes * 60_000).toISOString();
+
+        await harness.memoryDb.db.insert(recommendationEvent).values([
+            { video_id: 'video-1', action: 'shown', created_at: at(-120) },
+            { video_id: 'video-1', action: 'opened', created_at: at(-60) },
+            { video_id: 'video-1', action: 'reviewed', created_at: at(0) },
+        ]);
+        await harness.memoryDb.db.insert(wordEncounter).values({
+            word: 'journey',
+            lemma: 'journey',
+            action: 'review',
+            rating: 'good',
+            created_at: at(-30),
+        });
+
+        const before = await harness.service.getAttribution({ days: 7 });
+        expect(before.overall.counts.recalled).toBe(0);
+
+        await harness.memoryDb.db.insert(wordEncounter).values({
+            word: 'journey',
+            lemma: 'journey',
+            action: 'review',
+            rating: 'easy',
+            created_at: at(30),
+        });
+
+        const after = await harness.service.getAttribution({ days: 7 });
+        expect(after.overall.counts.recalled).toBe(1);
+    });
+
     it('推荐比率只统计同一曝光样本，重复动作不会把比率推过 100%', async () => {
         harness = await buildHarness();
         await harness.service.recordEvent({ videoId: 'video-1', action: 'shown', reasonCode: 'due_review' });

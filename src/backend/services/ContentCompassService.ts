@@ -25,7 +25,6 @@ import {
 } from '@/common/learning/contentCompass';
 import { isContentLemma } from '@/common/learning/contentWords';
 import {
-    adjustWeightsFromAttribution,
     buildAttribution,
     DEFAULT_COMPASS_WEIGHTS,
     type AttributionRecord,
@@ -394,20 +393,20 @@ export class ContentCompassServiceImpl implements ContentCompassService {
             byKey.set(key, existing);
         }
 
-        // 复习结果只用来判断「这条推荐链最终有没有带来一次成功回忆」。
-        // 现有事件表不带复习结果的时间戳与来源归因，因此只有「推荐之后确实
-        // 发生过成功回忆」这一个窗口级事实可用；把它当作链路闭环的依据，
-        // 而不是声称某个具体词被这条推荐记住了。
-        const successfulReviewCount = outcomes.filter((outcome) =>
-            outcome.rating === 'good' || outcome.rating === 'easy',
-        ).length;
+        // 现有事件表不带词级到期信息，只有「推荐之后确实发生过成功回忆」
+        // 这一个窗口级事实可用。至少要求成功复习时间晚于推荐进入复习的时间：
+        // 点击去复习之前完成的复习不能再算作这条推荐链的转化。
+        const successfulReviewTimes = outcomes
+            .filter((outcome) => outcome.rating === 'good' || outcome.rating === 'easy')
+            .map((outcome) => outcome.createdAt)
+            .sort();
         const records = Array.from(byKey.values());
-        if (successfulReviewCount > 0) {
-            for (const record of records) {
-                if (record.reviewedAt) {
-                    record.recalledAt = record.reviewedAt;
-                }
+        for (const record of records) {
+            const reviewedAt = record.reviewedAt;
+            if (!reviewedAt) {
+                continue;
             }
+            record.recalledAt = successfulReviewTimes.find((at) => at >= reviewedAt) ?? null;
         }
         return records;
     }
@@ -415,19 +414,12 @@ export class ContentCompassServiceImpl implements ContentCompassService {
     /**
      * 当前排序权重。
      *
-     * 没有足够归因样本时返回默认权重；有样本时按实测转化微调。
-     * 权重不落库：它完全由本地事件推导，重算即可，不需要迁移或同步。
+     * 词级归因（recommendation_event 尚未记录到词）落地前，窗口级 recalled
+     * 不足以支撑自动调权，先固定默认权重，避免把噪声放大。权重不落库，
+     * 后续恢复自校准也不需要迁移。
      */
-    private async resolveWeights(): Promise<CompassWeights> {
-        try {
-            const attribution = buildAttribution(await this.loadAttributionRecords());
-            return adjustWeightsFromAttribution(attribution, DEFAULT_COMPASS_WEIGHTS);
-        } catch (error) {
-            this.logger.warn('failed to adjust compass weights, falling back to defaults', {
-                error: this.errorMessage(error),
-            });
-            return { ...DEFAULT_COMPASS_WEIGHTS };
-        }
+    private resolveWeights(): Promise<CompassWeights> {
+        return Promise.resolve({ ...DEFAULT_COMPASS_WEIGHTS });
     }
 
     /**

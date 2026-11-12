@@ -134,6 +134,7 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
             .select({
                 rating: wordEncounter.rating,
                 score: wordEncounter.score,
+                createdAt: wordEncounter.created_at,
             })
             .from(wordEncounter)
             .where(and(
