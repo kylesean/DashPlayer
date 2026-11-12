@@ -35,5 +35,5 @@ export type LearningMessageView = {
     blocks: LearningMessageBlock[];
 };
 
-/** 句子解析的生命周期状态。 */
-export type AnalysisStatus = 'idle' | 'streaming' | 'done' | 'error';
+/** 句子解析的生命周期状态。aborted = 被用户中止：半成品卡片保留展示，可重新生成。 */
+export type AnalysisStatus = 'idle' | 'streaming' | 'done' | 'error' | 'aborted';

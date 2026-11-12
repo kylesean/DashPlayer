@@ -83,6 +83,11 @@ export default class ChatStreamController implements Controller {
             return this.chatSessionService.startAnalysis(params);
         }, { schema: analysisStartSchema });
 
+        // 只中止精读分析 run：用户停止聊天回复不应误杀同会话的分析流，反之亦然。
+        registerRoute('chat/analysis/stop', async (params: ChatSessionStopParams): Promise<void> => {
+            this.chatSessionService.stopAnalysis(params.sessionId);
+        }, { schema: chatSessionStopSchema });
+
         registerRoute('chat/complete-sentence', async (
             params: CompleteSentenceParams,
         ): Promise<CompleteSentenceResult> => {

@@ -10,6 +10,7 @@ import {
     BookOpenCheck,
     ChevronDown,
     ChevronUp,
+    CircleStop,
     Ear,
     Eye,
     EyeOff,
@@ -54,6 +55,7 @@ export interface SentenceStudyCanvasProps {
     onSpeak: (text: string) => void;
     onPlayOriginal: (rate?: number) => void;
     onRequestAnalysis: () => void;
+    onStopAnalysis: () => void;
     onDeepDiveExpression: (expression: string) => void;
     miniVideoCollapsed: boolean;
     onToggleMiniCollapsed: () => void;
@@ -99,6 +101,7 @@ export default function SentenceStudyCanvas({
     onSpeak,
     onPlayOriginal,
     onRequestAnalysis,
+    onStopAnalysis,
     onDeepDiveExpression,
     miniVideoCollapsed,
     onToggleMiniCollapsed,
@@ -330,6 +333,16 @@ export default function SentenceStudyCanvas({
                                 )}
                             </HStack>
 
+                            {sessionReady && cloudAvailable && analysisStatus === 'streaming' && (
+                                <IconButton
+                                    label={t('learning.stopAnalysis')}
+                                    tooltip={t('learning.stopAnalysis')}
+                                    icon={<CircleStop className="h-3.5 w-3.5" />}
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={onStopAnalysis}
+                                />
+                            )}
                             {sessionReady && cloudAvailable && analysisStatus !== 'streaming' && (
                                 <IconButton
                                     label={analysisStatus === 'done' ? t('learning.regenerateCard') : t('learning.generateCardNow')}
@@ -351,6 +364,26 @@ export default function SentenceStudyCanvas({
                                         variant="secondary"
                                         size="sm"
                                         icon={<BookOpenCheck className="h-3.5 w-3.5 text-accent" />}
+                                        onClick={onRequestAnalysis}
+                                    />
+                                )}
+                            </div>
+                        )}
+
+                        {analysisStatus === 'aborted' && (
+                            <div className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/40 p-2.5 text-sm text-muted-foreground">
+                                <span>
+                                    {t('learning.analysisAborted')}
+                                    {focalPoints.length > 0 || structureInsight
+                                        ? t('learning.analysisAbortedPartial')
+                                        : ''}
+                                </span>
+                                {sessionReady && cloudAvailable && (
+                                    <Button
+                                        label={t('learning.regenerateCard')}
+                                        size="sm"
+                                        variant="secondary"
+                                        icon={<RefreshCw className="h-3.5 w-3.5" />}
                                         onClick={onRequestAnalysis}
                                     />
                                 )}

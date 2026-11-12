@@ -294,6 +294,7 @@ interface ChatDef {
 
 interface ChatAnalysisDef {
     'chat/analysis/start': { params: AnalysisStartParams, return: AnalysisStartResult };
+    'chat/analysis/stop': { params: ChatSessionStopParams, return: void };
 }
 
 interface WatchHistoryDef {
@@ -766,6 +767,7 @@ export const API_ROUTE_KEYS = [
     'ai-trans/word',
     'ai-trans/word-insight',
     'chat/analysis/start',
+    'chat/analysis/stop',
     'chat/complete-sentence',
     'chat/learning/available',
     'chat/prompt-presets/list',

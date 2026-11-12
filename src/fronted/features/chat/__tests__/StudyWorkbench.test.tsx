@@ -154,6 +154,7 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
                         onSpeak={noop}
                         onPlayOriginal={onPlayOriginal}
                         onRequestAnalysis={noop}
+                        onStopAnalysis={noop}
                         onDeepDiveExpression={onDeepDive}
                         miniVideoCollapsed={false}
                         onToggleMiniCollapsed={noop}

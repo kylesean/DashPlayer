@@ -34,6 +34,8 @@ export const chatApi = {
     startAnalysis: (params: AnalysisStartParams): Promise<AnalysisStartResult> =>
         backendClient.call('chat/analysis/start', params),
 
+    stopAnalysis: (sessionId: string) => backendClient.call('chat/analysis/stop', { sessionId }),
+
     pickSentenceVocabulary: (text: string) => backendClient.call('vocabulary/pick-sentence', { text }),
 
     completeSentence: (params: CompleteSentenceParams): Promise<CompleteSentenceResult> =>

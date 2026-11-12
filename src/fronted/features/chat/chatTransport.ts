@@ -95,6 +95,9 @@ export class ElectronChatTransport<CHAT_MESSAGE extends UIMessage = UIMessage>
                     detachStream(sessionId);
                     chatApi.stopSession(sessionId).catch(() => undefined);
                 };
+                // 同会话重发时先摘掉旧登记：直接 set 覆盖会丢失旧条的 abort 监听器引用，
+                // 造成监听器泄漏（旧流终止后无人调用 removeAbortListener）。
+                detachStream(sessionId);
                 options.abortSignal?.addEventListener('abort', abort, { once: true });
                 activeStreams.set(sessionId, {
                     controller,

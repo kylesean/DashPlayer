@@ -45,10 +45,10 @@ export type ChatPanelState = {
     anchorFileHash: string | null;
     conversationEpoch: number;
     topicKey: string | null;
-    /** 统一精读首卡（SentenceStudyCard）及其流式分片；idle/streaming/done/error */
+    /** 统一精读首卡（SentenceStudyCard）及其流式分片；idle/streaming/done/error/aborted */
     analysis: DeepPartial<SentenceStudyCard> | null;
     analysisMessageId: string | null;
-    analysisStatus: 'idle' | 'streaming' | 'done' | 'error';
+    analysisStatus: 'idle' | 'streaming' | 'done' | 'error' | 'aborted';
     analysisError: string | null;
     /** 个人学习者记忆提示（随本地选词产出，注入后台首卡生成） */
     memoryHints: SentenceMemoryHints | null;
@@ -85,6 +85,8 @@ export type ChatPanelActions = {
     sent: (msg: string) => void;
     receiveAnalysisStream: (event: AnalysisStreamEvent) => void;
     startAnalysis: () => Promise<void>;
+    /** 中止当前精读分析流（只停 analysis run，不影响聊天回复流）。 */
+    stopAnalysis: () => Promise<void>;
     setNoteSummary: (noteSummary: string) => void;
     saveNoteSummary: (summary?: string) => Promise<void>;
     appendToNoteSummary: (snippet: string) => Promise<void>;
@@ -224,7 +226,10 @@ const isCloudLearningAvailable = async (): Promise<boolean> => {
     }
 };
 
-let sessionCreationInFlight = false;
+// 会话创建的在途令牌：0 表示空闲，>0 是在途创建的代数。
+// clear() 把令牌清零即可让并发创建放行；旧创建完成时发现令牌易主就丢弃结果并关闭会话，
+// 不再像布尔标志那样「clear 强行复位 → 新旧创建并发」。
+let sessionCreationToken = 0;
 let analysisStreamChunkCount = 0;
 let learningEntryInFlight = false;
 let learningCloseRequested = false;
@@ -254,7 +259,7 @@ const startSessionForTopic = async (
     if (expectedEpoch !== learningRequestEpoch) {
         return null;
     }
-    if (sessionCreationInFlight) {
+    if (sessionCreationToken !== 0) {
         chatLogger.warn('忽略重复的整句学习会话创建请求');
         return null;
     }
@@ -268,7 +273,8 @@ const startSessionForTopic = async (
         .filter(TypeGuards.isNotNull)
         .map((sentence) => sentence.text ?? '');
 
-    sessionCreationInFlight = true;
+    sessionCreationToken += 1;
+    const creationToken = sessionCreationToken;
     const previousSessionId = useChatPanel.getState().chatSessionId;
     if (previousSessionId) {
         chatApi.closeSession(previousSessionId).catch((error) => {
@@ -321,10 +327,15 @@ const startSessionForTopic = async (
             restoredMessages: options?.restoredMessages,
         }));
     } catch (error) {
-        sessionCreationInFlight = false;
+        // 只在令牌仍是本人时清零；clear() 清零或新创建已占用时不覆盖
+        if (sessionCreationToken === creationToken) {
+            sessionCreationToken = 0;
+        }
         throw error;
     }
-    sessionCreationInFlight = false;
+    if (sessionCreationToken === creationToken) {
+        sessionCreationToken = 0;
+    }
     if (expectedEpoch !== learningRequestEpoch || usePlaybackSession.getState().videoId !== videoId) {
         chatApi.closeSession(sessionId).catch((error) => {
             chatLogger.error('failed to close stale chat session', { error });
@@ -504,7 +515,8 @@ const useChatPanel = create(
             learningRequestEpoch += 1;
             learningEntryInFlight = false;
             learningCloseRequested = false;
-            sessionCreationInFlight = false;
+            // 令牌清零即可放行下一次创建；旧创建完成时发现令牌易主会自行丢弃结果
+            sessionCreationToken = 0;
             const sessionId = get().chatSessionId;
             if (sessionId) {
                 chatApi.closeSession(sessionId).catch((error) => {
@@ -596,8 +608,11 @@ const useChatPanel = create(
                 return;
             }
             if (event.chunk.type === 'abort') {
+                // 中止进入显式 aborted 态：半成品卡片保留展示（用户看得到已生成的内容），
+                // 并提示可重新生成。此前 abort 直接落 idle，半卡与 idle 组合会击穿空态判断，
+                // 用户看到残卡却没有任何中止提示。
                 set({
-                    analysisStatus: 'idle',
+                    analysisStatus: 'aborted',
                     analysisMessageId: null,
                 });
             }
@@ -605,6 +620,10 @@ const useChatPanel = create(
         startAnalysis: async () => {
             const sessionId = get().chatSessionId;
             if (!sessionId) {
+                return;
+            }
+            // 前端去重：流式进行中不允许重复发起（后端对并发 startAnalysis 也幂等返回在跑的 run）
+            if (get().analysisStatus === 'streaming') {
                 return;
             }
             try {
@@ -623,6 +642,23 @@ const useChatPanel = create(
                     analysisMessageId: null,
                     analysisStatus: 'error',
                     analysisError: message,
+                });
+            }
+        },
+
+        stopAnalysis: async () => {
+            const sessionId = get().chatSessionId;
+            if (!sessionId || get().analysisStatus !== 'streaming') {
+                return;
+            }
+            // 本地先落 aborted 态（半卡保留展示），后端 abort chunk 会随后到达
+            set({ analysisStatus: 'aborted', analysisMessageId: null });
+            try {
+                await chatApi.stopAnalysis(sessionId);
+            } catch (error) {
+                chatLogger.warn('failed to stop analysis', {
+                    sessionId,
+                    error: error instanceof Error ? error.message : String(error),
                 });
             }
         },

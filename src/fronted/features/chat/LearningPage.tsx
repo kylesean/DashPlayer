@@ -261,6 +261,10 @@ export default function LearningPage() {
         void useChatPanel.getState().startAnalysis();
     }, []);
 
+    const stopAnalysis = useCallback(() => {
+        void useChatPanel.getState().stopAnalysis();
+    }, []);
+
     const handleDeepDiveExpression = useCallback((expression: string) => {
         const clean = expression.trim();
         if (!clean) return;
@@ -332,6 +336,7 @@ export default function LearningPage() {
                         onSpeak={speak}
                         onPlayOriginal={handlePlayOriginal}
                         onRequestAnalysis={requestAnalysis}
+                        onStopAnalysis={stopAnalysis}
                         onDeepDiveExpression={handleDeepDiveExpression}
                         miniVideoCollapsed={miniVideoCollapsed}
                         onToggleMiniCollapsed={() => useChatPanel.getState().setMiniVideoCollapsed(!miniVideoCollapsed)}

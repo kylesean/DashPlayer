@@ -42,6 +42,8 @@ export type ChatSession = {
     closed: boolean;
     /** 当前仍在执行的生成请求。 */
     runs: Map<string, AbortController>;
+    /** 当前在跑的精读分析 run（sendMessage 的 run 不在此列）；null 表示没有。 */
+    analysisRunId: string | null;
 };
 
 export default interface ChatSessionStore {
@@ -53,6 +55,8 @@ export default interface ChatSessionStore {
     markContextInjected(sessionId: string): void;
     startRun(sessionId: string, runId: string): AbortSignal;
     finishRun(sessionId: string, runId: string): void;
+    /** 只中止一个 run（如精读分析），不影响同会话的其它流。 */
+    stopRun(sessionId: string, runId: string): boolean;
     stop(sessionId: string): void;
     close(sessionId: string): void;
 }
@@ -71,9 +75,28 @@ const restoredToModelMessages = (restored?: PersistedChatMessage[]): ModelMessag
     return output;
 };
 
+/** 内存会话的容量上限：逐句学习每句一个会话（含注入的字幕上下文长文本），
+ * 不淘汰的话 main 进程内存随使用单调增长。只回收已关闭且无在途 run 的旧会话。 */
+const MAX_RETAINED_SESSIONS = 50;
+
 @injectable()
 export class InMemoryChatSessionStore implements ChatSessionStore {
     private readonly sessions = new Map<string, ChatSession>();
+
+    /** 超出容量上限时按插入序回收最旧的已关闭且无在途 run 的会话；找不到可回收对象则不动。 */
+    private evictStaleSessions(): void {
+        if (this.sessions.size <= MAX_RETAINED_SESSIONS) {
+            return;
+        }
+        for (const [id, session] of this.sessions) {
+            if (this.sessions.size <= MAX_RETAINED_SESSIONS) {
+                break;
+            }
+            if (session.closed && session.runs.size === 0) {
+                this.sessions.delete(id);
+            }
+        }
+    }
 
     public create(params: ChatSessionCreateParams): ChatSession {
         const id = randomUUID();
@@ -96,8 +119,10 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
             persistedMessages: restored,
             closed: false,
             runs: new Map(),
+            analysisRunId: null,
         };
         this.sessions.set(id, session);
+        this.evictStaleSessions();
         return session;
     }
 
@@ -145,7 +170,25 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
     }
 
     public finishRun(sessionId: string, runId: string): void {
-        this.get(sessionId).runs.delete(runId);
+        const session = this.get(sessionId);
+        session.runs.delete(runId);
+        if (session.analysisRunId === runId) {
+            session.analysisRunId = null;
+        }
+    }
+
+    public stopRun(sessionId: string, runId: string): boolean {
+        const session = this.get(sessionId);
+        const controller = session.runs.get(runId);
+        if (!controller) {
+            return false;
+        }
+        controller.abort('chat run stopped');
+        session.runs.delete(runId);
+        if (session.analysisRunId === runId) {
+            session.analysisRunId = null;
+        }
+        return true;
     }
 
     public stop(sessionId: string): void {

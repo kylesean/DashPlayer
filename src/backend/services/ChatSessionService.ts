@@ -77,6 +77,8 @@ export default interface ChatSessionService {
     updatePreset(params: ChatSessionUpdatePresetParams): void;
     sendMessage(params: ChatSendMessageParams): Promise<ChatSendMessageResult>;
     startAnalysis(params: AnalysisStartParams): Promise<AnalysisStartResult>;
+    /** 只中止当前会话的精读分析 run；不影响同会话的聊天流。 */
+    stopAnalysis(sessionId: string): void;
 }
 
 /**
@@ -110,6 +112,13 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         this.chatSessionStore.stop(sessionId);
     }
 
+    public stopAnalysis(sessionId: string): void {
+        const session = this.chatSessionStore.get(sessionId);
+        if (session.analysisRunId) {
+            this.chatSessionStore.stopRun(sessionId, session.analysisRunId);
+        }
+    }
+
     public updatePreset(params: ChatSessionUpdatePresetParams): void {
         this.chatSessionStore.updatePreset(params.sessionId, {
             presetId: params.presetId,
@@ -140,6 +149,11 @@ export class ChatSessionServiceImpl implements ChatSessionService {
     public async startAnalysis(params: AnalysisStartParams): Promise<AnalysisStartResult> {
         const sessionId = params.sessionId;
         const session = this.chatSessionStore.get(sessionId);
+        // 并发去重：同一会话已有精读 run 在跑时幂等返回它的 messageId，
+        // 避免双击/重入产生两个 run 并发 upsert 同一张学习卡。
+        if (session.analysisRunId) {
+            return { messageId: session.analysisRunId };
+        }
         const model = this.resolveCloudModelOrNull();
         let localModelId: string | null = null;
         if (!model) {
@@ -160,6 +174,7 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         });
 
         const abortSignal = this.chatSessionStore.startRun(sessionId, messageId);
+        session.analysisRunId = messageId;
         this.rendererGateway.fireAndForget('chat/analysis/stream', {
             sessionId,
             messageId,
@@ -291,6 +306,13 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         emit({ type: 'text-end', id: partId });
         emit({ type: 'finish', finishReason: 'stop' });
 
+        // 停止/关闭发生在流结束与落库之间的窄窗时直接收尾：
+        // 对已关闭会话 appendMessage 会抛错，进而被当成非取消错误再向已关会话推 error chunk
+        // （云端路径 runStream 有 aborted 守卫，本地路径此前缺这一层）。
+        if (abortSignal.aborted) {
+            this.logger.info('chat local stream aborted before persist', { sessionId, messageId });
+            return;
+        }
         this.chatSessionStore.appendMessage(sessionId, { role: 'assistant', content });
         this.chatSessionStore.appendPersistedMessage(sessionId, {
             id: messageId,
