@@ -38,6 +38,7 @@ import type {
 } from '@/common/types/chat';
 import type { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
 import type SentenceLearningService from '@/backend/services/SentenceLearningService';
+import { describeAsrFailure, isNoSpeechError } from '@/common/utils/practice/asr-error';
 import type SentenceStudyNoteRepository from '@/backend/services/repositories/SentenceStudyNoteRepository';
 import type LearningPromptPresetService from '@/backend/services/chat/LearningPromptPresetService';
 import type SentencePracticeService from '@/backend/services/SentencePracticeService';
@@ -137,11 +138,8 @@ export default class ChatStreamController implements Controller {
                 const rawMessage = error instanceof Error ? error.message : String(error);
                 // whisper.cpp / parakeet 在无人声或非目标语种时会把上千字符 C++ stderr 拼进异常消息，
                 // 聊天框语音听写入口必须拦截并转化为简短可读提示，避免整屏日志弹框。
-                if (/未返回识别文本|Segments\s*\(0\)|录音内容为空/i.test(rawMessage)) {
-                    if (/parakeet/i.test(rawMessage)) {
-                        throw new Error('未识别到清晰英语语音（当前 Parakeet 模型仅支持英文输入；说中文请直接打字或在设置切换语音模型）');
-                    }
-                    throw new Error('未识别到清晰语音，请靠近麦克风重试');
+                if (isNoSpeechError(rawMessage)) {
+                    throw new Error(describeAsrFailure(error));
                 }
                 throw error instanceof Error ? error : new Error(rawMessage);
             }

@@ -152,8 +152,8 @@ interface Word {
     cueEnd: number;
     /** 是否为所属 cue 的第一个词。 */
     isCueFirst: boolean;
-    /** 是否为所属 cue 的最后一个词。 */
-    isCueLast: boolean;
+    /** 所属 cue 是否因滚动重叠被截短（末词的 end 已按截断点收缩）。 */
+    cueTruncated: boolean;
     /** 是否因 `>>` 说话人标记强制在此词前断句。 */
     forcedBreak: boolean;
 }
@@ -221,14 +221,41 @@ const splitBySpeakerMark = (text: string): Array<{ text: string; forcedBreak: bo
 const flattenWords = (lines: readonly SrtLine[]): Word[] => {
     const words: Word[] = [];
     let cueIndex = -1;
-    for (const line of lines) {
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        const line = lines[lineIndex];
         const segments = splitBySpeakerMark(line.contentEn);
         const cueText = segments.map((segment) => segment.text).join(' ');
         if (!cueText || isBracketMarkerOnly(cueText)) {
             continue;
         }
         cueIndex += 1;
-        const duration = Math.max(line.end - line.start, EPS);
+        /*
+          有效发声窗口的终点。
+
+          滚动字幕的 `end` 是「这行滚出屏幕」的时刻，不是「这句话说完」的时刻：
+          实测 99.6% 的 cue 结束时间都晚于下一条 cue 的开始时间，平均多出 2.12s。
+          直接拿 `end - start` 当发声时长，词时间会按比例被拉长，整句随之右移——
+          用户看到的就是「字幕还在，音频已经下一句了」。
+
+          因此用下一条 cue 的起点截断：同一时刻开始说下一句，说明这一句最多说到那时。
+          只在截断后仍有有效时长时才采用，避免相邻 cue 完全重叠时把窗口压成 0。
+        */
+        const nextCue = lines[lineIndex + 1];
+        /*
+          只对「滚动重叠」截断，不对「插话嵌套」截断。
+
+          两者形态相似但语义相反：
+          - 滚动重叠：后一条 cue 向前压进前一条的尾巴（实测占 954/956，重叠约占后句 33%），
+            说明前一条已经说完、屏幕还在显示，可以安全截断；
+          - 插话嵌套：后一条 cue 完全落在前一条区间内（如音效、旁人短句），
+            前一条仍在继续，截断会把主句压成插话的长度。
+        */
+        const isRollingOverlap = nextCue !== undefined
+            && nextCue.start > line.start
+            && nextCue.start < line.end
+            && nextCue.end > line.end;
+        const speechEnd = isRollingOverlap ? nextCue.start : line.end;
+        const duration = Math.max(speechEnd - line.start, EPS);
         const pending: Array<{ text: string; forcedBreak: boolean }> = [];
         for (const segment of segments) {
             const tokens = segment.text.split(/\s+/).filter(Boolean);
@@ -254,7 +281,7 @@ const flattenWords = (lines: readonly SrtLine[]): Word[] => {
                 cueStart: line.start,
                 cueEnd: line.end,
                 isCueFirst: index === 0,
-                isCueLast: index === pending.length - 1,
+                cueTruncated: isRollingOverlap,
                 forcedBreak: pending[index].forcedBreak,
             });
         }
@@ -576,12 +603,33 @@ const buildLines = (words: readonly Word[], starts: readonly number[]): SrtLine[
         // 行首：本行含有该 cue 的首词时贴到 cue 起点，否则用词估算起点。
         // 同一条 cue 被拆成多行时，只有第一行贴 cue 起点，后续行按词时间推进。
         const rawStart = first.isCueFirst ? first.cueStart : first.start;
-        // 行尾：本行含有该 cue 的末词时贴到覆盖 cue 的最大终点，保住句尾尾音；
-        // 重叠 cue（后句完全落在前句区间内）取 max，避免句尾被收缩。
-        const coveredCueEnd = last.isCueLast
-            ? slice.reduce((max, word) => Math.max(max, word.cueEnd), last.cueEnd)
-            : last.end;
-        const rawEnd = Math.max(coveredCueEnd, last.end);
+        /*
+          行尾贴到「这一行最后一个词估算的结束时间」。
+
+          不再用 `cueEnd`：它是滚动离场时刻，比真实说完时刻平均晚 2.12s，
+          贴上去会把整行拉长，下一行则被 `previousEnd` 推后，误差逐句累积。
+          词时间已经按有效发声窗口插值过，`last.end` 就是最接近真实发音结束的值。
+
+          例外：插话嵌套的 cue 没有被截断，末词的 `last.end` 仍是它自己的结束时间，
+          直接用它会把主句一起压短；这种情况贴回该 cue 的真实终点。
+        */
+        /*
+          行尾取「本行覆盖到的最大真实终点」：
+          - 被截断的 cue 用词估算终点（滚动离场时刻不可信）；
+          - 未截断、且本行确实收在该 cue 末词时，用它的真实终点
+            （插话嵌套时主句仍在继续，不能被插话压短）；
+          - 同一 cue 被拆成多行时，只有最后一行才贴 cue 终点，
+            否则第一行会吃掉整条 cue 的时长。
+        */
+        const isCueLastWord = last.cueIndex !== slice[slice.length - 2]?.cueIndex;
+        const coveredCueEnd = slice.reduce(
+            (max, word) => Math.max(
+                max,
+                word.cueTruncated || !isCueLastWord ? word.end : word.cueEnd,
+            ),
+            last.end,
+        );
+        const rawEnd = coveredCueEnd;
         const start = Math.max(rawStart, previousEnd);
         let end = Math.max(rawEnd, start + MIN_SEGMENT_SECONDS);
         if (!Number.isFinite(start) || !Number.isFinite(end)) {

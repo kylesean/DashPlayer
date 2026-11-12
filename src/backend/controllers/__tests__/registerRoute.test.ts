@@ -79,6 +79,33 @@ describe('registerRoute IPC 边界语义', () => {
         expect(rendererError).toHaveBeenCalledTimes(1);
     });
 
+    /**
+     * 回归：界面曾经同时出现两个弹窗——调用方自己的提示，加上 IPC 边界的全局广播。
+     * 「没识别出语音」是用户输入问题，不该走全局错误通道。
+     */
+    it('无语音类失败只记 warn，不广播给渲染端', async () => {
+        registerRoute('practice/score-shadowing', async () => {
+            throw new Error([
+                'whisper.cpp 未返回识别文本：parakeet_init: using Vulkan0',
+                'parakeet_print_timings: encode time = 499.95 ms',
+                'Segments (0):',
+            ].join('\n'));
+        }, { schema: { safeParse: () => ({ success: true, data: undefined }) } as never });
+
+        await expect(captured.get('practice/score-shadowing')!({}, undefined)).rejects.toThrow('未返回识别文本');
+
+        expect(rendererError).not.toHaveBeenCalled();
+        expect(ipcLogger.warn).toHaveBeenCalledWith(
+            'ipc request failed with no speech',
+            expect.objectContaining({ path: 'practice/score-shadowing' }),
+        );
+        // 日志仍保留完整异常，排查不受影响
+        expect(ipcLogger.warn).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+            path: 'practice/score-shadowing',
+            error: expect.any(Error),
+        }));
+    });
+
     it('schema 漏写可选字段时，契约外顶层字段直接拒绝而不是静默丢弃', async () => {
         registerRoute(
             'practice/list-by-sentence',

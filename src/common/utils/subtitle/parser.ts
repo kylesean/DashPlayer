@@ -9,6 +9,25 @@ const SRT_BLOCK_SEPARATOR = /\r?\n\r?\n/;
 const LINE_SEPARATOR = /\r?\n/;
 const TIME_ARROW = ' --> ';
 
+/**
+ * 清理字幕正文里的转义残留。
+ *
+ * YouTube 的 `.en.srt` 常夹带 ASS/WebVTT 的转义序列：`\h`（硬空格）、`\N`（硬换行）、
+ * `\n`（软换行）。它们在 SRT 里没有任何语义，只是下载/转换环节漏出来的残留，
+ * 但会被当成正文——`you\h know` 渲染出来就是「you\h know」，看起来像莫名的断行。
+ *
+ * 处理方式：`\N` / `\n` 转成空格（意群重切分会重新断句，这里不需要保留换行），
+ * `\h` 直接删掉（它是「不要在这里断行」的标记，删掉后两个词之间本来就有空格）。
+ *
+ * @param text 原始正文。
+ * @returns 清理后的正文。
+ */
+export function stripSubtitleEscapes(text: string): string {
+    return text
+        .replace(/\\[Nn]/g, ' ')
+        .replace(/\\h/g, '');
+}
+
 interface ParsedSrtBlock {
     index: number;
     timeString: string;
@@ -33,7 +52,7 @@ function parseContentLines(lines: string[]): { contentEn: string; contentZh: str
     const contentEn: string[] = [];
 
     for (const line of lines) {
-        const trimmedLine = Util.trim(line);
+        const trimmedLine = Util.trim(stripSubtitleEscapes(line));
         if (trimmedLine) {
             if (isChinese(line)) {
                 contentZh.push(trimmedLine);
@@ -294,7 +313,9 @@ export function parseAss(assContent: Nullable<string>): SrtLine[] {
                 continue;
             }
             // 剥离 ASS 样式标签（保留 \N 换行，交给后续内容拆分）
-            const cleaned = text.replace(/{\\[^}]*}/g, '');
+            // `\h` 是「硬空格」标记，在正文里没有意义，一并删掉；
+            // `\N` 是 ASS 的换行语义，保留给下面的内容拆分。
+            const cleaned = text.replace(/{\\[^}]*}/g, '').replace(/\\h/g, '');
             const contentLines = cleaned
                 .replace(/\\N/gi, '\n')
                 .split('\n')

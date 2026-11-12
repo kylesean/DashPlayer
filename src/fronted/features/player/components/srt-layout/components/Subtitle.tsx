@@ -11,7 +11,8 @@ import {
     DropdownMenuRadioGroup,
     DropdownMenuRadioItem,
 } from '@astryxdesign/core/DropdownMenu';
-import { ArrowLeftRight, ArrowUpToLine, BookOpen, ChevronDown, ChevronUp, FileText, Filter, Languages, List, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { ArrowUpToLine, ChevronDown, ChevronUp, Filter, Languages, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import ArticleBlock from './ArticleBlock';
 import { groupSentencesIntoBlocks, type SentenceBlock } from '@/fronted/features/player/lib/sentence-grouping';
@@ -55,7 +56,7 @@ export default function Subtitle() {
     const showTranscript = useLayout((state) => state.showTranscript);
     const setTranscriptVisible = useLayout((state) => state.setTranscriptVisible);
     const transcriptViewMode = useLayout((state) => state.transcriptViewMode);
-    const toggleTranscriptViewMode = useLayout((state) => state.toggleTranscriptViewMode);
+    const setTranscriptViewMode = useLayout((state) => state.setTranscriptViewMode);
     const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
     const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
     const showSideTranslation = usePlayerUi((state) => state.showSideTranslation);
@@ -718,12 +719,27 @@ export default function Subtitle() {
     return (
         <div className="w-full h-full flex flex-col relative select-none" ref={setBoundaryRef}>
             {/* 字幕文稿流状态栏 */}
-            <div className="shrink-0 px-3.5 py-2.5 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-sm">
+            <div className="shrink-0 px-3.5 py-2 flex items-center justify-between border-b border-border/40 bg-surface/50 backdrop-blur-md z-10 text-sm">
                 <div className="flex items-center gap-2 min-w-0 shrink-0">
-                    <BookOpen className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                    <span className="font-medium text-foreground tracking-tight">{t('subtitleScript')}</span>
+                    <div className="shrink-0">
+                        <SegmentedControl
+                            value={transcriptViewMode}
+                            onChange={(val) => setTranscriptViewMode(val as 'sentence' | 'article')}
+                            size="sm"
+                            label={t('transcriptViewModeLabel', { defaultValue: '文稿视图模式' })}
+                        >
+                            <SegmentedControlItem
+                                value="sentence"
+                                label={t('transcriptViewSentence', { defaultValue: '逐句' })}
+                            />
+                            <SegmentedControlItem
+                                value="article"
+                                label={t('transcriptViewArticle', { defaultValue: '讲稿' })}
+                            />
+                        </SegmentedControl>
+                    </div>
                     {virtualGroup.active && virtualGroup.sentences.length > 1 && (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1 shrink-0">
                             <Badge
                                 variant="teal"
                                 icon={<Repeat className="w-2.5 h-2.5" />}
@@ -755,7 +771,14 @@ export default function Subtitle() {
                     <DropdownMenu
                         button={{
                             label: t('transcriptVocabulary.filterLabel', { defaultValue: '筛选' }),
-                            icon: <Filter className="w-3.5 h-3.5" />,
+                            icon: (
+                                <span className="relative inline-flex items-center justify-center">
+                                    <Filter className="w-3.5 h-3.5" />
+                                    {vocabularyFilter !== 'all' && (
+                                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-accent ring-1 ring-background" />
+                                    )}
+                                </span>
+                            ),
                             size: 'sm',
                             variant: 'ghost',
                             isIconOnly: true,
@@ -790,55 +813,6 @@ export default function Subtitle() {
                         </DropdownMenuGroup>
                     </DropdownMenu>
 
-                    {/* 搜索开关 */}
-                    <Tooltip content={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })} placement="below">
-                        <button
-                            type="button"
-                            onClick={toggleSearch}
-                            className={cn(
-                                'p-1 rounded-md transition-colors cursor-pointer',
-                                isSearchOpen
-                                    ? 'text-accent bg-accent-muted/20'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
-                            )}
-                            aria-label={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })}
-                        >
-                            <Search className="w-3.5 h-3.5" />
-                        </button>
-                    </Tooltip>
-
-                    {/* 双模视图切换：单句精析模式 vs 连贯讲稿模式 */}
-                    <Tooltip
-                        content={
-                            transcriptViewMode === 'sentence'
-                                ? t('switchToArticleMode', { defaultValue: '切换为连贯讲稿模式' })
-                                : t('switchToSentenceMode', { defaultValue: '切换为单句精析模式' })
-                        }
-                        placement="below"
-                    >
-                        <button
-                            type="button"
-                            onClick={() => toggleTranscriptViewMode()}
-                            className={cn(
-                                'p-1 rounded-md transition-colors cursor-pointer',
-                                transcriptViewMode === 'article'
-                                    ? 'text-accent bg-accent-muted/20'
-                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
-                            )}
-                            aria-label={
-                                transcriptViewMode === 'sentence'
-                                    ? t('switchToArticleMode', { defaultValue: '切换为连贯讲稿模式' })
-                                    : t('switchToSentenceMode', { defaultValue: '切换为单句精析模式' })
-                            }
-                        >
-                            {transcriptViewMode === 'sentence' ? (
-                                <FileText className="w-3.5 h-3.5" />
-                            ) : (
-                                <List className="w-3.5 h-3.5" />
-                            )}
-                        </button>
-                    </Tooltip>
-
                     {/* 侧栏译文开关 */}
                     <Tooltip content={t('controlBox.sideTranslationHint')} placement="below">
                         <button
@@ -858,23 +832,25 @@ export default function Subtitle() {
                         </button>
                     </Tooltip>
 
-                    {/* 左右停靠对调切换 */}
-                    <Tooltip
-                        content={transcriptPosition === 'right' ? t('dockToLeft', { defaultValue: '将文稿切换至左侧' }) : t('dockToRight', { defaultValue: '将文稿切换至右侧' })}
-                        placement="below"
-                    >
+                    {/* 搜索开关 */}
+                    <Tooltip content={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })} placement="below">
                         <button
                             type="button"
-                            onClick={() => {
-                                const next = transcriptPosition === 'right' ? 'left' : 'right';
-                                void useSetting.getState().setSetting('appearance.transcriptPosition', next);
-                            }}
-                            className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors cursor-pointer"
-                            aria-label={transcriptPosition === 'right' ? t('dockToLeft', { defaultValue: '将文稿切换至左侧' }) : t('dockToRight', { defaultValue: '将文稿切换至右侧' })}
+                            onClick={toggleSearch}
+                            className={cn(
+                                'p-1 rounded-md transition-colors cursor-pointer',
+                                isSearchOpen
+                                    ? 'text-accent bg-accent-muted/20'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/80',
+                            )}
+                            aria-label={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })}
                         >
-                            <ArrowLeftRight className="w-3.5 h-3.5" />
+                            <Search className="w-3.5 h-3.5" />
                         </button>
                     </Tooltip>
+
+                    {/* 语义分割线：区隔内容操作与窗口容器操作 */}
+                    <div className="h-3.5 w-px bg-border/40 mx-0.5 shrink-0" aria-hidden="true" />
 
                     {/* 收起字幕文稿 */}
                     <Tooltip content={t('controlButton.closeTranscript', { defaultValue: '收起字幕文稿' })} placement="below">

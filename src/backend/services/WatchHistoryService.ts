@@ -475,6 +475,33 @@ export class WatchHistoryServiceImpl implements WatchHistoryService {
         if (subtitle.subtitlePath) {
             this.mediaPathRegistry.allowFile(subtitle.subtitlePath);
         }
+        /*
+          自动升级了字幕轨时，把数据库记录同步过去。
+
+          否则 `dp_watch_history.srt_file` 会一直指向旧的 ASR 轨，与实际播放的
+          作者轨不一致：下次扫描字幕、导出数据、或按 srt_file 反查视频时，
+          都会拿到过期的路径。
+
+          回写失败不影响本次播放（升级本身已经生效），只记日志。
+        */
+        if (subtitle.upgradedFrom) {
+            try {
+                await this.watchHistoryRepository.updateById(preferredRecord.id, {
+                    srt_file: subtitle.subtitlePath,
+                    updated_at: TimeUtil.timeUtc(),
+                });
+                this.logger.info('persisted upgraded subtitle track', {
+                    id: preferredRecord.id,
+                    from: subtitle.upgradedFrom,
+                    to: subtitle.subtitlePath,
+                });
+            } catch (error) {
+                this.logger.warn('failed to persist upgraded subtitle track', {
+                    id: preferredRecord.id,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+        }
         return subtitle;
     }
 

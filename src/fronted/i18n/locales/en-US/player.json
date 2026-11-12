@@ -278,6 +278,9 @@
     "prevMatch": "Previous match (Shift+Enter)",
     "nextMatch": "Next match (Enter)",
     "closeSearch": "Close search (Esc)",
+    "transcriptViewModeLabel": "Script view mode",
+    "transcriptViewSentence": "Sentence",
+    "transcriptViewArticle": "Article",
     "switchToArticleMode": "Switch to Flowing Article Mode",
     "switchToSentenceMode": "Switch to Sentence Mode",
     "reviewDock": {

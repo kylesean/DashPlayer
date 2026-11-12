@@ -11,6 +11,7 @@ import TimeUtil from '@/common/utils/TimeUtil';
 import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type { SubtitleResolution } from '@/common/contracts/subtitle-resolution';
+import { findBetterEnglishSubtitle } from '@/common/utils/subtitle/preferred-track';
 
 /**
  * 将观看历史数据库记录转换为 renderer 使用的展示数据。
@@ -124,7 +125,20 @@ export default class WatchHistoryViewBuilder {
             await this.storageDirectoryProvider.ensurePathAccessPermissionIfExists(configuredSubtitle);
             const exists = await this.fileSystemGateway.fileExists(configuredSubtitle);
             if (exists) {
-                return { subtitlePath: configuredSubtitle, mismatchSuspected: false };
+                /*
+                  已挂字幕存在，但可能挂错了轨：旧版本导入时用 `find` 取第一个匹配项，
+                  顺序取决于文件系统，于是不少视频挂上了 ASR 轨（`xxx.en-orig.srt`），
+                  而质量更好的作者轨（`xxx.en.srt`）一直躺在同一目录里。
+
+                  这里做「ASR → 作者轨」的单向升级；升级结果通过
+                  `upgradedFrom` 告知调用方，由它决定是否回写数据库。
+                */
+                const upgraded = await this.findUpgradedSubtitle(configuredSubtitle);
+                return {
+                    subtitlePath: upgraded ?? configuredSubtitle,
+                    mismatchSuspected: false,
+                    ...(upgraded ? { upgradedFrom: configuredSubtitle } : {}),
+                };
             }
         }
 
@@ -134,6 +148,26 @@ export default class WatchHistoryViewBuilder {
             return { subtitlePath: '', mismatchSuspected: false };
         }
         return { subtitlePath: detail.path, mismatchSuspected: detail.suspicious };
+    }
+
+    /**
+     * 在当前字幕所在目录里寻找质量更高的英语轨。
+     *
+     * 只处理「当前是 ASR 轨、同目录有作者轨」这一种情况；其余一律返回 null。
+     *
+     * @param currentSubtitlePath 当前挂载的字幕绝对路径。
+     * @returns 更优字幕的绝对路径；无需升级时返回 null。
+     */
+    private async findUpgradedSubtitle(currentSubtitlePath: string): Promise<string | null> {
+        try {
+            const folder = path.dirname(currentSubtitlePath);
+            const names = await this.fileSystemGateway.listFileNames(folder);
+            const better = findBetterEnglishSubtitle(path.basename(currentSubtitlePath), names);
+            return better ? path.join(folder, better) : null;
+        } catch {
+            // 目录读不到时保持原字幕：升级属于增强，不能因此让播放失败
+            return null;
+        }
     }
 
     /**

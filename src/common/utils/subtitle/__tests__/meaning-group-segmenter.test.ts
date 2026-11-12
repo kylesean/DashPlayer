@@ -86,6 +86,38 @@ describe('意群重切分', () => {
         expect(result[0].end).toBe(10);
     });
 
+    /**
+     * 滚动字幕的 `end` 是「滚出屏幕」的时刻，不是「说完」的时刻：
+     * 实测 99.6% 的 cue 结束时间都晚于下一条 cue 的开始时间，平均多 2.12s。
+     * 拿它当发声时长会把词时间按比例拉长，整句右移——用户看到「字幕还在，
+     * 音频已经下一句了」。这里钉住截断行为。
+     */
+    it('滚动重叠的 cue 用下一条起点截断发声窗口，不把滚动尾巴算进句长', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 10, 'the first sentence ends here.'),
+            // 滚动重叠：后一条压进前一条尾巴，且延伸到更后面
+            line(2, 4, 12, 'And the second sentence starts.'),
+        ]);
+
+        // 第一句的真实发声窗口应是 0~4，而不是 0~10
+        expect(result[0].contentEn).toBe('the first sentence ends here.');
+        expect(result[0].end).toBeLessThanOrEqual(4.01);
+        // 第二句从 4 开始，两行不重叠
+        expect(result[1].start).toBeGreaterThanOrEqual(result[0].end - 0.01);
+    });
+
+    it('插话嵌套不截断主句：后一条完全落在前一条区间内', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 10, 'a long sentence that keeps going'),
+            // 插话：完全落在主句区间内
+            line(2, 2, 4, 'mm-hmm'),
+        ]);
+
+        // 主句终点不能被插话压短
+        const main = result.find((l) => l.contentEn.includes('keeps going'));
+        expect(main?.end).toBe(10);
+    });
+
     it('缓冲超过 250 字符仍无标点时在 cue 边界强制封句', () => {
         const longA = 'a'.repeat(140);
         const longB = 'b'.repeat(140);

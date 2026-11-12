@@ -7,6 +7,7 @@ import TYPES from '@/backend/ioc/types';
 import { getMainLogger, resolveTraceId, runWithTrace } from '@/backend/infrastructure/logger';
 import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
 import type { TraceCarrier } from '@/common/log/simple-types';
+import { describeAsrFailure, isNoSpeechError } from '@/common/utils/practice/asr-error';
 import { registerIpcRoute } from './routeRegistry';
 
 const logger = getMainLogger('ipc');
@@ -161,11 +162,28 @@ export default function registerRoute<K extends keyof ApiMap>(
                 };
                 if (isUserCancellation(error)) {
                     logger.warn('ipc request cancelled', errorData);
+                } else if (isNoSpeechError(error instanceof Error ? error.message : String(error))) {
+                    /*
+                      「没识别出语音」是用户输入问题，不是系统故障：
+                      - 不该走全局错误告警（那会变成第二个弹窗）；
+                      - 调用方本来就负责在自己的交互上下文里给出提示。
+                      这里只记 warn，不广播。
+                    */
+                    logger.warn('ipc request failed with no speech', errorData);
                 } else {
                     logger.error('ipc request failed', errorData);
+                    /*
+                      广播给渲染端的错误必须是「人能读的一句话」。
+                      这条通道会直接变成全局 toast，而底层异常常常是上千字符的
+                      C++ stderr（parakeet 的 Segments (0) 就是典型）。原样广播
+                      既会糊满屏幕，也会和调用方自己的 toast 重复弹两次。
+                      日志里仍保留完整 error，排查不受影响。
+                    */
+                    const broadcast = error instanceof Error ? error : new Error(String(error));
+                    const readable = describeAsrFailure(broadcast);
                     container
                         .get<RendererEvents>(TYPES.RendererEvents)
-                        .error(error instanceof Error ? error : new Error(String(error)));
+                        .error(new Error(readable));
                 }
                 throw error;
             }

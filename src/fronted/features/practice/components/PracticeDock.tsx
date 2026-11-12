@@ -56,6 +56,7 @@ import { recordPracticeWordEvidence } from '../practiceWordEvidence';
 import BlindDictation from './BlindDictation';
 import ShadowingStudio from './ShadowingStudio';
 import type { RhythmTrendVO } from '@/common/learning/rhythmTrend';
+import { describeAsrFailure } from '@/common/utils/practice/asr-error';
 import WordSlotDictation from './WordSlotDictation';
 
 const logger = getRendererLogger('PracticeDock');
@@ -401,7 +402,7 @@ export default function PracticeDock() {
             });
         } catch (error) {
             logger.error('听写评分失败', { error });
-            toast.error(error instanceof Error ? error.message : String(error));
+            toast.error(describeAsrFailure(error));
         }
     }, [activeUnit, mutateFileSummaries, mutateHistory, setDictationRevealed]);
 

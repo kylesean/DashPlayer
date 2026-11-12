@@ -13,4 +13,11 @@ export interface SubtitleResolution {
     subtitlePath: string;
     /** 字幕文件名与视频对不上、疑似挂错。 */
     mismatchSuspected: boolean;
+    /**
+     * 本次解析自动升级前的字幕路径。
+     *
+     * 仅当「原挂 ASR 轨、同目录存在更优作者轨」时出现。调用方据此回写
+     * `dp_watch_history.srt_file`，让数据库记录与实际播放保持一致。
+     */
+    upgradedFrom?: string;
 }

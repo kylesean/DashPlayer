@@ -9,6 +9,7 @@ import { usePlaybackSession } from '@/fronted/features/player/playbackSessionSto
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
+import { padPracticeClipRange } from '@/fronted/features/player/lib/practice-clip-range';
 import {
     findSentenceBlock,
     groupSentencesIntoBlocks,
@@ -1353,8 +1354,15 @@ export const usePlayer = create<PlayerState>((set, get) => {
     },
 
     playPracticeClip: (range, target, options) => {
-      const safeStart = Math.max(0, range.start);
-      const safeEnd = Math.max(safeStart + 0.15, range.end);
+      /*
+        练习片段必须包含「完整的一句话」，而不是紧贴字幕边界。
+        字幕边界是估算值，贴边起停会切掉首尾音——用户听到半截开头/被掐断的结尾，
+        跟读与精听都没法进行。这里统一加首尾留白，且只放宽播放区间，
+        不影响字幕高亮（高亮仍按原边界）。
+      */
+      const padded = padPracticeClipRange(range, get().duration);
+      const safeStart = padded.start;
+      const safeEnd = padded.end;
       const prevRestore = clipStopBound?.restoreRate ?? null;
       clearTransientPlan();
       clearTailPreview();
@@ -1531,7 +1539,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
     getVirtualGroupRange: () => {
       const { virtualGroup, srtTender } = get();
       if (!virtualGroup.active || !srtTender || virtualGroup.sentences.length === 0) return null;
-      return calcRangeForSentences(srtTender, virtualGroup.sentences);
+      // 选区循环同样是精听场景，加首尾留白保证每次循环都是完整的一段。
+      return padPracticeClipRange(calcRangeForSentences(srtTender, virtualGroup.sentences), get().duration);
     },
 
     getLoopRange: () => {
@@ -1539,19 +1548,24 @@ export const usePlayer = create<PlayerState>((set, get) => {
       if (!singleRepeat) {
         return get().mapCurrentRange();
       }
+      /*
+        单句循环属于精听场景，和跟读一样需要「完整的一句话」：
+        贴边循环会在每一遍都切掉首尾音，反复听反而强化了错误的边界感。
+        自动暂停（autoPause）不加留白——它只需要在句末停住，不需要多播一段。
+      */
       const focusInGroup = isFocusInVirtualGroup();
       if (focusInGroup && virtualGroup.active && srtTender && virtualGroup.sentences.length > 0) {
-        return calcRangeForSentences(srtTender, virtualGroup.sentences);
+        return padPracticeClipRange(calcRangeForSentences(srtTender, virtualGroup.sentences), get().duration);
       }
       // 单句循环的循环区间取整个意群块。
       if (srtTender) {
         const block = getCurrentBlock();
         if (block) {
-          return calcRangeForSentences(srtTender, block.sentences);
+          return padPracticeClipRange(calcRangeForSentences(srtTender, block.sentences), get().duration);
         }
       }
       if (currentSentence && srtTender) {
-        return srtTender.mapSeekTime(currentSentence);
+        return padPracticeClipRange(srtTender.mapSeekTime(currentSentence), get().duration);
       }
       return { start: 0, end: 0 };
     },

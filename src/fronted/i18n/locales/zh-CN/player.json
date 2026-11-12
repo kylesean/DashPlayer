@@ -278,6 +278,9 @@
     "prevMatch": "上一个匹配 (Shift+Enter)",
     "nextMatch": "下一个匹配 (Enter)",
     "closeSearch": "关闭搜索 (Esc)",
+    "transcriptViewModeLabel": "文稿视图模式",
+    "transcriptViewSentence": "逐句",
+    "transcriptViewArticle": "讲稿",
     "switchToArticleMode": "切换为连贯讲稿模式",
     "switchToSentenceMode": "切换为单句精析模式",
     "reviewDock": {

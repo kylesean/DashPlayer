@@ -1,4 +1,6 @@
 import { getMainLogger } from '@/backend/infrastructure/logger';
+import path from 'node:path';
+import { findBetterEnglishSubtitle } from '@/common/utils/subtitle/preferred-track';
 import type { SentenceBlockBySpace, SentenceBlockPart, SentenceStruct } from '@/common/types/SentenceStruct';
 import StrUtil from '@/common/utils/str-util';
 import type { Sentence, SrtSentence } from '@/common/types/SentenceC';
@@ -292,7 +294,48 @@ export class SubtitleServiceImpl implements SubtitleService {
             return null;
         }
 
-        return this.parseSrt(subtitlePath!);
+        return this.parseSrt(await this.resolvePreferredSubtitlePath(subtitlePath!));
+    }
+
+    /**
+     * 若当前挂的是 ASR 轨、而同目录存在作者上传轨，改用后者。
+     *
+     * 这是**解析层兜底**：主路径是 `WatchHistoryViewBuilder.resolveSubtitle`
+     * 在解析播放字幕时就完成升级并回写数据库；这里覆盖那些不经过它、
+     * 直接拿路径来解析的调用方。
+     *
+     * 只做「ASR → 作者轨」这一个方向的替换：
+     * - 已是作者轨：不动；
+     * - 用户手动指定了其他英语变体：不动（尊重用户选择）；
+     * - 找不到更优轨：不动。
+     *
+     * @param subtitlePath 当前挂载的字幕绝对路径。
+     * @returns 实际用于解析的字幕路径。
+     */
+    private async resolvePreferredSubtitlePath(subtitlePath: string): Promise<string> {
+        const currentName = path.basename(subtitlePath);
+        const better = await (async (): Promise<string | null> => {
+            try {
+                const dir = path.dirname(subtitlePath);
+                const names = await this.fileSystemGateway.listFileNames(dir);
+                return findBetterEnglishSubtitle(currentName, names);
+            } catch (error) {
+                // 目录读不到时保持原字幕：纠正属于增强，不能因此让播放失败
+                logger.warn('subtitle preference check failed, keep current subtitle', {
+                    subtitlePath,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                return null;
+            }
+        })();
+        if (!better) {
+            return subtitlePath;
+        }
+        logger.info('switched to a better english subtitle track', {
+            from: currentName,
+            to: better,
+        });
+        return path.join(path.dirname(subtitlePath), better);
     }
 
     /**

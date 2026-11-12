@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sentence } from '@/common/types/SentenceC';
 import { usePlayer } from '@/fronted/features/player/playerStore';
+import { PRACTICE_CLIP_TAIL_SECONDS } from '@/fronted/features/player/lib/practice-clip-range';
 
 vi.mock('@/fronted/features/player/playerApi', () => ({
     playerApi: {
@@ -62,8 +63,9 @@ describe('playerStore 练习受控区间试听 playPracticeClip', () => {
         vi.runAllTimers();
         expect(usePlayer.getState().playing).toBe(true);
 
-        // 下一帧超过 3.0s 结尾：立刻停播、高亮锁回第 0 句、倍速复原 1.0x
-        usePlayer.getState().updateExactPlayTime(3.05);
+        // 下一帧超过「句尾 + 留白」：立刻停播、高亮锁回第 0 句、倍速复原 1.0x
+        // 留白是练习片段的固有语义（完整句子不能被切尾音），见 practice-clip-range。
+        usePlayer.getState().updateExactPlayTime(3.05 + PRACTICE_CLIP_TAIL_SECONDS + 0.01);
         vi.runAllTimers();
 
         expect(usePlayer.getState().playing).toBe(false);
@@ -90,7 +92,7 @@ describe('playerStore 练习受控区间试听 playPracticeClip', () => {
         usePlayer.getState().resolveSeek(1.05);
         usePlayer.getState().updateExactPlayTime(1.1);
         vi.runOnlyPendingTimers();
-        usePlayer.getState().updateExactPlayTime(3.02);
+        usePlayer.getState().updateExactPlayTime(3.02 + PRACTICE_CLIP_TAIL_SECONDS + 0.01);
         vi.runOnlyPendingTimers();
         expect(usePlayer.getState().playing).toBe(false);
         expect(onEnded).toHaveBeenCalledTimes(1);

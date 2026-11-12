@@ -16,6 +16,7 @@ import { ModelArchiveInstaller } from '@/backend/services/models/ModelArchiveIns
 import { ytDlpBinaryFileName, ytDlpBinarySha256, ytDlpDownloadUrls } from '@/backend/services/models/ytDlpBinary';
 import { DpTaskState } from '@/common/contracts/dp-task';
 import { parseYoutubeVideoId } from '@/common/utils/youtubeUrl';
+import { pickPreferredEnglishSubtitle } from '@/common/utils/subtitle/preferred-track';
 import type {
     YoutubeImportSettingDetailVO,
     YoutubeImportSettingSaveVO,
@@ -35,8 +36,21 @@ const BINARY_WORK_DIRECTORY = '.yt-dlp-download';
 /** 二进制下载被用户取消时安装器抛出的错误文案；据此把失败归一成取消语义。 */
 const BINARY_DOWNLOAD_CANCELLED_MESSAGE = 'yt-dlp 组件下载已取消';
 
-/** 英语字幕文件名匹配：`xxx.en.srt`、`xxx.en-orig.srt`、`xxx.en-xx.srt` 等。 */
-const ENGLISH_SRT_PATTERN = /\.en(?:-[A-Za-z0-9-]+)?\.srt$/i;
+/**
+ * 从多个英语字幕文件里挑出最该用的那一个。
+ *
+ * 具体优先级见 `pickPreferredEnglishSubtitle`：作者上传轨 > ASR 轨 > 其他英语变体。
+ *
+ * @param paths 候选字幕文件路径。
+ * @returns 选中的字幕路径；没有匹配时返回 undefined。
+ */
+const pickPreferredEnglishSrt = (paths: readonly string[]): string | undefined => {
+    const selected = pickPreferredEnglishSubtitle(paths.map((p) => path.basename(p)));
+    if (!selected) {
+        return undefined;
+    }
+    return paths.find((p) => path.basename(p) === selected);
+};
 
 /**
  * 把 yt-dlp / 系统错误归一成稳定的原因 code，供前端按 code 映射本地化摘要；
@@ -306,7 +320,7 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
     private async registerVideo(videoPath: string, srtPaths: string[]): Promise<YoutubeImportTaskResult> {
         const ids = await this.watchHistoryService.create([videoPath]);
         const videoId = ids[0];
-        const englishSrt = srtPaths.find((p) => ENGLISH_SRT_PATTERN.test(p));
+        const englishSrt = pickPreferredEnglishSrt(srtPaths);
         if (englishSrt) {
             await this.watchHistoryService.attachSrt(videoPath, englishSrt);
         } else if (srtPaths.length === 0) {

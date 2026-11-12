@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { showNotification } from '@/fronted/components/shared/toasts/notification';
 import { useTranslation } from 'react-i18next';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
+import { describeAsrFailure } from '@/common/utils/practice/asr-error';
 import { practiceApi } from './practiceApi';
 import usePracticePanel from './practiceStore';
 import {
@@ -181,7 +182,7 @@ export function usePracticeRecorder({
         const durationMs = startedAtRef.current > 0 ? Math.max(0, Date.now() - startedAtRef.current) : 0;
         finishFlow();
         if (blob.size === 0) {
-            toast.error(t('recorder.empty'));
+            showNotification({ message: t('recorder.empty'), variant: 'error' });
             dispatch('EMPTY');
             return;
         }
@@ -191,7 +192,14 @@ export function usePracticeRecorder({
             await onDoneRef.current(new Uint8Array(buffer), { blob, mimeType, durationMs });
         } catch (error) {
             logger.error('跟读评分失败', { error });
-            toast.error(error instanceof Error ? error.message : String(error));
+            // 直接透传会让 parakeet 的整段 C++ stderr 铺满屏幕；这里只给可操作提示。
+            const message = describeAsrFailure(error);
+            showNotification({
+                message,
+                variant: 'error',
+                // 与 IPC 边界的全局广播共用同一个键：两条通道都报同一件事时合并成一条。
+                dedupeKey: `ipc-error:${message}`,
+            });
         } finally {
             dispatch('SCORED');
         }
@@ -260,14 +268,14 @@ export function usePracticeRecorder({
     const start = async (): Promise<void> => {
         if (phase !== 'idle') return;
         if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-            toast.error(t('recorder.unsupported'));
+            showNotification({ message: t('recorder.unsupported'), variant: 'error' });
             return;
         }
         try {
             const micStatus = await practiceApi.ensureMicrophone();
             if (micStatus !== 'granted') {
                 logger.warn('麦克风授权未就绪，取消跟读录音', { micStatus });
-                toast.error(t('recorder.denied'));
+                showNotification({ message: t('recorder.denied'), variant: 'error' });
                 return;
             }
             mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
@@ -279,7 +287,7 @@ export function usePracticeRecorder({
             });
         } catch (error) {
             logger.error('获取麦克风失败', { error });
-            toast.error(t('recorder.denied'));
+            showNotification({ message: t('recorder.denied'), variant: 'error' });
             releaseStream();
             return;
         }

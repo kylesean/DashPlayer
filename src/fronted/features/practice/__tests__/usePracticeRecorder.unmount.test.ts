@@ -16,7 +16,10 @@ vi.mock('@/fronted/features/player/components/PlayerActions', () => ({
     playerActions: { pause: vi.fn() },
 }));
 
-vi.mock('react-hot-toast', () => ({ default: { error: vi.fn(), success: vi.fn() } }));
+// hook 现在统一走 showNotification；这里替身掉通知出口，避免测试依赖真实 toast。
+vi.mock('@/fronted/components/shared/toasts/notification', () => ({
+    showNotification: vi.fn(),
+}));
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({ t: (key: string) => key }),

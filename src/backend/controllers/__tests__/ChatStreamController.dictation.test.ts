@@ -50,7 +50,7 @@ describe('ChatStreamController chat/transcribe-audio 语音听写容错', () => 
         expect(handler).toBeDefined();
 
         await expect(handler!(undefined, { audio: new Uint8Array(2048) })).rejects.toThrow(
-            '未识别到清晰英语语音（当前 Parakeet 模型仅支持英文输入；说中文请直接打字或在设置切换语音模型）',
+            '没有识别到英文语音。请确认对着麦克风用英语朗读，且麦克风没有被静音。',
         );
     });
 

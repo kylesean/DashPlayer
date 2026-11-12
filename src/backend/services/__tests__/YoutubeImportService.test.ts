@@ -112,8 +112,12 @@ class FakeDpTaskService implements DpTaskService {
  * 可编程行为的 yt-dlp 网关测试替身；产物文件真实写入内存文件系统。
  */
 class FakeYtDlpGateway implements YtDlpGateway {
-    /** success：产出视频与双语字幕；no-srt：只产出视频；fail：直接失败；hang：挂起直到取消。 */
-    public mode: 'success' | 'no-srt' | 'fail' | 'hang' = 'success';
+    /**
+     * success：产出视频与双语字幕；
+     * both-srt：同时产出作者字幕 `.en.srt` 与 ASR 字幕 `.en-orig.srt`；
+     * no-srt：只产出视频；fail：直接失败；hang：挂起直到取消。
+     */
+    public mode: 'success' | 'both-srt' | 'no-srt' | 'fail' | 'hang' = 'success';
     public readonly downloads: YtDlpDownloadRequest[] = [];
 
     constructor(private readonly fsGateway: MemoryFileSystemGateway) {}
@@ -137,7 +141,14 @@ class FakeYtDlpGateway implements YtDlpGateway {
                         path.join(request.outputDir, `${VIDEO_BASE_NAME}.en.srt`),
                         path.join(request.outputDir, `${VIDEO_BASE_NAME}.zh-Hans.srt`),
                     ]
-                    : [];
+                    : this.mode === 'both-srt'
+                        // 故意把 ASR 轨排在前面：模拟文件系统返回顺序不利的情况，
+                        // 保证选择逻辑不依赖 `find` 的偶然顺序。
+                        ? [
+                            path.join(request.outputDir, `${VIDEO_BASE_NAME}.en-orig.srt`),
+                            path.join(request.outputDir, `${VIDEO_BASE_NAME}.en.srt`),
+                        ]
+                        : [];
                 this.fsGateway.files.set(path.normalize(videoPath), 'video');
                 for (const srtPath of srtPaths) {
                     this.fsGateway.files.set(path.normalize(srtPath), 'srt');
@@ -294,6 +305,24 @@ describe('YouTube 导入服务', () => {
     });
 
     describe('发起导入', () => {
+        /**
+         * 同一个视频可能同时下载到两份英语字幕：作者上传的 `.en.srt` 与 ASR 的
+         * `.en-orig.srt`。旧实现用 `find` 取第一个匹配项，顺序取决于文件系统，
+         * 于是同一个视频有时挂作者轨、有时挂 ASR 轨——用户会觉得「字幕对不上」
+         * 时好时坏。作者轨有人工标点、时间轴不重叠，必须优先。
+         */
+        it('同时存在作者字幕与 ASR 字幕时，优先挂载作者字幕', async () => {
+            ytDlpGateway.mode = 'both-srt';
+            const { taskId } = await service.start(VIDEO_URL);
+            const task = await waitForTerminalTask(dpTaskService, taskId);
+
+            expect(task.status).toBe(DpTaskState.DONE);
+            expect(watchHistoryService.attached[0]).toEqual({
+                videoPath: `/storage/videos/YouTube/${VIDEO_BASE_NAME}.mp4`,
+                srtPath: `/storage/videos/YouTube/${VIDEO_BASE_NAME}.en.srt`,
+            });
+        });
+
         it('下载成功后视频移入视频库、挂载英语字幕并完成任务', async () => {
             const { taskId } = await service.start(VIDEO_URL);
             const task = await waitForTerminalTask(dpTaskService, taskId);
