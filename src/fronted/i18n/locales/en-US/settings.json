@@ -72,9 +72,6 @@
         "transcriptPositionDescription": "Choose where the script panel docks in the player",
         "transcriptPositionRight": "Right (Default)",
         "transcriptPositionLeft": "Left (Deep Read)",
-        "meaningGroupResegmentationTitle": "Merge fragmented subtitles",
-        "meaningGroupResegmentationDescription": "Merges fragmented half-sentence subtitle lines into complete sentences during parsing; applies after reopening video",
-        "meaningGroupResegmentationChanged": "Switched. Reopen the video to apply",
         "sections": {
             "theme": "Theme",
             "themeDesc": "Palette and light or dark mode",
@@ -599,6 +596,8 @@
             "import": "Import dictionary",
             "formats": "Supports StarDict, CSV, SQLite",
             "empty": "No dictionaries imported yet",
+            "builtinName": "Built-in dictionary",
+            "builtinMeta": "{{source}} {{version}} · {{count}} entries · bundled with the app",
             "loading": "Loading dictionaries…",
             "meta": "{{count}} entries · {{format}}",
             "remove": "Remove",
@@ -619,6 +618,20 @@
             "cancel": "Cancel",
             "installFailed": "Install failed: {{message}}",
             "removeFailed": "Remove failed: {{message}}"
+        },
+        "ttsVoice": {
+            "title": "Reading voice",
+            "description": "Voice used for offline playback of words and examples.",
+            "accentUS": "US",
+            "accentGB": "UK",
+            "male": "Male",
+            "female": "Female",
+            "qualityLow": "Light",
+            "qualityMedium": "Standard",
+            "qualityHigh": "High",
+            "notInstalled": "This voice is not downloaded yet. Download it in the resource pack above.",
+            "notInstalledShort": "not downloaded",
+            "downloadHint": "This voice is not installed yet; playback temporarily uses another installed voice. Download it in the resource pack above."
         }
     },
     "runtime": {

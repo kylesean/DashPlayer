@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronRight, Info, Loader2, RotateCcw, Sparkles } from 'lucide-react';
+import { ChevronRight, Info, Loader2, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 
@@ -114,7 +114,6 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
                     className,
                 )}
             >
-                <Sparkles size={13} className="shrink-0 text-warning-text/80" />
                 <span className="font-medium">{t('aiContextInsight')}</span>
                 <ChevronRight
                     size={12}
@@ -183,7 +182,6 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
             )}
         >
             <div className="flex items-center gap-1.5 text-metadata font-semibold uppercase tracking-wider text-muted-foreground select-none">
-                <Sparkles size={12} className="shrink-0 text-warning-text/80" />
                 <span>{t('aiContextInsightInSentence')}</span>
                 {insight.source === 'local' && (
                     <span className="font-normal normal-case tracking-normal text-muted-foreground/70">

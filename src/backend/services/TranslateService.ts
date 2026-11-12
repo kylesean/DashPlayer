@@ -200,6 +200,7 @@ const sanitizeDictionaryResult = (value: OpenAIDictionaryResultLike): OpenAIDict
         ?? sanitizePhonetic('usPhonetic' in value ? value.usPhonetic : undefined)
         ?? '',
     definitions: sanitizeDefinitions(value.definitions),
+    ...('source' in value && value.source ? { source: value.source } : {}),
 });
 
 const deepEqual = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
@@ -306,14 +307,17 @@ export class TranslateServiceImpl implements TranslateService {
         context?: string
     ): Promise<OpenAIDictionaryResult | null> {
         const normalizedContext = context?.trim() ?? '';
-        const hasContext = normalizedContext.length > 0;
         const currentProvider = await this.settingService.getCurrentDictionaryProvider();
 
-        // 预置词典不依赖任何密钥配置，命中即返回，保证未配置词典服务时也能开箱查词；
-        // 强制刷新的语义是绕过预置库与缓存重新在线查询，因此不在这里拦截。
-        // 带语境且引擎可用时跳过预置词典：静态义项可能不符合语境，LLM 语境解释优先，
-        // 引擎失败时在 executeWordLookup 内回退预置词典。
-        const builtinFirst = !forceRefresh && (!hasContext || !currentProvider);
+        // 词典优先：预置/导入词典是毫秒级、离线、零成本的，任何情况下都先给。
+        //
+        // 曾经的策略是「带语境时跳过词典，直接走 LLM」，理由是静态义项可能不符合
+        // 语境。但那个权衡方向错了：查词的首要诉求是「这词什么意思」，90% 的场景
+        // 词典就够了；LLM 语境解读慢（1-3s）、要钱、可能出错，不该阻塞首屏。
+        // 现在语境解读作为单词卡的第二层按需请求，与这里的首屏释义互不干扰。
+        //
+        // forceRefresh 的语义仍是「绕过词典与缓存重新在线查询」，因此保留拦截。
+        const builtinFirst = !forceRefresh;
         if (builtinFirst) {
             // 用户导入的词典优先于内置 ECDICT：导入通常是为了更完整/更权威的释义。
             const importedResult = this.importedDictionaryService.lookup(str);
@@ -515,6 +519,7 @@ export class TranslateServiceImpl implements TranslateService {
             }
 
             const finalResult = sanitizeDictionaryResult(aggregated);
+            finalResult.source = 'ai';
 
             if (finalResult.definitions.length > 0) {
                 if (requestId) {
@@ -564,7 +569,7 @@ export class TranslateServiceImpl implements TranslateService {
             this.logger.error('本地字典模型返回结构无效', { word, issues: parsed.error.issues, requestId });
             return null;
         }
-        return sanitizeDictionaryResult(parsed.data);
+        return { ...sanitizeDictionaryResult(parsed.data), source: 'ai' };
     }
 
     /**

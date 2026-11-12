@@ -1,13 +1,18 @@
 import * as path from 'path';
 import { inject, injectable } from 'inversify';
 import { WithSemaphore } from '@/backend/utils/concurrency/decorators';
-import { SHERPA_TTS_MODEL_DIRECTORY } from '@/backend/services/models/sherpaTtsModel';
+import {
+    SHERPA_TTS_REQUIRED_FILES,
+    SHERPA_TTS_VOICES,
+    resolveSherpaTtsVoice,
+    type SherpaTtsVoice,
+} from '@/backend/services/models/sherpaTtsModel';
+import type SettingService from '@/backend/services/SettingService';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import TYPES from '@/backend/ioc/types';
 import { SherpaOnnxTtsCli } from '@/backend/infrastructure/media/sherpa/SherpaOnnxTtsCli';
-import type LocalModelService from '@/backend/services/models/LocalModelService';
 
 /**
  * LocalTtsService 的业务契约。
@@ -30,9 +35,9 @@ export default interface LocalTtsService {
 export class LocalTtsServiceImpl implements LocalTtsService {
     constructor(
         @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
-        @inject(TYPES.SherpaTtsModelService) private readonly modelService: LocalModelService,
         @inject(TYPES.SherpaOnnxTtsCli) private readonly cli: SherpaOnnxTtsCli,
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
+        @inject(TYPES.SettingService) private readonly settingService: SettingService,
     ) {}
 
     /**
@@ -43,10 +48,9 @@ export class LocalTtsServiceImpl implements LocalTtsService {
     @WithSemaphore('tts')
     public async synthesize(text: string): Promise<string> {
         if (!text.trim()) throw new Error('TTS 文本不能为空');
-        const status = await this.modelService.getStatus();
-        if (!status.ready) throw new Error('Sherpa TTS 模型尚未下载，请先到设置中心下载模型');
         const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
-        const modelDir = path.join(modelsRoot, SHERPA_TTS_MODEL_DIRECTORY);
+        const voice = await this.resolveUsableVoice(modelsRoot);
+        const modelDir = path.join(modelsRoot, voice.directoryName);
         // 合成产物放在媒体库的临时目录里，而不是系统临时目录：
         // - 媒体库根目录是 media:// 协议唯一授权的根，放在这里朗读链接才不会 403；
         // - 系统临时目录（如 /tmp）是全局可写目录，别的进程可以预建同名目录抢走写入权；
@@ -56,11 +60,60 @@ export class LocalTtsServiceImpl implements LocalTtsService {
         await this.fileSystemGateway.ensureDirectory(outputDir);
         const outputPath = path.join(outputDir, `${Date.now()}-${Math.random().toString(36).slice(2)}.wav`);
         return this.cli.run({
-            modelPath: path.join(modelDir, 'en_US-amy-low.onnx'),
+            modelPath: path.join(modelDir, voice.modelFileName),
             tokensPath: path.join(modelDir, 'tokens.txt'),
             dataDir: path.join(modelDir, 'espeak-ng-data'),
             outputPath,
             text: text.trim(),
         });
+    }
+
+    /**
+     * 选出真正可以合成的音色。
+     *
+     * 默认音色可能在升级后尚未下载（例如默认值从 amy-low 换成 lessac-medium），
+     * 此时直接报错会让「点喇叭没反应」——朗读是高频辅助功能，不该因为一次
+     * 默认值变更就整体不可用。
+     *
+     * 策略：优先用用户选中的音色；若它未安装，退而使用任意一个已完整安装的
+     * 音色（保持口音优先级：同口音优先）。全都未安装时才报错，提示去下载。
+     *
+     * @param modelsRoot 模型根目录。
+     * @returns 可用于合成的音色。
+     */
+    private async resolveUsableVoice(modelsRoot: string): Promise<SherpaTtsVoice> {
+        const selected = resolveSherpaTtsVoice(this.settingService.getSherpaTtsVoice());
+        if (await this.isVoiceInstalled(modelsRoot, selected)) {
+            return selected;
+        }
+        // 选中音色未装：按「同口音优先 → 其余」的顺序找一个已安装的。
+        const candidates = [
+            ...SHERPA_TTS_VOICES.filter((voice) => voice.accent === selected.accent),
+            ...SHERPA_TTS_VOICES.filter((voice) => voice.accent !== selected.accent),
+        ];
+        for (const voice of candidates) {
+            if (await this.isVoiceInstalled(modelsRoot, voice)) {
+                return voice;
+            }
+        }
+        throw new Error('Sherpa TTS 模型尚未下载，请先到设置中心下载模型');
+    }
+
+    /**
+     * 判断某音色的必需文件是否齐全。
+     *
+     * @param modelsRoot 模型根目录。
+     * @param voice 音色配置。
+     * @returns 齐全时返回 true。
+     */
+    private async isVoiceInstalled(modelsRoot: string, voice: SherpaTtsVoice): Promise<boolean> {
+        const modelDir = path.join(modelsRoot, voice.directoryName);
+        // 必需条目里 `espeak-ng-data` 是目录，不能用 fileExists（目录会抛错）；
+        // pathIsMissing 对文件和目录一视同仁，只判断路径是否存在。
+        const required = [voice.modelFileName, ...SHERPA_TTS_REQUIRED_FILES];
+        const missing = await Promise.all(
+            required.map((name) => this.fileSystemGateway.pathIsMissing(path.join(modelDir, name))),
+        );
+        return missing.every((isMissing) => !isMissing);
     }
 }

@@ -17,8 +17,6 @@ export type PlaybackSessionState = {
     srtHash: string | null;
     /** 增量转录或本地字幕解析会话 ID。 */
     subtitleSessionId: string | null;
-    /** 当前已加载字幕是否为意群重切分行，练习记录按它隔离查询键。 */
-    srtResegmented: boolean;
     /** 字幕重载令牌；递增时触发播放器按当前字幕路径重建字幕上下文。 */
     subtitleReloadToken: number;
 };
@@ -48,7 +46,6 @@ export const usePlaybackSession = create(
         videoId: null,
         srtHash: null,
         subtitleSessionId: null,
-        srtResegmented: false,
         subtitleReloadToken: 0,
         updateFile: (ph: string) => {
             if (MediaUtil.isMedia(ph)) {
@@ -66,7 +63,6 @@ export const usePlaybackSession = create(
                     subtitlePath: ph,
                     srtHash: s.subtitlePath === ph ? s.srtHash : null,
                     subtitleSessionId: s.subtitlePath === ph ? s.subtitleSessionId : null,
-                    srtResegmented: s.subtitlePath === ph ? s.srtResegmented : false,
                 }));
             }
         },
@@ -84,7 +80,6 @@ export const usePlaybackSession = create(
                 videoId: null,
                 srtHash: null,
                 subtitleSessionId: null,
-                srtResegmented: false,
             });
         },
         clearSrt: () => {
@@ -92,7 +87,6 @@ export const usePlaybackSession = create(
                 subtitlePath: null,
                 srtHash: null,
                 subtitleSessionId: null,
-                srtResegmented: false,
             });
         },
         reloadSubtitles: () => {

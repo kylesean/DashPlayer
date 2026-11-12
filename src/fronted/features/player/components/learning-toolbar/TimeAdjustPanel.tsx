@@ -62,7 +62,9 @@ export default function TimeAdjustPanel() {
             >
                 +0.2s
             </button>
-            <div className="w-24 shrink-0">
+            {/* NumberInput 默认用 --text-body-size（= --font-size-base），比同排按钮的
+                text-sm 大一档。这里把它压到 supporting，与两侧步进按钮同字号。 */}
+            <div className="w-24 shrink-0 [--text-body-size:var(--text-supporting-size)] [--text-body-leading:var(--text-supporting-leading)]">
                 <NumberInput
                     label={field === 'start' ? t('subtitle.beginLabel') : t('subtitle.endLabel')}
                     isLabelHidden

@@ -42,6 +42,7 @@ import {
     type RuntimeSettingsSnapshot,
 } from '@/common/contracts/runtime-settings';
 import { TRANSCRIPTION_ENGINES, type TranscriptionEngine } from '@/common/contracts/transcription-engine';
+import { SHERPA_TTS_VOICES, resolveSherpaTtsVoice } from '@/backend/services/models/sherpaTtsModel';
 
 /** 字幕翻译引擎的合法取值；设置校验与运行时查询共用，避免各处字面量漂移。 */
 const SUBTITLE_TRANSLATION_ENGINES = ['openai', 'local', 'local-mt', 'tencent', 'none'] as const;
@@ -97,6 +98,21 @@ export default interface SettingService {
     getOpenAiSubtitleTranslationMode(): Promise<'zh' | 'simple_en' | 'custom'>;
     getOpenAiSubtitleCustomStyle(): Promise<string>;
     getCurrentDictionaryProvider(): Promise<'openai' | 'local' | null>;
+    /**
+     * 读取离线朗读音色标识（见 SHERPA_TTS_VOICES）。
+     *
+     * 同步读取：模型服务在构造期与每次状态查询时都要立即拿到当前音色，
+     * 走异步会引入不必要的 await 链。
+     *
+     * @returns 音色 id；未设置或非法时回退默认音色。
+     */
+    getSherpaTtsVoice(): string;
+    /**
+     * 保存离线朗读音色。
+     *
+     * @param voiceId 音色 id；未知值会被拒绝。
+     */
+    saveSherpaTtsVoice(voiceId: string): Promise<void>;
     testOpenAi(modelId: string): Promise<{ success: boolean, message: string }>;
     testTencent(): Promise<{ success: boolean, message: string }>;
 }
@@ -891,6 +907,22 @@ export class SettingServiceImpl implements SettingService {
             return engine;
         }
         return null;
+    }
+
+    /** @inheritdoc */
+    public getSherpaTtsVoice(): string {
+        // 音色清单可能随版本增删，存量配置里存了已下线的 id 时静默回退默认值，
+        // 而不是抛错——朗读是辅助功能，不该因为一个过时设置让设置页打不开。
+        return resolveSherpaTtsVoice(this.getValue('tts.voice')).id;
+    }
+
+    /** @inheritdoc */
+    public async saveSherpaTtsVoice(voiceId: string): Promise<void> {
+        const allowed = SHERPA_TTS_VOICES.map((voice) => voice.id);
+        if (!allowed.includes(voiceId)) {
+            throw new Error(`未知的朗读音色：${voiceId}`);
+        }
+        await this.setValue('tts.voice', voiceId);
     }
 
     /**

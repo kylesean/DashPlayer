@@ -18,7 +18,7 @@ export const DEFAULT_INNER_SUBTITLE_SIZE = 25;
 
 /** 大字号下主字幕额外获得的占比。 */
 const LARGE_FONT_EXTRA_SIZE = 3;
-/** 整句连读下主字幕额外获得的占比。 */
+/** 整句模式下主字幕额外获得的占比。 */
 const SENTENCE_BLOCK_EXTRA_SIZE = 3;
 /** 主字幕占比上限：恢复默认也不能把视频舞台压到 68% 以下。 */
 export const MAX_INNER_SUBTITLE_SIZE = 32;
@@ -31,23 +31,21 @@ export interface InnerSplitSizes {
 /**
  * 计算上下分栏的默认比例。
  *
- * 25% 是双语字幕各显示一行、且学习台不挤压正文的基线。大字号与整句连读
+ * 25% 是双语字幕各显示一行、且学习台不挤压正文的基线。大字号与整句块
  * 都会增加单屏内容高度，因此各追加 3 个百分点；封顶 32%，保证视频舞台
  * 始终保有不低于 68% 的高度。
  *
  * @param fontSize 当前外观字号设置。
- * @param sentenceBlockMode 是否开启整句连读。
  * @returns 舞台与主字幕的默认百分比；两者之和恒为 100。
  */
 export function getDefaultInnerSplit(
     fontSize: string | undefined,
-    sentenceBlockMode: boolean,
 ): InnerSplitSizes {
     const subtitle = Math.min(
         MAX_INNER_SUBTITLE_SIZE,
         DEFAULT_INNER_SUBTITLE_SIZE
             + (fontSize === 'fontSizeLarge' ? LARGE_FONT_EXTRA_SIZE : 0)
-            + (sentenceBlockMode ? SENTENCE_BLOCK_EXTRA_SIZE : 0),
+            + SENTENCE_BLOCK_EXTRA_SIZE,
     );
     return { stage: 100 - subtitle, subtitle };
 }

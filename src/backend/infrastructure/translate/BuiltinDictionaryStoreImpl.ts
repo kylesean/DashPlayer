@@ -4,6 +4,7 @@ import Database from 'better-sqlite3';
 import { inject, injectable } from 'inversify';
 
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
+import type { BuiltinDictionaryMetaVO } from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
 import { lemmatizeWord } from '@/backend/utils/language/VocabularyMatcher';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import TYPES from '@/backend/ioc/types';
@@ -56,6 +57,8 @@ export class BuiltinDictionaryStoreImpl implements BuiltinDictionaryStore {
     private readonly dbPath: string;
     private db: Database.Database | null = null;
     private selectStmt: Database.Statement | null = null;
+    /** 首次打开时读到的元信息，供设置页复用。 */
+    private metaInfo: BuiltinDictionaryMetaVO | null = null;
 
     constructor(@inject(TYPES.BuiltinDictionaryPath) dbPath: string) {
         this.dbPath = dbPath;
@@ -84,6 +87,7 @@ export class BuiltinDictionaryStoreImpl implements BuiltinDictionaryStore {
             word: row.word,
             phonetic: row.phonetic ?? '',
             definitions,
+            source: 'builtin',
         };
         if (row.collins > 0) result.collins = row.collins;
         if (row.oxford > 0) result.oxford = row.oxford;
@@ -92,6 +96,16 @@ export class BuiltinDictionaryStoreImpl implements BuiltinDictionaryStore {
         const tags = (row.tags ?? '').split(/\s+/u).filter(Boolean);
         if (tags.length > 0) result.tags = tags;
         return result;
+    }
+
+    /**
+     * 读取内置词典的元信息。
+     *
+     * @returns 词条数与数据源版本。
+     */
+    public meta(): BuiltinDictionaryMetaVO {
+        this.open();
+        return { ...this.metaInfo! };
     }
 
     /**
@@ -119,6 +133,11 @@ export class BuiltinDictionaryStoreImpl implements BuiltinDictionaryStore {
         }
 
         this.db = db;
+        this.metaInfo = {
+            source: meta.source,
+            sourceVersion: meta.sourceVersion,
+            wordCount: meta.wordCount,
+        };
         this.selectStmt = db.prepare(
             'SELECT word, phonetic, translation, collins, oxford, bnc, frq, tags, exchange FROM entries WHERE word_key = ?'
         );

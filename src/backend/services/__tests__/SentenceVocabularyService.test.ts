@@ -6,6 +6,7 @@ import type ReviewCardRepository from '@/backend/services/repositories/ReviewCar
 import type WordEncounterRepository from '@/backend/services/repositories/WordEncounterRepository';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import type { Word } from '@/backend/infrastructure/db/tables/words';
+import { builtinDictionaryMetaStub } from '@/test/builtinDictionaryFixture';
 
 const dictEntry = (
     word: string,
@@ -26,6 +27,7 @@ describe('SentenceVocabularyService (个人记忆加权与去水词)', () => {
                 good: dictEntry('good', '好的', { oxford: 1, bnc: 100, tags: ['zk'] }),
                 morning: dictEntry('morning', '早晨', { oxford: 1, bnc: 250, tags: ['zk'] }),
             }[w] ?? null),
+            meta: () => builtinDictionaryMetaStub(0),
         };
         const wordMatch = { getVocabularyWords: async () => [] } as unknown as WordMatchService;
         const service = new SentenceVocabularyServiceImpl(dict, wordMatch);
@@ -46,6 +48,7 @@ describe('SentenceVocabularyService (个人记忆加权与去水词)', () => {
                 without: dictEntry('without', '没有', {}),
                 serendipity: dictEntry('serendipity', '意外发现珍奇事物的运气', { bnc: 18000, tags: ['gre'] }),
             }[w] ?? null),
+            meta: () => builtinDictionaryMetaStub(0),
         };
         const wordMatch = { getVocabularyWords: async () => [] } as unknown as WordMatchService;
         const service = new SentenceVocabularyServiceImpl(dict, wordMatch);
@@ -63,6 +66,7 @@ describe('SentenceVocabularyService (个人记忆加权与去水词)', () => {
                 yourself: dictEntry('yourself', '你自己', {}),
                 routine: dictEntry('routine', '日常；常规', { collins: 2, bnc: 5200, tags: ['cet4'] }),
             }[w] ?? null),
+            meta: () => builtinDictionaryMetaStub(0),
         };
         const vocabWords: Word[] = [{
             id: 3,
@@ -100,6 +104,7 @@ describe('SentenceVocabularyService (个人记忆加权与去水词)', () => {
                 leverage: dictEntry('leverage', '杠杆；利用', { collins: 2, bnc: 4500, tags: ['cet6'] }),
                 nudge: dictEntry('nudge', '轻推；微促', { collins: 1, bnc: 12000, tags: ['gre'] }),
             }[w] ?? null),
+            meta: () => builtinDictionaryMetaStub(0),
         };
         const vocabWords: Word[] = [
             {

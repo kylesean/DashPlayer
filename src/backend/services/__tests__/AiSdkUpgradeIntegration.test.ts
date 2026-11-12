@@ -370,6 +370,8 @@ const runTests = (): void => {
                     getOpenAiSubtitleTranslationMode: vi.fn().mockResolvedValue('zh'),
                     getOpenAiSubtitleCustomStyle: vi.fn().mockResolvedValue(''),
                     getCurrentDictionaryProvider: vi.fn().mockResolvedValue('openai'),
+                    getSherpaTtsVoice: vi.fn().mockReturnValue('en-US-amy-low'),
+                    saveSherpaTtsVoice: vi.fn().mockResolvedValue(undefined),
                     testOpenAi: vi.fn(),
                     testTencent: vi.fn(),
                 };

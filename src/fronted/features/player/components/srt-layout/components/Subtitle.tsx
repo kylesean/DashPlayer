@@ -11,7 +11,7 @@ import {
     DropdownMenuRadioGroup,
     DropdownMenuRadioItem,
 } from '@astryxdesign/core/DropdownMenu';
-import { ArrowLeftRight, BookOpen, ChevronDown, ChevronUp, FileText, Filter, Languages, List, LocateFixed, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
+import { ArrowLeftRight, ArrowUpToLine, BookOpen, ChevronDown, ChevronUp, FileText, Filter, Languages, List, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import ArticleBlock from './ArticleBlock';
 import { groupSentencesIntoBlocks, type SentenceBlock } from '@/fronted/features/player/lib/sentence-grouping';
@@ -119,6 +119,8 @@ export default function Subtitle() {
         updateVisibleRange,
         delaySetNormal,
         syncIntoView,
+        returnToCurrent,
+        returnToListPosition,
     } = useSubtitleScrollState(
         useShallow((s) => ({
             scrollState: s.scrollState,
@@ -128,6 +130,8 @@ export default function Subtitle() {
             updateVisibleRange: s.updateVisibleRange,
             delaySetNormal: s.delaySetNormal,
             syncIntoView: s.syncIntoView,
+            returnToCurrent: s.returnToCurrent,
+            returnToListPosition: s.returnToListPosition,
         })),
     );
 
@@ -854,31 +858,6 @@ export default function Subtitle() {
                         </button>
                     </Tooltip>
 
-                    {/* 浏览偏离时回到当前播放句 */}
-                    {scrollState === 'USER_BROWSING' && (currentListPosition >= 0 || currentBlockIndex >= 0) && (
-                        <Tooltip content={t('controlButton.backToPlayhead')} placement="below">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    if (transcriptViewMode === 'article' && currentBlockIndex >= 0) {
-                                        virtuosoHandleRef.current?.scrollToIndex({
-                                            index: currentBlockIndex,
-                                            align: 'center',
-                                            behavior: 'smooth',
-                                        });
-                                        delaySetNormal();
-                                    } else if (currentListPosition >= 0) {
-                                        syncIntoView(currentListPosition);
-                                    }
-                                }}
-                                className="p-1 rounded-md text-accent hover:bg-accent-muted/20 transition-colors cursor-pointer"
-                                aria-label={t('controlButton.backToPlayhead')}
-                            >
-                                <LocateFixed className="w-3.5 h-3.5 animate-pulse" />
-                            </button>
-                        </Tooltip>
-                    )}
-
                     {/* 左右停靠对调切换 */}
                     <Tooltip
                         content={transcriptPosition === 'right' ? t('dockToLeft', { defaultValue: '将文稿切换至左侧' }) : t('dockToRight', { defaultValue: '将文稿切换至右侧' })}
@@ -1029,6 +1008,38 @@ export default function Subtitle() {
             )}
 
             <div className="flex-1 min-h-0 relative">
+                {/*
+                  「回到当前播放句」是**跟随类**操作，只在用户滚开时才有意义。
+                  它以前挤在右上角工具栏里，和搜索/视图切换并列，既稀释了那组
+                  「视图控制」的语义，又让工具栏涨到 7 个图标。
+                  现在做成文稿区底部的浮动按钮：出现位置贴近阅读视线，出现时机
+                  恰好是「用户已经离开当前句」，符合它作为临时提示的身份。
+                */}
+                {scrollState === 'USER_BROWSING' && (currentListPosition >= 0 || currentBlockIndex >= 0) && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center">
+                        <Tooltip content={t('controlButton.backToPlayhead')} placement="above">
+                            <button
+                                type="button"
+                                data-testid="transcript-back-to-playhead"
+                                onClick={() => {
+                                    if (transcriptViewMode === 'article' && currentBlockIndex >= 0) {
+                                        returnToListPosition(currentBlockIndex);
+                                    }
+                                    returnToCurrent();
+                                }}
+                                aria-label={t('controlButton.backToPlayhead')}
+                                className={cn(
+                                    'pointer-events-auto inline-flex h-8 w-8 items-center justify-center rounded-full',
+                                    'bg-accent text-accent-foreground shadow-lg',
+                                    'transition-transform hover:scale-105 active:scale-95',
+                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer',
+                                )}
+                            >
+                                <ArrowUpToLine className="h-4 w-4" />
+                            </button>
+                        </Tooltip>
+                    </div>
+                )}
                 {displaySentences.length === 0 && vocabularyFilter !== 'all' ? (
                     <div className="h-full w-full flex flex-col items-center justify-center gap-2 px-6 text-center">
                         <p className="text-sm text-muted-foreground">

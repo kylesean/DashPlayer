@@ -13,13 +13,10 @@ import { applyLanguageSetting } from '@/fronted/i18n';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 import { THEME_PREVIEW_COLORS } from '@/fronted/app/themeFamilies';
 import useSWR from 'swr';
-import { toast } from 'react-hot-toast';
-import { playerApi } from '@/fronted/features/player/playerApi';
 import type { AppearanceSettingVO } from '@/common/contracts/appearance-setting-vo';
 import { Captions, Laptop, Moon, Palette, PanelLeft, PanelRight, SlidersHorizontal, Sun } from 'lucide-react';
 import { Grid } from '@astryxdesign/core/Grid';
 import { Selector } from '@astryxdesign/core/Selector';
-import { Switch } from '@astryxdesign/core/Switch';
 import {
     SegmentedControl,
     SegmentedControlItem,
@@ -75,19 +72,6 @@ const AppearanceSetting: React.FC = () => {
     });
 
     const [previewMode, setPreviewMode] = useState<string>('main');
-
-    const { data: rawResegmentation, isLoading: resegmentationLoading, mutate: mutateResegmentation } = useSWR(
-        'system/config/meaning-group-resegmentation',
-        () => playerApi.getMeaningGroupResegmentation(),
-        { revalidateOnFocus: false, dedupingInterval: 10_000 },
-    );
-    const meaningGroupResegmentation = rawResegmentation !== 'false';
-
-    const handleToggleMeaningGroup = async (next: boolean) => {
-        await playerApi.setMeaningGroupResegmentation(next);
-        await mutateResegmentation(next ? 'true' : 'false', false);
-        toast.success(t('appearance.meaningGroupResegmentationChanged'));
-    };
 
     useEffect(() => {
         if (!settings) {
@@ -404,22 +388,6 @@ const AppearanceSetting: React.FC = () => {
                                 </CardRadio>
                             </Grid>
                         </CardRadioGroup>
-                    </SettingField>
-
-                    <Divider variant="subtle" />
-
-                    <SettingField
-                        title={t('appearance.meaningGroupResegmentationTitle')}
-                        description={t('appearance.meaningGroupResegmentationDescription')}
-                    >
-                        <Switch
-                            label={t('appearance.meaningGroupResegmentationTitle')}
-                            isLabelHidden
-                            size="sm"
-                            value={meaningGroupResegmentation}
-                            isDisabled={resegmentationLoading}
-                            onChange={(val) => { void handleToggleMeaningGroup(val); }}
-                        />
                     </SettingField>
                 </SettingSection>
 

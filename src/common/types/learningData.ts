@@ -87,7 +87,6 @@ export interface LearningDataRecommendationVO {
 export interface LearningDataSentencePracticeVO {
     fileHash: string;
     sentenceIndex: number;
-    resegmented: boolean;
     mode: string;
     score: number;
     transcript: string | null;

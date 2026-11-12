@@ -252,6 +252,24 @@ export const settingsApi = {
      * @returns 当前模型状态。
      */
     getSherpaTtsModelStatus: () => backendClient.call('sherpa-tts/models/status'),
+
+    /**
+     * 查询可选朗读音色与当前选择。
+     *
+     * @returns 音色清单及各音色安装状态。
+     */
+    listTtsVoices: () => backendClient.call('sherpa-tts/voices/list'),
+
+    /**
+     * 切换朗读音色。
+     *
+     * 只落盘选择，不触发下载；未安装的音色由界面提示用户手动下载。
+     *
+     * @param voiceId 目标音色 id。
+     * @returns 切换结果。
+     */
+    selectTtsVoice: (voiceId: string) =>
+        backendClient.call('sherpa-tts/voices/select', { voiceId }),
     /** 将全部本地功能切换到指定模型。 */
     useLocalAiModel: (modelId: string) => backendClient.call('local-ai/use', { modelId }),
     /** 清除当前字幕翻译配置（引擎、模型、风格一致）的翻译缓存，返回删除条数。 */

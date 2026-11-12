@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 import OpenAIWordPop from '@/fronted/features/player/components/translatable-line/openai-word-pop';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
@@ -16,6 +16,10 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@/fronted/features/player/components/translatable-line/word-context-insight', () => ({
     default: () => <div data-testid="mock-insight" />,
+}));
+
+vi.mock('swr', () => ({
+    default: () => ({ data: null, isLoading: false, mutate: vi.fn() }),
 }));
 
 const data = {
@@ -41,8 +45,12 @@ const memory = (overrides: Partial<WordMemoryVO> = {}): WordMemoryVO => ({
 });
 
 describe('OpenAIWordPop 历史行', () => {
-    it('展示上次遇见与上次复习', () => {
+    it('默认收起，展开后展示上次遇见与上次复习', () => {
         render(<OpenAIWordPop data={data} wordMemory={memory()} />);
+
+        // 两层式：学习状态默认不显示，避免悬停时信息过载。
+        expect(screen.queryByTestId('word-memory')).toBeNull();
+        fireEvent.click(screen.getByTestId('word-details-toggle'));
 
         const block = screen.getByTestId('word-memory');
         expect(block.textContent).toContain('wordMemory.lastSeen');
@@ -60,13 +68,14 @@ describe('OpenAIWordPop 历史行', () => {
     it('未入词表时仍展示历史行，但状态标签为空', () => {
         render(<OpenAIWordPop data={data} wordMemory={memory({ status: null, source: null })} />);
 
+        fireEvent.click(screen.getByTestId('word-details-toggle'));
         expect(screen.getByTestId('word-memory')).toBeDefined();
         expect(screen.queryByText('wordStatusLearning')).toBeNull();
     });
 });
 
 describe('OpenAIWordPop 提示理由', () => {
-    it('有系统理由时展示「为什么此刻提示」', () => {
+    it('有系统理由时，展开后展示「为什么此刻提示」', () => {
         render(
             <OpenAIWordPop
                 data={data}
@@ -74,6 +83,7 @@ describe('OpenAIWordPop 提示理由', () => {
             />,
         );
 
+        fireEvent.click(screen.getByTestId('word-details-toggle'));
         const block = screen.getByTestId('word-prompt-reason');
         expect(block.textContent).toContain('wordPromptReasonLabel');
         expect(block.textContent).toContain('现在到期，复习正合适');
@@ -89,5 +99,66 @@ describe('OpenAIWordPop 提示理由', () => {
 
         render(<OpenAIWordPop data={data} promptReasons={[]} />);
         expect(screen.queryByTestId('word-prompt-reason')).toBeNull();
+    });
+});
+
+describe('OpenAIWordPop 释义来源', () => {
+    it('标注释义来自内置词典，让用户知道看的是哪一本', () => {
+        render(<OpenAIWordPop data={{ ...data, source: 'builtin' }} />);
+
+        expect(screen.getByTestId('word-source').textContent).toBe('dictionarySourceBuiltin');
+    });
+
+    it('AI 生成的释义要明确提示可能不准确', () => {
+        render(<OpenAIWordPop data={{ ...data, source: 'ai' }} />);
+
+        expect(screen.getByTestId('word-source').textContent).toBe('dictionarySourceAi');
+    });
+
+    it('来源未知时不渲染来源行，而不是猜一个', () => {
+        render(<OpenAIWordPop data={data} />);
+
+        expect(screen.queryByTestId('word-source')).toBeNull();
+    });
+
+    /**
+     * 折叠入口曾经排在释义上方，看起来像「释义区标题」。
+     * 它必须排在释义之后：用户读完释义，才可能想看学习记录。
+     */
+    it('「学习记录」排在释义之后', () => {
+        render(<OpenAIWordPop data={data} wordMemory={memory()} />);
+
+        const toggle = screen.getByTestId('word-details-toggle');
+        const meaning = screen.getByText('旅程');
+        expect(
+            meaning.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+    });
+});
+
+describe('OpenAIWordPop 操作区', () => {
+    /**
+     * 查词时用户处在「一眼扫过」的状态：动作要一步可达，
+     * 不能先展开菜单再选。四个按钮平铺，靠 title/aria-label 说明后果。
+     */
+    it('四个动作平铺直达，不需要先展开菜单', () => {
+        const onMarkKnown = vi.fn();
+        render(
+            <OpenAIWordPop
+                data={data}
+                onFavorite={vi.fn()}
+                onMarkKnown={onMarkKnown}
+                onMarkIgnored={vi.fn()}
+                onRefresh={vi.fn()}
+            />,
+        );
+
+        expect(screen.queryByTestId('word-actions-toggle')).toBeNull();
+        expect(screen.getByRole('button', { name: 'favoriteWord' })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'markWordIgnored' })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'forceRefresh' })).toBeDefined();
+
+        fireEvent.click(screen.getByRole('button', { name: 'markWordKnown' }));
+        expect(onMarkKnown).toHaveBeenCalledTimes(1);
     });
 });

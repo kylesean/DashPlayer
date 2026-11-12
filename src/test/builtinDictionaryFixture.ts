@@ -8,6 +8,19 @@ import {
     BUILTIN_DICTIONARY_SCHEMA_SQL,
     BUILTIN_DICTIONARY_SCHEMA_VERSION,
 } from '@/backend/infrastructure/translate/builtinDictionarySchema';
+import type { BuiltinDictionaryMetaVO } from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
+
+/**
+ * 测试桩用的内置词典元信息。
+ *
+ * 只需要 `lookup` 的用例仍要实现 `meta()`（接口的一部分），
+ * 统一从这里取，避免每个桩各写一份字面量。
+ */
+export const builtinDictionaryMetaStub = (wordCount = 0): BuiltinDictionaryMetaVO => ({
+    source: 'ecdict',
+    sourceVersion: 'test',
+    wordCount,
+});
 
 /**
  * 测试夹具中的预置词条。

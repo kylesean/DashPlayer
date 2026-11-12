@@ -304,7 +304,6 @@ describe('LearningDataService 导出与清除', () => {
         await memoryDb.db.insert(sentencePracticeRecord).values({
             file_hash: 'subtitle-1',
             sentence_index: 3,
-            resegmented: false,
             mode: 'shadowing',
             score: 88.5,
             transcript: 'the journey changed everything',
@@ -341,7 +340,6 @@ describe('LearningDataService 导出与清除', () => {
         expect(exported.sentencePractices).toEqual([{
             fileHash: 'subtitle-1',
             sentenceIndex: 3,
-            resegmented: false,
             mode: 'shadowing',
             score: 88.5,
             transcript: 'the journey changed everything',
@@ -437,7 +435,6 @@ describe('LearningDataService 导出与清除', () => {
                 sentencePractices: [{
                     fileHash: 'subtitle-1',
                     sentenceIndex: 2,
-                    resegmented: true,
                     mode: 'shadowing',
                     score: 91,
                     transcript: 'the journey',

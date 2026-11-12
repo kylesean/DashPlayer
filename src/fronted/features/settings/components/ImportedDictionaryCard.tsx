@@ -9,10 +9,13 @@ import { Switch } from '@astryxdesign/core/Switch';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import type { ImportedDictionaryVO } from '@/common/contracts/imported-dictionary';
+import type { BuiltinDictionaryMetaVO } from '@/common/contracts/builtin-dictionary';
 import { dictionaryImportApi } from '@/fronted/features/settings/dictionaryImportApi';
 
 /** SWR 缓存键。 */
 const IMPORTED_DICTIONARIES_KEY = 'dictionary/imported-list';
+/** 内置词典元信息的 SWR 缓存键。 */
+const BUILTIN_DICTIONARY_META_KEY = 'dictionary/builtin-meta';
 
 /**
  * 用户自备词典的导入、启停与删除卡片。
@@ -25,6 +28,17 @@ export default function ImportedDictionaryCard() {
     const { data: dictionaries = [], mutate, isLoading } = useSWR<ImportedDictionaryVO[]>(
         IMPORTED_DICTIONARIES_KEY,
         dictionaryImportApi.list,
+    );
+    /**
+     * 内置词典元信息。
+     *
+     * 失败时静默不展示这一行：内置词典缺失是打包问题，不该在设置页
+     * 弹一个红色错误把「导入词典」这块也一起打断。
+     */
+    const { data: builtinMeta } = useSWR<BuiltinDictionaryMetaVO>(
+        BUILTIN_DICTIONARY_META_KEY,
+        dictionaryImportApi.builtinMeta,
+        { shouldRetryOnError: false },
     );
     const [busy, setBusy] = useState(false);
     /** 待确认删除的词典；null 表示没有打开确认弹窗。 */
@@ -97,6 +111,24 @@ export default function ImportedDictionaryCard() {
 
             {isLoading && (
                 <Text type="supporting" color="secondary">{t('resources.dictionaryPack.loading')}</Text>
+            )}
+            {/*
+              内置词典也占一行：用户问「我装了几本词典」时，内置那本必须算进来，
+              否则会得到「一本都没有」的错误印象。
+            */}
+            {builtinMeta && (
+                <HStack gap={3} align="center" width="100%">
+                    <VStack gap={0.5} width="100%">
+                        <Text weight="semibold">{t('resources.dictionaryPack.builtinName')}</Text>
+                        <Text type="supporting" color="secondary">
+                            {t('resources.dictionaryPack.builtinMeta', {
+                                count: builtinMeta.wordCount,
+                                source: builtinMeta.source.toUpperCase(),
+                                version: builtinMeta.sourceVersion,
+                            })}
+                        </Text>
+                    </VStack>
+                </HStack>
             )}
             {!isLoading && dictionaries.length === 0 && (
                 <Text type="supporting" color="secondary">{t('resources.dictionaryPack.empty')}</Text>

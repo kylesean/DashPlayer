@@ -4,6 +4,7 @@ import type { Sentence } from '@/common/types/SentenceC';
 import {
     findSentenceBlock,
     groupSentencesIntoBlocks,
+    selectVisibleSentences,
 } from '@/fronted/features/player/lib/sentence-grouping';
 
 /** 构造测试用的字幕行；文本即断句依据，时间为秒。 */
@@ -23,6 +24,28 @@ const line = (index: number, text: string, start: number, end: number): Sentence
 });
 
 describe('字幕意群归并', () => {
+    it('仅当前句模式只返回当前句', () => {
+        const list = [line(0, 'A.', 0, 1), line(1, 'B.', 1, 2), line(2, 'C.', 2, 3)];
+        expect(selectVisibleSentences(list, list[1], 'sentence').map((s) => s.text)).toEqual(['B.']);
+    });
+
+    it('带上下文模式返回前后各一句', () => {
+        const list = [line(0, 'A.', 0, 1), line(1, 'B.', 1, 2), line(2, 'C.', 2, 3)];
+        expect(selectVisibleSentences(list, list[1], 'context').map((s) => s.text)).toEqual(['A.', 'B.', 'C.']);
+    });
+
+    it('上下文模式在首尾句处自动收窄，不越界', () => {
+        const list = [line(0, 'A.', 0, 1), line(1, 'B.', 1, 2), line(2, 'C.', 2, 3)];
+        expect(selectVisibleSentences(list, list[0], 'context').map((s) => s.text)).toEqual(['A.', 'B.']);
+        expect(selectVisibleSentences(list, list[2], 'context').map((s) => s.text)).toEqual(['B.', 'C.']);
+    });
+
+    it('当前句不在列表中时退化为只显示它', () => {
+        const list = [line(0, 'A.', 0, 1)];
+        const orphan = line(9, 'Z.', 9, 10);
+        expect(selectVisibleSentences(list, orphan, 'context').map((s) => s.text)).toEqual(['Z.']);
+    });
+
     it('碎片行在无句末标点且间隔小时合并成一个意群', () => {
         const blocks = groupSentencesIntoBlocks([
             line(0, 'I think that', 0, 1.2),

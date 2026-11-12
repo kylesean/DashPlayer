@@ -9,6 +9,7 @@ import { WordMatchServiceImpl } from '@/backend/services/WordMatchService';
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import { createMemoryDb, type MemoryDb } from '@/test/database';
+import { builtinDictionaryMetaStub } from '@/test/builtinDictionaryFixture';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -37,6 +38,7 @@ const buildDictionary = (): BuiltinDictionaryStore => {
     ]);
     return {
         lookup: (word: string) => entries.get(word.trim().toLowerCase()) ?? null,
+        meta: () => builtinDictionaryMetaStub(entries.size),
     };
 };
 

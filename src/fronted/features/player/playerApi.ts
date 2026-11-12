@@ -1,7 +1,6 @@
 import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import { requestVideoThumbnail } from '@/fronted/lib/video-thumbnail';
 import type { SubtitleTimestampAdjustmentInput } from '@/common/contracts/subtitle-timestamp-adjustment';
-import { SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY } from '@/common/constants/systemConfigKeys';
 import type { SubtitleComprehensionParams } from '@/common/types/subtitleComprehension';
 import type { WordContextInsightParams } from '@/common/types/wordInsight';
 import type { SceneSentence } from '@/common/learning/sceneSegmentation';
@@ -11,25 +10,6 @@ import type { SceneSentence } from '@/common/learning/sceneSegmentation';
  */
 export const playerApi = {
 
-    /**
-     * 读取字幕意群重切分开关（sysConf；未写入时后端按开启处理，这里返回 null）。
-     *
-     * @returns 配置值；'false' 表示关闭。
-     */
-    getMeaningGroupResegmentation: (): Promise<string | null> =>
-        backendClient.call('system/config/get', SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY),
-
-    /**
-     * 写入字幕意群重切分开关。
-     *
-     * @param enabled 是否开启。
-     * @returns 写入完成后结束。
-     */
-    setMeaningGroupResegmentation: (enabled: boolean) =>
-        backendClient.call('system/config/set', {
-            key: SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY,
-            value: enabled ? 'true' : 'false',
-        }),
     /**
      * 删除指定字幕文件的时间轴调整记录。
      *

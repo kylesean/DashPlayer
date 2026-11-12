@@ -346,7 +346,6 @@ export default class LearningDataRepositoryImpl implements LearningDataRepositor
                     tx.insert(sentencePracticeRecord).values(chunk.map((record) => ({
                         file_hash: record.fileHash,
                         sentence_index: record.sentenceIndex,
-                        resegmented: record.resegmented,
                         mode: record.mode,
                         score: record.score,
                         transcript: record.transcript,

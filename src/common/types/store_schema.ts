@@ -60,6 +60,12 @@ export const SettingKeyObj = {
     'player.vocabularyGuidance': 'calm',
     'player.adaptiveChinese': 'true',
     'player.sceneCues': 'false',
+    /**
+     * 离线朗读音色标识（见 SHERPA_TTS_VOICES）。
+     * 默认取 medium 档美音（lessac），音质明显优于原来的 amy-low；
+     * 已设置过该键的老用户保持原值，不会被强制切换。
+     */
+    'tts.voice': 'en-US-lessac-medium',
     'storage.path': '',
     'storage.collection': 'default',
     'proxy.mode': 'system',

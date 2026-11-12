@@ -7,6 +7,7 @@ import type { MigrationFailureDetail } from '@/common/contracts/migration-failur
 import type { GpuAcceleration } from '@/common/contracts/system-info';
 import type { SubtitleResolution } from '@/common/contracts/subtitle-resolution';
 import type { ImportedDictionaryVO } from '@/common/contracts/imported-dictionary';
+import type { BuiltinDictionaryMetaVO } from '@/common/contracts/builtin-dictionary';
 import type { EnglishDictionaryStatusVO } from '@/common/contracts/english-dictionary';
 import type {OpenAIDictionaryResult} from '@/common/types/DictionaryResult';
 import type {
@@ -113,6 +114,7 @@ import type {
     RuntimeSettingsSnapshot,
 } from '@/common/contracts/runtime-settings';
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
+import type { TtsVoiceListVO } from '@/common/contracts/tts-voice';
 import type { VideoInfo } from '@/common/types/video-info';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams, SentencePracticeSummaryVO } from '@/common/contracts/sentence-practice';
@@ -157,6 +159,10 @@ interface SherpaTtsModelDef {
     'sherpa-tts/models/download': { params: void, return: { success: boolean; message: string } };
     'sherpa-tts/models/cancel-download': { params: void, return: { cancelled: boolean } };
     'sherpa-tts/models/delete': { params: void, return: { success: boolean; message: string } };
+    /** 可选朗读音色清单与当前选择。 */
+    'sherpa-tts/voices/list': { params: void, return: TtsVoiceListVO };
+    /** 切换朗读音色；目标音色未安装时前端提示下载。 */
+    'sherpa-tts/voices/select': { params: { voiceId: string }, return: { success: boolean; message: string } };
 }
 
 interface DpTaskDef {
@@ -364,6 +370,8 @@ interface SubtitleGenerationDef {
 }
 
 interface DictionaryImportDef {
+    /** 内置词典的元信息（词条数、数据源版本）。 */
+    'dictionary/builtin-meta': { params: void, return: BuiltinDictionaryMetaVO };
     /** 列出用户导入的词典。 */
     'dictionary/list': { params: void, return: ImportedDictionaryVO[] };
     /** 导入一个用户自备的词典文件。 */
@@ -689,17 +697,17 @@ interface PracticeDef {
     };
     /** 查询单个意群的练习历史,按时间倒序。 */
     'practice/list-by-sentence': {
-        params: { fileHash: string; sentenceIndex: number; resegmented: boolean },
+        params: { fileHash: string; sentenceIndex: number },
         return: SentencePracticeRecordVO[]
     };
     /** 查询整片各意群的练习汇总(最高分与次数),驱动进度条与薄弱句筛选。 */
     'practice/list-by-file': {
-        params: { fileHash: string; resegmented: boolean },
+        params: { fileHash: string },
         return: SentencePracticeSummaryVO[]
     };
     /** 同一意群跨次练习的节奏趋势。 */
     'practice/rhythm-trend': {
-        params: { fileHash: string; sentenceIndex: number; resegmented: boolean },
+        params: { fileHash: string; sentenceIndex: number },
         return: RhythmTrendVO
     };
 }
@@ -779,6 +787,7 @@ export const API_ROUTE_KEYS = [
     'dictionary-enhancement/install',
     'dictionary-enhancement/remove',
     'dictionary-enhancement/status',
+    'dictionary/builtin-meta',
     'dictionary/import',
     'dictionary/list',
     'dictionary/remove',
@@ -853,6 +862,8 @@ export const API_ROUTE_KEYS = [
     'sherpa-tts/models/delete',
     'sherpa-tts/models/download',
     'sherpa-tts/models/status',
+    'sherpa-tts/voices/list',
+    'sherpa-tts/voices/select',
     'storage/collection/paths',
     'storage/status',
     'storage/usage',

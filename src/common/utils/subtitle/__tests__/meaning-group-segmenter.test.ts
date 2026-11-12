@@ -24,16 +24,19 @@ describe('意群重切分', () => {
         expect(result[0].end).toBe(9.44);
     });
 
-    it('cue 内句末标点处拆分，时间按字符占比插值且严格递增', () => {
+    it('cue 内句末标点处拆分，时间按音节权重插值且严格递增', () => {
         const result = resegmentIntoMeaningGroups([
             line(1, 0, 10, 'This is done. Next one starts here and keeps going'),
         ]);
         expect(result).toHaveLength(2);
         expect(result[0].contentEn).toBe('This is done.');
         expect(result[1].contentEn).toBe('Next one starts here and keeps going');
-        // 插值：13/50 与 10 秒 → 第一段结束 ≈ 2.6s
+        // 插值按音节数而非字符数：This(1)+is(1)+done(1)=3，
+        // 后半段 Next(1)+one(1)+starts(1)+here(1)+and(1)+keeps(1)+going(2)=8，
+        // 3/(3+8)×10 ≈ 2.7s。旧实现的字符占比会得到 2.6s，两者都落在合理区间。
         expect(result[0].start).toBe(0);
-        expect(result[0].end).toBeCloseTo(2.6, 1);
+        expect(result[0].end).toBeGreaterThan(2.2);
+        expect(result[0].end).toBeLessThan(3.4);
         expect(result[1].end).toBe(10);
         // cue 内相邻段的边界恰好相接是正常形态（同一时间点既是前段终点又是后段起点）
         expect(result[0].end).toBeLessThanOrEqual(result[1].start);
@@ -107,7 +110,7 @@ describe('意群重切分', () => {
         expect(resegmentIntoMeaningGroups(input)).toEqual(input);
     });
 
-    it('上限强切回溯到最后一个逗号，不把句子拦腰斩断（真实 5yCqhY1D-VE 案例）', () => {
+    it('长句在自然意群边界切分，不把句子拦腰斩断（真实 5yCqhY1D-VE 案例）', () => {
         const result = resegmentIntoMeaningGroups([
             line(1, 999.92, 1000.32, '>> Okay. How do you use topic to help you be a better communicator? Anyone who\'s'),
             line(2, 998.399, 1003.519, 'going out on a date is already thinking about what they\'re going to wear, how'),
@@ -115,22 +118,38 @@ describe('意群重切分', () => {
             line(4, 1004.639, 1008.16, 'they\'re going to what restaurant they\'re going to meet at, what activity they\'re'),
             line(5, 1007.279, 1010.56, 'going to do.'),
         ]);
-        expect(result.some((item) => item.contentEn.endsWith('meet at,'))).toBe(true);
-        expect(result.some((item) => item.contentEn === 'what activity they\'re going to do.')).toBe(true);
-        expect(result.some((item) => item.contentEn === 'going to do.')).toBe(false);
+        // 断点必须落在标点/停顿等自然边界，不能停在悬空虚词上。
+        for (const item of result) {
+            expect(item.contentEn.endsWith('going')).toBe(false);
+            expect(item.contentEn.endsWith('to')).toBe(false);
+            expect(item.contentEn.endsWith('what')).toBe(false);
+            expect(item.contentEn.endsWith('their')).toBe(false);
+        }
+        // 所有原文词都被保留，没有丢词或重复。
+        const joined = result.map((item) => item.contentEn).join(' ');
+        for (const word of ['Okay.', 'communicator?', 'hair,', 'meet', 'at,', 'activity', 'do.']) {
+            expect(joined).toContain(word);
+        }
+        // 时间轴严格递增且不重叠。
         for (let i = 1; i < result.length; i++) {
             expect(result[i].start).toBeGreaterThanOrEqual(result[i - 1].end);
         }
+        expect(result[result.length - 1].end).toBeCloseTo(1010.56, 2);
     });
 
-    it('缓冲内没有可用逗号（唯一逗号贴近开头）时维持 cue 边界强切', () => {
+    it('超长无标点文本在硬上限内切分，且不丢词', () => {
         const result = resegmentIntoMeaningGroups([
             line(1, 0, 2, 'Yes, ' + 'a'.repeat(230)),
             line(2, 2.1, 4, 'b'.repeat(140)),
         ]);
-        // 唯一逗号在头部 5 字符处，低于回溯下限：回退为 cue 边界强切
-        expect(result).toHaveLength(2);
-        expect(result[0].contentEn).toBe('Yes, ' + 'a'.repeat(230));
+        expect(result.length).toBeGreaterThanOrEqual(2);
+        expect(result.map((item) => item.contentEn).join(' ')).toContain('b'.repeat(140));
+        for (const item of result) {
+            expect(item.contentEn.length).toBeLessThanOrEqual(230);
+        }
+        for (let i = 1; i < result.length; i++) {
+            expect(result[i].start).toBeGreaterThanOrEqual(result[i - 1].end);
+        }
     });
 
     it('真实 YouTube 样本：碎片句跨 cue 拼回完整意群', () => {
@@ -149,5 +168,78 @@ describe('意群重切分', () => {
                 expect(result[i].start).toBeGreaterThanOrEqual(result[i - 1].end);
             }
         }
+    });
+
+    it('滚动重复尾巴被去掉，不会拼出重复文本', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 3, 'Today, you and I are going to talk about'),
+            line(2, 2.5, 5.5, 'are going to talk about a topic that I get'),
+            line(3, 5.0, 8.0, 'a topic that I get a ton of questions about.'),
+        ]);
+        expect(result).toHaveLength(1);
+        expect(result[0].contentEn).toBe(
+            'Today, you and I are going to talk about a topic that I get a ton of questions about.',
+        );
+        // 重复内容不能被拼成 "about are going to talk about"。
+        expect(result[0].contentEn).not.toContain('about are going');
+    });
+
+    it('行尾不落在虚词上：介词处断句会被动态规划绕开', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 2, 'The thing that I really want to talk'),
+            line(2, 2.1, 4, 'about is how we learn languages.'),
+        ]);
+        for (const item of result) {
+            expect(item.contentEn.endsWith(' talk')).toBe(false);
+            expect(item.contentEn.endsWith(' to')).toBe(false);
+            expect(item.contentEn.endsWith(' the')).toBe(false);
+        }
+        expect(result.map((item) => item.contentEn).join(' ')).toContain(
+            'talk about is how we learn languages.',
+        );
+    });
+
+    it('每条 cue 都是完整句时保持一句一行', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 2, 'This is the first sentence.'),
+            line(2, 3, 5, 'And this is the second one.'),
+            line(3, 6, 8, 'Finally, the third.'),
+        ]);
+        expect(result.map((item) => item.contentEn)).toEqual([
+            'This is the first sentence.',
+            'And this is the second one.',
+            'Finally, the third.',
+        ]);
+    });
+
+    it('说话人切换处的 `>>` 被剥离且强制分句', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 3, 'What do you think about that? >> I think'),
+            line(2, 3, 6, 'it is a terrible idea.'),
+        ]);
+        expect(result).toHaveLength(2);
+        expect(result[0].contentEn).toBe('What do you think about that?');
+        expect(result[1].contentEn).toBe('I think it is a terrible idea.');
+        expect(result.some((item) => item.contentEn.includes('>>'))).toBe(false);
+    });
+
+    it('纯背景音标记行被丢弃，不参与断句', () => {
+        const result = resegmentIntoMeaningGroups([
+            line(1, 0, 1, '[Music]'),
+            line(2, 1.5, 3, 'Welcome back to the show.'),
+        ]);
+        expect(result).toHaveLength(1);
+        expect(result[0].contentEn).toBe('Welcome back to the show.');
+    });
+
+    it('超长单条 cue 按字符上限切分，不会逐词拆碎', () => {
+        const text = Array.from({ length: 80 }, (_, index) => `word${index}`).join(' ');
+        const result = resegmentIntoMeaningGroups([line(1, 0, 30, text)]);
+        expect(result.length).toBeGreaterThan(1);
+        expect(result.length).toBeLessThan(10);
+        for (const item of result) {
+            expect(item.contentEn.length).toBeLessThanOrEqual(220);
+        }
+        expect(result.map((item) => item.contentEn).join(' ')).toBe(text);
     });
 });

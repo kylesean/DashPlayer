@@ -12,11 +12,9 @@ import { assertSubtitlePath } from '@/backend/utils/file-path-guard';
 import type MediaPathRegistry from '@/backend/services/MediaPathRegistry';
 import { parseSrt, parseAss, srtLineToSentence, type SrtLine } from '@/common/utils/subtitle';
 import { resegmentIntoMeaningGroups } from '@/common/utils/subtitle/meaning-group-segmenter';
-import { SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY } from '@/common/constants/systemConfigKeys';
 import MediaUtil from '@/common/utils/MediaUtil';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type FileSystemGateway from '@/backend/services/gateways/storage/FileSystemGateway';
-import type SystemConfigService from '@/backend/services/SystemConfigService';
 import type { SubtitleVocabularyAnalysisService } from '@/backend/services/SubtitleVocabularyAnalysisService';
 import type { WordStatus } from '@/common/types/vocabulary';
 import {
@@ -25,16 +23,6 @@ import {
     type SentenceElementParser
 } from '@/backend/utils/language/SentenceElementParser';
 import { concurrency } from '@/backend/utils/concurrency';
-
-/**
- * parse 缓存条目：SrtSentence 附加解析时的意群重切分开关状态。
- *
- * 缓存键保持裸 fileHash（翻译调度、收藏、聊天等消费方按它读取），
- * 开关状态只能进值；命中时与当前开关比对，不一致即重建。
- */
-type SrtParseCache = SrtSentence & { /** 写入时意群重切分是否开启；增量转录写入的条目无此标记。 */
-    resegmented?: boolean;
-};
 
 /**
  * 字幕生词匹配结果。
@@ -168,7 +156,7 @@ export class SubtitleServiceImpl implements SubtitleService {
      * @param vocabularyAnalysisService 共享字幕生词分析服务。
      * @param storageDirectoryProvider 外部存储目录提供器。
      * @param fileSystemGateway 文件系统访问端口。
-     * @param systemConfigService 系统配置服务。
+     * @param mediaPathRegistry 媒体路径登记表。
      */
     constructor(
         @inject(TYPES.SrtTimeAdjustService) private readonly srtTimeAdjustService: SrtTimeAdjustService,
@@ -176,7 +164,6 @@ export class SubtitleServiceImpl implements SubtitleService {
         @inject(TYPES.SubtitleVocabularyAnalysisService) private readonly vocabularyAnalysisService: SubtitleVocabularyAnalysisService,
         @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
-        @inject(TYPES.SystemConfigService) private readonly systemConfigService: SystemConfigService,
         @inject(TYPES.MediaPathRegistry) private readonly mediaPathRegistry: MediaPathRegistry,
     ) {}
 
@@ -202,27 +189,21 @@ export class SubtitleServiceImpl implements SubtitleService {
         const content = await this.fileSystemGateway.readTextFile(path);
         // fileHash 保持纯内容 hash：收藏、时间调整等外部引用都以它为身份。
         const fileHash = ObjUtil.hash(content);
-        // 意群重切分开关实时读取（sysConf 无值视为开启）。
-        const resegment =
-            (await this.systemConfigService.getValue(SUBTITLE_MEANING_GROUP_RESEGMENTATION_KEY)) !== 'false';
         // 缓存一律以裸 fileHash 为键：翻译调度器（update-subtitle-demand）、收藏片段、
-        // 聊天会话等消费方都按 fileHash 读取，键里掺开关前缀会让它们全部 miss。
-        // 开关状态改存进缓存值：命中时与当前开关比对，不一致视为 miss 重建，
-        // 「切换开关后重开视频生效」语义不变，也不需要额外的失效订阅。
-        const cache = this.cacheService.get('cache:srt', fileHash) as SrtParseCache | null;
-        // 无标记的存量条目（增量转录 buildSentencesFromLines 写入）视为未重切分。
-        if (cache && (cache.resegmented ?? false) === resegment) {
+        // 聊天会话等消费方都按 fileHash 读取。
+        // 缓存是进程内的，重启即清空，因此不存在跨版本复用旧断句的问题。
+        const cache = this.cacheService.get('cache:srt', fileHash) as SrtSentence | null;
+        if (cache) {
             this.cacheVocabularyTexts(fileHash, cache.sentences);
             const adjustedSentence = await this.adjustTime(cache.sentences, fileHash);
             return {
                 fileHash,
                 filePath: path,
-                sentences: adjustedSentence,
-                resegmented: cache.resegmented ?? false
+                sentences: adjustedSentence
             };
         }
         const lines: SrtLine[] = MediaUtil.isAss(path) ? parseAss(content) : parseSrt(content);
-        const segmented = resegment ? resegmentIntoMeaningGroups(lines) : lines;
+        const segmented = resegmentIntoMeaningGroups(lines);
         // Wink 分词是同步 CPU 工作。整部字幕一次性跑完会长时间占住主进程，
         // 拖慢窗口交互和其它 IPC；按固定批次让渡事件循环，把长任务切碎。
         this.scheduler.beginFrame();
@@ -237,11 +218,10 @@ export class SubtitleServiceImpl implements SubtitleService {
         groupSentence(subtitles, 20, (s, index) => {
             s.transGroup = index;
         });
-        const res: SrtParseCache = {
+        const res: SrtSentence = {
             fileHash,
             filePath: path,
-            sentences: subtitles,
-            resegmented: resegment
+            sentences: subtitles
         };
         this.cacheService.set('cache:srt', fileHash, res);
         this.cacheVocabularyTexts(fileHash, subtitles);
@@ -250,8 +230,7 @@ export class SubtitleServiceImpl implements SubtitleService {
         return {
             fileHash: res.fileHash,
             filePath: res.filePath,
-            sentences: adjustedSentence,
-            resegmented: resegment
+            sentences: adjustedSentence
         };
     }
 

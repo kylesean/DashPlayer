@@ -98,3 +98,37 @@ export const findSentenceBlock = (
     }
     return blocks.find((block) => block.sentences.some((item) => item.key === sentence.key)) ?? null;
 };
+
+/**
+ * 计算主字幕区应渲染的句子范围。
+ *
+ * 后端已把字幕重切成完整意群，一条意群通常就是一句（长句由渲染层自动折行），
+ * 因此「显示多少」真正有意义的维度是**上下文**而不是块内行数。
+ *
+ * - `sentence`：只返回当前句；
+ * - `context`：额外带上前后各一句。
+ *
+ * 只影响渲染，不改变 currentSentence、循环区间或导航单位。
+ *
+ * @param sentences 全部句子（应已按 index 升序）。
+ * @param current 当前句。
+ * @param mode 显示范围。
+ * @returns 待渲染的句子（按原顺序）；当前句不在列表中时退化为只显示它。
+ */
+export const selectVisibleSentences = (
+    sentences: readonly Sentence[],
+    current: Sentence | null,
+    mode: 'sentence' | 'context',
+): Sentence[] => {
+    if (!current) {
+        return [];
+    }
+    if (mode === 'sentence' || sentences.length === 0) {
+        return [current];
+    }
+    const at = sentences.findIndex((item) => item.key === current.key);
+    if (at < 0) {
+        return [current];
+    }
+    return sentences.slice(Math.max(0, at - 1), Math.min(sentences.length, at + 2));
+};

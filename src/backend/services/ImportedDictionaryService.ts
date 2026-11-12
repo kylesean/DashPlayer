@@ -474,6 +474,7 @@ export default class ImportedDictionaryService {
                 word: row.word,
                 phonetic: row.phonetic ?? '',
                 definitions,
+                source: 'imported',
             };
         }
         return null;

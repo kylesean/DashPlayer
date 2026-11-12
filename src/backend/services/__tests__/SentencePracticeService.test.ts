@@ -134,7 +134,6 @@ describe('句子练习服务', () => {
             const vo = await service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: 3,
-                resegmented: true,
                 typedText: 'hello word today',
                 expectedText: EXPECTED_TEXT,
             });
@@ -149,7 +148,6 @@ describe('句子练习服务', () => {
             expect(rows[0]).toMatchObject({
                 file_hash: FILE_HASH,
                 sentence_index: 3,
-                resegmented: true,
                 mode: 'dictation',
                 transcript: 'hello word today',
                 audio_file: null,
@@ -191,7 +189,6 @@ describe('句子练习服务', () => {
             const vo = await service.scoreShadowing({
                 fileHash: FILE_HASH,
                 sentenceIndex: 1,
-                resegmented: false,
                 audio: new Uint8Array([1, 2, 3]),
                 expectedText: EXPECTED_TEXT,
                 referenceDurationSec: 1.2,
@@ -205,7 +202,6 @@ describe('句子练习服务', () => {
             expect(rows).toHaveLength(1);
             expect(rows[0]).toMatchObject({
                 sentence_index: 1,
-                resegmented: false,
                 mode: 'shadowing',
             });
             expect(rows[0].audio_file).not.toBeNull();
@@ -224,7 +220,6 @@ describe('句子练习服务', () => {
             const vo = await service.scoreShadowing({
                 fileHash: FILE_HASH,
                 sentenceIndex: 2,
-                resegmented: false,
                 audio: new Uint8Array([1, 2, 3]),
                 expectedText: EXPECTED_TEXT,
                 referenceDurationSec: 1.2,
@@ -260,7 +255,6 @@ describe('句子练习服务', () => {
             const vo = await failingService.scoreShadowing({
                 fileHash: FILE_HASH,
                 sentenceIndex: 3,
-                resegmented: false,
                 audio: new Uint8Array([1, 2, 3]),
                 expectedText: EXPECTED_TEXT,
             });
@@ -273,7 +267,6 @@ describe('句子练习服务', () => {
             const vo = await service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: 4,
-                resegmented: false,
                 typedText: EXPECTED_TEXT,
                 expectedText: EXPECTED_TEXT,
             });
@@ -287,7 +280,6 @@ describe('句子练习服务', () => {
             await expect(service.scoreShadowing({
                 fileHash: FILE_HASH,
                 sentenceIndex: 1,
-                resegmented: true,
                 audio: new Uint8Array([1, 2, 3]),
                 expectedText: EXPECTED_TEXT,
             })).rejects.toThrow('asr down');
@@ -300,51 +292,39 @@ describe('句子练习服务', () => {
     });
 
     describe('练习历史查询', () => {
-        it('同一意群的历史按重切分状态隔离,开关切换后互不串档', async () => {
+        it('同一意群的历史全部返回，不再按切分形态分区', async () => {
             await service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: 2,
-                resegmented: true,
                 typedText: EXPECTED_TEXT,
                 expectedText: EXPECTED_TEXT,
             });
             await service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: 2,
-                resegmented: false,
                 typedText: 'another typing',
                 expectedText: EXPECTED_TEXT,
             });
 
-            const resegmented = await service.listBySentence({
+            const history = await service.listBySentence({
                 fileHash: FILE_HASH,
                 sentenceIndex: 2,
-                resegmented: true,
-            });
-            const raw = await service.listBySentence({
-                fileHash: FILE_HASH,
-                sentenceIndex: 2,
-                resegmented: false,
             });
 
-            expect(resegmented).toHaveLength(1);
-            expect(resegmented[0]).toMatchObject({ sentenceIndex: 2, resegmented: true, transcript: EXPECTED_TEXT });
-            expect(raw).toHaveLength(1);
-            expect(raw[0]).toMatchObject({ sentenceIndex: 2, resegmented: false, transcript: 'another typing' });
+            expect(history).toHaveLength(2);
+            expect(history.map((item) => item.transcript)).toEqual(['another typing', EXPECTED_TEXT]);
         });
 
         it('同键历史按时间倒序返回', async () => {
             await service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: 5,
-                resegmented: true,
                 typedText: 'first try',
                 expectedText: EXPECTED_TEXT,
             });
             await service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: 5,
-                resegmented: true,
                 typedText: 'second try',
                 expectedText: EXPECTED_TEXT,
             });
@@ -352,7 +332,6 @@ describe('句子练习服务', () => {
             const history = await service.listBySentence({
                 fileHash: FILE_HASH,
                 sentenceIndex: 5,
-                resegmented: true,
             });
             expect(history.map((h) => h.transcript)).toEqual(['second try', 'first try']);
         });
@@ -361,28 +340,24 @@ describe('句子练习服务', () => {
             await service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: 1,
-                resegmented: true,
                 typedText: 'hello word today',
                 expectedText: EXPECTED_TEXT,
             });
             await service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: 1,
-                resegmented: true,
                 typedText: EXPECTED_TEXT,
                 expectedText: EXPECTED_TEXT,
             });
             await service.scoreShadowing({
                 fileHash: FILE_HASH,
                 sentenceIndex: 4,
-                resegmented: true,
                 audio: new Uint8Array([1, 2, 3]),
                 expectedText: EXPECTED_TEXT,
             });
 
             const summaries = await service.listByFile({
                 fileHash: FILE_HASH,
-                resegmented: true,
             });
 
             expect(summaries).toHaveLength(2);
@@ -404,11 +379,10 @@ describe('句子练习服务', () => {
     });
 
     describe('入参校验', () => {
-        it('非法 fileHash、序号与重切分标志直接拒绝', async () => {
+        it('非法 fileHash 与序号直接拒绝', async () => {
             await expect(service.scoreDictation({
                 fileHash: '../escape',
                 sentenceIndex: 0,
-                resegmented: true,
                 typedText: 'x',
                 expectedText: 'x',
             })).rejects.toThrow('非法的 fileHash');
@@ -416,18 +390,9 @@ describe('句子练习服务', () => {
             await expect(service.scoreDictation({
                 fileHash: FILE_HASH,
                 sentenceIndex: -1,
-                resegmented: true,
                 typedText: 'x',
                 expectedText: 'x',
             })).rejects.toThrow('非法的 sentenceIndex');
-
-            await expect(service.scoreDictation({
-                fileHash: FILE_HASH,
-                sentenceIndex: 0,
-                resegmented: 'true' as unknown as boolean,
-                typedText: 'x',
-                expectedText: 'x',
-            })).rejects.toThrow('非法的 resegmented');
         });
     });
 });

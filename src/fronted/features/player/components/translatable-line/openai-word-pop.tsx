@@ -1,7 +1,8 @@
-import React from 'react';
-import { Check, EyeOff, Loader2, RefreshCw, Star } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, ChevronDown, EyeOff, Loader2, RefreshCw, Star } from 'lucide-react';
 import { Token } from '@astryxdesign/core/Token';
-import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
+import useSWR from 'swr';
+import type { DictionarySource, OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import Playable from '@/fronted/components/shared/common/Playable';
 import { cn } from '@/fronted/lib/utils';
 import { formatPhonetic } from '@/fronted/lib/phonetic';
@@ -11,10 +12,20 @@ import type { WordStatus } from '@/common/types/vocabulary';
 import type { WordMemoryVO } from '@/common/types/wordMemory';
 import WordContextInsight from './word-context-insight';
 import { formatMemoryWhen } from './word-memory-time';
+import { settingsApi } from '@/fronted/features/settings/settingsApi';
 
 /**
  * 统一音标显示格式，自动补齐首尾斜杠。
  */
+
+/**
+ * 释义来源的展示文案（common 命名空间）。
+ */
+const DICTIONARY_SOURCE_I18N_KEYS: Record<DictionarySource, string> = {
+    imported: 'dictionarySourceImported',
+    builtin: 'dictionarySourceBuiltin',
+    ai: 'dictionarySourceAi',
+};
 
 const formatPartOfSpeech = (pos?: string) => {
     if (!pos) return '';
@@ -76,6 +87,26 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
     className
 }) => {
     const { t, i18n } = useTranslation('common');
+    /**
+     * 当前朗读音色（美音/英音）。
+     *
+     * 只用于展示——真正的合成由后端按同一设置选模型。把口音显示出来，
+     * 用户才知道点喇叭听到的是英音还是美音，不必去设置页确认。
+     */
+    const { data: ttsVoices } = useSWR(
+        'sherpa-tts/voices',
+        () => settingsApi.listTtsVoices(),
+        { revalidateOnFocus: false },
+    );
+    const voiceAccent = ttsVoices?.voices.find((voice) => voice.id === ttsVoices.selected)?.accent;
+    /**
+     * 第二层（学习状态 + 语境解读）是否展开。
+     *
+     * 两层式设计的核心：悬停查词是**瞬时**交互，用户视线还在字幕上，
+     * 第一层只回答「这词什么意思」。学习状态与 AI 语境解读属于主动学习，
+     * 必须由用户显式展开，否则每次悬停都弹出大量次要信息，打断沉浸。
+     */
+    const [detailsOpen, setDetailsOpen] = useState(false);
     const hasDefinitions = !!data && Array.isArray(data.definitions) && data.definitions.length > 0;
     const hasEnglishSenses = !!data?.englishSenses?.length;
     const hasContent = !!data && (Boolean(data.word) || hasDefinitions || hasEnglishSenses);
@@ -105,13 +136,6 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
         if (!data) {
             return (
                 <div className="h-full flex flex-col">
-                    <div className="px-4.5 pt-3">
-                        <WordContextInsight
-                            word={contextWord ?? ''}
-                            sentence={contextSentence}
-                            definitions={[]}
-                        />
-                    </div>
                     <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-muted-foreground select-none">
                         {t('noDefinition')}
                     </div>
@@ -142,9 +166,14 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                 <div className="px-4.5 pt-4 pb-1.5 flex items-start justify-between shrink-0">
                     <div>
                         <div className="flex items-baseline gap-2">
-                            <span className="text-lg font-bold text-foreground tracking-tight select-text">
+                            <span className="text-base font-semibold text-foreground tracking-tight select-text">
                                 <Playable>{data.word}</Playable>
                             </span>
+                            {voiceAccent && (
+                                <span className="text-metadata text-muted-foreground/70 select-none">
+                                    {voiceAccent === 'en-GB' ? 'UK' : 'US'}
+                                </span>
+                            )}
                         </div>
                         {phonetic && (
                             <span className="text-sm font-mono text-muted-foreground/75 mt-0.5 inline-flex items-center gap-2 select-text">
@@ -160,45 +189,6 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                             <span className="text-metadata text-muted-foreground/80 mt-0.5 inline-block">
                                 {statusLabel}
                             </span>
-                        )}
-                        {promptReasons && promptReasons.length > 0 && (
-                            <div
-                                data-testid="word-prompt-reason"
-                                className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-metadata text-muted-foreground/80 select-text"
-                            >
-                                <span>{t('wordPromptReasonLabel')}</span>
-                                <span className="text-foreground/75">
-                                    {promptReasons.join(' · ')}
-                                </span>
-                            </div>
-                        )}
-                        {wordMemory && (
-                            <div
-                                data-testid="word-memory"
-                                className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-metadata text-muted-foreground/80 select-text"
-                            >
-                                <span>
-                                    {t('wordMemory.lastSeen', {
-                                        when: formatMemoryWhen(
-                                            wordMemory.lastSeenAt,
-                                            i18n.language,
-                                            t,
-                                            'wordMemory.neverSeen',
-                                        ),
-                                    })}
-                                </span>
-                                <span aria-hidden="true">·</span>
-                                <span>
-                                    {t('wordMemory.lastReviewed', {
-                                        when: formatMemoryWhen(
-                                            wordMemory.lastReviewedAt,
-                                            i18n.language,
-                                            t,
-                                            'wordMemory.neverReviewed',
-                                        ),
-                                    })}
-                                </span>
-                            </div>
                         )}
                         {hasMeta && (
                             <div className="flex flex-wrap items-center gap-1.5 mt-2 select-none">
@@ -234,8 +224,21 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 ···
                             </span>
                         )}
+                        {data.source && (
+                            <span
+                                data-testid="word-source"
+                                className="mt-1.5 block text-metadata text-muted-foreground/60 select-none"
+                            >
+                                {t(DICTIONARY_SOURCE_I18N_KEYS[data.source])}
+                            </span>
+                        )}
                     </div>
 
+                    {/*
+                      四个动作平铺、不折叠：查词时用户是在「一眼扫过」的状态，
+                      多一次点击才能看到一个动作，比认图标更慢。
+                      每个按钮都有 title/aria-label，悬停即说明后果。
+                    */}
                     <div className="flex items-center gap-0.5 shrink-0 ml-2">
                         {onFavorite && (
                             <button
@@ -310,12 +313,6 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
 
                 {/* 滚动区域：释义与例句列表 */}
                 <div className="px-4.5 pt-1.5 pb-4 flex-1 overflow-y-auto space-y-4 scrollbar-thin">
-                    <WordContextInsight
-                        word={contextWord ?? data.word}
-                        sentence={contextSentence}
-                        definitions={insightDefinitions}
-                        className="mt-0.5"
-                    />
                     {hasDefinitions ? (
                         data.definitions.map((def, defIdx) => {
                             const pos = formatPartOfSpeech(def.partOfSpeech);
@@ -333,7 +330,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                                 {pos}
                                             </span>
                                         )}
-                                        <span className="text-base text-foreground font-medium">
+                                        <span className="text-sm text-foreground font-medium">
                                             {def.meaning}
                                         </span>
                                     </div>
@@ -400,6 +397,96 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+
+                    {/*
+                      第二层入口放在释义之后。
+                      放在释义上方时，它看起来像「释义区的标题」，用户会以为下面
+                      折叠着更多释义；放在最后才符合「读完了，想深入看学习记录」的顺序。
+                    */}
+                    {(promptReasons?.length || wordMemory || contextSentence) && (
+                        <div className="pt-3 mt-1 border-t border-border/60 space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => setDetailsOpen((open) => !open)}
+                                aria-expanded={detailsOpen}
+                                data-testid="word-details-toggle"
+                                className={cn(
+                                    'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5',
+                                    'text-metadata text-muted-foreground transition-colors',
+                                    'hover:bg-muted/50 hover:text-foreground cursor-pointer',
+                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                )}
+                            >
+                                <span>{t('wordDetailsToggle')}</span>
+                                <ChevronDown
+                                    size={14}
+                                    className={cn('shrink-0 transition-transform', detailsOpen && 'rotate-180')}
+                                />
+                            </button>
+                            {detailsOpen && (
+                                <div className="space-y-2 rounded-lg bg-muted/30 px-2.5 py-2">
+                                    {promptReasons && promptReasons.length > 0 && (
+                                        <div
+                                            data-testid="word-prompt-reason"
+                                            className="space-y-1"
+                                        >
+                                            <div className="text-metadata text-muted-foreground/70 select-none">
+                                                {t('wordPromptReasonLabel')}
+                                            </div>
+                                            {/*
+                                              一条理由一行。曾经把三条理由用「·」连成一串，
+                                              读起来像一句没说完的话，用户看不出这是三个独立原因。
+                                            */}
+                                            <ul className="space-y-0.5">
+                                                {promptReasons.map((reason) => (
+                                                    <li
+                                                        key={reason}
+                                                        className="flex gap-1.5 text-metadata leading-relaxed text-foreground/80 select-text"
+                                                    >
+                                                        <span aria-hidden="true" className="text-muted-foreground/50">·</span>
+                                                        <span>{reason}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    {wordMemory && (
+                                        <div
+                                            data-testid="word-memory"
+                                            className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-metadata text-muted-foreground/80 select-text"
+                                        >
+                                            <span>
+                                                {t('wordMemory.lastSeen', {
+                                                    when: formatMemoryWhen(
+                                                        wordMemory.lastSeenAt,
+                                                        i18n.language,
+                                                        t,
+                                                        'wordMemory.neverSeen',
+                                                    ),
+                                                })}
+                                            </span>
+                                            <span aria-hidden="true">·</span>
+                                            <span>
+                                                {t('wordMemory.lastReviewed', {
+                                                    when: formatMemoryWhen(
+                                                        wordMemory.lastReviewedAt,
+                                                        i18n.language,
+                                                        t,
+                                                        'wordMemory.neverReviewed',
+                                                    ),
+                                                })}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <WordContextInsight
+                                        word={contextWord ?? data.word}
+                                        sentence={contextSentence}
+                                        definitions={insightDefinitions}
+                                    />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

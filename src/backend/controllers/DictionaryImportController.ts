@@ -4,6 +4,7 @@ import type Controller from '@/backend/controllers/Controller';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import { nonEmptyStringSchema } from '@/backend/controllers/ipc/routeSchemas';
 import type ImportedDictionaryService from '@/backend/services/ImportedDictionaryService';
+import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
 import TYPES from '@/backend/ioc/types';
 
 /**
@@ -21,10 +22,13 @@ export default class DictionaryImportController implements Controller {
     constructor(
         @inject(TYPES.ImportedDictionaryService)
         private readonly importedDictionaryService: ImportedDictionaryService,
+        @inject(TYPES.BuiltinDictionaryStore)
+        private readonly builtinDictionaryStore: BuiltinDictionaryStore,
     ) {}
 
     /** 注册导入词典路由。 */
     public registerRoutes(): void {
+        registerRoute('dictionary/builtin-meta', async () => this.builtinDictionaryStore.meta());
         registerRoute('dictionary/list', async () => this.importedDictionaryService.list());
         registerRoute('dictionary/import', (p) => this.importedDictionaryService.importFromFile(p.filePath), {
             schema: z.object({ filePath: nonEmptyStringSchema }),

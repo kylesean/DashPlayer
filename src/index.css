@@ -99,6 +99,37 @@
   }
 }
 
+/*
+ * 排版尺度锚定：字号不随主题变化。
+ *
+ * Astryx 把 text-sm / text-base 映射到主题的 --font-size-sm / --font-size-base，
+ * 而各主题基数差异极大（stone/butter 0.6875rem，matcha/gothic/y2k 0.8125rem，
+ * 相差约 30%）。结果是同一个弹层换主题后字号整体跳一档：行高变、控件变宽、
+ * 分段控件文字被挤到截断，同一控件在不同主题下尺寸不一致。
+ *
+ * 主题应当只改变**风格**（配色、字体族、圆角），不改变**排版尺度**：
+ * 可读性与点击区域必须是常量，否则跨主题一致性无从谈起。
+ *
+ * 主题的 token 在 `astryx-theme` 层声明（`@scope` 到 [data-astryx-theme]），
+ * 因此锚定必须放在层序更靠后的 `utilities` 层才生效。
+ */
+@layer utilities {
+  :root,
+  [data-astryx-theme] {
+    --font-size-3xs: 0.4375rem;
+    --font-size-2xs: 0.5rem;
+    --font-size-xs: 0.625rem;
+    --font-size-sm: 0.8125rem;
+    --font-size-base: 0.875rem;
+    --font-size-lg: 1.0625rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+    --font-size-4xl: 2.25rem;
+    --font-size-5xl: 2.75rem;
+  }
+}
+
 
 .drag {
   -webkit-app-region: drag;

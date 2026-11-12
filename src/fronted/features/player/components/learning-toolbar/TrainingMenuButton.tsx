@@ -123,7 +123,7 @@ function ModeOptionRow({
  * 遵循现代组件库规范：
  * 1. 结构分为三层：模式选择（互斥单选）、辅助播放偏好（独立 Switch 开关）、参数弹窗入口；
  * 2. 彻底清除旧菜单左侧莫名缩进 14px 空白与无法判断开闭状态的缺陷；
- * 3. 尺寸对齐 280px，与播放设置浮层保持完全一致的视觉秩序与呼吸感。
+ * 3. 尺寸对齐 340px，与播放设置浮层保持完全一致的视觉秩序与呼吸感。
  *
  * @param tone 宿主底色：字幕面板或视频画面深色条。
  * @param popoverOffset 弹窗底边到按钮顶边的间距。
@@ -144,7 +144,7 @@ export default function TrainingMenuButton({
     const { t } = useI18nTranslation('player');
     const [settingsOpen, setSettingsOpen] = useState(false);
     const popover = usePopover({
-        className: cn('w-[280px] p-2.5', CONTROL_POPOVER_PANEL),
+        className: cn('w-[340px] p-2.5', CONTROL_POPOVER_PANEL),
         hasSurface: false,
         isModal: false,
         dialogLabel: t('controlBar.trainingMenuLabel'),
@@ -272,16 +272,6 @@ export default function TrainingMenuButton({
             </Tooltip>
             {popover.render(
                 <>
-                    {/* 标题栏 */}
-                    <div className="flex items-center justify-between px-2 pb-2">
-                        <div className="flex items-center gap-2">
-                            <Headphones className="w-4 h-4 text-success-text shrink-0" />
-                            <span className="text-sm font-semibold text-foreground tracking-wide">
-                                {t('controlBar.trainingMenuLabel')}
-                            </span>
-                        </div>
-                    </div>
-
                     <div className="space-y-1.5">
                         {/* 第一分区：互斥句末模式选择 */}
                         <div

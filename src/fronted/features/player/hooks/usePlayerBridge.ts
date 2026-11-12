@@ -102,7 +102,7 @@ export function usePlayerBridge(navigate: (path: string) => void) {
                     return;
                 }
                 if (!result) {
-                    usePlaybackSession.setState({ subtitlePath: null, srtResegmented: false });
+                    usePlaybackSession.setState({ subtitlePath: null });
                     useTranslation.getState().setActiveFileHash(null);
                     playerActions.clearSubtitles();
                     return;
@@ -110,8 +110,6 @@ export function usePlayerBridge(navigate: (path: string) => void) {
                 usePlaybackSession.setState({
                     srtHash: result.fileHash,
                     subtitleSessionId: playbackSessionId,
-                    // 后端解析时判定的重切分标志,练习记录按它隔离 (fileHash, index) 查询键
-                    srtResegmented: result.resegmented,
                 });
                 useTranslation.getState().setActiveFileHash(result.fileHash);
                 playerActions.loadSubtitles(result.sentences);

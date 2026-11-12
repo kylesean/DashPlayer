@@ -37,8 +37,6 @@ import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
-import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import useTranslationStore from '@/fronted/features/player/translationStore';
 import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
 import { exitOverlayView } from '@/fronted/features/player/lib/player-view-controller';
@@ -152,8 +150,6 @@ export default function PracticeDock() {
     const currentSentence = usePlayerState((s) => s.currentSentence);
     const sentences = usePlayer((s) => s.sentences);
     const srtTender = usePlayer((s) => s.srtTender);
-    const srtResegmented = usePlaybackSession((s) => s.srtResegmented);
-    const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
     const translations = useTranslationStore((s) => s.translations);
     const { isVocabularyWord, getBaseWord } = useVocabularyState(
         useShallow((s) => ({
@@ -187,8 +183,8 @@ export default function PracticeDock() {
     const asrReady = resourceStatus?.transcription?.ready ?? false;
 
     const units = useMemo(
-        () => buildPracticeUnits(sentences, srtTender, sentenceBlockMode, currentSentence),
-        [sentences, srtTender, sentenceBlockMode, currentSentence],
+        () => buildPracticeUnits(sentences, srtTender, currentSentence),
+        [sentences, srtTender, currentSentence],
     );
 
     const activeUnit: PracticeUnit | null = useMemo(() => {
@@ -204,9 +200,9 @@ export default function PracticeDock() {
 
     const { data: fileSummaries, mutate: mutateFileSummaries } = useSWR(
         visible && activeFileHash
-            ? ['practice/list-by-file', activeFileHash, srtResegmented]
+            ? ['practice/list-by-file', activeFileHash]
             : null,
-        () => practiceApi.listByFile?.({ fileHash: activeFileHash, resegmented: srtResegmented })
+        () => practiceApi.listByFile?.({ fileHash: activeFileHash })
             ?? Promise.resolve([] as SentencePracticeSummaryVO[]),
     );
 
@@ -252,28 +248,26 @@ export default function PracticeDock() {
     }, [filteredUnits, activeUnit]);
 
     const historyKey = activeUnit && visible
-        ? ['practice/list-by-sentence', activeUnit.fileHash, activeUnit.index, srtResegmented]
+        ? ['practice/list-by-sentence', activeUnit.fileHash, activeUnit.index]
         : null;
     const { data: rawHistory, mutate: mutateHistory } = useSWR(
         historyKey,
         () => practiceApi.listBySentence({
             fileHash: activeUnit!.fileHash,
             sentenceIndex: activeUnit!.index,
-            resegmented: srtResegmented,
         }),
     );
     const history = Array.isArray(rawHistory) ? rawHistory : [];
 
     // 跨次节奏趋势：只有跟读录音才产生节奏快照，听写模式不必查询。
     const trendKey = activeUnit && visible && mode === 'shadowing'
-        ? ['practice/rhythm-trend', activeUnit.fileHash, activeUnit.index, srtResegmented]
+        ? ['practice/rhythm-trend', activeUnit.fileHash, activeUnit.index]
         : null;
     const { data: rhythmTrend } = useSWR<RhythmTrendVO>(
         trendKey,
         () => practiceApi.getRhythmTrend({
             fileHash: activeUnit!.fileHash,
             sentenceIndex: activeUnit!.index,
-            resegmented: srtResegmented,
         }),
         { revalidateOnFocus: false, shouldRetryOnError: false },
     );
@@ -363,7 +357,6 @@ export default function PracticeDock() {
         const vo = await practiceApi.scoreShadowing({
             fileHash: activeUnit.fileHash,
             sentenceIndex: activeUnit.index,
-            resegmented: srtResegmented,
             audio,
             expectedText: activeUnit.text,
             referenceDurationSec: activeUnit.range.end - activeUnit.range.start,
@@ -381,7 +374,7 @@ export default function PracticeDock() {
             text: activeUnit.text,
         });
         return vo;
-    }, [activeUnit, mutateFileSummaries, mutateHistory, srtResegmented]);
+    }, [activeUnit, mutateFileSummaries, mutateHistory]);
 
     const handleSubmitDictation = useCallback(async (typedSentence: string): Promise<void> => {
         if (!activeUnit) return;
@@ -390,7 +383,6 @@ export default function PracticeDock() {
             const vo = await practiceApi.scoreDictation({
                 fileHash: activeUnit.fileHash,
                 sentenceIndex: activeUnit.index,
-                resegmented: srtResegmented,
                 typedText: typedSentence,
                 expectedText: activeUnit.text,
             });
@@ -411,7 +403,7 @@ export default function PracticeDock() {
             logger.error('听写评分失败', { error });
             toast.error(error instanceof Error ? error.message : String(error));
         }
-    }, [activeUnit, mutateFileSummaries, mutateHistory, setDictationRevealed, srtResegmented]);
+    }, [activeUnit, mutateFileSummaries, mutateHistory, setDictationRevealed]);
 
     const handlePlayHistoryAudio = useCallback((audioPath: string) => {
         audioRef.current?.pause();

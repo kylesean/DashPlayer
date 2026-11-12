@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PlayerSettingsPopover from '../PlayerSettingsPopover';
-import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', () => ({
@@ -39,7 +38,7 @@ describe('PlayerSettingsPopover', () => {
         expect(trigger).toBeDefined();
 
         fireEvent.click(trigger);
-        expect(screen.getByTestId('player-setting-sentence-block')).toBeDefined();
+        expect(screen.queryByTestId('player-setting-sentence-block')).toBeNull();
         expect(screen.getByTestId('player-setting-pause-on-hover')).toBeDefined();
         expect(screen.getByTestId('player-setting-auto-play-next')).toBeDefined();
     });
@@ -70,16 +69,25 @@ describe('PlayerSettingsPopover', () => {
         expect(screen.getByTestId('mock-time-adjust-panel')).toBeDefined();
     });
 
-    it('toggles sentence block mode setting successfully', () => {
+    it('does not expose a sentence block mode switch', () => {
         render(<PlayerSettingsPopover tone="panel" popoverOffset={8} />);
         const trigger = screen.getByRole('button', { name: /controlBox\.title/i });
         fireEvent.click(trigger);
 
-        const initialVal = usePlayerUi.getState().sentenceBlockMode;
-        const blockSwitch = screen.getByTestId('player-setting-sentence-block');
-        const input = blockSwitch.querySelector('input') || blockSwitch;
-        fireEvent.click(input);
-        expect(usePlayerUi.getState().sentenceBlockMode).toBe(!initialVal);
+        // 整句已是唯一行为，弹层里不应再出现该开关。
+        expect(screen.queryByTestId('player-setting-sentence-block')).toBeNull();
+    });
+
+    it('exposes subtitle context as a display-only preference', async () => {
+        const { usePlayerUi } = await import('@/fronted/features/player/playerUiStore');
+        usePlayerUi.setState({ subtitleContext: 'sentence' });
+
+        render(<PlayerSettingsPopover tone="panel" popoverOffset={8} />);
+        fireEvent.click(screen.getByRole('button', { name: /controlBox\.title/i }));
+
+        // 选项存在；默认只显示当前句。
+        expect(screen.getByText('controlBox.subtitleContext')).toBeDefined();
+        expect(usePlayerUi.getState().subtitleContext).toBe('sentence');
     });
 
     it('navigates to full settings when clicking bottom entry', () => {

@@ -15,6 +15,7 @@ vi.mock('electron', () => ({
 
 import { ContentCompassServiceImpl } from '@/backend/services/ContentCompassService';
 import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
+import { builtinDictionaryMetaStub } from '@/test/builtinDictionaryFixture';
 import LearningDataRepositoryImpl from '@/backend/infrastructure/db/repositories/LearningDataRepositoryImpl';
 import WatchHistoryRepositoryImpl from '@/backend/infrastructure/db/repositories/WatchHistoryRepositoryImpl';
 import { recommendationEvent } from '@/backend/infrastructure/db/tables/recommendationEvent';
@@ -48,6 +49,7 @@ const dictionary: BuiltinDictionaryStore = {
         oxford: 1,
         bnc: 100,
     }) as never,
+    meta: () => builtinDictionaryMetaStub(1),
 };
 
 interface Harness {

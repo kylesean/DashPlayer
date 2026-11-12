@@ -307,7 +307,6 @@ export const subtitleTimestampAdjustmentInputSchema: z.ZodType<SubtitleTimestamp
 export const shadowingParamsSchema: z.ZodType<SentencePracticeShadowingParams> = z.object({
     fileHash: nonEmptyStringSchema,
     sentenceIndex: z.number().int().min(0),
-    resegmented: z.boolean(),
     audio: z.instanceof(Uint8Array),
     expectedText: z.string(),
     referenceDurationSec: z.number().positive().max(600).optional(),
@@ -317,7 +316,6 @@ export const shadowingParamsSchema: z.ZodType<SentencePracticeShadowingParams> =
 export const dictationParamsSchema: z.ZodType<SentencePracticeDictationParams> = z.object({
     fileHash: nonEmptyStringSchema,
     sentenceIndex: z.number().int().min(0),
-    resegmented: z.boolean(),
     typedText: z.string(),
     expectedText: nonEmptyStringSchema,
 });

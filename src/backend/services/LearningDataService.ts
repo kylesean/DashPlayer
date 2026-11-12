@@ -296,7 +296,6 @@ export class LearningDataServiceImpl implements LearningDataService {
             sentencePractices: sentencePractices.map((record) => ({
                 fileHash: record.file_hash,
                 sentenceIndex: record.sentence_index,
-                resegmented: record.resegmented,
                 mode: record.mode,
                 score: record.score,
                 transcript: record.transcript,

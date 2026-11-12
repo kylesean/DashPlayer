@@ -25,6 +25,7 @@ import { VStack } from '@astryxdesign/core/VStack';
 import SettingsPageShell from '@/fronted/features/settings/components/form/SettingsPageShell';
 import { SettingField, SettingSection, SettingsLoadingSkeleton } from '@/fronted/features/settings/components/form';
 import { ResourcePackCard } from '@/fronted/features/settings/components/ResourcePackCard';
+import TtsVoiceCard from '@/fronted/features/settings/components/TtsVoiceCard';
 import { LocalLlmCard } from '@/fronted/features/settings/components/LocalLlmCard';
 import EmbeddingModelCard from '@/fronted/features/settings/components/EmbeddingModelCard';
 import ImportedDictionaryCard from '@/fronted/features/settings/components/ImportedDictionaryCard';
@@ -416,6 +417,9 @@ const ServiceResourceSetting: React.FC = () => {
                                 onRefresh={() => { void refreshResourceStatus(); }}
                                 onChangeEngine={(engine) => { void changeTranscriptionEngine(engine); }}
                             />
+                            <div className="pt-2">
+                                <TtsVoiceCard onVoiceChange={() => { void refreshResourceStatus(); }} />
+                            </div>
                         </SettingSection>
 
                         <Divider variant="subtle" />

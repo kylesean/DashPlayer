@@ -72,9 +72,6 @@
         "transcriptPositionDescription": "字幕文稿流在播放界面的停靠位置",
         "transcriptPositionRight": "靠右（默认）",
         "transcriptPositionLeft": "靠左（精读）",
-        "meaningGroupResegmentationTitle": "碎句字幕合并",
-        "meaningGroupResegmentationDescription": "解析时将半句一行的碎字幕按句意合并成完整句子；重新打开视频后生效",
-        "meaningGroupResegmentationChanged": "已切换，重新打开视频后生效",
         "sections": {
             "theme": "主题",
             "themeDesc": "配色与明暗模式",
@@ -599,6 +596,8 @@
             "import": "导入词典",
             "formats": "支持 StarDict、CSV、SQLite",
             "empty": "还没有导入词典",
+            "builtinName": "内置词典",
+            "builtinMeta": "{{source}} {{version}} · {{count}} 个词条 · 随应用内置，无需下载",
             "loading": "正在读取词典列表…",
             "meta": "{{count}} 个词条 · {{format}}",
             "remove": "删除",
@@ -619,6 +618,20 @@
             "cancel": "取消",
             "installFailed": "安装失败：{{message}}",
             "removeFailed": "删除失败：{{message}}"
+        },
+        "ttsVoice": {
+            "title": "朗读音色",
+            "description": "离线朗读单词与例句时使用的声音。",
+            "accentUS": "美音",
+            "accentGB": "英音",
+            "male": "男声",
+            "female": "女声",
+            "qualityLow": "轻量",
+            "qualityMedium": "标准",
+            "qualityHigh": "高清",
+            "notInstalled": "该音色尚未下载，请在上方资源包中下载",
+            "notInstalledShort": "未下载",
+            "downloadHint": "当前音色尚未安装，朗读会暂用其它已安装音色。请在上方资源包中下载。"
         }
     },
     "runtime": {

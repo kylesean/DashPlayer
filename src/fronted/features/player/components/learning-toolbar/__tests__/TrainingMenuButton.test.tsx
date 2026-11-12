@@ -109,4 +109,17 @@ describe('TrainingMenuButton', () => {
 
         expect(screen.getByTestId('training-mode-loop-rates').textContent).toContain('0.75→1→1.25x');
     });
+
+    /**
+     * 面板本身已经由触发按钮定位，再在顶部重复一遍「精听与训练模式」只是噪音。
+     * 可访问名称仍由 radiogroup / dialogLabel 提供，不依赖这行可见标题。
+     */
+    it('面板内不再重复渲染可见标题', () => {
+        render(<TrainingMenuButton tone="panel" popoverOffset={8} />);
+        fireEvent.click(screen.getByRole('button', { name: /controlBar\.trainingMenuLabel/i }));
+
+        expect(screen.queryByText('controlBar.trainingMenuLabel')).toBeNull();
+        // 语义名称仍然保留在分组上，读屏不受影响
+        expect(screen.getByRole('radiogroup').getAttribute('aria-label')).toBe('controlBar.trainingMenuLabel');
+    });
 });

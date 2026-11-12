@@ -35,20 +35,17 @@ export default class SentencePracticeController implements Controller {
             schema: z.object({
                 fileHash: nonEmptyStringSchema,
                 sentenceIndex: z.number().int().min(0),
-                resegmented: z.boolean(),
             }),
         });
         registerRoute('practice/list-by-file', (p) => this.sentencePracticeService.listByFile(p), {
             schema: z.object({
                 fileHash: nonEmptyStringSchema,
-                resegmented: z.boolean(),
             }),
         });
         registerRoute('practice/rhythm-trend', (p) => this.sentencePracticeService.getRhythmTrend(p), {
             schema: z.object({
                 fileHash: nonEmptyStringSchema,
                 sentenceIndex: z.number().int().min(0),
-                resegmented: z.boolean(),
             }),
         });
     }

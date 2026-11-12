@@ -29,7 +29,6 @@ import PracticePanel from '@/fronted/features/practice/PracticePanel';
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import SubtitleGenerationPanel from './SubtitleGenerationPanel';
 import { usePlayer } from '@/fronted/features/player/playerStore';
-import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import {
@@ -80,7 +79,6 @@ const PlaybackLayout = () => {
     const prevPracticeVisibleRef = useRef(practiceVisible);
     const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
     const fontSize = useSetting((s) => s.values.get('appearance.fontSize'));
-    const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
     const isLeftTranscript = transcriptPosition === 'left';
     const navigate = useNavigate();
     const { handlePlayerReady, handleAutoPlayNext } = usePlayerBridge(navigate);
@@ -230,7 +228,7 @@ const PlaybackLayout = () => {
         if (!group || group.getLayout().length !== 2) {
             return;
         }
-        const { stage: stageSize, subtitle: subtitleSize } = getDefaultInnerSplit(fontSize, sentenceBlockMode);
+        const { stage: stageSize, subtitle: subtitleSize } = getDefaultInnerSplit(fontSize);
         group.setLayout([stageSize, subtitleSize]);
         setSizeIa(stageSize);
         setSizeIb(subtitleSize);

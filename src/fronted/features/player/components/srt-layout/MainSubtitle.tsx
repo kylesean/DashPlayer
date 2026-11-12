@@ -10,6 +10,7 @@ import { playerActions } from '@/fronted/features/player/components/PlayerAction
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
+import { selectVisibleSentences } from '@/fronted/features/player/lib/sentence-grouping';
 import SubtitleLearningHints from './SubtitleLearningHints';
 import AdaptiveChineseLine from './AdaptiveChineseLine';
 import SceneCue from './SceneCue';
@@ -37,9 +38,8 @@ export default function MainSubtitle({ variant = 'panel' }: { variant?: 'panel' 
     const translations = useTranslation(state => state.translations);
     /** 当前句所在的意群块；整句模式关闭时为 null，回退单行渲染。 */
     const block = usePlayer(state => state.getCurrentBlock());
-    // getCurrentBlock 依赖的 sentenceBlockMode 在 playerStore 内经 getState 非响应式读取，
-    // 这里必须订阅开关本身：否则暂停态下（无 timeupdate）切换整句模式不会重算，主字幕区永久陈旧
-    usePlayerUi(state => state.sentenceBlockMode);
+    /** 显示范围：sentence 仅当前句，context 额外显示前后各一句。 */
+    const subtitleContext = usePlayerUi(state => state.subtitleContext);
     const showCn = usePlayerUi((state) => state.showCn);
     const showSourceZh = usePlayerUi((state) => state.showSourceZh);
     const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
@@ -156,20 +156,27 @@ export default function MainSubtitle({ variant = 'panel' }: { variant?: 'panel' 
         return lines;
     };
 
-    /** 整句模式：渲染当前句所在意群块的全部行，块内当前行高亮、其余降透明度。 */
+    /**
+     * 渲染当前句（及可选的上下文句子）。
+     */
     const renderBlockLines = (): ReactElement[] => {
         if (!block) {
             return [];
         }
+        const items = selectVisibleSentences(sentences, sentence, subtitleContext);
         const lines: ReactElement[] = [];
-        for (const item of block.sentences) {
+        for (const item of items) {
             const active = item.key === sentence?.key;
             const itemLines: ReactElement[] = [];
             if (StrUtil.isNotBlank(item.text)) {
                 itemLines.push(
                     <div
                         key={`block-first-${item.key}`}
-                        className={cn('w-full shrink-0 transition-opacity', isOverlay && 'flex justify-center', !active && 'opacity-50')}
+                        className={cn(
+                            'w-full shrink-0 transition-opacity',
+                            isOverlay && 'flex justify-center',
+                            !active && 'opacity-50',
+                        )}
                     >
                         <TranslatableLine
                             className={isOverlay ? OVERLAY_LINE_CLASS : undefined}
@@ -211,7 +218,10 @@ export default function MainSubtitle({ variant = 'panel' }: { variant?: 'panel' 
             lines.push(
                 <div
                     key={`first-${sentence.key}`}
-                    className={cn('w-full shrink-0', isOverlay && 'flex justify-center')}
+                    className={cn(
+                        'w-full shrink-0',
+                        isOverlay && 'flex justify-center',
+                    )}
                 >
                     <TranslatableLine
                         className={isOverlay ? OVERLAY_LINE_CLASS : undefined}

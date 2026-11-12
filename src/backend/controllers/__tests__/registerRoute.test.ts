@@ -82,20 +82,19 @@ describe('registerRoute IPC 边界语义', () => {
     it('schema 漏写可选字段时，契约外顶层字段直接拒绝而不是静默丢弃', async () => {
         registerRoute(
             'practice/list-by-sentence',
-            async ({ fileHash }: { fileHash: string; sentenceIndex: number; resegmented: boolean }) => {
+            async ({ fileHash }: { fileHash: string; sentenceIndex: number }) => {
                 // handler 体不在本测试范围；返回值只需对齐契约类型（SentencePracticeRecordVO[]）。
                 void fileHash;
                 return [];
             },
             {
-                schema: z.object({ fileHash: z.string(), sentenceIndex: z.number(), resegmented: z.boolean() }),
+                schema: z.object({ fileHash: z.string(), sentenceIndex: z.number() }),
             },
         );
 
         await expect(captured.get('practice/list-by-sentence')!({}, {
             fileHash: 'abc',
             sentenceIndex: 1,
-            resegmented: false,
             smuggled: 'x',
         })).rejects.toThrow(/未声明字段.*smuggled/);
     });

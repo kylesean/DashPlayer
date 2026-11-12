@@ -1,4 +1,5 @@
 import type { ImportedDictionaryVO } from '@/common/contracts/imported-dictionary';
+import type { BuiltinDictionaryMetaVO } from '@/common/contracts/builtin-dictionary';
 import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 
 /** 文件选择器允许的扩展名（不带点）。 */
@@ -8,6 +9,13 @@ const DICTIONARY_FILE_FORMATS = ['ifo', 'csv', 'sqlite', 'db', 'sqlite3'];
  * 用户导入词典的前端 API 封装。
  */
 export const dictionaryImportApi = {
+    /**
+     * 读取内置词典的元信息。
+     *
+     * @returns 词条数与数据源版本。
+     */
+    builtinMeta: (): Promise<BuiltinDictionaryMetaVO> => backendClient.call('dictionary/builtin-meta'),
+
     /**
      * 列出已导入词典。
      *

@@ -55,12 +55,12 @@ export default interface SentencePracticeService {
     /**
      * 查询单个意群的练习历史,按时间倒序。
      */
-    listBySentence(params: { fileHash: string; sentenceIndex: number; resegmented: boolean }): Promise<SentencePracticeRecordVO[]>;
+    listBySentence(params: { fileHash: string; sentenceIndex: number }): Promise<SentencePracticeRecordVO[]>;
 
     /**
      * 查询整片各意群的练习摘要(最高分、总次数、最近一次模式)。
      */
-    listByFile(params: { fileHash: string; resegmented: boolean }): Promise<SentencePracticeSummaryVO[]>;
+    listByFile(params: { fileHash: string }): Promise<SentencePracticeSummaryVO[]>;
 
     /**
      * 查询同一意群跨次练习的节奏趋势。
@@ -70,7 +70,6 @@ export default interface SentencePracticeService {
     getRhythmTrend(params: {
         fileHash: string;
         sentenceIndex: number;
-        resegmented: boolean;
     }): Promise<RhythmTrendVO>;
 
     /**
@@ -122,8 +121,8 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     ) {}
 
     public async scoreShadowing(params: SentencePracticeShadowingParams): Promise<SentencePracticeResultVO> {
-        const { fileHash, sentenceIndex, resegmented, audio, expectedText, referenceDurationSec } = params;
-        this.validateKeys(fileHash, sentenceIndex, resegmented);
+        const { fileHash, sentenceIndex, audio, expectedText, referenceDurationSec } = params;
+        this.validateKeys(fileHash, sentenceIndex);
         const { transcript, audioFile, rhythm } = await this.transcribeRecording(
             fileHash,
             sentenceIndex,
@@ -135,7 +134,6 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         await this.persistRecord(
             fileHash,
             sentenceIndex,
-            resegmented,
             'shadowing',
             alignment.score,
             transcript,
@@ -153,13 +151,12 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     }
 
     public async scoreDictation(params: SentencePracticeDictationParams): Promise<SentencePracticeResultVO> {
-        const { fileHash, sentenceIndex, resegmented, typedText, expectedText } = params;
-        this.validateKeys(fileHash, sentenceIndex, resegmented);
+        const { fileHash, sentenceIndex, typedText, expectedText } = params;
+        this.validateKeys(fileHash, sentenceIndex);
         const alignment = alignPracticeTokens(expectedText, typedText);
         await this.persistRecord(
             fileHash,
             sentenceIndex,
-            resegmented,
             'dictation',
             alignment.score,
             typedText,
@@ -170,15 +167,14 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         return { score: alignment.score, transcript: typedText, words: alignment.words, audioPath: null, rhythm: null };
     }
 
-    public async listBySentence(params: { fileHash: string; sentenceIndex: number; resegmented: boolean }): Promise<SentencePracticeRecordVO[]> {
-        const { fileHash, sentenceIndex, resegmented } = params;
-        this.validateKeys(fileHash, sentenceIndex, resegmented);
-        const records = await this.repository.listBySentence(fileHash, sentenceIndex, resegmented);
+    public async listBySentence(params: { fileHash: string; sentenceIndex: number }): Promise<SentencePracticeRecordVO[]> {
+        const { fileHash, sentenceIndex } = params;
+        this.validateKeys(fileHash, sentenceIndex);
+        const records = await this.repository.listBySentence(fileHash, sentenceIndex);
         return Promise.all(records.map(async (record) => ({
             id: record.id,
             fileHash: record.file_hash,
             sentenceIndex: record.sentence_index,
-            resegmented: record.resegmented,
             mode: record.mode as SentencePracticeMode,
             score: record.score,
             transcript: record.transcript,
@@ -187,10 +183,10 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         })));
     }
 
-    public async listByFile(params: { fileHash: string; resegmented: boolean }): Promise<SentencePracticeSummaryVO[]> {
-        const { fileHash, resegmented } = params;
-        this.validateFileKeys(fileHash, resegmented);
-        const records = await this.repository.listByFile(fileHash, resegmented);
+    public async listByFile(params: { fileHash: string }): Promise<SentencePracticeSummaryVO[]> {
+        const { fileHash } = params;
+        this.validateFileKeys(fileHash);
+        const records = await this.repository.listByFile(fileHash);
         const byIndex = new Map<number, SentencePracticeSummaryVO>();
         // 仓储按 id 倒序返回,因此首次遇到的记录就是该意群最近一次练习。
         for (const record of records) {
@@ -214,11 +210,10 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     public async getRhythmTrend(params: {
         fileHash: string;
         sentenceIndex: number;
-        resegmented: boolean;
     }): Promise<RhythmTrendVO> {
-        const { fileHash, sentenceIndex, resegmented } = params;
-        this.validateKeys(fileHash, sentenceIndex, resegmented);
-        const records = await this.repository.listBySentence(fileHash, sentenceIndex, resegmented);
+        const { fileHash, sentenceIndex } = params;
+        this.validateKeys(fileHash, sentenceIndex);
+        const records = await this.repository.listBySentence(fileHash, sentenceIndex);
         // 仓储按 id 倒序返回；趋势要按时间升序看，这里反转并只保留有节奏快照的记录。
         const points = records
             .slice()
@@ -434,7 +429,6 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
     private async persistRecord(
         fileHash: string,
         sentenceIndex: number,
-        resegmented: boolean,
         mode: SentencePracticeMode,
         score: number,
         transcript: string,
@@ -446,7 +440,6 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             await this.repository.insertOne({
                 file_hash: fileHash,
                 sentence_index: sentenceIndex,
-                resegmented,
                 mode,
                 score,
                 transcript: transcript || null,
@@ -461,18 +454,14 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         }
     }
 
-    private validateFileKeys(fileHash: string, resegmented: boolean): void {
+    private validateFileKeys(fileHash: string): void {
         if (!fileHash || !SAFE_KEY_PATTERN.test(fileHash) || DOT_ONLY_SEGMENT_PATTERN.test(fileHash)) {
             throw new Error(`非法的 fileHash: ${fileHash}`);
         }
-        // IPC 类型只是编译期约束,外部输入进入业务前按约定做运行时校验
-        if (typeof resegmented !== 'boolean') {
-            throw new Error(`非法的 resegmented: ${resegmented}`);
-        }
     }
 
-    private validateKeys(fileHash: string, sentenceIndex: number, resegmented: boolean): void {
-        this.validateFileKeys(fileHash, resegmented);
+    private validateKeys(fileHash: string, sentenceIndex: number): void {
+        this.validateFileKeys(fileHash);
         if (!Number.isInteger(sentenceIndex) || sentenceIndex < 0) {
             throw new Error(`非法的 sentenceIndex: ${sentenceIndex}`);
         }

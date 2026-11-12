@@ -65,7 +65,9 @@ export default function PlayerSettingsPopover({
         onMenuOpenChange?.(false);
     }, [onMenuOpenChange]);
     const popover = usePopover({
-        className: cn('w-[280px] p-2.5', CONTROL_POPOVER_PANEL),
+        // 340px：容纳「关闭/安静/教练/强化」四项分段 + 左侧「词汇提示」标签。
+        // 更窄时要么标签被逐字压成竖排，要么分段项被压成「关…」。
+        className: cn('w-[340px] p-2.5', CONTROL_POPOVER_PANEL),
         hasSurface: false,
         isModal: false,
         dialogLabel: t('controlBox.title'),
@@ -75,9 +77,9 @@ export default function PlayerSettingsPopover({
 
     const showCn = usePlayerUi((s) => s.showCn);
     const showSourceZh = usePlayerUi((s) => s.showSourceZh);
-    const sentenceBlockMode = usePlayerUi((s) => s.sentenceBlockMode);
+    const subtitleContext = usePlayerUi((s) => s.subtitleContext);
+    const setSubtitleContext = usePlayerUi((s) => s.setSubtitleContext);
     const changeShowSourceZh = usePlayerUi((s) => s.changeShowSourceZh);
-    const changeSentenceBlockMode = usePlayerUi((s) => s.changeSentenceBlockMode);
     const sourceZhAvailable = useSourceChineseAvailability();
     const podcastMode = useLayout((s) => s.podcastMode);
 
@@ -164,13 +166,6 @@ export default function PlayerSettingsPopover({
                         {/* 极简 3~4 行高频即时开关 */}
                         <VStack gap={0.5}>
                             <PopoverSwitchRow
-                                label={t('controlBox.sentenceBlockMode')}
-                                labelTooltip={t('controlBox.sentenceBlockModeHint')}
-                                checked={sentenceBlockMode}
-                                onChange={() => changeSentenceBlockMode()}
-                                testId="player-setting-sentence-block"
-                            />
-                            <PopoverSwitchRow
                                 label={t('controlBox.pauseOnWordHover')}
                                 labelTooltip={t('controlBox.pauseOnWordHoverHint')}
                                 checked={pauseOnWordHover}
@@ -218,39 +213,71 @@ export default function PlayerSettingsPopover({
                             />
                         </VStack>
 
+                        {/* 显示范围：只影响主字幕区渲染哪几句，不影响复读/暂停的单位。
+                            分段控件必须 shrink-0：Astryx 的段标签 min-width:0 且可收缩，
+                            在 flex 行里被挤压就会渲染成「关…/安…」这样的省略号。 */}
                         <div className="flex items-center justify-between gap-2 px-2 py-1">
                             <span
-                                className="text-sm text-muted-foreground"
+                                className="shrink-0 whitespace-nowrap text-sm text-muted-foreground"
+                                title={t('controlBox.subtitleContextHint')}
+                            >
+                                {t('controlBox.subtitleContext')}
+                            </span>
+                            <div className="shrink-0">
+                                <SegmentedControl
+                                    value={subtitleContext}
+                                    onChange={(next) => setSubtitleContext(next as 'sentence' | 'context')}
+                                    label={t('controlBox.subtitleContext')}
+                                    size="sm"
+                                >
+                                    <SegmentedControlItem
+                                        value="sentence"
+                                        label={t('controlBox.subtitleContextSentence')}
+                                    />
+                                    <SegmentedControlItem
+                                        value="context"
+                                        label={t('controlBox.subtitleContextWith')}
+                                    />
+                                </SegmentedControl>
+                            </div>
+                        </div>
+
+                        {/* 4 项分段控件（关闭/安静/教练/强化）宽度固定，压缩它会让每项
+                            变成「关…/安…」。控件与标签都 shrink-0，靠加宽弹层容纳；
+                            标签若可收缩，四字中文会在极窄宽度里被逐字压成竖排。 */}
+                        <div className="flex items-center justify-between gap-2 px-2 py-1">
+                            <span
+                                className="shrink-0 whitespace-nowrap text-sm text-muted-foreground"
                                 title={t('controlBox.vocabularyGuidanceHint')}
                             >
                                 {t('controlBox.vocabularyGuidance')}
                             </span>
-                            <SegmentedControl
-                                value={vocabularyGuidance}
-                                onChange={(next) => { void changeVocabularyGuidance(next); }}
-                                label={t('controlBox.vocabularyGuidance')}
-                                size="sm"
-                            >
-                                <SegmentedControlItem
-                                    value="off"
-                                    label={t('controlBox.vocabularyGuidanceOff')}
-                                />
-                                <SegmentedControlItem
-                                    value="calm"
-                                    label={t('controlBox.vocabularyGuidanceCalm')}
-                                />
-                                <SegmentedControlItem
-                                    value="coach"
-                                    label={t('controlBox.vocabularyGuidanceCoach')}
-                                />
-                                <SegmentedControlItem
-                                    value="intensive"
-                                    label={t('controlBox.vocabularyGuidanceIntensive')}
-                                />
-                            </SegmentedControl>
+                            <div className="shrink-0">
+                                <SegmentedControl
+                                    value={vocabularyGuidance}
+                                    onChange={(next) => { void changeVocabularyGuidance(next); }}
+                                    label={t('controlBox.vocabularyGuidance')}
+                                    size="sm"
+                                >
+                                    <SegmentedControlItem
+                                        value="off"
+                                        label={t('controlBox.vocabularyGuidanceOff')}
+                                    />
+                                    <SegmentedControlItem
+                                        value="calm"
+                                        label={t('controlBox.vocabularyGuidanceCalm')}
+                                    />
+                                    <SegmentedControlItem
+                                        value="coach"
+                                        label={t('controlBox.vocabularyGuidanceCoach')}
+                                    />
+                                    <SegmentedControlItem
+                                        value="intensive"
+                                        label={t('controlBox.vocabularyGuidanceIntensive')}
+                                    />
+                                </SegmentedControl>
+                            </div>
                         </div>
-
-                        <Divider variant="subtle" />
 
                         {/* 底部跳转完整系统设置 */}
                         <button

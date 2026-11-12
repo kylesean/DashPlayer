@@ -224,7 +224,7 @@
         "error": "错误",
         "result": "结果"
     },
-    "aiContextInsight": "AI 语境解读",
+    "aiContextInsight": "AI 讲讲这个词在这句里的意思",
     "aiContextInsightHint": "结合当前字幕句，解释这个词在这里的具体含义与用法",
     "aiContextInsightInSentence": "在这句话里",
     "aiContextInsightLoading": "正在结合本句解读…",
@@ -249,5 +249,9 @@
         "hoursAgo": "{{count}} 小时前",
         "daysAgo": "{{count}} 天前"
     },
-    "wordPromptReasonLabel": "为什么是它"
+    "wordPromptReasonLabel": "为什么现在提示这个词",
+    "wordDetailsToggle": "学习记录",
+    "dictionarySourceImported": "释义来自你导入的词典",
+    "dictionarySourceBuiltin": "释义来自内置词典",
+    "dictionarySourceAi": "释义由 AI 生成，可能不准确"
 }

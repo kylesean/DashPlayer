@@ -77,6 +77,22 @@ export type SubtitleScrollActions = {
     updateCurrentRef: (ref: HTMLDivElement | null, listPosition: number) => void;
     /** 统一的同步入口：确保当前句位于可视边界内（第一性原理的实现） */
     syncIntoView: (listPosition: number) => void;
+    /**
+     * 显式「回到当前播放句」。
+     *
+     * 与 {@link syncIntoView} 的区别：后者是**被动跟随**，在 USER_BROWSING 下必须
+     * 让位给用户，否则用户永远滚不开。而这里是用户主动点按钮要求回去，
+     * 恰恰要在浏览态下工作——把两者合用一个入口，按钮就必然点了没反应。
+     */
+    returnToCurrent: () => void;
+    /**
+     * 显式「回到指定列表下标」，供分块（article）模式使用。
+     *
+     * 与 {@link returnToCurrent} 同源：浏览态下也要生效，因为这是用户的显式意图。
+     *
+     * @param listPosition 目标下标；负值忽略。
+     */
+    returnToListPosition: (listPosition: number) => void;
     onUserFinishScrolling: () => void;
     setVirtuoso: (virtuoso: VirtuosoHandle) => void;
     updateBoundary: (boundary: ScrollBoundary) => void;
@@ -381,6 +397,35 @@ const useSubtitleScroll = create(
                         // 悬浮按钮/快捷键返回当前播放位置：平滑回到当前句
                         executeScroll(virtuoso, currentListPosition, { smooth: true });
                     }
+                },
+                returnToCurrent: () => {
+                    const internal = get().internal;
+                    const { virtuoso, currentListPosition } = internal;
+                    if (!virtuoso || currentListPosition < 0) {
+                        return;
+                    }
+                    // 用户显式要求归位：先解除浏览态，再平滑滚动。
+                    // 顺序不能反——executeScroll 内部会切到 AUTO_SCROLLING，
+                    // 但若浏览态的定时器还挂着，它随后会把状态拨回 NORMAL 并触发
+                    // 一次被动同步，与这里的滚动抢同一个 scrollTop。
+                    cancelPendingTimers();
+                    internal.lastSyncedPosition = currentListPosition;
+                    internal.lastSyncIndex = currentListPosition;
+                    internal.deferredPosition = -1;
+                    executeScroll(virtuoso, currentListPosition, { smooth: true });
+                },
+                returnToListPosition: (listPosition: number) => {
+                    const { virtuoso } = get().internal;
+                    if (!virtuoso || listPosition < 0) {
+                        return;
+                    }
+                    const internal = get().internal;
+                    cancelPendingTimers();
+                    internal.lastSyncedPosition = listPosition;
+                    internal.lastSyncIndex = listPosition;
+                    internal.deferredPosition = -1;
+                    internal.currentListPosition = listPosition;
+                    executeScroll(virtuoso, listPosition, { smooth: true });
                 },
                 /**
                  * 更新可视安全边界。

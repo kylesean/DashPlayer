@@ -7,6 +7,8 @@
  */
 export type { SrtLine } from './types';
 export { parseSrt, parseAss } from './parser';
+export { resegmentIntoMeaningGroups } from './meaning-group-segmenter';
+export { dedupeRollingLines, rollingOverlapWordCount } from './rolling-dedup';
 export { serializeSrt } from './serializer';
 export { timeTextToSeconds, secondsToSrtTimestamp } from './time';
 export { getAroundLines, findByIndex, buildClipContext } from './context';

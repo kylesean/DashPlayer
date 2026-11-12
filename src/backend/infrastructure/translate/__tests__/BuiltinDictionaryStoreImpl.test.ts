@@ -34,6 +34,19 @@ describe('预置词典查询', () => {
         return new BuiltinDictionaryStoreImpl(fixture.dbPath);
     };
 
+    it('meta() 返回词条数与数据源版本，供设置页展示「装了几本」', () => {
+        const store = buildStore([
+            { word: 'cancel', translation: 'n. 取消' },
+            { word: 'journey', translation: 'n. 旅程' },
+        ]);
+
+        expect(store.meta()).toEqual({
+            source: 'ecdict',
+            sourceVersion: 'test',
+            wordCount: 2,
+        });
+    });
+
     it('命中词条时返回带词库元信息的简化单词卡', () => {
         const store = buildStore([
             {

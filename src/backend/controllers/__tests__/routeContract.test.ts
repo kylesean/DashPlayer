@@ -69,7 +69,7 @@ function registerAllControllers(): void {
     new AiTransController(stub(), stub(), stub()).registerRoutes();
     new ChatStreamController(stub(), stub(), stub(), stub(), stub()).registerRoutes();
     new ContentCompassController(stub()).registerRoutes();
-    new DictionaryImportController(stub()).registerRoutes();
+    new DictionaryImportController(stub(), stub()).registerRoutes();
     new DpTaskController(stub()).registerRoutes();
     new EnglishDictionaryController(stub()).registerRoutes();
     new LearningDataController(stub(), stub(), stub(), stub()).registerRoutes();
@@ -79,7 +79,7 @@ function registerAllControllers(): void {
     new ParakeetModelController(stub()).registerRoutes();
     new SentencePracticeController(stub()).registerRoutes();
     new SettingsController(stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub()).registerRoutes();
-    new SherpaTtsModelController(stub()).registerRoutes();
+    new SherpaTtsModelController(stub(), stub(), stub(), stub()).registerRoutes();
     new SpeakerDiarizationModelController(stub()).registerRoutes();
     new SrtTimeAdjustController(stub()).registerRoutes();
     new StorageController(stub()).registerRoutes();

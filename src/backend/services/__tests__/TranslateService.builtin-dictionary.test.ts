@@ -143,8 +143,8 @@ describe('单词查询的预置词典优先链路', () => {
         expect(wordTranslatesRepository.upsert).not.toHaveBeenCalled();
     });
 
-    it('带语境时跳过预置词典走引擎，引擎失败回退预置词典', async () => {
-        const { service } = buildService({
+    it('带语境时预置词典仍然优先，不触发引擎', async () => {
+        const { service, aiProviderService } = buildService({
             dictionaryProvider: Promise.resolve('local'),
             words: [{ word: 'cancel', phonetic: '', translation: 'n. 取消' }],
             localAiService: {
@@ -154,10 +154,12 @@ describe('单词查询的预置词典优先链路', () => {
         });
 
         const result = await service.transWord('cancel', false, undefined, 'Please cancel the meeting.');
-        expect(result).toMatchObject({ word: 'cancel', definitions: [{ partOfSpeech: 'n.', meaning: '取消', examples: [] }] });
+        expect(result).toMatchObject({ word: 'cancel' });
+        // 词典是毫秒级、离线、零成本的首屏来源；语境解读走词卡第二层单独请求。
+        expect(aiProviderService.getModel).not.toHaveBeenCalled();
     });
 
-    it('带语境且引擎成功时返回语境解释，缓存键编入语境哈希', async () => {
+    it('带语境但词典未命中时，引擎按语境哈希独立缓存', async () => {
         const { service, wordTranslatesRepository } = buildService({
             dictionaryProvider: Promise.resolve('local'),
             words: [],

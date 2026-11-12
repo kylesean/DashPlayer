@@ -86,23 +86,23 @@ function buildUnitFromSentence(sentence: Sentence, srtTender: SrtTender<Sentence
 }
 
 /**
- * 构建当前字幕集下的全量练习单元列表（遵循整句连读模式开关）。
+ * 构建当前字幕集下的全量练习单元列表。
+ *
+ * 字幕在解析层已重切成完整意群，这里再按意群块归并一次是为了覆盖
+ * 「字幕每行不足一句」的人工字幕：归并结果与主字幕区的导航单位保持一致。
  */
 export function buildPracticeUnits(
     sentences: Sentence[],
     srtTender: SrtTender<Sentence> | null,
-    sentenceBlockMode: boolean,
     fallbackCurrent?: Sentence | null,
 ): PracticeUnit[] {
     if (sentences.length === 0) {
         return fallbackCurrent ? [buildUnitFromSentence(fallbackCurrent, srtTender)] : [];
     }
     const ordered = [...sentences].sort((a, b) => a.index - b.index);
-    if (sentenceBlockMode) {
-        const blocks = groupSentencesIntoBlocks(ordered);
-        if (blocks.length > 0) {
-            return blocks.map((block) => buildUnitFromBlock(block, srtTender));
-        }
+    const blocks = groupSentencesIntoBlocks(ordered);
+    if (blocks.length > 0) {
+        return blocks.map((block) => buildUnitFromBlock(block, srtTender));
     }
     return ordered.map((sentence) => buildUnitFromSentence(sentence, srtTender));
 }

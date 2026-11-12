@@ -105,16 +105,6 @@ const nullableInt = (value: unknown, path: string): number | null => {
     return int(value, path);
 };
 
-const bool = (value: unknown, path: string, fallback: boolean): boolean => {
-    if (value === undefined || value === null) {
-        return fallback;
-    }
-    if (typeof value !== 'boolean') {
-        return fail(path, '布尔值');
-    }
-    return value;
-};
-
 const oneOf = <T extends string>(
     value: unknown,
     allowed: readonly T[],
@@ -249,7 +239,6 @@ const parseSentencePractice = (value: unknown, path: string): LearningDataSenten
     return {
         fileHash: str(raw.fileHash, `${path}.fileHash`),
         sentenceIndex: int(raw.sentenceIndex, `${path}.sentenceIndex`),
-        resegmented: bool(raw.resegmented, `${path}.resegmented`, true),
         mode: str(raw.mode, `${path}.mode`),
         score: num(raw.score, `${path}.score`),
         transcript: nullableStr(raw.transcript, `${path}.transcript`),

@@ -69,6 +69,53 @@ describe('useSubtitleScroll', () => {
         expect(useSubtitleScroll.getState().scrollState).toBe('USER_BROWSING');
     });
 
+    /**
+     * 回归：右上角「回到当前播放位置」曾经复用 syncIntoView，而它在浏览态下
+     * 直接 return —— 那个按钮恰好只在浏览态出现，所以点了永远没反应。
+     */
+    it('浏览态下点「回到当前播放位置」会真的滚回当前句', () => {
+        const virtuoso = mockVirtuoso();
+        useSubtitleScroll.setState({
+            scrollState: 'USER_BROWSING',
+            internal: {
+                ...useSubtitleScroll.getState().internal,
+                virtuoso: virtuoso.handle,
+                currentListPosition: 7,
+                currentRefPosition: 7,
+                currentRef: mockRow(900, 940), // 已被用户滚到视野之外
+            },
+        });
+
+        useSubtitleScroll.getState().returnToCurrent();
+
+        expect(virtuoso.scrollToIndex).toHaveBeenCalledWith({
+            index: 7,
+            align: undefined,
+            behavior: 'smooth',
+        });
+        expect(useSubtitleScroll.getState().scrollState).toBe('AUTO_SCROLLING');
+    });
+
+    it('分块模式回到指定块下标，同样不受浏览态拦截', () => {
+        const virtuoso = mockVirtuoso();
+        useSubtitleScroll.setState({
+            scrollState: 'USER_BROWSING',
+            internal: {
+                ...useSubtitleScroll.getState().internal,
+                virtuoso: virtuoso.handle,
+                currentListPosition: 3,
+            },
+        });
+
+        useSubtitleScroll.getState().returnToListPosition(3);
+
+        expect(virtuoso.scrollToIndex).toHaveBeenCalledWith({
+            index: 3,
+            align: undefined,
+            behavior: 'smooth',
+        });
+    });
+
     it('浏览态下当前句回到安全边界内时，恢复跟读', () => {
         useSubtitleScroll.setState({
             scrollState: 'USER_BROWSING',

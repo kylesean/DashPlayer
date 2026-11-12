@@ -152,6 +152,12 @@ export default function Word({
         })),
     );
     const { t } = useTranslation('common');
+    /**
+     * 语境推荐理由的文案在 `player` 命名空间（`contextSuggestion.reasons.*`），
+     * 与本品默认的 `common` 不同。必须显式指定 ns，否则 t() 会回退到原始 key，
+     * 用户看到的就是「contextSuggestion.reasons.useful_new_word」。
+     */
+    const { t: tPlayer } = useTranslation('player');
     const [isOpen, setIsOpen] = useState(false);
     const [playLoading, setPlayLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -272,8 +278,8 @@ export default function Word({
     }, [contextPack, lemma, word, original]);
 
     const promptReasons = React.useMemo(
-        () => promptReasonCodes?.map((code) => t(`contextSuggestion.reasons.${code}`)),
-        [promptReasonCodes, t],
+        () => promptReasonCodes?.map((code) => tPlayer(`contextSuggestion.reasons.${code}`)),
+        [promptReasonCodes, tPlayer],
     );
 
     const {

@@ -9,8 +9,6 @@ import { usePlaybackSession } from '@/fronted/features/player/playbackSessionSto
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
-// 说明：playerUiStore 同时有同名具名导出，这里用别名引用默认导出，避免 import/no-named-as-default 告警。
-import playerUiStore from '@/fronted/features/player/playerUiStore';
 import {
     findSentenceBlock,
     groupSentencesIntoBlocks,
@@ -422,13 +420,10 @@ export const usePlayer = create<PlayerState>((set, get) => {
   /**
    * 当前句所在的意群块。
    *
-   * 整句模式关闭、无字幕或当前句不在任何块内时返回 null，调用方回退到行级行为。
+   * 无字幕或当前句不在任何块内时返回 null，调用方回退到行级行为。
    * 返回的是缓存中的块对象（引用稳定）：当前句在块内移动不会产生新引用。
    */
   const getCurrentBlock = (): SentenceBlock | null => {
-    if (!playerUiStore.getState().sentenceBlockMode) {
-      return null;
-    }
     const { sentences, currentSentence } = get();
     if (sentences.length === 0) {
       return null;
@@ -646,13 +641,11 @@ export const usePlayer = create<PlayerState>((set, get) => {
       ? sentences
       : [...sentences].sort((a, b) => a.index - b.index);
     if (!virtualGroup.active || virtualGroup.sentences.length === 0) {
-      // 整句模式：意群块整体作为一个导航单位（复用 vg 语义，跳转/循环以块为单位）；
+      // 意群块整体作为一个导航单位（复用 vg 语义，跳转/循环以块为单位）；
       // 用户手动拖选的虚拟组优先级更高，激活时维持既有行为。
-      if (playerUiStore.getState().sentenceBlockMode) {
-        const blocks = getSentenceBlocks(ordered);
-        if (blocks.length > 0) {
-          return blocks.map((block) => ({ type: 'vg' as const, sentences: block.sentences, repr: block.repr }));
-        }
+      const blocks = getSentenceBlocks(ordered);
+      if (blocks.length > 0) {
+        return blocks.map((block) => ({ type: 'vg' as const, sentences: block.sentences, repr: block.repr }));
       }
       return ordered.map((s) => ({ type: 'sentence' as const, s }));
     }
@@ -1062,8 +1055,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
         anchor = first;
         range = get().getVirtualGroupRange() ?? range;
       }
-    } else if (playerUiStore.getState().sentenceBlockMode) {
-      // 整句模式下导航以意群块为单位，循环单元必须与导航一致：
+    } else {
+      // 导航以意群块为单位，循环单元必须与导航一致：
       // 否则块首句循环 N 遍后就跳到下一块，块内其余行整段漏播。
       const block = getCurrentBlock();
       if (block) {
@@ -1550,8 +1543,8 @@ export const usePlayer = create<PlayerState>((set, get) => {
       if (focusInGroup && virtualGroup.active && srtTender && virtualGroup.sentences.length > 0) {
         return calcRangeForSentences(srtTender, virtualGroup.sentences);
       }
-      // 整句模式：单句循环的循环区间取整个意群块。
-      if (playerUiStore.getState().sentenceBlockMode && srtTender) {
+      // 单句循环的循环区间取整个意群块。
+      if (srtTender) {
         const block = getCurrentBlock();
         if (block) {
           return calcRangeForSentences(srtTender, block.sentences);

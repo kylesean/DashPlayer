@@ -7,6 +7,7 @@ import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/B
 import type WordsRepository from '@/backend/services/repositories/WordsRepository';
 import type { Word } from '@/backend/infrastructure/db/tables/words';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
+import { builtinDictionaryMetaStub } from '@/test/builtinDictionaryFixture';
 
 const dictionaryEntry = (
     word: string,
@@ -27,6 +28,7 @@ const createHarness = ({
 }) => {
     const dictionaryStore: BuiltinDictionaryStore = {
         lookup: vi.fn((word: string) => entries[word.toLowerCase()] ?? null),
+        meta: () => builtinDictionaryMetaStub(Object.keys(entries).length),
     };
     const wordsRepository = {
         getAll: vi.fn().mockResolvedValue(userWords),

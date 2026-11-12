@@ -11,10 +11,17 @@ type PlayerUiState = {
   showCn: boolean;
   showSourceZh: boolean;
   /**
-   * 整句模式：连续字幕行按句末标点与停顿归并成完整意群，精听导航、
-   * 单句循环与自动暂停都以意群为单位；关闭时回到逐行行为。
+   * 主字幕区显示范围。
+   *
+   * 后端已把字幕重切成完整意群，一条意群通常就是一句（长句会自动折行）。
+   * 因此「显示多少」真正有意义的维度是**上下文**，而不是块内行数：
+   *
+   * - `sentence`：只显示当前句（默认，最沉浸、画面占用最小）；
+   * - `context`：额外显示前后各一句，便于看清上下文的衔接。
+   *
+   * 只影响**渲染范围**，不影响导航/循环/暂停的单位——那些恒按整句计算。
    */
-  sentenceBlockMode: boolean;
+  subtitleContext: SubtitleContextMode;
   /** 右侧字幕列表是否显示译文（原文行恒显示）。与主字幕区的 showCn / showSourceZh 互不影响。 */
   showSideTranslation: boolean;
   showWordLevel: boolean;
@@ -53,7 +60,7 @@ type PlayerUiActions = {
   changeShowEn: () => void;
   changeShowCn: () => void;
   changeShowSourceZh: () => void;
-  changeSentenceBlockMode: () => void;
+  setSubtitleContext: (mode: SubtitleContextMode) => void;
   changeShowSideTranslation: () => void;
   changeShowEnCn: () => void;
   changeShowWordLevel: () => void;
@@ -75,6 +82,9 @@ export interface HardsubMaskRect {
   h: number;
 }
 
+/** 主字幕区显示范围：仅当前句 / 当前句 + 上下文。 */
+export type SubtitleContextMode = 'sentence' | 'context';
+
 /** 默认贴片：画面底部一条通栏，对准绝大多数硬字幕的位置。 */
 export const DEFAULT_HARDSUB_MASK_RECT: HardsubMaskRect = { x: 0.04, y: 0.82, w: 0.92, h: 0.12 };
 
@@ -86,7 +96,7 @@ type PersistedPreferenceKey =
   | 'showEn'
   | 'showCn'
   | 'showSourceZh'
-  | 'sentenceBlockMode'
+  | 'subtitleContext'
   | 'showSideTranslation'
   | 'showWordLevel'
   | 'controlBarPinned'
@@ -97,7 +107,7 @@ const PERSISTED_DEFAULTS: Pick<PlayerUiState, PersistedPreferenceKey> = {
   showEn: true,
   showCn: true,
   showSourceZh: true,
-  sentenceBlockMode: true,
+  subtitleContext: 'sentence',
   showSideTranslation: true,
   showWordLevel: false,
   controlBarPinned: false,
@@ -176,7 +186,7 @@ function pickPersisted(
     showEn: state.showEn ?? PERSISTED_DEFAULTS.showEn,
     showCn: state.showCn ?? PERSISTED_DEFAULTS.showCn,
     showSourceZh: state.showSourceZh ?? PERSISTED_DEFAULTS.showSourceZh,
-    sentenceBlockMode: state.sentenceBlockMode ?? PERSISTED_DEFAULTS.sentenceBlockMode,
+    subtitleContext: state.subtitleContext === 'context' ? 'context' : PERSISTED_DEFAULTS.subtitleContext,
     showSideTranslation: state.showSideTranslation ?? PERSISTED_DEFAULTS.showSideTranslation,
     showWordLevel: state.showWordLevel ?? PERSISTED_DEFAULTS.showWordLevel,
     controlBarPinned: state.controlBarPinned ?? PERSISTED_DEFAULTS.controlBarPinned,
@@ -199,7 +209,7 @@ export const usePlayerUi = create(
       changeShowEn: () => set((s) => ({ showEn: !s.showEn })),
       changeShowCn: () => set((s) => ({ showCn: !s.showCn })),
       changeShowSourceZh: () => set((s) => ({ showSourceZh: !s.showSourceZh })),
-      changeSentenceBlockMode: () => set((s) => ({ sentenceBlockMode: !s.sentenceBlockMode })),
+      setSubtitleContext: (mode) => set(() => ({ subtitleContext: mode })),
       changeShowSideTranslation: () => set((s) => ({ showSideTranslation: !s.showSideTranslation })),
       changeShowEnCn: () => set((s) => ({ showEn: !s.showEn, showCn: !s.showEn })),
       changeShowWordLevel: () => set((s) => ({ showWordLevel: !s.showWordLevel })),
@@ -216,8 +226,11 @@ export const usePlayerUi = create(
       name: 'dash-player-subtitle-tracks',
       /** 内容没变就不落盘：运行时状态高频变化时避开每帧一次同步写。 */
       storage: createJSONStorage(createContentDedupedStorage),
-      /** v1 清运行时状态残留；v2 清本轮删除的 syncSide / ambientLight 等偏好键。 */
-      version: 2,
+      /**
+       * v1 清运行时状态残留；v2 清 syncSide / ambientLight 等偏好键；
+       * v3 删除 sentenceBlockMode（整句已成为唯一行为，不再需要偏好）。
+       */
+      version: 3,
       partialize: (state) => pickPersisted(state),
       /**
        * 只留偏好字段：`partialize` 只影响写入，存储里已有的旧键仍会被 merge 合并回来，

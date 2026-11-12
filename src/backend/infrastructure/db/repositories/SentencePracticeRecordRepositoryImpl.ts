@@ -25,27 +25,23 @@ export default class SentencePracticeRecordRepositoryImpl implements SentencePra
         return record.id;
     }
 
-    public async listBySentence(fileHash: string, sentenceIndex: number, resegmented: boolean, limit = 20): Promise<SentencePracticeRecord[]> {
+    public async listBySentence(fileHash: string, sentenceIndex: number, limit = 20): Promise<SentencePracticeRecord[]> {
         return this.db
             .select()
             .from(sentencePracticeRecord)
             .where(and(
                 eq(sentencePracticeRecord.file_hash, fileHash),
                 eq(sentencePracticeRecord.sentence_index, sentenceIndex),
-                eq(sentencePracticeRecord.resegmented, resegmented),
             ))
             .orderBy(desc(sentencePracticeRecord.id))
             .limit(limit);
     }
 
-    public async listByFile(fileHash: string, resegmented: boolean): Promise<SentencePracticeRecord[]> {
+    public async listByFile(fileHash: string): Promise<SentencePracticeRecord[]> {
         return this.db
             .select()
             .from(sentencePracticeRecord)
-            .where(and(
-                eq(sentencePracticeRecord.file_hash, fileHash),
-                eq(sentencePracticeRecord.resegmented, resegmented),
-            ))
+            .where(eq(sentencePracticeRecord.file_hash, fileHash))
             .orderBy(desc(sentencePracticeRecord.id));
     }
 }

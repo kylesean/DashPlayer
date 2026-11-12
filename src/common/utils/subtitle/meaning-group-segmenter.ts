@@ -1,170 +1,616 @@
 import type { SrtLine } from './types';
+import { dedupeRollingLines } from './rolling-dedup';
 
 /**
  * 意群重切分：把滚动式碎片字幕（YouTube 自动字幕的典型形态——cue 时间轴重叠、
- * 句子被拦腰切断、常无句末标点）重切分成"完整意群"级别的字幕行。
+ * 句子被拦腰切断、常无句末标点）重切成"完整意群"级别的字幕行。
  *
- * 切分后的每一行都是一个完整的意群，可直接作为翻译单元（模型拿到完整句子，
- * 不再对 `you are` 这类半截碎片瞎译）与精听循环单元（单句循环不再停在半个意群）。
+ * 与旧版贪心实现的区别：
+ * 1. 先用 {@link dedupeRollingLines} 去掉滚动重复尾巴，避免拼出重复文本；
+ * 2. 把字幕摊平成"词 + 估算时间"序列，用动态规划求全局最优切分，
+ *    而不是"标点说了算、超长再回溯逗号"的局部补丁；
+ * 3. 词内时间按音节权重插值（英文里音节数比字符数与发音时长更相关）。
+ *
+ * 这里不读音频：解析层要求纯函数、毫秒级返回。声学信号若要做，必须走
+ * 「先出文本结果、后台算完再静默替换」的懒加载路径，不能阻塞字幕渲染。
  */
 
-/** 句末标点：允许其后紧跟收尾引号/括号（如 `."`、`?"`）；省略号同样算收束。 */
-const TERMINAL_PATTERN = /[.!?…]+["'”』」)\]]?/g;
+/** 句末标点：允许其后紧跟收尾引号/括号；省略号同样算收束。 */
+const TERMINAL_END_PATTERN = /[.!?…]["'”』」)\]]?$/;
+
+/** 从句标点：逗号、分号、冒号，是弱于句末的意群边界。 */
+const CLAUSE_END_PATTERN = /[,;:]["'”』」)\]]?$/;
 
 /** 说话人切换标记：YouTube 自动字幕用 `>>` 表示换人，视为强制句边界。 */
-const SPEAKER_MARK_PATTERN = /^\s*(>>\s*)+/;
+const SPEAKER_MARK_PATTERN = />>/g;
 
-/** cue 间隔达到该值（秒）视为说话停顿，强制封句。 */
-const GAP_BREAK_SECONDS = 0.8;
+/** 整条 cue 只有背景音/音乐等方括号或圆括号标记（如 `[Music]`）。 */
+const BRACKET_MARKER_PATTERN = /^\s*[[(][^\])]*[\])]\s*$/;
 
-/** 句缓冲字符数达到该值仍无句末标点时，在 cue 边界强制封句，防止无标点段落归并出巨块。 */
-const MAX_BUFFER_CHARS = 250;
+/** 时间比较的浮点容差。 */
+const EPS = 0.001;
 
-/**
- * 上限强切回溯边界的最小头部长度（字符）。
- *
- * 回溯到逗号时，头部短于该值意味着只切出一个碎头——与碎片化无异，
- * 此时放弃回溯，维持 cue 边界强切。
- */
-const BACKTRACK_MIN_HEAD_CHARS = 60;
+/** 单个意群的字符数上限：防止无标点段落归并出巨块。 */
+const MAX_BLOCK_CHARS = 220;
 
-/** 切分后子区间的最小时长（秒）：低于它的相邻子区间会被延展，保证 createSrtLine 的严格递增校验。 */
+/** 单个意群的词数上限。 */
+const MAX_BLOCK_WORDS = 40;
+
+/** 单个意群的有声时长上限（秒）。 */
+const MAX_BLOCK_SECONDS = 12;
+
+/** 切分后子区间的最小时长（秒），保证 createSrtLine 的严格递增校验。 */
 const MIN_SEGMENT_SECONDS = 0.2;
 
-/** cue 内一段文本的时间插值条目：字符偏移区间 → 该段应占的起止时间。 */
-interface TextPiece {
-    /** 该段文本（已 trim 的展示文本）。 */
+/** 行最短展示字符数：低于它按差值惩罚，避免孤零零的短行。 */
+const MIN_LINE_CHARS = 24;
+
+/**
+ * 行舒适字符数。
+ *
+ * 学习场景要的是「完整意群」，不是电视台式的两行短字幕：一条 80~100 字符的
+ * 完整句子远好过两条各 40 字符的残句。因此这个阈值明显高于广播字幕的 42，
+ * 只在接近 {@link MAX_BLOCK_CHARS} 时才明显施压。
+ */
+const LONG_LINE_CHARS = 110;
+
+/** 阅读速度舒适上限（字符/秒）。 */
+const COMFORT_CPS = 18;
+
+/** 断点代价：句末标点且下一词大写开头，是天然句边界。 */
+const BREAK_TERMINAL = 0;
+
+/** 断点代价：句末标点但下一词非大写（如 `etc. and`），略高于天然边界。 */
+const BREAK_TERMINAL_NO_CAP = 12;
+
+/** 断点代价：逗号/分号/冒号。 */
+const BREAK_CLAUSE = 40;
+
+/** 断点代价：cue 之间有明显停顿（≥0.6s）。 */
+const BREAK_PAUSE_STRONG = 20;
+
+/** 断点代价：cue 之间有中等停顿（≥0.3s）。 */
+const BREAK_PAUSE_MEDIUM = 60;
+
+/** 断点代价：cue 边界但测不到停顿（滚动字幕常态）。 */
+const BREAK_CUE = 110;
+
+/** 断点代价：cue 内部、无任何文本或停顿信号，最不希望切。 */
+const BREAK_HARD = 170;
+
+/** 每行基础代价：让总代价在同分时偏向更少的行。 */
+const LINE_BASE_COST = 1;
+
+/** 短行代价斜率：每少一个字符加多少代价。 */
+const SHORT_LINE_COST_PER_CHAR = 6;
+
+/** 长行代价系数：超过舒适字符数后按平方增长。 */
+const LONG_LINE_COST_K = 0.02;
+
+/** 语速过快代价系数与封顶。 */
+const FAST_CPS_COST_K = 0.5;
+const FAST_CPS_COST_CAP = 300;
+
+/** 行时长超过该值（秒）后线性惩罚。 */
+const LONG_DURATION_START_SECONDS = 12;
+const LONG_DURATION_COST_PER_SECOND = 12;
+
+/** 行内横跨明显停顿（≥0.35s）的惩罚：把两句话硬并成一行是最差形态。 */
+const INTERNAL_PAUSE_COST = 220;
+const INTERNAL_PAUSE_SECONDS = 0.35;
+
+/**
+ * 行尾悬空虚词惩罚。
+ *
+ * 这是旧贪心算法最容易犯的错：`... are going to talk about` / `a topic that ...`
+ * 在 cue 边界被切开，前半句停在一个介词上。这类断点对学习者毫无意义——
+ * 它既不是一个意群，翻译模型也拿不到完整结构。因此凡是行尾落在虚词上，
+ * 断句代价直接加上这个值，迫使动态规划继续吞并下一条 cue。
+ */
+const DANGLING_FUNCTION_WORD_COST = 260;
+
+/**
+ * 不能作为句尾的虚词集合：冠词、介词、连词、代词、助动词、关系词。
+ *
+ * 只收「后面必然还需要内容」的词。副词与形容词虽然也可能悬空，但它们本身
+ * 带语义，强行惩罚会过度合并。
+ */
+const DANGLING_WORDS = new Set([
+    'a', 'an', 'the',
+    'of', 'to', 'in', 'on', 'at', 'for', 'with', 'from', 'by', 'about', 'into',
+    'over', 'under', 'between', 'through', 'during', 'without', 'within', 'across',
+    'against', 'toward', 'towards', 'upon', 'onto', 'per', 'via',
+    'and', 'or', 'but', 'nor', 'so', 'yet', 'because', 'although', 'though',
+    'while', 'whereas', 'unless', 'until', 'since', 'if', 'when', 'whenever',
+    'where', 'wherever', 'whether', 'than', 'as', 'like',
+    'that', 'which', 'who', 'whom', 'whose', 'what',
+    'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them',
+    'my', 'your', 'his', 'its', 'our', 'their', 'this', 'these', 'those',
+    'is', 'am', 'are', 'was', 'were', 'be', 'been', 'being',
+    'do', 'does', 'did', 'have', 'has', 'had',
+    'will', 'would', 'can', 'could', 'shall', 'should', 'may', 'might', 'must',
+    'not', 'no', 'very', 'just', 'also', 'too', 'only', 'even', 'still',
+]);
+
+/** 停顿分级阈值（秒）。 */
+const STRONG_PAUSE_SECONDS = 0.6;
+const MEDIUM_PAUSE_SECONDS = 0.3;
+
+/** 摊平后的一个词及其估算时间。 */
+interface Word {
+    /** 词文本（可能带尾随标点）。 */
     text: string;
-    /** 段起点在 cue 拼接文本中的字符偏移。 */
-    startOffset: number;
-    /** 段终点在 cue 拼接文本中的字符偏移（不含）。 */
-    endOffset: number;
-    /** 段起点时间（秒）。 */
+    /** 估算开始时间（秒）。 */
     start: number;
-    /** 段终点时间（秒）。 */
+    /** 估算结束时间（秒）。 */
+    end: number;
+    /** 所属 cue 下标。 */
+    cueIndex: number;
+    /** 所属 cue 的开始时间。 */
+    cueStart: number;
+    /** 所属 cue 的结束时间。 */
+    cueEnd: number;
+    /** 是否为所属 cue 的第一个词。 */
+    isCueFirst: boolean;
+    /** 是否为所属 cue 的最后一个词。 */
+    isCueLast: boolean;
+    /** 是否因 `>>` 说话人标记强制在此词前断句。 */
+    forcedBreak: boolean;
+}
+
+/**
+ * 估算一个词的音节数，作为时间插值的权重。
+ *
+ * 英文里音节数与发音时长的相关性明显强于字符数：`strength`（8 字符 1 音节）
+ * 与 `idea`（4 字符 3 音节）的字符占比会把时间摊错。这里用元音串计数做近似，
+ * 并对词尾不发音的 `e` 做修正；非拉丁文本退化为按字符数。
+ *
+ * @param word 词文本。
+ * @returns 音节权重，最小为 1。
+ */
+const syllableWeight = (word: string): number => {
+    const cleaned = word.toLowerCase().replace(/[^a-z]/g, '');
+    if (cleaned.length === 0) {
+        return 0.5;
+    }
+    const groups = cleaned.match(/[aeiouy]+/g);
+    let count = groups ? groups.length : 1;
+    if (cleaned.length > 2 && cleaned.endsWith('e') && count > 1) {
+        count -= 1;
+    }
+    return Math.max(1, count);
+};
+
+/**
+ * 判断一条 cue 是否只是背景音标记（如 `[Music]`、`(applause)`）。
+ *
+ * @param text 已剥掉说话人标记的文本。
+ * @returns 纯标记时返回 true。
+ */
+const isBracketMarkerOnly = (text: string): boolean => BRACKET_MARKER_PATTERN.test(text);
+
+/**
+ * 把一条 cue 的文本按 `>>` 切成若干段，并标记哪些段需要强制断句。
+ *
+ * @param text 原始 cue 文本。
+ * @returns 文本段及其强制断句标记；空段被丢弃。
+ */
+const splitBySpeakerMark = (text: string): Array<{ text: string; forcedBreak: boolean }> => {
+    const parts = text.split(SPEAKER_MARK_PATTERN);
+    const result: Array<{ text: string; forcedBreak: boolean }> = [];
+    for (let index = 0; index < parts.length; index++) {
+        const trimmed = parts[index].trim();
+        if (!trimmed) {
+            continue;
+        }
+        // 第一段没有前置 `>>`；后续每段都跟在一次换人之后。
+        result.push({ text: trimmed, forcedBreak: index > 0 });
+    }
+    return result;
+};
+
+/**
+ * 把字幕行摊平成词序列，并在每条 cue 内部按音节权重插值时间。
+ *
+ * 只保证 cue 内部时间单调：跨 cue 的文本顺序才是语义顺序，而滚动字幕的
+ * cue 时间本身可能重叠甚至倒挂，强行全局单调会把时间轴扭曲得更厉害。
+ *
+ * @param lines 已去重的字幕行。
+ * @returns 词序列。
+ */
+const flattenWords = (lines: readonly SrtLine[]): Word[] => {
+    const words: Word[] = [];
+    let cueIndex = -1;
+    for (const line of lines) {
+        const segments = splitBySpeakerMark(line.contentEn);
+        const cueText = segments.map((segment) => segment.text).join(' ');
+        if (!cueText || isBracketMarkerOnly(cueText)) {
+            continue;
+        }
+        cueIndex += 1;
+        const duration = Math.max(line.end - line.start, EPS);
+        const pending: Array<{ text: string; forcedBreak: boolean }> = [];
+        for (const segment of segments) {
+            const tokens = segment.text.split(/\s+/).filter(Boolean);
+            for (let index = 0; index < tokens.length; index++) {
+                pending.push({ text: tokens[index], forcedBreak: segment.forcedBreak && index === 0 });
+            }
+        }
+        if (pending.length === 0) {
+            cueIndex -= 1;
+            continue;
+        }
+        const weights = pending.map((item) => syllableWeight(item.text));
+        const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+        let cumulative = 0;
+        for (let index = 0; index < pending.length; index++) {
+            const before = cumulative;
+            cumulative += weights[index];
+            words.push({
+                text: pending[index].text,
+                start: line.start + duration * (before / totalWeight),
+                end: line.start + duration * (cumulative / totalWeight),
+                cueIndex,
+                cueStart: line.start,
+                cueEnd: line.end,
+                isCueFirst: index === 0,
+                isCueLast: index === pending.length - 1,
+                forcedBreak: pending[index].forcedBreak,
+            });
+        }
+    }
+    return words;
+};
+
+/**
+ * 词级增量贡献，供候选行指标在 O(1) 时间内扩展。
+ *
+ * 动态规划对每个终点从右向左扩展行首，同一批词会被反复纳入不同候选行。
+ * 若每次都重新切片并排序求并集，复杂度会退化成 O(n² log n)，一小时素材
+ * 就要几百毫秒。这里把每个词的贡献预先算好，扩展时只做累加。
+ */
+interface WordDelta {
+    /** 该词自身字符数。 */
+    chars: number;
+    /** 与前一词之间是否达到行内停顿阈值。 */
+    pauseBefore: boolean;
+    /** 开始时间。 */
+    start: number;
+    /** 结束时间。 */
     end: number;
 }
 
 /**
- * 判断一段文本是否以句末标点收束（复用前端整句模式的判定口径，允许收尾引号）。
+ * 预计算每个词的增量贡献。
+ *
+ * 词间空格不放进增量：候选行的行首词不贡献空格，而行首由动态规划决定，
+ * 预先算进增量会让每个候选行都多算一个字符。
+ *
+ * @param words 词序列。
+ * @returns 与 `words` 等长的增量表。
  */
-const endsWithTerminal = (text: string): boolean => {
-    const trimmed = text.trimEnd();
-    return /[.!?…]["'”』」)\]]?$/.test(trimmed);
+const buildDeltas = (words: readonly Word[]): WordDelta[] => words.map((word, index) => {
+    const previous = index > 0 ? words[index - 1] : null;
+    const crossesCue = previous !== null && previous.cueIndex !== word.cueIndex;
+    return {
+        chars: word.text.length,
+        pauseBefore: crossesCue && word.cueStart - previous.cueEnd >= INTERNAL_PAUSE_SECONDS,
+        start: word.start,
+        end: word.end,
+    };
+});
+
+/**
+ * 从右向左扩展行首时逐步累加的行指标。
+ *
+ * 词区间的并集时长用「新增区间的长度减去与已覆盖包络的重叠」增量维护：
+ * 同一 cue 内区间按音节顺序相接、跨 cue 时按文本顺序推进，因此只需维护
+ * 已覆盖的 [minStart, maxEnd] 包络即可，无需排序。
+ */
+interface RunningMetrics {
+    chars: number;
+    words: number;
+    /** 行内已确认的停顿次数（不含当前行首词之前的那次）。 */
+    internalPauseCount: number;
+    /**
+     * 当前行首词之前的停顿。
+     *
+     * 从右向左扩展时，每次新加入的词都会成为新的行首，它前面的停顿因此
+     * 从「行内停顿」退化为「行边界」。这里先暂存，等再有词加入、它确实
+     * 变成行内词时，才计入 {@link internalPauseCount}。
+     */
+    headPauseBefore: boolean;
+    /** 已覆盖区间的最小开始时间。 */
+    minStart: number;
+    /** 已覆盖区间的最大结束时间。 */
+    maxEnd: number;
+    /** 已覆盖区间的并集时长。 */
+    unionSec: number;
+}
+
+/**
+ * 新建空的行指标累加器。
+ *
+ * @returns 初始为空的累加器。
+ */
+const createRunningMetrics = (): RunningMetrics => ({
+    chars: 0,
+    words: 0,
+    internalPauseCount: 0,
+    headPauseBefore: false,
+    minStart: Number.POSITIVE_INFINITY,
+    maxEnd: Number.NEGATIVE_INFINITY,
+    unionSec: 0,
+});
+
+/**
+ * 把一个词的增量并入正在扩展的候选行（原地修改）。
+ *
+ * @param running 当前累计指标。
+ * @param delta 待并入词的增量。
+ */
+const extendMetrics = (running: RunningMetrics, delta: WordDelta): void => {
+    if (running.words === 0) {
+        running.chars = delta.chars;
+        running.words = 1;
+        running.headPauseBefore = delta.pauseBefore;
+        running.minStart = delta.start;
+        running.maxEnd = delta.end;
+        running.unionSec = Math.max(0, delta.end - delta.start);
+        return;
+    }
+    // 行内词之间固定一个空格；行首词不贡献空格。
+    running.chars += delta.chars + 1;
+    // 原行首词现在成了行内词，它之前那次停顿才算行内停顿。
+    if (running.headPauseBefore) {
+        running.internalPauseCount += 1;
+    }
+    running.headPauseBefore = delta.pauseBefore;
+    running.words += 1;
+    const overlap = Math.max(0, Math.min(running.maxEnd, delta.end) - Math.max(running.minStart, delta.start));
+    running.unionSec += Math.max(0, delta.end - delta.start) - overlap;
+    running.minStart = Math.min(running.minStart, delta.start);
+    running.maxEnd = Math.max(running.maxEnd, delta.end);
 };
 
 /**
- * 在缓冲文本中从尾部找最后一个可回溯的意群边界（逗号/分号/冒号），
- * 返回切点偏移（标点之后）；头部长度不足 {@link BACKTRACK_MIN_HEAD_CHARS} 的边界
- * 不可用——把巨块切成碎头加长尾等于换一种碎片。找不到返回 -1，调用方维持
- * cue 边界强切。
+ * 判断一个词是否会让句子「悬空」——即后面必然还需要内容。
+ *
+ * 剥掉尾随标点与引号后查表，因此 `about,` / `about` / `about.` 一视同仁。
+ * 句末标点结尾的词不算悬空：`... talk about.` 是一个完整的（省略了宾语的）句子。
+ *
+ * @param word 行尾词。
+ * @returns 悬空时返回 true。
  */
-const findLastBreakOffset = (text: string): number => {
-    for (let i = text.length - 1; i >= BACKTRACK_MIN_HEAD_CHARS; i--) {
-        if (',;:'.includes(text[i])) {
-            return i + 1;
-        }
+const isDanglingWord = (word: string): boolean => {
+    if (TERMINAL_END_PATTERN.test(word)) {
+        return false;
     }
-    return -1;
+    const cleaned = word
+        .toLowerCase()
+        .replace(/^["'“”‘’([\]]+/, '')
+        .replace(/["'“”‘’)\],;:]+$/, '')
+        .trim();
+    return DANGLING_WORDS.has(cleaned);
 };
 
 /**
- * 找出文本中所有句末标点的结束偏移（不含）。
+ * 计算在第 `start` 个词之前断行的代价。
  *
- * @param text 待扫描文本。
- * @returns 每个句末标点串的结束偏移，升序。
+ * 信号强度从强到弱：`>>` 换人 / 句末标点 / 明显停顿 / 从句标点 /
+ * 中等停顿 / 裸 cue 边界 / cue 内部硬切。
+ *
+ * @param words 词序列。
+ * @param start 断点所在词下标。
+ * @returns 断点代价。
  */
-const findTerminalOffsets = (text: string): number[] => {
-    TERMINAL_PATTERN.lastIndex = 0;
-    const offsets: number[] = [];
-    let match: RegExpExecArray | null;
-    while ((match = TERMINAL_PATTERN.exec(text)) !== null) {
-        offsets.push(match.index + match[0].length);
-        if (match[0].length === 0) {
-            TERMINAL_PATTERN.lastIndex += 1;
-        }
+const breakCost = (words: readonly Word[], start: number): number => {
+    if (start <= 0) {
+        return 0;
     }
-    return offsets;
+    const previous = words[start - 1];
+    const current = words[start];
+    if (current.forcedBreak) {
+        return BREAK_TERMINAL;
+    }
+    if (TERMINAL_END_PATTERN.test(previous.text)) {
+        return /^["“']?[A-Z]/.test(current.text) ? BREAK_TERMINAL : BREAK_TERMINAL_NO_CAP;
+    }
+    // 行尾悬空虚词：不管 cue 边界多自然，都不是一个可学的意群。
+    if (isDanglingWord(previous.text)) {
+        return DANGLING_FUNCTION_WORD_COST;
+    }
+    if (CLAUSE_END_PATTERN.test(previous.text)) {
+        return BREAK_CLAUSE;
+    }
+    if (current.cueIndex !== previous.cueIndex) {
+        const gap = current.cueStart - previous.cueEnd;
+        if (gap >= STRONG_PAUSE_SECONDS) {
+            return BREAK_PAUSE_STRONG;
+        }
+        if (gap >= MEDIUM_PAUSE_SECONDS) {
+            return BREAK_PAUSE_MEDIUM;
+        }
+        return BREAK_CUE;
+    }
+    return BREAK_HARD;
 };
 
 /**
- * 把一条 cue 的文本按"句边界 + `>>` 说话人标记"切成若干段，并按字符占比插值时间。
+ * 计算一条候选行的展示代价：阅读速度过快、行过短/过长、行时长过久
+ * 与行内横跨停顿都会被惩罚。
  *
- * cue 的原始区间为 [start, end]；若段内时间插值结果过短（低于
- * {@link MIN_SEGMENT_SECONDS}），向相邻段借时长兜底，保证所有子区间严格递增。
- *
- * @param line 待切分的字幕行。
- * @returns 切分出的文本片段时间轴（至少一段）。
+ * @param metrics 行指标。
+ * @returns 行代价。
  */
-const splitLineIntoPieces = (line: SrtLine): TextPiece[] => {
-    const text = line.contentEn;
-    const duration = line.end - line.start;
+const lineCost = (metrics: RunningMetrics): number => {
+    const duration = Math.max(metrics.unionSec, 0.2);
+    const cps = metrics.chars / duration;
+    const fastCost = Math.min(FAST_CPS_COST_CAP, FAST_CPS_COST_K * Math.max(0, cps - COMFORT_CPS) ** 2);
+    const shortCost = SHORT_LINE_COST_PER_CHAR * Math.max(0, MIN_LINE_CHARS - metrics.chars);
+    const longCost = LONG_LINE_COST_K * Math.max(0, metrics.chars - LONG_LINE_CHARS) ** 2;
+    const lingeringCost = LONG_DURATION_COST_PER_SECOND * Math.max(0, metrics.unionSec - LONG_DURATION_START_SECONDS);
+    return fastCost + shortCost + longCost + lingeringCost + metrics.internalPauseCount * INTERNAL_PAUSE_COST;
+};
 
-    // 1. 先按句末标点找全部切点，再按 `>>` 说话人标记补充切点。
-    const breakpoints = new Set<number>(findTerminalOffsets(text));
-    const speakerMark = SPEAKER_MARK_PATTERN.exec(text);
-    if (speakerMark && speakerMark[0].length < text.length) {
-        breakpoints.add(speakerMark[0].length);
+/**
+ * 判断两个相邻词之间是否必须断句（不可合并进同一意群）。
+ *
+ * 强制断句有两种来源：
+ * 1. `>>` 说话人切换——换人必然换句；
+ * 2. 前一个词以句末标点收束——学习单元必须是完整句子，不能把两句并成一行。
+ *
+ * @param words 词序列。
+ * @param index 断点所在词下标。
+ * @returns 必须断句时返回 true。
+ */
+const isMandatoryBreak = (words: readonly Word[], index: number): boolean => {
+    if (index <= 0 || index >= words.length) {
+        return false;
     }
-    const sortedBreakpoints = [...breakpoints].filter((offset) => offset > 0 && offset < text.length).sort((a, b) => a - b);
+    return words[index].forcedBreak || TERMINAL_END_PATTERN.test(words[index - 1].text);
+};
 
-    if (sortedBreakpoints.length === 0) {
-        return [{ text: text.trim(), startOffset: 0, endOffset: text.length, start: line.start, end: line.end }];
+/**
+ * 用动态规划把词序列切成展示总代价最低的意群。
+ *
+ * `bestCost[i]` 为切完前 i 个词的最小总代价；行首从 i-1 向左扩展，
+ * 任一硬约束（字符数/时长）越界后更长的行必然也越界，直接停止。
+ * 单词行不受硬上限约束：超长单词也必须完整展示。
+ *
+ * 强制断句点（换人、句末标点）是不可跨越的边界：候选行一旦跨过它就不合法，
+ * 因此这里对每个终点先求出它左侧最近的强制断点，行首不得越过该点。
+ *
+ * @param words 词序列。
+ * @returns 每段的行首词下标（升序）。
+ */
+const solveBoundaries = (
+    words: readonly Word[],
+): number[] => {
+    const total = words.length;
+    if (total === 0) {
+        return [];
     }
-
-    // 2. 按切点分段，时间按字符占比线性插值。
-    const bounds = [0, ...sortedBreakpoints, text.length];
-    const rawPieces: TextPiece[] = [];
-    for (let i = 0; i < bounds.length - 1; i++) {
-        const startOffset = bounds[i];
-        const endOffset = bounds[i + 1];
-        const pieceText = text.slice(startOffset, endOffset);
-        if (!pieceText.trim()) continue;
-        const start = line.start + duration * (startOffset / text.length);
-        const end = line.start + duration * (endOffset / text.length);
-        rawPieces.push({ text: pieceText.trim(), startOffset, endOffset, start, end });
+    const bestCost = new Array<number>(total + 1).fill(Number.POSITIVE_INFINITY);
+    const bestFrom = new Array<number>(total + 1).fill(-1);
+    // nearestMandatory[end] = 小于 end 的最大强制断点下标；候选行首不得小于它。
+    const nearestMandatory = new Array<number>(total + 1).fill(0);
+    let lastMandatory = 0;
+    for (let end = 1; end <= total; end++) {
+        if (isMandatoryBreak(words, end - 1)) {
+            lastMandatory = end - 1;
+        }
+        nearestMandatory[end] = lastMandatory;
     }
-    if (rawPieces.length === 0) {
-        return [{ text: text.trim(), startOffset: 0, endOffset: text.length, start: line.start, end: line.end }];
-    }
-
-    // 3. 剥离段首的说话人标记（学习场景是噪音，标记本身已充当句边界）。
-    for (const piece of rawPieces) {
-        piece.text = piece.text.replace(SPEAKER_MARK_PATTERN, '');
-    }
-
-    // 4. 兜底过短子区间：每段至少 MIN_SEGMENT_SECONDS，从相邻段借时长，
-    //    保证时间轴严格递增（createSrtLine 会在 end <= start 时抛错）。
-    for (let i = 0; i < rawPieces.length; i++) {
-        const piece = rawPieces[i];
-        if (piece.end - piece.start >= MIN_SEGMENT_SECONDS) continue;
-        const needed = MIN_SEGMENT_SECONDS - (piece.end - piece.start);
-        const next = rawPieces[i + 1];
-        const prev = rawPieces[i - 1];
-        if (next && next.end - next.start > MIN_SEGMENT_SECONDS) {
-            piece.end = Math.min(piece.end + needed, next.end - MIN_SEGMENT_SECONDS);
-        } else if (prev && prev.end - prev.start > MIN_SEGMENT_SECONDS) {
-            piece.start = Math.max(piece.start - needed, prev.start + MIN_SEGMENT_SECONDS);
+    bestCost[0] = 0;
+    const deltas = buildDeltas(words);
+    for (let end = 1; end <= total; end++) {
+        // 从右向左扩展行首，指标增量累加，避免每个候选都重扫一遍词。
+        const running = createRunningMetrics();
+        for (let start = end - 1; start >= nearestMandatory[end] && end - start <= MAX_BLOCK_WORDS; start--) {
+            extendMetrics(running, deltas[start]);
+            const metrics = running;
+            const singleWord = end - start === 1;
+            const withinLimits = singleWord
+                || (metrics.chars <= MAX_BLOCK_CHARS && metrics.unionSec <= MAX_BLOCK_SECONDS);
+            if (withinLimits) {
+                const candidate = bestCost[start] + breakCost(words, start) + lineCost(metrics) + LINE_BASE_COST;
+                if (candidate < bestCost[end]) {
+                    bestCost[end] = candidate;
+                    bestFrom[end] = start;
+                }
+            }
+            if (!singleWord && (metrics.chars > MAX_BLOCK_CHARS || metrics.unionSec > MAX_BLOCK_SECONDS)) {
+                break;
+            }
         }
     }
-    // 5. 单调钳制：借时长只调整了短段终点，邻段起点可能落在被借走的区间内；
-    //    向前对齐起点，保证 cue 内子区间严格递增。
-    for (let i = 1; i < rawPieces.length; i++) {
-        if (rawPieces[i].start < rawPieces[i - 1].end) {
-            rawPieces[i].start = rawPieces[i - 1].end;
+    const starts: number[] = [];
+    for (let boundary = total; boundary > 0; boundary = bestFrom[boundary]) {
+        if (bestFrom[boundary] < 0) {
+            // 理论上不可达（单词行恒可行）；兜底为逐词切分，绝不丢词。
+            for (let index = 0; index < total; index++) {
+                starts.push(index);
+            }
+            return starts;
         }
+        starts.push(bestFrom[boundary]);
     }
-    return rawPieces.filter((piece) => piece.text.length > 0);
+    starts.reverse();
+    return starts;
+};
+
+/**
+ * 把词序列按行首下标拼回字幕行，并保证时间轴严格递增。
+ *
+ * 行的展示区间取覆盖词的包络 [minStart, maxEnd]：滚动字幕的时间本就重叠，
+ * 包络能保证语音不被截断。随后做一次向前钳制，避免后一行起点早于前一行终点。
+ *
+ * 两端额外贴合 cue 的真实边界：cue 的首词向前贴到 cue 起点、末词向后贴到
+ * cue 终点。词时间是按音节插值的估算值，若严格只用词时间，行尾会停在
+ * 「最后一个词的估算终点」而不是语音真正结束的位置，句尾尾音与停顿被切掉，
+ * 单句循环和自动暂停就会提前半拍。
+ *
+ * @param words 词序列。
+ * @param starts 每段行首词下标。
+ * @returns 字幕行（index 从 1 重新编号）。
+ */
+const buildLines = (words: readonly Word[], starts: readonly number[]): SrtLine[] => {
+    const lines: SrtLine[] = [];
+    let previousEnd = 0;
+    for (let position = 0; position < starts.length; position++) {
+        const from = starts[position];
+        const to = position + 1 < starts.length ? starts[position + 1] : words.length;
+        const slice = words.slice(from, to);
+        if (slice.length === 0) {
+            continue;
+        }
+        const text = slice.map((word) => word.text).join(' ')
+            .replace(/\s+([,.;:!?…]+)/g, '$1')
+            .trim();
+        if (!text) {
+            continue;
+        }
+        const first = slice[0];
+        const last = slice[slice.length - 1];
+        // 行首：本行含有该 cue 的首词时贴到 cue 起点，否则用词估算起点。
+        // 同一条 cue 被拆成多行时，只有第一行贴 cue 起点，后续行按词时间推进。
+        const rawStart = first.isCueFirst ? first.cueStart : first.start;
+        // 行尾：本行含有该 cue 的末词时贴到覆盖 cue 的最大终点，保住句尾尾音；
+        // 重叠 cue（后句完全落在前句区间内）取 max，避免句尾被收缩。
+        const coveredCueEnd = last.isCueLast
+            ? slice.reduce((max, word) => Math.max(max, word.cueEnd), last.cueEnd)
+            : last.end;
+        const rawEnd = Math.max(coveredCueEnd, last.end);
+        const start = Math.max(rawStart, previousEnd);
+        let end = Math.max(rawEnd, start + MIN_SEGMENT_SECONDS);
+        if (!Number.isFinite(start) || !Number.isFinite(end)) {
+            continue;
+        }
+        if (end <= start) {
+            end = start + MIN_SEGMENT_SECONDS;
+        }
+        lines.push({
+            index: lines.length + 1,
+            start,
+            end,
+            contentEn: text,
+            contentZh: '',
+        });
+        previousEnd = end;
+    }
+    return lines;
 };
 
 /**
  * 把碎片字幕行重切分成完整意群行。
  *
- * 规则：
- * 1. 逐行切成文本片段时间轴（句末标点 / `>>` 说话人标记处切分，时间按字符占比插值）；
- * 2. 相邻片段若无句末标点收束且间隔小于 0.8 秒，归并进同一意群；
- * 3. 缓冲字符数超过上限仍无标点时在片段边界强制封句；
- * 4. 双语字幕（任一行含中文）不处理，原样返回——人工对齐的双语文件重切分会错位。
+ * 处理顺序：
+ * 1. 双语字幕（任一行含中文）原样返回——人工对齐的双语文件重切分会错位；
+ * 2. 去掉相邻 cue 的滚动重复尾巴；
+ * 3. 摊平成带估算时间的词序列；
+ * 4. 动态规划求全局最优切分；
+ * 5. 拼回字幕行并保证时间轴严格递增。
  *
  * @param lines 解析产出的字幕行数组（应按时间升序）。
  * @returns 重切分后的字幕行（index 从 1 重新编号）；无需处理时原样返回。
@@ -176,91 +622,12 @@ export const resegmentIntoMeaningGroups = (lines: SrtLine[]): SrtLine[] => {
     if (lines.some((line) => line.contentZh.trim().length > 0)) {
         return lines;
     }
-
-    /** 意群缓冲：已归并的文本片段时间轴。 */
-    interface BufferPiece {
-        text: string;
-        start: number;
-        end: number;
+    const deduped = dedupeRollingLines(lines);
+    const words = flattenWords(deduped);
+    if (words.length === 0) {
+        return lines;
     }
-    const buffers: BufferPiece[] = [];
-    let buffer: BufferPiece | null = null;
-    let bufferChars = 0;
-
-    const closeBuffer = () => {
-        if (buffer && buffer.text.trim()) {
-            buffers.push(buffer);
-        }
-        buffer = null;
-        bufferChars = 0;
-    };
-
-    for (const line of lines) {
-        for (const piece of splitLineIntoPieces(line)) {
-            // 封块条件：并入后超出上限（而非当前已达到），否则恰好达标的块永远无法再并入。
-            const terminalClose = buffer !== null && buffer.text.trim().length > 0 && endsWithTerminal(buffer.text);
-            const gapClose = buffer !== null && piece.start - buffer.end >= GAP_BREAK_SECONDS;
-            const capClose = buffer !== null && bufferChars + piece.text.length > MAX_BUFFER_CHARS;
-            if (buffer !== null && capClose && !terminalClose && !gapClose) {
-                // 上限强切的默认切点是 cue 边界，常把句子拦腰斩断（真实案例：
-                // "... what activity they're" | "going to do."）。列表/从句的
-                // 逗号是更自然的意群边界：回溯到缓冲内最后一个逗号，把逗号后的
-                // 尾巴连同触发片段一起留给下一组；无可用逗号时维持 cue 边界强切。
-                // 分界时间按字符占比在缓冲区间内插值，与 cue 内拆分同一口径。
-                // current 固定收窄引用 + splitTime 显式注解：buffer 的控制流收窄
-                // 类型依赖下方含 splitTime 的赋值，推断会绕成环（TS7022），
-                // 注解把环从类型层剪断。
-                const current = buffer;
-                const splitOffset = findLastBreakOffset(current.text);
-                if (splitOffset >= 0) {
-                    const splitTime: number = current.start + (current.end - current.start) * (splitOffset / current.text.length);
-                    const headText: string = current.text.slice(0, splitOffset).trim();
-                    const tailText: string = current.text.slice(splitOffset).trim();
-                    buffers.push({ text: headText, start: current.start, end: splitTime });
-                    buffer = {
-                        text: `${tailText} ${piece.text}`.trim(),
-                        start: splitTime,
-                        end: Math.max(piece.end, splitTime + MIN_SEGMENT_SECONDS),
-                    };
-                    bufferChars = tailText.length + piece.text.length;
-                    continue;
-                }
-            }
-            const startsNewGroup = buffer === null || terminalClose || gapClose || capClose;
-            if (startsNewGroup || buffer === null) {
-                closeBuffer();
-                buffer = { text: piece.text, start: piece.start, end: piece.end };
-                bufferChars = piece.text.length;
-            } else {
-                buffer.text = `${buffer.text} ${piece.text}`.trim();
-                // 重叠 cue 的后片段终点可能早于缓冲当前终点，取 max 防止意群
-                // 结束时间被收缩：下游单句循环/AutoPause 以该值为右边界，
-                // 收缩会让句尾语音被截断，还会虚增下一段的封句间隔。
-                buffer.end = Math.max(buffer.end, piece.end);
-                bufferChars += piece.text.length;
-            }
-        }
-    }
-    closeBuffer();
-
-    // 输出前做跨组单调钳制：滚动式 cue 的相邻片段在时间轴上重叠，终端/上限封句
-    // 后下一组的起点可能早于上一组终点，保证整条时间轴严格递增。
-    // 常规重叠把下一组起点对齐到上一组终点（组内 end 必然不早于首片段起点，
-    // 钳制不会产生空区间）；反向包含（上一组归并取了更大的终点、下一组整体
-    // 落在其中，典型如重叠 cue 里句末标点后另起组）则把上一组终点收缩到
-    // 下一组起点——终点取 max 是为保住归并组的语音，封组后为整体单调让路。
-    for (let i = 1; i < buffers.length; i++) {
-        if (buffers[i].start < buffers[i - 1].end && buffers[i - 1].end < buffers[i].end) {
-            buffers[i].start = buffers[i - 1].end;
-        } else if (buffers[i].end <= buffers[i - 1].end && buffers[i].start > buffers[i - 1].start) {
-            buffers[i - 1].end = buffers[i].start;
-        }
-    }
-    return buffers.map((item, index) => ({
-        index: index + 1,
-        start: item.start,
-        end: item.end,
-        contentEn: item.text,
-        contentZh: '',
-    }));
+    const starts = solveBoundaries(words);
+    const result = buildLines(words, starts);
+    return result.length > 0 ? result : lines;
 };
