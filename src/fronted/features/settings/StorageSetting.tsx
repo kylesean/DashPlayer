@@ -46,6 +46,7 @@ import { revalidateReviewQueue } from '@/fronted/features/video-learning/reviewQ
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { contentCompassApi } from '@/fronted/features/content-compass/contentCompassApi';
 import type { ContentCompassStatsVO } from '@/common/types/contentCompass';
+import type { AttributionVO } from '@/common/learning/compassAttribution';
 import LearningMetricsSection from '@/fronted/features/learning-data/LearningMetricsSection';
 
 type StorageFormValues = StorageSettingVO;
@@ -75,6 +76,11 @@ const StorageSetting: React.FC = () => {
     const { data: compassStats, isLoading: compassStatsLoading } = useSWR<ContentCompassStatsVO>(
         'content-compass/stats',
         () => contentCompassApi.getStats({ days: 7 }),
+        { revalidateOnFocus: false, shouldRetryOnError: false },
+    );
+    const { data: compassAttribution } = useSWR<AttributionVO>(
+        'content-compass/attribution',
+        () => contentCompassApi.getAttribution({ days: 7 }),
         { revalidateOnFocus: false, shouldRetryOnError: false },
     );
 
@@ -516,6 +522,29 @@ const StorageSetting: React.FC = () => {
                                 <Text type="supporting" color="secondary">
                                     {t('storage.learningData.recommendationEmpty')}
                                 </Text>
+                            )}
+                            {compassAttribution && compassAttribution.overall.counts.shown > 0 && (
+                                <VStack gap={1} data-testid="recommendation-attribution">
+                                    <Text type="supporting" color="secondary">
+                                        {t('storage.learningData.attributionTitle')}
+                                    </Text>
+                                    {compassAttribution.funnels.map((funnel) => (
+                                        <Text
+                                            key={funnel.reason}
+                                            type="supporting"
+                                            color="secondary"
+                                            className="tabular-nums"
+                                        >
+                                            {t('storage.learningData.attributionRow', {
+                                                reason: t(`storage.learningData.attributionReasons.${funnel.reason}`),
+                                                shown: funnel.counts.shown,
+                                                opened: funnel.counts.opened,
+                                                reviewed: funnel.counts.reviewed,
+                                                recalled: funnel.counts.recalled,
+                                            })}
+                                        </Text>
+                                    ))}
+                                </VStack>
                             )}
                         </VStack>
                     </SettingField>

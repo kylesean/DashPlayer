@@ -34,6 +34,13 @@ export default class ContentCompassController implements Controller {
         return this.contentCompassService.getStats(params);
     }
 
+    /**
+     * 推荐的四段因果漏斗。
+     */
+    public async getAttribution(params: { days?: number }) {
+        return this.contentCompassService.getAttribution(params);
+    }
+
     registerRoutes(): void {
         registerRoute('content-compass/list', (params) => this.list(params), {
             schema: z.object({
@@ -51,6 +58,11 @@ export default class ContentCompassController implements Controller {
             }),
         });
         registerRoute('content-compass/stats', (params) => this.getStats(params), {
+            schema: z.object({
+                days: z.number().int().min(1).max(90).optional(),
+            }),
+        });
+        registerRoute('content-compass/attribution', (params) => this.getAttribution(params), {
             schema: z.object({
                 days: z.number().int().min(1).max(90).optional(),
             }),

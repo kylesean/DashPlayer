@@ -55,6 +55,13 @@ export type ChatPanelState = {
     /** 创建会话时冻结的学习句字幕索引，用于避免重复创建会话。 */
     anchorIndex: number | null;
     /**
+     * 创建会话时冻结的学习句字幕文件哈希，与 anchorIndex 配合判重。
+     *
+     * 说明：不同视频的同一索引完全可能出现相同字幕文本（剧集共用 SRT、
+     * 常见短句），只比对 index + 文本会把上一个视频的会话错配给当前视频。
+     */
+    anchorFileHash: string | null;
+    /**
      * 对话清空信号：同一句重新进入时自增一次。
      *
      * 说明：重新进入不再重建会话（重建会掐断后台还在跑的解析），
@@ -128,6 +135,7 @@ const empty = (): ChatPanelState => {
         sentenceResolveError: null,
         cloudAvailable: false,
         anchorIndex: null,
+        anchorFileHash: null,
         conversationEpoch: 0,
         topicKey: null,
         analysis: null,
@@ -176,6 +184,7 @@ const enterLearningOptimistically = (sentence: Sentence): void => {
         ...empty(),
         topicText: sentence.text,
         anchorIndex: sentence.index,
+        anchorFileHash: sentence.fileHash,
         hasLearningContext: true,
     });
     enterLearning();
@@ -190,11 +199,17 @@ const enterLearningOptimistically = (sentence: Sentence): void => {
  *
  * @param text 本次学习内容的判重依据：从当前字幕行进来的传那行原文，从选区进来的传选区原文。
  * @param anchorIndex 主题所在字幕索引。
+ * @param anchorFileHash 主题所在字幕文件哈希；跨视频的同文本同索引行不认作同一句。
  * @returns 当前会话就是这一句时为 true。
  */
-const isSameLiveTopic = (text: string, anchorIndex: number | null): boolean => {
+const isSameLiveTopic = (text: string, anchorIndex: number | null, anchorFileHash: string): boolean => {
     const state = useChatPanel.getState();
-    return !!state.chatSessionId && state.anchorIndex === anchorIndex && state.topicKey === text;
+    return (
+        !!state.chatSessionId
+        && state.anchorIndex === anchorIndex
+        && state.anchorFileHash === anchorFileHash
+        && state.topicKey === text
+    );
 };
 
 /**
@@ -317,6 +332,7 @@ const startSessionForTopic = async (
         learningVisible: !learningCloseRequested,
         cloudAvailable,
         anchorIndex: anchor.index,
+        anchorFileHash: anchor.fileHash,
     });
 
     let sessionId: string;
@@ -374,7 +390,7 @@ const useChatPanel = create(
                 throw new Error('当前字幕句不存在，无法创建带上下文工具的整句学习会话');
             }
             // 同一段选区：会话不重建，只把屏幕清回初始页，后台生成不打断
-            if (isSameLiveTopic(text, currentSentence.index)) {
+            if (isSameLiveTopic(text, currentSentence.index, currentSentence.fileHash)) {
                 reopenLearning();
                 return;
             }
@@ -386,7 +402,7 @@ const useChatPanel = create(
                 return;
             }
             // 同一句：会话不重建，只把屏幕清回初始页——后台还在跑的解析因此不会被打断
-            if (isSameLiveTopic(currentSentence.text, currentSentence.index)) {
+            if (isSameLiveTopic(currentSentence.text, currentSentence.index, currentSentence.fileHash)) {
                 reopenLearning();
                 return;
             }

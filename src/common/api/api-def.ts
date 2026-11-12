@@ -101,6 +101,7 @@ import type { VideoInfo } from '@/common/types/video-info';
 import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams, SentencePracticeSummaryVO } from '@/common/contracts/sentence-practice';
 import type { RhythmTrendVO } from '@/common/learning/rhythmTrend';
+import type { AttributionVO } from '@/common/learning/compassAttribution';
 
 /** 跨进程请求与返回值契约。 */
 interface ApiDefinition {
@@ -581,6 +582,11 @@ interface ContentCompassDef {
         params: ContentCompassStatsParams,
         return: ContentCompassStatsVO
     };
+    /** 推荐的四段因果漏斗：曝光 → 打开 → 复习 → 回忆成功。 */
+    'content-compass/attribution': {
+        params: { days?: number },
+        return: AttributionVO
+    };
 }
 
 interface VideoLearningDef {
@@ -713,6 +719,7 @@ export const API_ROUTE_KEYS = [
     'content-compass/event',
     'content-compass/list',
     'content-compass/stats',
+    'content-compass/attribution',
     'dictionary-enhancement/cancel',
     'dictionary-enhancement/install',
     'dictionary-enhancement/remove',

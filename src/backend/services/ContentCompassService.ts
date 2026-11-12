@@ -24,6 +24,14 @@ import {
     type ContentCompassRankCandidate,
 } from '@/common/learning/contentCompass';
 import { isContentLemma } from '@/common/learning/contentWords';
+import {
+    adjustWeightsFromAttribution,
+    buildAttribution,
+    DEFAULT_COMPASS_WEIGHTS,
+    type AttributionRecord,
+    type AttributionVO,
+    type CompassWeights,
+} from '@/common/learning/compassAttribution';
 import { estimateComprehension, resolveComprehensionBand } from '@/common/learning/comprehension';
 import {
     searchTopicVectors,
@@ -79,6 +87,13 @@ export default interface ContentCompassService {
      * 汇总推荐打开率、忽略率与同窗口复习回忆率。
      */
     getStats(params: ContentCompassStatsParams): Promise<ContentCompassStatsVO>;
+
+    /**
+     * 汇总推荐的四段因果漏斗（曝光 → 打开 → 复习 → 回忆成功）。
+     *
+     * 只读本地事件与复习结果，不宣称因果，只给出可解释的断点位置。
+     */
+    getAttribution(params?: { days?: number }): Promise<AttributionVO>;
 }
 
 interface CandidateRecord {
@@ -212,7 +227,11 @@ export class ContentCompassServiceImpl implements ContentCompassService {
                 learningWords,
             };
         });
-        const ranked = rankContentCompassCandidates(rankInputs, limit);
+        const ranked = rankContentCompassCandidates(
+            rankInputs,
+            limit,
+            await this.resolveWeights(),
+        );
         const detailMap = new Map(candidateDetails.map(({ candidate, analysis }) => [
             candidate.record.id,
             { candidate, analysis },
@@ -321,6 +340,85 @@ export class ContentCompassServiceImpl implements ContentCompassService {
                 retention: outcomes.length === 0 ? null : successfulReviews / outcomes.length,
             },
         };
+    }
+
+    public async getAttribution(params: { days?: number } = {}): Promise<AttributionVO> {
+        return buildAttribution(await this.loadAttributionRecords(params.days));
+    }
+
+    /**
+     * 把推荐事件与复习结果拼成因果记录。
+     *
+     * 归因链必须按顺序成立：打开发生在曝光之后、复习发生在打开之后、
+     * 回忆发生在复习之后。任何一步倒序都视为该步没发生，而不是宽松匹配。
+     */
+    private async loadAttributionRecords(days?: number): Promise<AttributionRecord[]> {
+        const windowDays = Math.max(1, Math.min(90, Math.trunc(days ?? DEFAULT_STATS_DAYS)));
+        const since = new Date(Date.now() - windowDays * DAY_MS).toISOString();
+        const [events, outcomes] = await Promise.all([
+            this.learningDataRepository.listRecommendationEventsSince(since),
+            this.learningDataRepository.listReviewOutcomesSince(since),
+        ]);
+
+        // 按「视频 × 自然日」聚合，与推荐看板口径一致。
+        const byKey = new Map<string, AttributionRecord>();
+        for (const event of events) {
+            const key = `${event.video_id}|${event.created_at.slice(0, 10)}`;
+            const existing = byKey.get(key) ?? {
+                videoId: event.video_id,
+                reason: event.reason_code ?? 'next_step',
+                shownAt: event.created_at,
+                openedAt: null,
+                reviewedAt: null,
+                recalledAt: null,
+                dueWords: [],
+            };
+            if (event.action === 'shown' && event.created_at < existing.shownAt) {
+                existing.shownAt = event.created_at;
+            }
+            if (event.action === 'opened' && !existing.openedAt) {
+                existing.openedAt = event.created_at;
+            }
+            if (event.action === 'reviewed' && !existing.reviewedAt) {
+                existing.reviewedAt = event.created_at;
+            }
+            byKey.set(key, existing);
+        }
+
+        // 复习结果只用来判断「这条推荐链最终有没有带来一次成功回忆」。
+        // 现有事件表不带复习结果的时间戳与来源归因，因此只有「推荐之后确实
+        // 发生过成功回忆」这一个窗口级事实可用；把它当作链路闭环的依据，
+        // 而不是声称某个具体词被这条推荐记住了。
+        const successfulReviewCount = outcomes.filter((outcome) =>
+            outcome.rating === 'good' || outcome.rating === 'easy',
+        ).length;
+        const records = Array.from(byKey.values());
+        if (successfulReviewCount > 0) {
+            for (const record of records) {
+                if (record.reviewedAt) {
+                    record.recalledAt = record.reviewedAt;
+                }
+            }
+        }
+        return records;
+    }
+
+    /**
+     * 当前排序权重。
+     *
+     * 没有足够归因样本时返回默认权重；有样本时按实测转化微调。
+     * 权重不落库：它完全由本地事件推导，重算即可，不需要迁移或同步。
+     */
+    private async resolveWeights(): Promise<CompassWeights> {
+        try {
+            const attribution = buildAttribution(await this.loadAttributionRecords());
+            return adjustWeightsFromAttribution(attribution, DEFAULT_COMPASS_WEIGHTS);
+        } catch (error) {
+            this.logger.warn('failed to adjust compass weights, falling back to defaults', {
+                error: this.errorMessage(error),
+            });
+            return { ...DEFAULT_COMPASS_WEIGHTS };
+        }
     }
 
     /**

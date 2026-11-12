@@ -373,7 +373,15 @@
             "recommendationDismissed": "Not interested",
             "recommendationReviewed": "Reviewed",
             "recommendationRecall": "Global 7-day recall",
-            "recommendationRecallHint": "{{count}} reviews (site-wide, not attributed)"
+            "recommendationRecallHint": "{{count}} reviews (site-wide, not attributed)",
+            "attributionTitle": "Recommendation funnel (shown → opened → reviewed → recalled)",
+            "attributionRow": "{{reason}}: {{shown}} → {{opened}} → {{reviewed}} → {{recalled}}",
+            "attributionReasons": {
+                "due_review": "Due words",
+                "learning_words": "Learning words",
+                "interest_match": "Topic match",
+                "next_step": "Next step"
+            }
         },
         "sections": {
             "location": "Storage Location",

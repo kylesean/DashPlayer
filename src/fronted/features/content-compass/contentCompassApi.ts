@@ -17,4 +17,10 @@ export const contentCompassApi = {
 
     getStats: (params: ContentCompassStatsParams = {}) =>
         backendClient.call('content-compass/stats', params),
+
+    /**
+     * 推荐的四段因果漏斗：曝光 → 打开 → 复习 → 回忆成功。
+     */
+    getAttribution: (params: { days?: number } = {}) =>
+        backendClient.call('content-compass/attribution', params),
 };

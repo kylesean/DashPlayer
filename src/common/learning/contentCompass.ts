@@ -98,6 +98,11 @@ export const lexicalSimilarity = (
     return clamp01(dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm)));
 };
 
+import {
+    DEFAULT_COMPASS_WEIGHTS,
+    type CompassWeights,
+} from '@/common/learning/compassAttribution';
+
 /**
  * 选择可解释的推荐理由。
  */
@@ -126,16 +131,17 @@ const resolveReason = (candidate: ContentCompassRankCandidate): ContentCompassRe
 export const rankContentCompassCandidates = (
     candidates: ContentCompassRankCandidate[],
     limit = 3,
+    weights: CompassWeights = DEFAULT_COMPASS_WEIGHTS,
 ): ContentCompassRankedCandidate[] => {
     const ranked = candidates.map((candidate) => {
         const comprehensionFit = 1 - Math.min(1, Math.abs(candidate.comprehensionScore - 0.78) / 0.6);
         const dueStrength = Math.min(1, candidate.dueWords.length / 3);
         const learningStrength = Math.min(1, candidate.learningWords.length / 5);
         const interestStrength = Math.min(1, candidate.interestScore * 2.5);
-        let score = comprehensionFit * 0.44
-            + dueStrength * 0.30
-            + learningStrength * 0.16
-            + interestStrength * 0.10;
+        let score = comprehensionFit * weights.comprehension
+            + dueStrength * weights.dueReview
+            + learningStrength * weights.learningWords
+            + interestStrength * weights.interest;
         // 过难内容只在高复现价值时保留，但不应压过更可理解的选择。
         if (candidate.comprehensionScore < 0.35) {
             score *= 0.75;
