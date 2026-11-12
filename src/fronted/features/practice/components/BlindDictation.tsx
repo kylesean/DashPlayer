@@ -16,7 +16,8 @@ interface BlindDictationProps {
     onPeekChange: (peeking: boolean) => void;
     onReplay: () => void;
     onSlowReplay: () => void;
-    onSubmitSentence: (typedSentence: string) => Promise<void>;
+    /** 提交听写答案；resolve 值为 false 表示评分失败或结果已过期（不播成功音效）。 */
+    onSubmitSentence: (typedSentence: string) => Promise<boolean>;
     onRetry: () => void;
     onNextSentence: () => void;
 }
@@ -55,8 +56,11 @@ export default function BlindDictation({
         if (submitting || !typed.trim()) return;
         setSubmitting(true);
         try {
-            await onSubmitSentence(typed.trim());
-            playSentencePassCue();
+            const ok = await onSubmitSentence(typed.trim());
+            // 评分失败/结果过期时不播成功音效
+            if (ok) {
+                playSentencePassCue();
+            }
         } finally {
             setSubmitting(false);
         }

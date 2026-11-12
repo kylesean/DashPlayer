@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
+import { showNotification } from '@/fronted/components/shared/toasts/notification';
 import useSWR from 'swr';
 import {
     BookOpenCheck,
@@ -377,8 +378,8 @@ export default function PracticeDock() {
         return vo;
     }, [activeUnit, mutateFileSummaries, mutateHistory]);
 
-    const handleSubmitDictation = useCallback(async (typedSentence: string): Promise<void> => {
-        if (!activeUnit) return;
+    const handleSubmitDictation = useCallback(async (typedSentence: string): Promise<boolean> => {
+        if (!activeUnit) return false;
         const targetKey = activeUnit.key;
         try {
             const vo = await practiceApi.scoreDictation({
@@ -388,7 +389,7 @@ export default function PracticeDock() {
                 expectedText: activeUnit.text,
             });
             if (latestUnitKeyRef.current !== targetKey) {
-                return;
+                return false;
             }
             setResult(vo);
             setDictationRevealed(true);
@@ -400,9 +401,13 @@ export default function PracticeDock() {
                 sentenceHash: activeUnit.key,
                 text: activeUnit.text,
             });
+            return true;
         } catch (error) {
             logger.error('听写评分失败', { error });
-            toast.error(describeAsrFailure(error));
+            // 与跟读评分失败共用同一条通道与去重键，避免同一错误弹两种样式的提示
+            const message = describeAsrFailure(error);
+            showNotification({ message, variant: 'error', dedupeKey: `ipc-error:${message}` });
+            return false;
         }
     }, [activeUnit, mutateFileSummaries, mutateHistory, setDictationRevealed]);
 
@@ -432,17 +437,22 @@ export default function PracticeDock() {
                 return;
             }
             if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey && !isEditable) {
+                // 录音中禁止试听：外放原声会被正在采集的麦克风录进评分音频
+                if (recording) return;
                 e.preventDefault();
                 if (e.shiftKey) handleSlowReplay();
                 else handleReplay();
                 return;
             }
             if (e.key === 'ArrowUp' && !isEditable && !isInteractive) {
+                // 录音中禁止切句：切句会重挂载录音视图，静默丢弃整段录音
+                if (recording) return;
                 e.preventDefault();
                 navigateOffset(-1, !(mode === 'shadowing' && shadowingStyle === 'beat'));
                 return;
             }
             if (e.key === 'ArrowDown' && !isEditable && !isInteractive) {
+                if (recording) return;
                 e.preventDefault();
                 navigateOffset(1, !(mode === 'shadowing' && shadowingStyle === 'beat'));
                 return;
@@ -821,6 +831,7 @@ export default function PracticeDock() {
                         onRetry={() => {
                             setResult(null);
                             setDictationRevealed(false);
+                            setPeekingSpoiler(false);
                             setAttemptNonce((n) => n + 1);
                         }}
                         onNextSentence={() => navigateOffset(1, true)}
@@ -839,6 +850,7 @@ export default function PracticeDock() {
                         onRetry={() => {
                             setResult(null);
                             setDictationRevealed(false);
+                            setPeekingSpoiler(false);
                             setAttemptNonce((n) => n + 1);
                         }}
                         onNextSentence={() => navigateOffset(1, true)}

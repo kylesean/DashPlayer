@@ -23,7 +23,8 @@ interface WordSlotDictationProps {
     onPeekChange: (peeking: boolean) => void;
     onReplay: () => void;
     onSlowReplay: () => void;
-    onSubmitSentence: (typedSentence: string) => Promise<void>;
+    /** 提交听写答案；resolve 值为 false 表示评分失败或结果已过期（不播成功音效）。 */
+    onSubmitSentence: (typedSentence: string) => Promise<boolean>;
     onRetry: () => void;
     onNextSentence: () => void;
 }
@@ -62,6 +63,10 @@ export default function WordSlotDictation({
 
     const inputRef = useRef<HTMLInputElement>(null);
     const composingRef = useRef(false);
+    // 最近一次已消费的词槽校验（槽位+候选词）：IME compositionEnd 之后部分系统键盘
+    // 会补发一次携带相同内容的 change 事件，用它把同一次提交的重复触发挡掉，
+    // 避免重复音效与「把已提交词误写入下一槽草稿」的污染。
+    const lastVerifiedRef = useRef<{ idx: number; word: string } | null>(null);
 
     const focusInput = (): void => {
         if (!result) {
@@ -91,8 +96,11 @@ export default function WordSlotDictation({
         }
         setSubmitting(true);
         try {
-            await onSubmitSentence(assembled);
-            playSentencePassCue();
+            const ok = await onSubmitSentence(assembled);
+            // 评分失败/结果过期时不播成功音效，避免误导用户
+            if (ok) {
+                playSentencePassCue();
+            }
         } finally {
             setSubmitting(false);
         }
@@ -108,6 +116,14 @@ export default function WordSlotDictation({
         const slot = slots[activeIdx];
         if (!slot) return;
         const clean = candidate.trim();
+        if (
+            lastVerifiedRef.current
+            && lastVerifiedRef.current.idx === activeIdx
+            && lastVerifiedRef.current.word === clean
+        ) {
+            return;
+        }
+        lastVerifiedRef.current = { idx: activeIdx, word: clean };
 
         if (!clean) {
             const nextEmptyIdx = findNextUnlocked(activeIdx, locked);

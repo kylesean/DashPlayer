@@ -27,7 +27,8 @@ const VAD_SPEECH_RMS = 0.032;
 const VAD_SILENCE_RMS = 0.02;
 const VAD_SPEECH_MIN_MS = 180;
 const VAD_TRAILING_SILENCE_MS = 1200;
-const VAD_MAX_RECORDING_MS = 20000;
+/** VAD 模式下的单段录音上限；UI 秒数展示也以此为准，两处必须共用同一常量。 */
+export const VAD_MAX_RECORDING_MS = 20000;
 
 function pickMimeType(): string | undefined {
     if (typeof MediaRecorder === 'undefined') {
@@ -71,6 +72,12 @@ interface UsePracticeRecorderOptions {
  *
  * 麦克风约束:显式关闭回声消除/降噪/自动增益,保持原始声纹输入；
  * 若运行环境支持 Web Audio，会附带实时音量采集用于绘制波形。
+ *
+ * 阶段占用模型：`phaseRef` 是唯一真相，`applyEvent` 在同一个宏任务内同步推进它，
+ * React state 只是渲染镜像。所有守卫读 `phaseRef` 而不是渲染闭包——
+ * 这是 `requesting` 相存在的意义：`START` 在任何 `await` 之前就被消费，
+ * 快速二次触发（双击 / autoFlow 定时器叠加旧闭包）会被转移表挡在副作用之前，
+ * 不会再并行打开两条 MediaStream 互相覆盖。
  */
 export function usePracticeRecorder({
     onRecordingComplete,
@@ -80,9 +87,16 @@ export function usePracticeRecorder({
 }: UsePracticeRecorderOptions) {
     const { t } = useTranslation('practice');
     const [phase, setPhase] = useState<PracticeRecorderPhase>('idle');
+    const phaseRef = useRef<PracticeRecorderPhase>('idle');
 
-    const dispatch = useCallback((event: PracticeRecorderEvent): void => {
-        setPhase((current) => nextRecorderPhase(current, event) ?? current);
+    const applyEvent = useCallback((event: PracticeRecorderEvent): boolean => {
+        const next = nextRecorderPhase(phaseRef.current, event);
+        if (next === null) {
+            return false;
+        }
+        phaseRef.current = next;
+        setPhase(next);
+        return true;
     }, []);
 
     const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -133,7 +147,7 @@ export function usePracticeRecorder({
     }, [releaseStream]);
 
     const cancel = useCallback((): void => {
-        if (nextRecorderPhase(phase, 'CANCEL') === null) {
+        if (nextRecorderPhase(phaseRef.current, 'CANCEL') === null) {
             return;
         }
         const recorder = mediaRecorderRef.current;
@@ -146,8 +160,8 @@ export function usePracticeRecorder({
             }
         }
         finishFlow();
-        dispatch('CANCEL');
-    }, [dispatch, finishFlow, phase]);
+        applyEvent('CANCEL');
+    }, [applyEvent, finishFlow]);
 
     const cancelRef = useRef(cancel);
     useEffect(() => {
@@ -165,6 +179,7 @@ export function usePracticeRecorder({
             }
         }
         releaseStream();
+        phaseRef.current = 'idle';
         setRecording(false);
     }, [releaseStream, setRecording]);
 
@@ -183,10 +198,10 @@ export function usePracticeRecorder({
         finishFlow();
         if (blob.size === 0) {
             showNotification({ message: t('recorder.empty'), variant: 'error' });
-            dispatch('EMPTY');
+            applyEvent('EMPTY');
             return;
         }
-        dispatch('STOP');
+        applyEvent('STOP');
         try {
             const buffer = await blob.arrayBuffer();
             await onDoneRef.current(new Uint8Array(buffer), { blob, mimeType, durationMs });
@@ -201,7 +216,7 @@ export function usePracticeRecorder({
                 dedupeKey: `ipc-error:${message}`,
             });
         } finally {
-            dispatch('SCORED');
+            applyEvent('SCORED');
         }
     };
 
@@ -266,16 +281,20 @@ export function usePracticeRecorder({
     };
 
     const start = async (): Promise<void> => {
-        if (phase !== 'idle') return;
+        if (phaseRef.current !== 'idle') return;
         if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
             showNotification({ message: t('recorder.unsupported'), variant: 'error' });
             return;
         }
+        // 同步占位：requesting 相让后续任何 await 期间的二次触发（双击 / autoFlow 旧闭包）
+        // 在转移表处被拒绝，副作用根本不会发生。
+        applyEvent('START');
         try {
             const micStatus = await practiceApi.ensureMicrophone();
             if (micStatus !== 'granted') {
                 logger.warn('麦克风授权未就绪，取消跟读录音', { micStatus });
                 showNotification({ message: t('recorder.denied'), variant: 'error' });
+                applyEvent('CANCEL');
                 return;
             }
             mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({
@@ -289,6 +308,7 @@ export function usePracticeRecorder({
             logger.error('获取麦克风失败', { error });
             showNotification({ message: t('recorder.denied'), variant: 'error' });
             releaseStream();
+            applyEvent('CANCEL');
             return;
         }
 
@@ -309,12 +329,22 @@ export function usePracticeRecorder({
         };
         recorder.start();
         startAudioMonitor(mediaStreamRef.current, recorder);
-        dispatch('START');
+        applyEvent('MIC_READY');
     };
 
     const stop = (): void => {
-        if (phase !== 'recording') return;
-        mediaRecorderRef.current?.stop();
+        if (phaseRef.current !== 'recording') return;
+        const recorder = mediaRecorderRef.current;
+        if (!recorder) return;
+        try {
+            // VAD 自动停录到 onstop 回调推进阶段之间存在一帧窗口，
+            // 此时 recorder 已 inactive；Chromium 对 inactive 调 stop() 会抛 InvalidStateError。
+            if (recorder.state === 'recording') {
+                recorder.stop();
+            }
+        } catch (error) {
+            logger.warn('停止跟读录音时 recorder 已失效', { error });
+        }
     };
 
     return { phase, start, stop, cancel };

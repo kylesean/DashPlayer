@@ -1,7 +1,7 @@
 /**
  * 跟读录音的阶段转移表。
  *
- * 为什么值得单独成表：`usePracticeRecorder` 里 phase 有 3 个取值、8 个事件，
+ * 为什么值得单独成表：`usePracticeRecorder` 里 phase 有 4 个取值、7 个事件，
  * 但真正决定「能不能开始 / 停止 / 丢弃」的规则散在 4 个 `if` 与两个 effect 里。
  * 读代码时要同时看 `phase !== 'idle'`、`phase !== 'recording'`、`recorder.state`
  * 三处才能确定某个操作会不会生效，改一处很容易漏掉另一处。
@@ -11,16 +11,18 @@
  * 可以直接用纯函数测试钉住，而不需要伪造 MediaRecorder。
  */
 
-/** 录音阶段：空闲 / 采集中 / 已提交评分。 */
-export type PracticeRecorderPhase = 'idle' | 'recording' | 'processing';
+/** 录音阶段：空闲 / 等待麦克风授权 / 采集中 / 已提交评分。 */
+export type PracticeRecorderPhase = 'idle' | 'requesting' | 'recording' | 'processing';
 
 /** 驱动阶段变化的事件。 */
 export type PracticeRecorderEvent =
-    /** 用户点「开始」并成功拿到麦克风。 */
+    /** 用户点「开始」：同步占位进入 requesting，之后才允许发起任何异步麦克风请求。 */
     | 'START'
+    /** 麦克风就绪且 MediaRecorder 已 start：requesting → recording。 */
+    | 'MIC_READY'
     /** 用户点「停止」：录音字节交给评分。 */
     | 'STOP'
-    /** 录音界面退场（关面板 / 切页签 / 当前句消失）：丢弃，不评分。 */
+    /** 录音界面退场（关面板 / 切页签 / 当前句消失）或麦克风授权失败/不支持：丢弃，不评分。 */
     | 'CANCEL'
     /** 评分结束（成功或失败都一样：回到空闲）。 */
     | 'SCORED'
@@ -50,7 +52,15 @@ export function nextRecorderPhase(
 ): PracticeRecorderPhase | null {
     switch (phase) {
         case 'idle':
-            return event === 'START' ? 'recording' : null;
+            // START 必须在任何副作用（ensureMicrophone / getUserMedia）之前同步消费，
+            // 否则快速二次触发会并行打开两条 MediaStream 并互相覆盖（麦克风泄漏）。
+            return event === 'START' ? 'requesting' : null;
+        case 'requesting':
+            if (event === 'MIC_READY') {
+                return 'recording';
+            }
+            // 授权被拒 / getUserMedia 失败 / 界面退场：回到空闲
+            return event === 'CANCEL' ? 'idle' : null;
         case 'recording':
             if (event === 'STOP') {
                 return 'processing';

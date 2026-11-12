@@ -30,7 +30,7 @@ import { isInteractiveTarget, isTextEntryTarget } from '@/fronted/lib/keyboard';
 import { decodeRecordedAudioSummary, playMicReadyCue } from '../audioFeedback';
 import type { PracticeUnit } from '../practiceUnit';
 import usePracticePanel, { type ShadowingStyle } from '../practiceStore';
-import { usePracticeRecorder, type RecordedAudioArtifact } from '../usePracticeRecorder';
+import { usePracticeRecorder, VAD_MAX_RECORDING_MS, type RecordedAudioArtifact } from '../usePracticeRecorder';
 import PracticeDiffSentence from './PracticeDiffSentence';
 
 const logger = getRendererLogger('ShadowingStudio');
@@ -265,6 +265,12 @@ function RecordShadowingView({
             clearTimeout(abTimerRef.current);
             abTimerRef.current = null;
         }
+        // autoFlow 的「播完自动开麦」定时器也一并撤销：用户手动开录音时，
+        // 不能让残留的定时器再开出第二条录音。
+        if (autoCueTimerRef.current !== null) {
+            clearTimeout(autoCueTimerRef.current);
+            autoCueTimerRef.current = null;
+        }
         playbackAudioRef.current?.pause();
         playbackAudioRef.current = null;
         setAbPhase('idle');
@@ -396,6 +402,8 @@ function RecordShadowingView({
                 return;
             }
             if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey) {
+                // 录音中禁止试听：外放原声会被正在采集的麦克风录进评分音频
+                if (recorderPhase === 'recording') return;
                 e.preventDefault();
                 if (e.shiftKey) onSlowReplay();
                 else onReplay();
@@ -486,7 +494,15 @@ function RecordShadowingView({
                                         />
                                     ))}
                                 </div>
-                                <span className="text-sm font-mono tabular-nums text-error-text">
+                                <span
+                                    className={cn(
+                                        'text-sm font-mono tabular-nums',
+                                        // 临近 VAD 上限时提示录音即将自动结束
+                                        recordingSeconds >= Math.floor(VAD_MAX_RECORDING_MS / 1000) - 3
+                                            ? 'text-amber-500'
+                                            : 'text-error-text',
+                                    )}
+                                >
                                     {recordingSeconds}s{autoRecordFlow ? ` · ${t('shadowing.vadListening', { defaultValue: '停顿自动停麦' })}` : ''}
                                 </span>
                             </>
@@ -609,6 +625,8 @@ function RecordShadowingView({
                         size="sm"
                         icon={<Volume2 className="h-3.5 w-3.5" />}
                         label={t('panel.playSentence')}
+                        // 录音中禁用试听：外放原声会被麦克风录进评分音频
+                        isDisabled={recorderPhase === 'recording'}
                         onClick={() => {
                             stopContrastAudio();
                             onReplay();
@@ -619,6 +637,7 @@ function RecordShadowingView({
                         variant="ghost"
                         size="sm"
                         label="0.75×"
+                        isDisabled={recorderPhase === 'recording'}
                         onClick={() => {
                             stopContrastAudio();
                             onSlowReplay();
@@ -634,6 +653,7 @@ function RecordShadowingView({
                                 label={abPhase !== 'idle'
                                     ? t('shadowing.abStop', { defaultValue: '停止对比' })
                                     : t('shadowing.abButton', { defaultValue: 'A/B 对比' })}
+                                isDisabled={recorderPhase === 'recording'}
                                 onClick={triggerABContrast}
                             />
                             <Button
@@ -641,6 +661,7 @@ function RecordShadowingView({
                                 size="sm"
                                 icon={<Volume2 className="h-3.5 w-3.5" />}
                                 label={t('result.playMine')}
+                                isDisabled={recorderPhase === 'recording'}
                                 onClick={() => {
                                     stopContrastAudio();
                                     playMineAudioOnly(playableMineUrl);
@@ -663,6 +684,8 @@ function RecordShadowingView({
                             variant="primary"
                             size="sm"
                             label={t('panel.nextSentenceEnter', { defaultValue: '下一句 ↵' })}
+                            // 录音中禁止切句：切句会重挂载本视图，静默丢弃整段录音
+                            isDisabled={recorderPhase === 'recording'}
                             onClick={onNextSentence}
                         />
                     )}

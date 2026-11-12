@@ -15,6 +15,7 @@ import type {
 } from '@/common/types/learningRecap';
 import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
 import { usePracticeRecorder } from '@/fronted/features/practice/usePracticeRecorder';
+import type { PracticeRecorderPhase } from '@/fronted/features/practice/lib/recorder-phase';
 import { cn } from '@/fronted/lib/utils';
 import RolePlayDialogue from './RolePlayDialogue';
 
@@ -307,7 +308,7 @@ function RecapBody({
     onDraftChange: (value: string) => void;
     onCheckRetell: () => void;
     spokenTranscript: string | null;
-    recorderPhase: 'idle' | 'recording' | 'processing';
+    recorderPhase: PracticeRecorderPhase;
     onStartRecording: () => void;
     onStopRecording: () => void;
     lastRetell: ProductionPracticeRecordVO | null;
