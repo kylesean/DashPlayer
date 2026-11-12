@@ -73,6 +73,8 @@ interface PracticePanelState {
     peekingSpoiler: boolean;
     /** 跟读录音是否进行中。 */
     recording: boolean;
+    /** 从「整句学习」工作台跳来练习时为 true，方便练习顶栏直接一键退回精读页。 */
+    openedFromLearning: boolean;
     setVisible: (visible: boolean) => void;
     setMode: (mode: SentencePracticeMode) => void;
     setShadowingStyle: (style: ShadowingStyle) => void;
@@ -84,6 +86,7 @@ interface PracticePanelState {
     setDictationRevealed: (revealed: boolean) => void;
     setPeekingSpoiler: (peeking: boolean) => void;
     setRecording: (recording: boolean) => void;
+    setOpenedFromLearning: (fromLearning: boolean) => void;
     toggle: () => void;
 }
 
@@ -104,9 +107,10 @@ const usePracticePanel = create<PracticePanelState>((set) => ({
     dictationRevealed: false,
     peekingSpoiler: false,
     recording: false,
+    openedFromLearning: false,
     setVisible: (visible) => set((state) => ({
         visible,
-        ...(visible ? {} : { peekingSpoiler: false, dictationRevealed: false }),
+        ...(visible ? {} : { peekingSpoiler: false, dictationRevealed: false, openedFromLearning: false }),
         mode: state.mode,
     })),
     setMode: (mode) => set({ mode, dictationRevealed: false, peekingSpoiler: false }),
@@ -131,6 +135,7 @@ const usePracticePanel = create<PracticePanelState>((set) => ({
     setDictationRevealed: (dictationRevealed) => set({ dictationRevealed }),
     setPeekingSpoiler: (peekingSpoiler) => set({ peekingSpoiler }),
     setRecording: (recording) => set({ recording }),
+    setOpenedFromLearning: (openedFromLearning) => set({ openedFromLearning }),
     toggle: () => set((state) => ({ visible: !state.visible })),
 }));
 

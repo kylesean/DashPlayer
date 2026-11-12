@@ -1,11 +1,19 @@
 import type { LocalAiSpeedTestResult, LocalAiStatus } from '@/common/contracts/local-ai';
 
+/** 本地大模型标准对话消息项。 */
+export interface LocalChatMessage {
+    role: 'system' | 'user' | 'assistant';
+    content: string;
+}
+
 /**
- * 纯文本生成的可选约束。
+ * 纯文本/流式生成的可选约束。
  */
 export interface LocalGenerateTextOptions {
     /** GBNF 语法文本；传入后 llama-server 在解码层约束输出形状（如恰好 N 行）。 */
     grammar?: string;
+    /** JSON Schema 约束；传入后启用 `response_format: { type: 'json_object', schema }`。 */
+    schema?: Record<string, unknown>;
     /**
      * 采样温度覆盖；缺省用通用对话参数（0.6，与词典讲解等链路共享）。
      * 翻译属近确定性任务，传入低值（如 0.3）减少元话发挥与填充凑行。
@@ -58,6 +66,17 @@ export default interface LocalAiService {
      * @param options 可选生成约束（GBNF 语法等）。
      */
     generateText(prompt: string, modelId: string, signal?: AbortSignal, options?: LocalGenerateTextOptions): Promise<string>;
+    /**
+     * 使用指定模型通过 llama-server SSE 流式生成回复（支持标准多轮消息数组与可选 JSON Schema）；
+     * 全程持推理信号量，避免空闲卸载误杀。
+     */
+    streamText(
+        input: string | LocalChatMessage[],
+        modelId: string,
+        callbacks: { onDelta: (delta: string) => void },
+        signal?: AbortSignal,
+        options?: LocalGenerateTextOptions,
+    ): Promise<string>;
     /** 中止下载、推理并等待子进程退出。 */
     shutdown(): Promise<void>;
 }

@@ -5,7 +5,7 @@ import PodcastViewer from '@/fronted/features/player/components/subtitles/Podcas
 import MainSubtitle from './MainSubtitle';
 import Subtitle from './components/Subtitle';
 import LearningToolbar from '@/fronted/features/player/components/learning-toolbar/LearningToolbar';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ImperativePanelGroupHandle } from 'react-resizable-panels';
 import { BookOpen, EyeOff, PanelBottomOpen } from 'lucide-react';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
@@ -24,14 +24,13 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import PlaybackEmptyState from './EmptyState';
 import LearningPage from '@/fronted/features/chat/LearningPage';
 import useChatPanel from '@/fronted/features/chat/chatStore';
+import { subscribeMiniStageTarget } from '@/fronted/features/chat/miniStageTarget';
 import PracticePanel from '@/fronted/features/practice/PracticePanel';
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
-import LearningModeButton from './LearningModeButton';
 import SubtitleGenerationPanel from './SubtitleGenerationPanel';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import { CAPTION_CARD_ANCHOR_CLASS, CAPTION_CARD_CLASS } from '@/fronted/features/player/components/captionCardShell';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import {
     DEFAULT_INNER_STAGE_SIZE,
@@ -53,6 +52,7 @@ const PlaybackLayout = () => {
     const hasSource = usePlayerState((s) => !!s.src);
     const hasLearningContext = useChatPanel((s) => s.hasLearningContext);
     const learningVisible = useChatPanel((s) => s.learningVisible);
+    const miniVideoCollapsed = useChatPanel((s) => s.miniVideoCollapsed);
     const practiceVisible = usePracticePanel((s) => s.visible);
     const practiceMode = usePracticePanel((s) => s.mode);
     const practiceFocusMode = usePracticePanel((s) => s.focusMode);
@@ -60,7 +60,8 @@ const PlaybackLayout = () => {
     const peekingSpoiler = usePracticePanel((s) => s.peekingSpoiler);
     const showTranscript = useLayout((s) => s.showTranscript);
     const setTranscriptVisible = useLayout((s) => s.setTranscriptVisible);
-    const effectiveShowTranscript = showTranscript && !(practiceVisible && practiceFocusMode);
+    // 整句学习打开时自动收起独立右栏全文，释放 100% 窗口宽度给 AI-Native 双栏工作台
+    const effectiveShowTranscript = showTranscript && !(practiceVisible && practiceFocusMode) && !learningVisible;
     const transcriptSpoilerVeil = practiceVisible
         && !practiceFocusMode
         && practiceMode === 'dictation'
@@ -96,6 +97,63 @@ const PlaybackLayout = () => {
     useLearningRouteSync();
 
     const rootContainerRef = useRef<HTMLDivElement>(null);
+    const [miniTargetEl, setMiniTargetEl] = useState<HTMLDivElement | null>(null);
+    const [pipRect, setPipRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+
+    useEffect(() => subscribeMiniStageTarget(setMiniTargetEl), []);
+
+    useEffect(() => {
+        if (!learningVisible || miniVideoCollapsed || !miniTargetEl) {
+            return;
+        }
+        const updateRect = () => {
+            const rect = miniTargetEl.getBoundingClientRect();
+            if (rect.width > 16 && rect.height > 16) {
+                setPipRect({
+                    left: Math.round(rect.left),
+                    top: Math.round(rect.top),
+                    width: Math.round(rect.width),
+                    height: Math.round(rect.height),
+                });
+            }
+        };
+        updateRect();
+        const resizeObserver = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateRect) : null;
+        resizeObserver?.observe(miniTargetEl);
+        window.addEventListener('resize', updateRect);
+        window.addEventListener('scroll', updateRect, true);
+        return () => {
+            resizeObserver?.disconnect();
+            window.removeEventListener('resize', updateRect);
+            window.removeEventListener('scroll', updateRect, true);
+        };
+    }, [learningVisible, miniVideoCollapsed, miniTargetEl]);
+
+    const stageFloatingStyle: React.CSSProperties | undefined = learningVisible
+        ? (!miniVideoCollapsed && miniTargetEl && pipRect
+            ? {
+                position: 'fixed',
+                left: pipRect.left,
+                top: pipRect.top,
+                width: pipRect.width,
+                height: pipRect.height,
+                zIndex: 35,
+                visibility: 'visible',
+                pointerEvents: 'auto',
+                borderRadius: 12,
+                overflow: 'hidden',
+            }
+            : {
+                position: 'fixed',
+                left: -9999,
+                top: -9999,
+                width: 240,
+                height: 135,
+                opacity: 0,
+                pointerEvents: 'none',
+                visibility: 'hidden',
+            })
+        : undefined;
 
     // 练习工作台打开/切换专注态时动态保底底栏高度，退出时复原用户原比例而不污染持久化设置
     useEffect(() => {
@@ -204,11 +262,14 @@ const PlaybackLayout = () => {
             }}
         >
             <div className="relative w-full h-full overflow-hidden">
-                {/* 视频与主字幕：学习页打开时隐藏，练习工坊则原位替代底部主字幕区、上方视频保留 */}
+                {/* 视频与主字幕：学习页打开时隐藏底层界面但抬高层级让唯一微画中画舞台越过 LearningPage (z-20) 显现 */}
                 <SplitLayout
                     ref={innerGroupRef}
                     direction={'vertical'}
-                    className={cn('relative z-10', learningVisible && 'invisible')}
+                    className={cn(
+                        'relative',
+                        learningVisible ? 'z-30 invisible pointer-events-none' : 'z-10',
+                    )}
                 >
                     <SplitPane
                         minSize={10}
@@ -220,11 +281,14 @@ const PlaybackLayout = () => {
                             setSizeIa(e);
                         }}
                     >
-                        <PlaybackStage
-                            className="w-full h-full"
-                            onReady={handlePlayerReady}
-                            onEnded={handleStageEnded}
-                        />
+                        <div className="w-full h-full" style={stageFloatingStyle}>
+                            <PlaybackStage
+                                className="w-full h-full"
+                                compact={learningVisible}
+                                onReady={handlePlayerReady}
+                                onEnded={handleStageEnded}
+                            />
+                        </div>
                     </SplitPane>
                     {(!fullScreen || practiceVisible) && !podcastMode && (
                         <>
@@ -290,17 +354,10 @@ const PlaybackLayout = () => {
                     <PodcastViewer className="absolute inset-0 z-30" />
                 )}
 
-                {/* 整句学习页：占据视频与主字幕的位置，与播放器同一套外壳 */}
+                {/* 整句学习页：全窗级双栏精读工作台 */}
                 {learningMounted && (
-                    <div className={cn('absolute inset-0 z-20', !learningVisible && 'invisible')}>
+                    <div className={cn('absolute inset-0 z-20', !learningVisible && 'invisible pointer-events-none')}>
                         <LearningPage/>
-                    </div>
-                )}
-
-                {/* 学习界面右下角的学习开关：外壳与播放画面胶囊同款、锚点相同，按钮落点因此不变 */}
-                {learningVisible && (
-                    <div className={cn(CAPTION_CARD_ANCHOR_CLASS, 'z-30 pointer-events-auto', CAPTION_CARD_CLASS)}>
-                        <LearningModeButton/>
                     </div>
                 )}
 

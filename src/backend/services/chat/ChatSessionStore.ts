@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { injectable } from 'inversify';
 import type { ModelMessage } from 'ai';
-import type { ChatSessionCreateParams } from '@/common/types/chat';
+import {
+    buildSentenceStudyKey,
+    type ChatSessionCreateParams,
+    type PersistedChatMessage,
+} from '@/common/types/chat';
+import type { SentenceMemoryHints } from '@/common/types/vo/SentenceVocabularyVO';
 
 /**
  * 内存中的一次整句学习会话。
@@ -9,6 +14,8 @@ import type { ChatSessionCreateParams } from '@/common/types/chat';
 export type ChatSession = {
     /** 后端生成的会话标识。 */
     id: string;
+    /** 句级持久化主键（fileHash:sentenceIndex）。 */
+    sentenceKey: string;
     /** 所属视频标识。 */
     videoId: string;
     /** 创建会话时选中的学习文本。 */
@@ -19,50 +26,74 @@ export type ChatSession = {
     subtitleFileHash: string;
     /** 当前学习句在字幕缓存中的索引。 */
     anchorSentenceIndex: number;
+    /** 当前教学预设 ID（缺省走全局激活预设）。 */
+    presetId?: string;
+    /** 会话级提示词覆盖文本。 */
+    customPromptOverride?: string;
+    /** 当前句子的学习者记忆提示。 */
+    memoryHints?: SentenceMemoryHints;
+    /** 是否已经向对话流注入过字幕上下文参考材料。 */
+    contextInjected: boolean;
     /** 已完成并可用于后续请求的模型消息历史。 */
     messages: ModelMessage[];
+    /** 与历史一一对应的可持久化前端视图消息记录。 */
+    persistedMessages: PersistedChatMessage[];
     /** 当前会话是否已关闭。 */
     closed: boolean;
     /** 当前仍在执行的生成请求。 */
     runs: Map<string, AbortController>;
 };
 
-/**
- * 会话内存仓储契约，后续可在不改业务流程的前提下替换为数据库实现。
- */
 export default interface ChatSessionStore {
     create(params: ChatSessionCreateParams): ChatSession;
     get(sessionId: string): ChatSession;
     appendMessage(sessionId: string, message: ModelMessage): void;
+    appendPersistedMessage(sessionId: string, message: PersistedChatMessage): void;
+    updatePreset(sessionId: string, preset: { presetId?: string; customPromptOverride?: string }): void;
+    markContextInjected(sessionId: string): void;
     startRun(sessionId: string, runId: string): AbortSignal;
     finishRun(sessionId: string, runId: string): void;
     stop(sessionId: string): void;
     close(sessionId: string): void;
 }
 
-/**
- * 使用 Map 保存视频分组、会话和运行状态的临时实现。
- */
+const restoredToModelMessages = (restored?: PersistedChatMessage[]): ModelMessage[] => {
+    if (!restored || restored.length === 0) return [];
+    const output: ModelMessage[] = [];
+    for (const item of restored) {
+        const text = item.plainText.trim();
+        if (!text) continue;
+        output.push({
+            role: item.role,
+            content: text,
+        });
+    }
+    return output;
+};
+
 @injectable()
 export class InMemoryChatSessionStore implements ChatSessionStore {
     private readonly sessions = new Map<string, ChatSession>();
 
-    /**
-     * 创建新会话并把它加入对应视频的会话组。
-     * @param params 创建时冻结的视频、主题和字幕上下文。
-     * @returns 新创建的会话。
-     */
     public create(params: ChatSessionCreateParams): ChatSession {
         const id = randomUUID();
+        const sentenceKey = params.sentenceKey
+            || buildSentenceStudyKey(params.subtitleFileHash, params.anchorSentenceIndex);
+        const restored = params.restoredMessages ? [...params.restoredMessages] : [];
         const session: ChatSession = {
             id,
+            sentenceKey,
             videoId: params.videoId,
             originalTopic: params.originalTopic,
             paragraphLines: [...params.paragraphLines],
             subtitleFileHash: params.subtitleFileHash,
             anchorSentenceIndex: params.anchorSentenceIndex,
-            // 历史从首轮用户消息开始：面板打开时的结构化解析走独立调用，不占用对话历史。
-            messages: [],
+            presetId: params.presetId,
+            customPromptOverride: params.customPromptOverride,
+            memoryHints: params.memoryHints,
+            contextInjected: false,
+            messages: restoredToModelMessages(restored),
+            persistedMessages: restored,
             closed: false,
             runs: new Map(),
         };
@@ -70,11 +101,6 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
         return session;
     }
 
-    /**
-     * 读取仍存在的会话；找不到时立即暴露调用错误。
-     * @param sessionId 会话 ID。
-     * @returns 对应的内存会话。
-     */
     public get(sessionId: string): ChatSession {
         const session = this.sessions.get(sessionId);
         if (!session) {
@@ -83,22 +109,34 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
         return session;
     }
 
-    /**
-     * 把一条已确认消息追加到会话历史。
-     * @param sessionId 会话 ID。
-     * @param message 要保存的模型消息。
-     */
     public appendMessage(sessionId: string, message: ModelMessage): void {
         const session = this.getOpenSession(sessionId);
         session.messages.push(message);
     }
 
-    /**
-     * 为生成请求登记 AbortController，同一会话关闭时会统一取消。
-     * @param sessionId 会话 ID。
-     * @param runId 本次运行 ID。
-     * @returns 传给 AI SDK 的取消信号。
-     */
+    public appendPersistedMessage(sessionId: string, message: PersistedChatMessage): void {
+        const session = this.getOpenSession(sessionId);
+        session.persistedMessages.push(message);
+    }
+
+    public updatePreset(
+        sessionId: string,
+        preset: { presetId?: string; customPromptOverride?: string },
+    ): void {
+        const session = this.getOpenSession(sessionId);
+        if (preset.presetId !== undefined) {
+            session.presetId = preset.presetId;
+        }
+        if (preset.customPromptOverride !== undefined) {
+            session.customPromptOverride = preset.customPromptOverride;
+        }
+    }
+
+    public markContextInjected(sessionId: string): void {
+        const session = this.getOpenSession(sessionId);
+        session.contextInjected = true;
+    }
+
     public startRun(sessionId: string, runId: string): AbortSignal {
         const session = this.getOpenSession(sessionId);
         const controller = new AbortController();
@@ -106,19 +144,10 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
         return controller.signal;
     }
 
-    /**
-     * 清理已经结束的运行，避免长期持有 AbortController。
-     * @param sessionId 会话 ID。
-     * @param runId 本次运行 ID。
-     */
     public finishRun(sessionId: string, runId: string): void {
         this.get(sessionId).runs.delete(runId);
     }
 
-    /**
-     * 取消会话内正在执行的请求，但允许后续继续发送消息。
-     * @param sessionId 会话 ID。
-     */
     public stop(sessionId: string): void {
         const session = this.getOpenSession(sessionId);
         for (const controller of session.runs.values()) {
@@ -127,10 +156,6 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
         session.runs.clear();
     }
 
-    /**
-     * 关闭会话并取消其中全部未完成请求；历史仍保留在内存中供后续查看。
-     * @param sessionId 会话 ID。
-     */
     public close(sessionId: string): void {
         const session = this.get(sessionId);
         if (session.closed) {
@@ -143,11 +168,6 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
         session.runs.clear();
     }
 
-    /**
-     * 读取可继续写入的会话，关闭后的会话不允许继续生成内容。
-     * @param sessionId 会话 ID。
-     * @returns 仍处于打开状态的会话。
-     */
     private getOpenSession(sessionId: string): ChatSession {
         const session = this.get(sessionId);
         if (session.closed) {

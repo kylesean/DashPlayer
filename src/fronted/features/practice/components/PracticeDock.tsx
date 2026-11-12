@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
 import {
+    BookOpenCheck,
     ChevronLeft,
     ChevronRight,
     Filter,
@@ -15,6 +16,8 @@ import {
     X,
 } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
+import useChatPanel from '@/fronted/features/chat/chatStore';
+import { Button } from '@astryxdesign/core/Button';
 import { IconButton } from '@astryxdesign/core/IconButton';
 import { Kbd } from '@astryxdesign/core/Kbd';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
@@ -64,37 +67,29 @@ interface SubStylePillOption<T extends string> {
     label: string;
 }
 
-/** 紧凑二级风格胶囊切换器（避免顶栏堆两排大 Tab）。 */
+/** 二级子模式切换：复用 Astryx SegmentedControl size="sm"，与主模式及顶栏按钮严格同高同字号。 */
 function SubStylePills<T extends string>({
+    label,
     value,
     options,
     onChange,
 }: {
+    label: string;
     value: T;
     options: SubStylePillOption<T>[];
     onChange: (next: T) => void;
 }) {
     return (
-        <div className="inline-flex items-center rounded-lg border border-border/60 bg-muted/50 p-0.5">
-            {options.map((opt) => {
-                const active = value === opt.value;
-                return (
-                    <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => onChange(opt.value)}
-                        className={cn(
-                            'rounded-md px-2 py-0.5 text-metadata font-medium transition-colors cursor-pointer',
-                            active
-                                ? 'bg-surface text-foreground shadow-xs'
-                                : 'text-muted-foreground hover:text-foreground',
-                        )}
-                    >
-                        {opt.label}
-                    </button>
-                );
-            })}
-        </div>
+        <SegmentedControl
+            size="sm"
+            label={label}
+            value={value}
+            onChange={(next) => onChange(next as T)}
+        >
+            {options.map((opt) => (
+                <SegmentedControlItem key={opt.value} value={opt.value} label={opt.label} />
+            ))}
+        </SegmentedControl>
     );
 }
 
@@ -120,6 +115,7 @@ export default function PracticeDock() {
         sentenceFilter,
         peekingSpoiler,
         recording,
+        openedFromLearning,
         setMode,
         setShadowingStyle,
         setDictationStyle,
@@ -128,6 +124,7 @@ export default function PracticeDock() {
         setSentenceFilter,
         setDictationRevealed,
         setPeekingSpoiler,
+        setOpenedFromLearning,
     } = usePracticePanel(
         useShallow((s) => ({
             visible: s.visible,
@@ -139,6 +136,7 @@ export default function PracticeDock() {
             sentenceFilter: s.sentenceFilter,
             peekingSpoiler: s.peekingSpoiler,
             recording: s.recording,
+            openedFromLearning: s.openedFromLearning,
             setMode: s.setMode,
             setShadowingStyle: s.setShadowingStyle,
             setDictationStyle: s.setDictationStyle,
@@ -147,6 +145,7 @@ export default function PracticeDock() {
             setSentenceFilter: s.setSentenceFilter,
             setDictationRevealed: s.setDictationRevealed,
             setPeekingSpoiler: s.setPeekingSpoiler,
+            setOpenedFromLearning: s.setOpenedFromLearning,
         })),
     );
 
@@ -549,8 +548,11 @@ export default function PracticeDock() {
                         <SegmentedControlItem value="dictation" label={t('panel.tabDictation')} />
                     </SegmentedControl>
 
+                    <span className="h-3.5 w-px bg-border/55" aria-hidden />
+
                     {mode === 'shadowing' ? (
                         <SubStylePills<ShadowingStyle>
+                            label={t('panel.tabShadowing')}
                             value={shadowingStyle}
                             onChange={setShadowingStyle}
                             options={[
@@ -560,6 +562,7 @@ export default function PracticeDock() {
                         />
                     ) : (
                         <SubStylePills<DictationStyle>
+                            label={t('panel.tabDictation')}
                             value={dictationStyle}
                             onChange={setDictationStyle}
                             options={[
@@ -572,7 +575,7 @@ export default function PracticeDock() {
 
                 <div className="flex items-center gap-1 shrink-0">
                     {/* 句序导航 + 范围筛选 */}
-                    <div className="flex items-center rounded-lg border border-border/60 bg-muted/35 px-1 py-0.5 text-xs">
+                    <div className="flex h-[var(--size-element-sm)] items-center rounded-lg border border-border/60 bg-muted/35 px-1 text-[length:var(--text-supporting-size)]">
                         <Tooltip content={t('panel.prevSentence', { defaultValue: '上一句 (↑)' })} placement="below">
                             <button
                                 type="button"
@@ -663,7 +666,7 @@ export default function PracticeDock() {
                                 {...historyPopover.triggerProps}
                                 aria-label={`${t('result.history')} ${history.length}`}
                                 className={cn(
-                                    'inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-xs font-mono tabular-nums transition-colors cursor-pointer',
+                                    'inline-flex h-[var(--size-element-sm)] items-center gap-1 rounded-lg border border-border/60 px-2 text-[length:var(--text-supporting-size)] font-mono tabular-nums transition-colors cursor-pointer',
                                     summary && summary.bestScore >= PRACTICE_PASS_SCORE
                                         ? 'bg-success/10 text-success-text border-success/30'
                                         : 'bg-muted/40 text-muted-foreground hover:text-foreground',
@@ -679,7 +682,7 @@ export default function PracticeDock() {
                                     </div>
                                     <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
                                         {history.slice(0, 12).map((record) => (
-                                            <div key={record.id} className="flex items-center justify-between gap-2 py-1.5 px-1 text-xs">
+                                            <div key={record.id} className="flex items-center justify-between gap-2 py-1.5 px-1 text-sm">
                                                 <span className="text-muted-foreground">
                                                     {record.mode === 'shadowing' ? t('result.modeShadowing') : t('result.modeDictation')}
                                                 </span>
@@ -715,6 +718,43 @@ export default function PracticeDock() {
                                 { placement: 'below', alignment: 'end', offset: 6 },
                             )}
                         </>
+                    )}
+
+                    {openedFromLearning ? (
+                        <Button
+                            label={t('panel.returnToLearning', { defaultValue: '返回精读' })}
+                            size="sm"
+                            variant="secondary"
+                            icon={<BookOpenCheck className="h-3.5 w-3.5 text-accent" />}
+                            onClick={() => {
+                                if (!activeUnit) return;
+                                const failedWords = (result?.words ?? [])
+                                    .filter((w) => w.status === 'missing' || w.status === 'sub')
+                                    .map((w) => w.expected);
+                                setOpenedFromLearning(false);
+                                if (failedWords.length > 0) {
+                                    void useChatPanel.getState().openFromPracticeIssue(activeUnit.anchor, failedWords);
+                                } else {
+                                    void useChatPanel.getState().openSentenceSession(activeUnit.anchor);
+                                }
+                            }}
+                        />
+                    ) : (
+                        <Tooltip content={t('panel.askAiAnalyze', { defaultValue: 'AI 精读拆解' })} placement="below">
+                            <IconButton
+                                label={t('panel.askAiAnalyze', { defaultValue: 'AI 精读拆解' })}
+                                icon={<BookOpenCheck className="h-3.5 w-3.5 text-accent" />}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    if (!activeUnit) return;
+                                    const failedWords = (result?.words ?? [])
+                                        .filter((w) => w.status === 'missing' || w.status === 'sub')
+                                        .map((w) => w.expected);
+                                    void useChatPanel.getState().openFromPracticeIssue(activeUnit.anchor, failedWords);
+                                }}
+                            />
+                        </Tooltip>
                     )}
 
                     <Tooltip

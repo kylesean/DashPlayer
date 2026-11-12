@@ -21,6 +21,7 @@ import { cn } from '@/fronted/lib/utils';
  */
 export interface PlaybackStageProps {
     className?: string;
+    compact?: boolean;
     onReady?: () => void;
     onEnded?: () => void;
 }
@@ -28,7 +29,7 @@ export interface PlaybackStageProps {
 /**
  * 承载视频播放区域、硬字幕遮罩与全屏字幕覆盖层的播放舞台组件。
  */
-export default function PlaybackStage({ className = '', onReady, onEnded }: PlaybackStageProps): ReactElement {
+export default function PlaybackStage({ className = '', compact = false, onReady, onEnded }: PlaybackStageProps): ReactElement {
     const { t } = useTranslation('practice');
     const hasSource = usePlayerState((state) => !!state.src);
 
@@ -38,9 +39,10 @@ export default function PlaybackStage({ className = '', onReady, onEnded }: Play
     const fullScreen = useLayout((s) => s.fullScreen);
     const podcastMode = useLayout((s) => s.podcastMode);
     const practiceVisible = usePracticePanel((s) => s.visible);
-    const showAudioPracticeStage = practiceVisible && (
+    const isAudioOnly = videoElement !== null && videoElement.readyState >= 1 && videoElement.videoWidth === 0;
+    const showAudioPracticeStage = (practiceVisible || compact) && (
         getBaseViewBeforeOverlay() === 'podcast'
-        || (videoElement !== null && videoElement.readyState >= 1 && videoElement.videoWidth === 0)
+        || isAudioOnly
     );
     const stageRef = useRef<HTMLDivElement>(null);
 
@@ -99,13 +101,13 @@ export default function PlaybackStage({ className = '', onReady, onEnded }: Play
                     </div>
                 )}
 
-                {(!fullScreen || practiceVisible) && !podcastMode && (
+                {!compact && (!fullScreen || practiceVisible) && !podcastMode && (
                     <PlaybackControlBar
                         onTimeChange={(time) => playerActions.seekTo({ time })}
                         className="absolute left-0"
                     />
                 )}
-                {fullScreen && <FullscreenSubtitleOverlay />}
+                {!compact && fullScreen && <FullscreenSubtitleOverlay />}
             </div>
         </div>
     );

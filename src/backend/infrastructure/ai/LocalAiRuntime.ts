@@ -4,7 +4,7 @@ import path from 'node:path';
 import { z } from 'zod';
 import TYPES from '@/backend/ioc/types';
 import type LocalAiService from '@/backend/services/LocalAiService';
-import type { LocalGenerateTextOptions } from '@/backend/services/LocalAiService';
+import type { LocalChatMessage, LocalGenerateTextOptions } from '@/backend/services/LocalAiService';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { concurrency } from '@/backend/utils/concurrency';
@@ -361,6 +361,71 @@ export class LocalAiRuntime implements LocalAiService {
     }
 
     /**
+     * 流式生成文本或受 Schema 约束的 JSON：消费 llama-server SSE delta 并实时回调，
+     * 返回拼接后的完整输出，保留并发 slot 隔离保护。
+     */
+    public async streamText(
+        input: string | LocalChatMessage[],
+        modelId: string,
+        callbacks: { onDelta: (delta: string) => void },
+        signal?: AbortSignal,
+        options?: LocalGenerateTextOptions,
+    ): Promise<string> {
+        const model = await this.resolveModelDefinition(modelId);
+        if (this.installer.downloadingModelId === modelId) throw new Error(`本地模型「${model.name}」正在安装`);
+        const combined = AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(300_000), ...(signal ? [signal] : [])]);
+        const messages = this.normalizeLocalMessages(input);
+        const schema = options?.schema ?? null;
+
+        return this.runSerial(async () => {
+            const endpoint = await this.serverProcess.start(model, combined);
+            const startedAt = Date.now();
+            let accumulated = '';
+            let finishReason: string | null = null;
+            let usage: { prompt_tokens: number; completion_tokens: number } | undefined;
+
+            try {
+                const body = this.buildChatBody(model.id, messages, schema, options, true);
+                for await (const event of this.serverProcess.postChatStream(endpoint, body, combined)) {
+                    if (event.type === 'delta') {
+                        accumulated += event.text;
+                        callbacks.onDelta(event.text);
+                    } else {
+                        finishReason = event.finishReason;
+                        usage = event.usage;
+                    }
+                }
+                if (finishReason && finishReason !== 'stop') {
+                    throw new LocalAiSemanticError(finishReason === 'length'
+                        ? `本地模型输出超过单次 ${MAX_COMPLETION_TOKENS} token 上限被截断（多为模型输出循环），请重试`
+                        : `本地模型输出未正常结束（finish_reason=${finishReason}）`);
+                }
+                const durationMs = Date.now() - startedAt;
+                this.logger.info('local stream completed', {
+                    model: model.id,
+                    durationMs,
+                    responseLength: accumulated.length,
+                    usage: usage ? {
+                        prompt: usage.prompt_tokens,
+                        completion: usage.completion_tokens,
+                        perSecond: Number((usage.completion_tokens / Math.max(durationMs / 1000, 0.001)).toFixed(1)),
+                    } : null,
+                });
+                return accumulated;
+            } catch (error) {
+                const callerAborted = Boolean(signal?.aborted) && !this.lifetime.signal.aborted;
+                const isSemanticError = error instanceof LocalAiSemanticError;
+                this.logger.error('local stream failed', { error, model: model.id, durationMs: Date.now() - startedAt });
+                const hasSiblingRequests = this.busy > 1;
+                if (!callerAborted && !isSemanticError && !hasSiblingRequests) {
+                    await this.stop();
+                }
+                throw error;
+            }
+        }, combined);
+    }
+
+    /**
      * 串行生成一轮完整回复；schema 与 grammar 二选一，都为 null 时不约束输出格式。
      * finish_reason 非 stop（截断/异常终止）时显式报错。
      */
@@ -551,13 +616,57 @@ export class LocalAiRuntime implements LocalAiService {
         }
     }
 
+    /**
+     * 将输入归一化为标准且角色严格交替的 OpenAI messages 数组。
+     *
+     * Gemma / Qwen 等 Jinja 模板要求可选的 system 后，user / assistant 必须严格交替且首轮为 user；
+     * 若历史裁剪后出现连续同角色，自动合并文本，避免模板渲染直接 HTTP 500。
+     */
+    private normalizeLocalMessages(input: string | LocalChatMessage[]): LocalChatMessage[] {
+        if (typeof input === 'string') {
+            return [{ role: 'user', content: input }];
+        }
+        const systemParts: string[] = [];
+        const turns: LocalChatMessage[] = [];
+        for (const msg of input) {
+            const text = msg.content.trim();
+            if (!text) continue;
+            if (msg.role === 'system') {
+                systemParts.push(text);
+                continue;
+            }
+            const last = turns[turns.length - 1];
+            if (last && last.role === msg.role) {
+                last.content = `${last.content}\n\n${text}`;
+            } else {
+                turns.push({ role: msg.role, content: text });
+            }
+        }
+        if (turns.length === 0) {
+            turns.push({ role: 'user', content: '请开始。' });
+        } else if (turns[0].role !== 'user') {
+            turns.unshift({ role: 'user', content: '（继续上面讨论）' });
+        }
+        return systemParts.length > 0
+            ? [{ role: 'system', content: systemParts.join('\n\n') }, ...turns]
+            : turns;
+    }
+
     /** 组装与推理参数固定一致的 chat 请求体；本地链路所有生成共用同一采样参数，温度可被 options.temperature 覆盖。schema 与 grammar 互斥使用：schema 走 json_object，grammar 走 llama.cpp 顶层 GBNF 约束。 */
-    private buildChatBody(modelId: string, prompt: string, schema: Record<string, unknown> | null, options?: LocalGenerateTextOptions): Record<string, unknown> {
+    private buildChatBody(
+        modelId: string,
+        input: string | LocalChatMessage[],
+        schema: Record<string, unknown> | null,
+        options?: LocalGenerateTextOptions,
+        stream = false,
+    ): Record<string, unknown> {
+        const messages = this.normalizeLocalMessages(input);
         return {
             model: modelId,
-            messages: [{ role: 'user', content: prompt }],
-            stream: false, temperature: options?.temperature ?? DEFAULT_TEMPERATURE, top_p: 0.95, top_k: 20,
+            messages,
+            stream, temperature: options?.temperature ?? DEFAULT_TEMPERATURE, top_p: 0.95, top_k: 20,
             max_tokens: MAX_COMPLETION_TOKENS,
+            ...(stream ? { stream_options: { include_usage: true } } : {}),
             ...(schema ? { response_format: { type: 'json_object', schema } } : {}),
             ...(options?.grammar ? { grammar: options.grammar } : {}),
             chat_template_kwargs: { enable_thinking: false },

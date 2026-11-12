@@ -31,6 +31,8 @@ export const runtimeSettingKeys = [
     'providers.subtitleTranslation',
     'providers.dictionary',
     'features.openai.subtitleTranslationMode',
+    'features.openai.autoGenerateStudyCard',
+    'learning.activePromptPresetId',
     'appearance.theme',
     'appearance.themeFamily',
     'appearance.fontSize',
@@ -60,7 +62,9 @@ export type RuntimeWritableSettingKey =
     | 'player.vocabularyGuidance'
     | 'player.adaptiveChinese'
     | 'player.sceneCues'
-    | 'userSelect.playbackRateStack';
+    | 'userSelect.playbackRateStack'
+    | 'features.openai.autoGenerateStudyCard'
+    | 'learning.activePromptPresetId';
 
 /**
  * 渲染进程启动时使用的完整非敏感设置快照。

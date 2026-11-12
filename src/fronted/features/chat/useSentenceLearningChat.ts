@@ -5,42 +5,12 @@ import useChatPanel from '@/fronted/features/chat/chatStore';
 import { ElectronChatTransport } from '@/fronted/features/chat/chatTransport';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import type { LearningMessageBlock, LearningMessageView } from '@/fronted/features/chat/types';
-import type { GetSubtitleContextResult, SearchSubtitlesResult } from '@/common/types/chat';
+import type {
+    GetSubtitleContextResult,
+    PersistedChatMessage,
+    SearchSubtitlesResult,
+} from '@/common/types/chat';
 
-/** 获取消息中的正文长度，用于记录前端首屏响应进度。 */
-const getMessageTextLength = (message: UIMessage): number => message.parts
-    .filter((part) => part.type === 'text')
-    .reduce((length, part) => length + part.text.length, 0);
-
-/** 获取消息中的推理长度，用于区分模型思考和正文生成阶段。 */
-const getMessageReasoningLength = (message: UIMessage): number => message.parts
-    .filter((part) => part.type === 'reasoning')
-    .reduce((length, part) => length + part.text.length, 0);
-
-/** 获取当前消息的有序片段摘要，用于定位推理、工具和正文之间的空档。 */
-const getMessagePartSummary = (message: UIMessage): string[] => message.parts.map((part) => {
-    if (part.type === 'reasoning') {
-        return `reasoning:${part.state}:${part.text.length}`;
-    }
-    if (part.type === 'text') {
-        return `text:${part.state}:${part.text.length}`;
-    }
-    if (isToolUIPart(part)) {
-        return `tool:${getToolName(part)}:${part.state}`;
-    }
-    return part.type;
-});
-
-/**
- * 把 AI SDK 消息片段转换成页面可直接渲染的块序列。
- *
- * 说明：
- * - 思考片段与其它元数据被丢弃：学习者要的是结论和依据，不是模型的内部过程；
- * - 工具调用只保留「检索了什么、命中几行、读了哪段上下文、是否失败」四种信息。
- *
- * @param message 会话中的一条消息。
- * @returns 与片段顺序一致的展示块。
- */
 const toMessageBlocks = (message: UIMessage): LearningMessageBlock[] => {
     const blocks: LearningMessageBlock[] = [];
     message.parts.forEach((part) => {
@@ -87,25 +57,77 @@ const toMessageBlocks = (message: UIMessage): LearningMessageBlock[] => {
     return blocks;
 };
 
-/** 把 AI SDK 消息转换成页面视图模型。 */
 const toMessageView = (message: UIMessage): LearningMessageView => ({
     id: message.id,
     role: message.role === 'user' ? 'user' : 'assistant',
     blocks: toMessageBlocks(message),
 });
 
+const persistedToUiMessages = (persisted: PersistedChatMessage[]): UIMessage[] => {
+    return persisted.map((item) => {
+        const parts: UIMessage['parts'] = [];
+        item.blocks.forEach((block, idx) => {
+            if (block.kind === 'text') {
+                parts.push({ type: 'text', text: block.text, state: 'done' });
+            } else if (block.kind === 'search') {
+                parts.push({
+                    type: 'tool-search_subtitles',
+                    toolCallId: `${item.id}-search-${idx}`,
+                    state: 'output-available',
+                    input: { queries: block.queries },
+                    output: {
+                        matches: block.hits.map((hit) => ({
+                            ...hit,
+                            start: 0,
+                            end: 0,
+                            matchedQueries: block.queries,
+                        })),
+                        total: block.total,
+                        skip: 0,
+                        limit: block.hits.length,
+                    },
+                } as unknown as UIMessage['parts'][number]);
+            } else if (block.kind === 'context') {
+                parts.push({
+                    type: 'tool-get_subtitle_context',
+                    toolCallId: `${item.id}-context-${idx}`,
+                    state: 'output-available',
+                    input: {},
+                    output: {
+                        anchorIndex: block.range?.start ?? 0,
+                        startIndex: block.range?.start ?? 0,
+                        endIndex: block.range?.end ?? 0,
+                        items: [],
+                    },
+                } as unknown as UIMessage['parts'][number]);
+            }
+        });
+        if (parts.length === 0 && item.plainText) {
+            parts.push({ type: 'text', text: item.plainText, state: 'done' });
+        }
+        return {
+            id: item.id,
+            role: item.role,
+            parts,
+        };
+    });
+};
+
 /**
- * 管理整句学习的对话会话。
- *
- * 说明：
- * - 会话主题与周边字幕由创建会话时的后端快照冻结，对话本身只承载用户追问，
- *   打开学习页时不再额外发起一次模型调用；
- * - AI SDK 的消息协议在这里一次性收敛成视图模型，页面组件不感知工具调用细节。
- *
- * @returns 对话消息视图、输入操作与流状态。
+ * 管理整句学习工作台的多轮对话流、SQLite 历史恢复、焦点词挂载与停止/报错。
  */
 export const useSentenceLearningChat = () => {
-    const { chatSessionId, queuedMessage, consumeQueuedMessage, input, setInput, conversationEpoch } = useChatPanel();
+    const {
+        chatSessionId,
+        restoredMessages,
+        queuedMessage,
+        consumeQueuedMessage,
+        input,
+        setInput,
+        attachedFocusExpr,
+        setAttachedFocusExpr,
+        conversationEpoch,
+    } = useChatPanel();
     const logger = useMemo(() => getRendererLogger('SentenceLearningChat'), []);
     const transport = useMemo(() => new ElectronChatTransport(), []);
     const chat = useChat({
@@ -115,31 +137,33 @@ export const useSentenceLearningChat = () => {
     });
     const { messages, sendMessage, setMessages, status, stop, error: chatError } = chat;
     const isBusy = status === 'submitted' || status === 'streaming';
-    // 已经清到哪一代对话：只认比它更新的那一代，避免重复清空与清掉新问题
     const appliedEpochRef = useRef(conversationEpoch);
+    const hydratedSessionRef = useRef<string>('');
 
+    // 当切换到带有 SQLite 历史的句子会话时，恢复历史消息卡片到 useChat
     useEffect(() => {
-        if (!chatSessionId) return;
-        const latest = messages.at(-1);
-        logger.debug('chat view state changed', {
-            sessionId: chatSessionId,
-            status,
-            messageCount: messages.length,
-            latestRole: latest?.role ?? null,
-            latestPartCount: latest?.parts.length ?? 0,
-            latestParts: latest ? getMessagePartSummary(latest) : [],
-            latestTextLength: latest ? getMessageTextLength(latest) : 0,
-            latestReasoningLength: latest ? getMessageReasoningLength(latest) : 0,
-        });
-    }, [chatSessionId, logger, messages, status]);
+        if (!chatSessionId) {
+            hydratedSessionRef.current = '';
+            return;
+        }
+        if (hydratedSessionRef.current === chatSessionId) {
+            return;
+        }
+        hydratedSessionRef.current = chatSessionId;
+        if (restoredMessages.length > 0 && messages.length === 0) {
+            setMessages(persistedToUiMessages(restoredMessages));
+            logger.debug('restored persisted study chat messages', {
+                sessionId: chatSessionId,
+                count: restoredMessages.length,
+            });
+        }
+    }, [chatSessionId, logger, messages.length, restoredMessages, setMessages]);
 
+    // 显式点击清空对话按钮（conversationEpoch 递增）时清空当前列表
     useEffect(() => {
-        // 同一句重新进入时不再重建会话（重建会掐断后台还在跑的解析），
-        // 改由这里把屏幕上的对话清空，回到初始的空白页；会话与后台生成都留着。
         if (appliedEpochRef.current === conversationEpoch) {
             return;
         }
-        // 正在流式回答时先不清：等这次回答收尾再清，避免把流到一半的消息抹掉
         if (isBusy) {
             return;
         }
@@ -148,7 +172,6 @@ export const useSentenceLearningChat = () => {
     }, [conversationEpoch, isBusy, setMessages]);
 
     useEffect(() => {
-        // 会话尚未建立时先留在队列里：等会话就绪再发，别丢问题也别发到空会话上
         if (!queuedMessage || !chatSessionId || status !== 'ready') {
             return;
         }
@@ -159,21 +182,20 @@ export const useSentenceLearningChat = () => {
 
     const messageViews = useMemo(() => messages.map(toMessageView), [messages]);
 
-    /**
-     * 提交输入框内容；生成期间拒绝重复提交，并在发起请求前清空受控输入值。
-     *
-     * 说明：会话尚未建立时也拒绝：对话要落到会话冻结的主题上，没有会话就没有可发的地方
-     * （此时页面已把发送按钮与快捷提问置灰，这里只是兜住输入框回车这条路径）。
-     *
-     * @param text 用户输入的追问内容。
-     */
     const handleSubmit = async (text: string) => {
         const trimmedInput = text.trim();
         if (!trimmedInput || isBusy || !chatSessionId) {
             return;
         }
+        const focusExpr = attachedFocusExpr?.trim();
+        const outboundText = focusExpr
+            ? `[聚焦表达: ${focusExpr}]\n${trimmedInput}`
+            : trimmedInput;
         setInput('');
-        await sendMessage({ text: trimmedInput });
+        if (focusExpr) {
+            setAttachedFocusExpr(null);
+        }
+        await sendMessage({ text: outboundText });
     };
 
     return {
@@ -182,12 +204,12 @@ export const useSentenceLearningChat = () => {
         stop,
         input,
         setInput,
+        attachedFocusExpr,
+        setAttachedFocusExpr,
         handleSubmit,
         isBusy,
-        /** 流级错误(useChat error 状态):消息列表下方红条展示,不再无声吞掉 */
         chatErrorText: chatError ? (chatError.message || String(chatError)) : null,
     };
 };
 
-/** useSentenceLearningChat 对外暴露的会话控制器类型。 */
 export type SentenceLearningChat = ReturnType<typeof useSentenceLearningChat>;

@@ -1,4 +1,76 @@
 import type { UIMessageChunk } from 'ai';
+import type { SentenceStudyCard } from '@/common/types/aiRes/AiUnifiedAnalysisRes';
+import type { SentenceMemoryHints } from '@/common/types/vo/SentenceVocabularyVO';
+import type { LearningMessageBlock } from '@/fronted/features/chat/types';
+
+/** 教学预设角色定位。 */
+export type LearningPromptRoleMode = 'study' | 'tutor' | 'listening' | 'custom';
+
+/** 整句学习教学人设 / Prompt 预设。 */
+export type LearningPromptPresetVO = {
+    id: string;
+    name: string;
+    description: string;
+    roleMode: LearningPromptRoleMode;
+    systemPrompt: string;
+    isBuiltin: boolean;
+    isDefault: boolean;
+    updatedAt: string;
+};
+
+/** 保存或新增教学预设参数。 */
+export type LearningPromptPresetSaveParams = {
+    id: string;
+    name: string;
+    description?: string;
+    roleMode?: LearningPromptRoleMode;
+    systemPrompt: string;
+    setAsActive?: boolean;
+};
+
+/** 重置内置预设参数。 */
+export type LearningPromptPresetResetParams = {
+    id: string;
+};
+
+/** 持久化在 SQLite 中的单条对话消息（脱去传输细节，可直接还原视图）。 */
+export type PersistedChatMessage = {
+    id: string;
+    role: 'user' | 'assistant';
+    blocks: LearningMessageBlock[];
+    plainText: string;
+};
+
+/** 某一句的精读学习记录（首卡缓存 + 用户笔记 + 多轮对话历史）。 */
+export type SentenceStudyRecordVO = {
+    sentenceKey: string;
+    videoId: string;
+    fileHash: string;
+    sentenceIndex: number;
+    originalText: string;
+    studyCard: SentenceStudyCard | null;
+    noteSummary: string;
+    messages: PersistedChatMessage[];
+    presetId: string | null;
+    updatedAt: string;
+};
+
+export type SentenceStudyNoteGetParams = {
+    fileHash: string;
+    sentenceIndex: number;
+};
+
+export type SentenceStudyNoteSaveParams = {
+    sentenceKey: string;
+    videoId: string;
+    fileHash: string;
+    sentenceIndex: number;
+    originalText: string;
+    studyCard?: SentenceStudyCard | null;
+    noteSummary?: string;
+    messages?: PersistedChatMessage[];
+    presetId?: string | null;
+};
 
 /**
  * 创建整句学习会话所需的稳定上下文快照。
@@ -14,7 +86,38 @@ export type ChatSessionCreateParams = {
     subtitleFileHash: string;
     /** 当前学习句在字幕缓存中的索引。 */
     anchorSentenceIndex: number;
+    /** 句级缓存键（fileHash + sentenceIndex），用于首卡与对话自动落库。 */
+    sentenceKey?: string;
+    /** 当前使用的教学预设 ID。 */
+    presetId?: string;
+    /** 会话级临时提示词覆盖。 */
+    customPromptOverride?: string;
+    /** 结合个人词库记忆筛选的词汇提示。 */
+    memoryHints?: SentenceMemoryHints;
+    /** 从 SQLite 恢复的历史对话轮次，让多轮继续对话衔接无感。 */
+    restoredMessages?: PersistedChatMessage[];
 };
+
+/** 动态切换会话教学人设的参数。 */
+export type ChatSessionUpdatePresetParams = {
+    sessionId: string;
+    presetId?: string;
+    customPromptOverride?: string;
+};
+
+/** 语音听写转写参数（复用本地离线 ASR）。 */
+export type ChatTranscribeAudioParams = {
+    audio: Uint8Array;
+    language?: string;
+};
+
+export type ChatTranscribeAudioResult = {
+    text: string;
+};
+
+/** 构造整句学习笔记与首卡缓存的稳定句级主键。 */
+export const buildSentenceStudyKey = (fileHash: string, sentenceIndex: number): string =>
+    `${fileHash}:${sentenceIndex}`;
 
 /**
  * 后端创建的整句学习会话标识。

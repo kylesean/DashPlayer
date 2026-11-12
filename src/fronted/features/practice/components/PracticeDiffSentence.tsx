@@ -137,7 +137,7 @@ export default function PracticeDiffSentence({ unit, result, className }: Practi
                                 {token.text}
                             </Word>
                             {status === 'sub' && alignment?.heardText && (
-                                <span className="text-xs font-normal text-warning-text/80 line-through">
+                                <span className="text-metadata font-normal text-warning-text/80 line-through">
                                     {alignment.heardText}
                                 </span>
                             )}
@@ -145,7 +145,7 @@ export default function PracticeDiffSentence({ unit, result, className }: Practi
                     );
                 })}
                 {extraWords.length > 0 && (
-                    <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-muted/70 px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-md bg-muted/70 px-1.5 py-0.5 text-metadata font-normal text-muted-foreground">
                         {t('result.extraPrefix', { defaultValue: '+ 多出:' })}{' '}
                         {extraWords.map((w) => w.heard).filter(Boolean).join(' ')}
                     </span>

@@ -21,8 +21,15 @@ import type {
     ChatSessionCloseParams,
     ChatSessionCreateParams,
     ChatSessionStopParams,
+    ChatSessionUpdatePresetParams,
+    ChatTranscribeAudioParams,
     CompleteSentenceParams,
+    LearningPromptPresetResetParams,
+    LearningPromptPresetSaveParams,
+    SentenceStudyNoteGetParams,
+    SentenceStudyNoteSaveParams,
 } from '@/common/types/chat';
+import { SentenceStudyCardSchema } from '@/common/types/aiRes/AiUnifiedAnalysisRes';
 import { ClipSrtLineSchema } from '@/common/types/clipMeta/ClipMetaDataV1';
 import type { WindowState } from '@/common/types/Types';
 import type { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
@@ -67,6 +74,8 @@ export const runtimeSettingSaveSchema: z.ZodType<RuntimeSettingSaveRequest> = z.
         'player.adaptiveChinese',
         'player.sceneCues',
         'userSelect.playbackRateStack',
+        'features.openai.autoGenerateStudyCard',
+        'learning.activePromptPresetId',
     ]),
     value: z.string(),
 });
@@ -183,6 +192,65 @@ export const chatSessionCreateSchema: z.ZodType<ChatSessionCreateParams> = z.obj
     paragraphLines: z.array(z.string()),
     subtitleFileHash: nonEmptyStringSchema,
     anchorSentenceIndex: z.number().int().min(0),
+    sentenceKey: z.string().optional(),
+    presetId: z.string().optional(),
+    customPromptOverride: z.string().optional(),
+    memoryHints: z.object({
+        focusWords: z.array(z.string()),
+        masteredWords: z.array(z.string()),
+    }).optional(),
+    restoredMessages: z.array(z.object({
+        id: nonEmptyStringSchema,
+        role: z.enum(['user', 'assistant']),
+        blocks: z.array(z.any()),
+        plainText: z.string(),
+    })).optional(),
+}) as z.ZodType<ChatSessionCreateParams>;
+
+export const chatSessionUpdatePresetSchema: z.ZodType<ChatSessionUpdatePresetParams> = z.object({
+    sessionId: nonEmptyStringSchema,
+    presetId: z.string().optional(),
+    customPromptOverride: z.string().optional(),
+});
+
+export const sentenceStudyNoteGetSchema: z.ZodType<SentenceStudyNoteGetParams> = z.object({
+    fileHash: nonEmptyStringSchema,
+    sentenceIndex: z.number().int().min(0),
+});
+
+export const sentenceStudyNoteSaveSchema: z.ZodType<SentenceStudyNoteSaveParams> = z.object({
+    sentenceKey: nonEmptyStringSchema,
+    videoId: nonEmptyStringSchema,
+    fileHash: nonEmptyStringSchema,
+    sentenceIndex: z.number().int().min(0),
+    originalText: z.string(),
+    studyCard: SentenceStudyCardSchema.nullable().optional(),
+    noteSummary: z.string().optional(),
+    messages: z.array(z.object({
+        id: nonEmptyStringSchema,
+        role: z.enum(['user', 'assistant']),
+        blocks: z.array(z.any()),
+        plainText: z.string(),
+    })).optional(),
+    presetId: z.string().nullable().optional(),
+}) as z.ZodType<SentenceStudyNoteSaveParams>;
+
+export const learningPromptPresetSaveSchema: z.ZodType<LearningPromptPresetSaveParams> = z.object({
+    id: nonEmptyStringSchema,
+    name: nonEmptyStringSchema,
+    description: z.string().optional(),
+    roleMode: z.enum(['study', 'tutor', 'listening', 'custom']).optional(),
+    systemPrompt: nonEmptyStringSchema,
+    setAsActive: z.boolean().optional(),
+});
+
+export const learningPromptPresetResetSchema: z.ZodType<LearningPromptPresetResetParams> = z.object({
+    id: nonEmptyStringSchema,
+});
+
+export const chatTranscribeAudioSchema: z.ZodType<ChatTranscribeAudioParams> = z.object({
+    audio: z.instanceof(Uint8Array),
+    language: z.string().optional(),
 });
 
 /** 整句学习发送消息请求校验架构。 */

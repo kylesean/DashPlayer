@@ -12,7 +12,11 @@ export const CONTENT_STOP_WORDS = new Set([
     'who', 'whom', 'would', 'could', 'should', 'will', 'can', 'may', 'might', 'must', 'just',
     'very', 'too', 'also', 'about', 'into', 'over', 'after', 'before', 'up', 'down', 'out',
     'off', 'again', 'all', 'any', 'some', 'more', 'most', 'other', 'such', 'only', 'own',
+    'only', 'own',
     'same', 'both', 'each', 'few', 'many', 'much', 'one', 'two', 'get', 'got', 'make', 'made',
+    'myself', 'yourself', 'himself', 'herself', 'itself', 'ourselves', 'yourselves', 'themselves',
+    'someone', 'somebody', 'something', 'anyone', 'anybody', 'anything',
+    'everyone', 'everybody', 'everything', 'nobody', 'nothing',
 ]);
 
 /**

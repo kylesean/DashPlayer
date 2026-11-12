@@ -3,14 +3,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
+import { useShallow } from 'zustand/react/shallow';
 import useChatPanel from '@/fronted/features/chat/chatStore';
 import { chatApi } from '@/fronted/features/chat/chatApi';
 import { useSentenceLearningChat } from '@/fronted/features/chat/useSentenceLearningChat';
-import LearningWorkspace, { type LearningSentence } from '@/fronted/features/chat/components/LearningWorkspace';
+import { useWhisperDictation } from '@/fronted/features/chat/useWhisperDictation';
+import StudyWorkbenchShell from '@/fronted/features/chat/components/StudyWorkbenchShell';
+import SentenceStudyCanvas, { type StudyContextNeighbor } from '@/fronted/features/chat/components/SentenceStudyCanvas';
+import StudyCopilotPane from '@/fronted/features/chat/components/StudyCopilotPane';
+import PromptPresetDialog from '@/fronted/features/chat/components/PromptPresetDialog';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
+import { setPlayerViewMode } from '@/fronted/features/player/lib/player-view-controller';
+import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
-import { useShallow } from 'zustand/react/shallow';
+import useSetting from '@/fronted/features/settings/settingsStore';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { getTtsUrl, playAudioUrl } from '@/fronted/infrastructure/audio/AudioPlayer';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
@@ -20,37 +27,59 @@ import type { SentenceVocabularyVO, SentenceWordEntry } from '@/common/types/vo/
 const logger = getRendererLogger('LearningPage');
 
 /**
- * 整句学习页容器。
- *
- * 说明：
- * - 页面在播放器内部替换视频与主字幕区域，进入时视频已暂停，页面不承载播放控制；
- * - 进入页面不等后端：当前字幕行先乐观摆上来，云端补全出更完整的句子后再替换，
- *   生词与悬停取词走本地词典，页面一出现就能看；
- * - 学习句取自创建会话时冻结的主题，中文译文随整句补全一起取回，未补全时退回字幕自带中文；
- * - 结构化解析（意群、词组）按需生成：点左栏入口才发起唯一一次模型调用；
- * - 语法不单独出结构化结果，想讲语法点输入框上方的「本句语法」快捷提问，由对话流回答。
+ * AI-Native 全窗整句精读工作台容器。
  */
 export default function LearningPage() {
     const { t } = useTranslation('common');
     const topicText = useChatPanel((state) => state.topicText);
     const topicTranslation = useChatPanel((state) => state.topicTranslation);
     const anchorIndex = useChatPanel((state) => state.anchorIndex);
+    const anchorFileHash = useChatPanel((state) => state.anchorFileHash);
     const chatSessionId = useChatPanel((state) => state.chatSessionId);
+    const learningVisible = useChatPanel((state) => state.learningVisible);
     const sentenceResolveError = useChatPanel((state) => state.sentenceResolveError);
     const cloudAvailable = useChatPanel((state) => state.cloudAvailable);
     const analysis = useChatPanel((state) => state.analysis);
     const analysisStatus = useChatPanel((state) => state.analysisStatus);
     const analysisError = useChatPanel((state) => state.analysisError);
+    const noteSummary = useChatPanel((state) => state.noteSummary);
+    const noteSaving = useChatPanel((state) => state.noteSaving);
+    const presets = useChatPanel((state) => state.presets);
+    const activePresetId = useChatPanel((state) => state.activePresetId);
+    const previewingEvidenceIndex = useChatPanel((state) => state.previewingEvidenceIndex);
+    const miniVideoCollapsed = useChatPanel((state) => state.miniVideoCollapsed);
+
+    const autoGenerateRaw = useSetting((s) => s.values.get('features.openai.autoGenerateStudyCard'));
+    const autoGenerateStudyCard = autoGenerateRaw !== 'false';
+    const setSetting = useSetting((s) => s.setSetting);
+
+    const [presetDialogOpen, setPresetDialogOpen] = useState(false);
+
     const chat = useSentenceLearningChat();
-    // 后端会话建立前，对话与解析都没有可用的主题快照，入口先按住
     const sessionReady = chatSessionId !== '';
 
-    // 整句补全失败时显式提示；学习页仍用当前字幕行继续
+    const dictation = useWhisperDictation({
+        onTranscriptReady: useCallback((transcript: string) => {
+            const current = useChatPanel.getState().input.trim();
+            useChatPanel.getState().setInput(current ? `${current} ${transcript}` : transcript);
+        }, []),
+        onError: useCallback((msg: string) => {
+            toast.error(msg);
+        }, []),
+    });
+
+    useEffect(() => {
+        if (!learningVisible) {
+            playerActions.clearPracticeClip?.();
+        }
+    }, [learningVisible]);
+
     useEffect(() => {
         if (sentenceResolveError) {
             toast.error(t('learning.sentenceResolveFailed'));
         }
     }, [sentenceResolveError, t]);
+
     const {
         isVocabularyWord,
         getBaseWord,
@@ -67,7 +96,7 @@ export default function LearningPage() {
     );
     const sentences = usePlayerState((state) => state.sentences);
     const trimmedTopic = topicText.trim();
-    // 按句子文本关联本地选词结果，句子清空或切换时无需在 effect 中同步清空旧状态
+
     const [vocabularyState, setVocabularyState] = useState<{
         text: string;
         data: SentenceVocabularyVO | null;
@@ -76,29 +105,39 @@ export default function LearningPage() {
         ? vocabularyState.data
         : null;
 
-    // 主题所在字幕行：句子信息与位置标签都从它取值，句子列表不变时不必重算
-    const topicLine = useMemo(
-        () => (anchorIndex === null ? undefined : sentences.find((sentence) => sentence.index === anchorIndex)),
-        [anchorIndex, sentences]
-    );
+    const anchorPosition = useMemo(() => {
+        if (anchorIndex === null) return -1;
+        return sentences.findIndex(
+            (s) => s.index === anchorIndex && (!anchorFileHash || s.fileHash === anchorFileHash),
+        );
+    }, [anchorFileHash, anchorIndex, sentences]);
 
-    const sentence: LearningSentence = useMemo(() => ({
+    const topicLine = anchorPosition >= 0 ? sentences[anchorPosition] : undefined;
+
+    const neighbors = useMemo<StudyContextNeighbor[]>(() => {
+        if (anchorPosition < 0) return [];
+        const start = Math.max(0, anchorPosition - 2);
+        const end = Math.min(sentences.length, anchorPosition + 3);
+        return sentences.slice(start, end).map((s, idx) => ({
+            index: s.index,
+            text: s.text,
+            isCurrent: start + idx === anchorPosition,
+        }));
+    }, [anchorPosition, sentences]);
+
+    const sentence = useMemo(() => ({
         en: topicText,
-        // 整句补全带回来的译文优先；未启用云端整句学习时退回字幕自带中文
         zh: topicTranslation || topicLine?.textZH || '',
         position: anchorIndex === null
             ? ''
             : [
                 topicLine ? TimeUtil.secondToTimeStrCompact(topicLine.start) : '',
-                t('learning.position', { index: anchorIndex, total: sentences.length }),
+                t('learning.position', { index: anchorIndex + 1, total: sentences.length }),
             ].filter(Boolean).join(' · '),
     }), [anchorIndex, sentences.length, t, topicLine, topicText, topicTranslation]);
 
-    // 句子一变就重新选词：本地词典、同步返回，不涉及模型与网络
     useEffect(() => {
-        if (!trimmedTopic) {
-            return;
-        }
+        if (!trimmedTopic) return;
         let cancelled = false;
         chatApi.pickSentenceVocabulary(trimmedTopic)
             .then((result) => {
@@ -107,7 +146,6 @@ export default function LearningPage() {
                 }
             })
             .catch((error) => {
-                // 本地词典缺失属打包问题，必须显式暴露，不能静默给出空生词
                 logger.error('failed to pick sentence vocabulary', {
                     error: error instanceof Error ? error.message : error,
                 });
@@ -125,13 +163,11 @@ export default function LearningPage() {
 
     const resolveWordDetail = useCallback(
         (word: string): SentenceWordEntry | null => sentenceVocabulary?.details[word] ?? null,
-        [sentenceVocabulary]
+        [sentenceVocabulary],
     );
 
     const speak = useCallback((text: string) => {
-        if (!text.trim()) {
-            return;
-        }
+        if (!text.trim()) return;
         getTtsUrl(text)
             .then((url) => playAudioUrl(url))
             .catch((error) => {
@@ -139,12 +175,55 @@ export default function LearningPage() {
             });
     }, []);
 
-    /**
-     * 切换生词收藏：未收藏时加入词汇工坊，已收藏时从词表移除。
-     *
-     * 说明：收藏时把本地词典的释义一并入库，避免后端再调用一次词典；
-     * 取消收藏按基础形态删除，因为词表命中可能来自变体形态。
-     */
+    const playClipForSentence = useCallback((target: typeof topicLine, rate?: number) => {
+        if (!target) {
+            speak(topicText);
+            return;
+        }
+        const range = {
+            start: Math.max(0, target.start),
+            end: Math.max(target.start + 0.4, target.end),
+        };
+        if (playerActions.playPracticeClip) {
+            playerActions.playPracticeClip(range, target, rate !== undefined ? { rate } : undefined);
+            return;
+        }
+        playerActions.gotoSentence(target);
+        playerActions.play();
+    }, [speak, topicText]);
+
+    const handlePlayOriginal = useCallback((rate?: number) => {
+        useChatPanel.getState().setPreviewingEvidenceIndex(null);
+        playClipForSentence(topicLine, rate);
+    }, [playClipForSentence, topicLine]);
+
+    const handlePreviewEvidenceLine = useCallback((targetIndex: number) => {
+        const target = sentences.find((s) => s.index === targetIndex);
+        if (!target) {
+            toast.error(t('learning.evidenceNotFound', { defaultValue: '未找到对应字幕位置' }));
+            return;
+        }
+        useChatPanel.getState().setPreviewingEvidenceIndex(target.index);
+        const range = {
+            start: Math.max(0, target.start - 0.2),
+            end: Math.max(target.start + 3, target.end),
+        };
+        if (playerActions.playPracticeClip) {
+            playerActions.playPracticeClip(range, target);
+        } else {
+            playerActions.gotoSentence(target);
+            playerActions.play();
+        }
+    }, [sentences, t]);
+
+    const handleReturnToAnchorClip = useCallback(() => {
+        useChatPanel.getState().setPreviewingEvidenceIndex(null);
+        if (topicLine) {
+            playerActions.clearPracticeClip?.();
+            playerActions.gotoSentence(topicLine);
+        }
+    }, [topicLine]);
+
     const toggleFavorite = useCallback(async (word: string, meaning: string) => {
         const favorited = isVocabularyWord(word);
         try {
@@ -182,38 +261,118 @@ export default function LearningPage() {
         void useChatPanel.getState().startAnalysis();
     }, []);
 
+    const handleDeepDiveExpression = useCallback((expression: string) => {
+        const clean = expression.trim();
+        if (!clean) return;
+        const store = useChatPanel.getState();
+        store.setAttachedFocusExpr(clean);
+        if (!chat.isBusy && sessionReady && cloudAvailable) {
+            void chat.handleSubmit(`用“物理原型画面 → 抽象共识引申 → 这句里的语气”三步帮我讲透 "${clean}"。`);
+        }
+    }, [chat, cloudAvailable, sessionReady]);
+
+    const handleBackToPlayer = useCallback(() => {
+        playerActions.clearPracticeClip?.();
+        useChatPanel.getState().hideLearning();
+    }, []);
+
+    const handleJumpToPractice = useCallback(() => {
+        playerActions.clearPracticeClip?.();
+        if (topicLine) {
+            playerActions.gotoSentence(topicLine);
+        }
+        usePracticePanel.getState().setOpenedFromLearning(true);
+        setPlayerViewMode('practice');
+    }, [topicLine]);
+
+    const handleStepSentence = useCallback((delta: -1 | 1) => {
+        playerActions.clearPracticeClip?.();
+        void useChatPanel.getState().stepSentence(delta);
+    }, []);
+
+    const handleToggleAutoCard = useCallback((checked: boolean) => {
+        void setSetting('features.openai.autoGenerateStudyCard', checked ? 'true' : 'false');
+    }, [setSetting]);
+
+    const activePresetName = useMemo(() => {
+        const found = presets.find((p) => p.id === activePresetId);
+        return found?.name ?? t('learning.defaultPresetName', { defaultValue: '物理意象导师' });
+    }, [activePresetId, presets, t]);
+
     return (
         <div className="h-full w-full select-text">
-            <LearningWorkspace
-                sentence={sentence}
-                analysis={analysis}
-                analysisStatus={analysisStatus}
-                analysisError={analysisError}
-                onRequestAnalysis={requestAnalysis}
-                sessionReady={sessionReady}
+            <StudyWorkbenchShell
+                sentenceIndex={anchorPosition >= 0 ? anchorPosition : anchorIndex}
+                totalSentences={sentences.length}
+                canStepPrev={anchorPosition > 0}
+                canStepNext={anchorPosition >= 0 && anchorPosition < sentences.length - 1}
+                onStepSentence={handleStepSentence}
+                onBackToPlayer={handleBackToPlayer}
+                onJumpToPractice={handleJumpToPractice}
+                presets={presets}
+                activePresetId={activePresetId}
+                onSelectPreset={(presetId) => void useChatPanel.getState().switchSessionPreset(presetId, true)}
+                onOpenPresetDialog={() => setPresetDialogOpen(true)}
+                autoGenerateStudyCard={autoGenerateStudyCard}
+                onToggleAutoGenerateStudyCard={handleToggleAutoCard}
                 cloudAvailable={cloudAvailable}
-                vocabWords={vocabWords}
-                resolveWordDetail={resolveWordDetail}
-                messages={chat.messageViews}
-                isBusy={chat.isBusy}
-                chatErrorText={chat.chatErrorText}
-                input={chat.input}
-                onInputChange={chat.setInput}
-                onSubmit={(text) => {
-                    void chat.handleSubmit(text);
-                }}
-                onStop={chat.stop}
-                onSpeak={speak}
-                onJumpToLine={(index) => {
-                    const target = sentences.find((item) => item.index === index);
-                    if (target) {
-                        playerActions.gotoSentence(target);
-                    }
-                }}
-                isFavorite={isFavorite}
-                onToggleFavorite={(word, meaning) => {
-                    void toggleFavorite(word, meaning);
-                }}
+                leftCanvas={(
+                    <SentenceStudyCanvas
+                        sentence={sentence}
+                        neighbors={neighbors}
+                        analysis={analysis}
+                        analysisStatus={analysisStatus}
+                        analysisError={analysisError}
+                        sessionReady={sessionReady}
+                        cloudAvailable={cloudAvailable}
+                        vocabWords={vocabWords}
+                        resolveWordDetail={resolveWordDetail}
+                        isFavorite={isFavorite}
+                        onToggleFavorite={toggleFavorite}
+                        onSpeak={speak}
+                        onPlayOriginal={handlePlayOriginal}
+                        onRequestAnalysis={requestAnalysis}
+                        onDeepDiveExpression={handleDeepDiveExpression}
+                        miniVideoCollapsed={miniVideoCollapsed}
+                        onToggleMiniCollapsed={() => useChatPanel.getState().setMiniVideoCollapsed(!miniVideoCollapsed)}
+                        previewingEvidenceIndex={previewingEvidenceIndex}
+                        onReturnToAnchorClip={handleReturnToAnchorClip}
+                        noteSummary={noteSummary}
+                        noteSaving={noteSaving}
+                        onNoteChange={(val) => useChatPanel.getState().setNoteSummary(val)}
+                        onSaveNote={() => void useChatPanel.getState().saveNoteSummary()}
+                    />
+                )}
+                rightCopilot={(
+                    <StudyCopilotPane
+                        sentenceText={sentence.en}
+                        messages={chat.messageViews}
+                        isBusy={chat.isBusy}
+                        sessionReady={sessionReady}
+                        cloudAvailable={cloudAvailable}
+                        chatErrorText={chat.chatErrorText}
+                        input={chat.input}
+                        onInputChange={chat.setInput}
+                        onSubmit={chat.handleSubmit}
+                        onStop={chat.stop}
+                        onClearConversation={() => useChatPanel.getState().resetConversationView()}
+                        onPreviewSubtitleLine={handlePreviewEvidenceLine}
+                        onAppendToNote={(snippet) => void useChatPanel.getState().appendToNoteSummary(snippet)}
+                        attachedFocusExpr={chat.attachedFocusExpr}
+                        onClearFocusExpr={() => chat.setAttachedFocusExpr(null)}
+                        activePresetName={activePresetName}
+                        dictation={dictation}
+                    />
+                )}
+            />
+
+            <PromptPresetDialog
+                isOpen={presetDialogOpen}
+                onOpenChange={setPresetDialogOpen}
+                presets={presets}
+                activePresetId={activePresetId}
+                onPresetsUpdated={(next) => useChatPanel.setState({ presets: next })}
+                onSelectPreset={(presetId) => void useChatPanel.getState().switchSessionPreset(presetId, true)}
             />
         </div>
     );

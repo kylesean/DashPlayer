@@ -22,6 +22,15 @@ const LOCAL_PARALLEL_SLOTS = 4;
 /** llama-server 总上下文 = slot 数 × 每 slot 上下文（见 LOCAL_PARALLEL_SLOTS）。 */
 const LOCAL_TOTAL_CTX = 16384;
 
+/** llama-server `/v1/chat/completions` SSE 流式事件。 */
+export type LlamaStreamEvent =
+    | { type: 'delta'; text: string }
+    | {
+        type: 'done';
+        finishReason: string | null;
+        usage?: { prompt_tokens: number; completion_tokens: number };
+    };
+
 /**
  * 应用私有的 llama-server 子进程：按需拉起、共享给并发生成、统一终结。
  *
@@ -329,6 +338,125 @@ export class LlamaServerProcess {
             throw new Error(`本地推理请求失败（HTTP ${response.status}）${errBody ? `：${errBody.slice(0, 300)}` : ''}`);
         }
         return response.json();
+    }
+
+    /**
+     * 发送一次流式 `/v1/chat/completions` SSE 请求并逐片 yield delta。
+     *
+     * 上游连接异常或服务端返回非 2xx / 流内 error 字段时直接抛错；
+     * 取消或提前退出时在 finally 主动 cancel body 释放回环套接字。
+     */
+    public async *postChatStream(
+        endpoint: string,
+        body: Record<string, unknown>,
+        signal: AbortSignal,
+    ): AsyncIterable<LlamaStreamEvent> {
+        const response = await undiciFetch(`${endpoint}/v1/chat/completions`, {
+            method: 'POST',
+            dispatcher: this.directLoopbackAgent,
+            signal: AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
+            headers: {
+                Authorization: `Bearer ${this.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ...body, stream: true }),
+        });
+        if (!response.ok) {
+            const errBody = await response.text().catch(() => '');
+            throw new Error(`本地推理流式请求失败（HTTP ${response.status}）${errBody ? `：${errBody.slice(0, 300)}` : ''}`);
+        }
+        if (!response.body) {
+            throw new Error('本地推理流式响应缺少 body');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let finishReason: string | null = null;
+        let usage: { prompt_tokens: number; completion_tokens: number } | undefined;
+
+        const parseLine = (rawLine: string): LlamaStreamEvent | 'eof' | null => {
+            const line = rawLine.trim();
+            if (!line || line.startsWith(':')) return null;
+            if (!line.startsWith('data:')) return null;
+            const payloadText = line.slice(5).trim();
+            if (!payloadText) return null;
+            if (payloadText === '[DONE]') return 'eof';
+
+            let payload: {
+                error?: { message?: unknown };
+                choices?: Array<{
+                    delta?: { content?: unknown };
+                    finish_reason?: unknown;
+                }>;
+                usage?: { prompt_tokens?: unknown; completion_tokens?: unknown };
+            };
+            try {
+                payload = JSON.parse(payloadText);
+            } catch {
+                // 非法半包在边界处忽略或等待后续分片；llama.cpp 每行均为完整 JSON。
+                return null;
+            }
+            if (payload.error) {
+                const msg = typeof payload.error.message === 'string'
+                    ? payload.error.message
+                    : JSON.stringify(payload.error);
+                throw new Error(`本地推理流返回错误：${msg}`);
+            }
+            if (
+                payload.usage
+                && typeof payload.usage.prompt_tokens === 'number'
+                && typeof payload.usage.completion_tokens === 'number'
+            ) {
+                usage = {
+                    prompt_tokens: payload.usage.prompt_tokens,
+                    completion_tokens: payload.usage.completion_tokens,
+                };
+            }
+            const choice = payload.choices?.[0];
+            if (typeof choice?.finish_reason === 'string' && choice.finish_reason.length > 0) {
+                finishReason = choice.finish_reason;
+            }
+            const deltaText = choice?.delta?.content;
+            if (typeof deltaText === 'string' && deltaText.length > 0) {
+                return { type: 'delta', text: deltaText };
+            }
+            return null;
+        };
+
+        try {
+            let sawEof = false;
+            for (;;) {
+                signal.throwIfAborted();
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split(/\r?\n/);
+                buffer = lines.pop() ?? '';
+                for (const line of lines) {
+                    const event = parseLine(line);
+                    if (event === 'eof') {
+                        sawEof = true;
+                        break;
+                    }
+                    if (event) yield event;
+                }
+                if (sawEof) break;
+            }
+            if (!sawEof) {
+                buffer += decoder.decode();
+                if (buffer.trim().length > 0) {
+                    for (const line of buffer.split(/\r?\n/)) {
+                        const event = parseLine(line);
+                        if (event === 'eof') break;
+                        if (event) yield event;
+                    }
+                }
+            }
+            yield { type: 'done', finishReason, usage };
+        } finally {
+            await reader.cancel().catch(() => undefined);
+        }
     }
 
     /** 结束私有子进程并等待文件句柄释放；超时强制终止。 */

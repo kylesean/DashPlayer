@@ -78,10 +78,19 @@ import type {
     ChatSessionCreateParams,
     ChatSessionCreateResult,
     ChatSessionStopParams,
+    ChatSessionUpdatePresetParams,
     ChatSendMessageParams,
     ChatSendMessageResult,
+    ChatTranscribeAudioParams,
+    ChatTranscribeAudioResult,
     CompleteSentenceParams,
     CompleteSentenceResult,
+    LearningPromptPresetResetParams,
+    LearningPromptPresetSaveParams,
+    LearningPromptPresetVO,
+    SentenceStudyNoteGetParams,
+    SentenceStudyNoteSaveParams,
+    SentenceStudyRecordVO,
 } from '@/common/types/chat';
 import type { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
 import type {
@@ -257,11 +266,24 @@ interface ChatDef {
     'chat/session/create': { params: ChatSessionCreateParams, return: ChatSessionCreateResult };
     'chat/session/close': { params: ChatSessionCloseParams, return: void };
     'chat/session/stop': { params: ChatSessionStopParams, return: void };
+    'chat/session/update-preset': { params: ChatSessionUpdatePresetParams, return: void };
     'chat/send-message': { params: ChatSendMessageParams, return: ChatSendMessageResult };
-    /** 补全被换行截断的字幕为完整句；仅云端整句学习启用时可用。 */
+    /** 补全被换行截断的字幕为完整句；仅云端/本地可用时返回。 */
     'chat/complete-sentence': { params: CompleteSentenceParams, return: CompleteSentenceResult };
-    /** 整句讲解当前是否可用（功能已启用且云端模型已配好），供学习页决定入口是否置灰。 */
+    /** 整句讲解当前是否可用（功能已启用且云端或本地模型至少一个就绪），供学习页决定入口是否置灰。 */
     'chat/learning/available': { params: void, return: boolean };
+    /** 读取当前字幕句子的学习笔记、首卡缓存与历史对话。 */
+    'chat/study-note/get': { params: SentenceStudyNoteGetParams, return: SentenceStudyRecordVO | null };
+    /** 保存或更新当前字幕句子的学习笔记摘要与缓存。 */
+    'chat/study-note/save': { params: SentenceStudyNoteSaveParams, return: SentenceStudyRecordVO };
+    /** 获取全部内置与自定义教学人设预设。 */
+    'chat/prompt-presets/list': { params: void, return: LearningPromptPresetVO[] };
+    /** 新增或覆写教学人设预设。 */
+    'chat/prompt-presets/save': { params: LearningPromptPresetSaveParams, return: LearningPromptPresetVO };
+    /** 恢复内置教学预设至出厂内容。 */
+    'chat/prompt-presets/reset': { params: LearningPromptPresetResetParams, return: LearningPromptPresetVO };
+    /** 聊天语音输入转写（复用本地离线 ASR）。 */
+    'chat/transcribe-audio': { params: ChatTranscribeAudioParams, return: ChatTranscribeAudioResult };
 }
 
 interface ChatAnalysisDef {
@@ -738,10 +760,17 @@ export const API_ROUTE_KEYS = [
     'chat/analysis/start',
     'chat/complete-sentence',
     'chat/learning/available',
+    'chat/prompt-presets/list',
+    'chat/prompt-presets/reset',
+    'chat/prompt-presets/save',
     'chat/send-message',
     'chat/session/close',
     'chat/session/create',
     'chat/session/stop',
+    'chat/session/update-preset',
+    'chat/study-note/get',
+    'chat/study-note/save',
+    'chat/transcribe-audio',
     'content-compass/event',
     'content-compass/list',
     'content-compass/stats',

@@ -20,7 +20,9 @@
         "focusToggle": "切换专注模式",
         "totalPracticed": "本片已练 {{done}}/{{total}} 句",
         "audioStageTitle": "音频沉浸练习模式",
-        "audioStageHint": "关闭练习台后将自动回到播客字幕视图"
+        "audioStageHint": "关闭练习台后将自动回到播客字幕视图",
+        "returnToLearning": "返回精读",
+        "askAiAnalyze": "AI 精读拆解"
     },
     "filter": {
         "title": "句子筛选",

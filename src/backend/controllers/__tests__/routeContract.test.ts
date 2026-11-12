@@ -67,7 +67,7 @@ const stub = () => ({}) as never;
 function registerAllControllers(): void {
     new AiFuncController(stub()).registerRoutes();
     new AiTransController(stub(), stub(), stub()).registerRoutes();
-    new ChatStreamController(stub(), stub()).registerRoutes();
+    new ChatStreamController(stub(), stub(), stub(), stub(), stub()).registerRoutes();
     new ContentCompassController(stub()).registerRoutes();
     new DictionaryImportController(stub()).registerRoutes();
     new DpTaskController(stub()).registerRoutes();

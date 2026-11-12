@@ -92,7 +92,7 @@ function BeatPauseMeter({
     return (
         <div className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/8 px-3 py-2">
             <div className="flex-1 flex flex-col gap-1 min-w-0">
-                <div className="flex items-center justify-between text-xs font-medium text-success-text">
+                <div className="flex items-center justify-between text-sm font-medium text-success-text">
                     <span>{t('shadowing.beatWaiting', { defaultValue: '请开口跟读 · 停顿倒计时' })}</span>
                     <span className="tabular-nums font-mono">{(remainingMs / 1000).toFixed(1)}s</span>
                 </div>
@@ -198,7 +198,7 @@ function BeatShadowingView({
                         ratio: shadowingRatio.toFixed(1),
                         ex: (4 * shadowingRatio).toFixed(1),
                     })}
-                    className="inline-flex items-center gap-1 rounded-lg border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground"
+                    className="inline-flex h-[var(--size-element-sm)] items-center gap-1 rounded-lg border border-border/60 bg-muted/40 px-1.5 text-[length:var(--text-supporting-size)] text-muted-foreground"
                 >
                     <button
                         type="button"
@@ -486,7 +486,7 @@ function RecordShadowingView({
                                         />
                                     ))}
                                 </div>
-                                <span className="text-xs font-mono tabular-nums text-error-text">
+                                <span className="text-sm font-mono tabular-nums text-error-text">
                                     {recordingSeconds}s{autoRecordFlow ? ` · ${t('shadowing.vadListening', { defaultValue: '停顿自动停麦' })}` : ''}
                                 </span>
                             </>
@@ -506,7 +506,7 @@ function RecordShadowingView({
                         ) : null}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <div className="flex flex-wrap items-center gap-2 text-metadata">
                         {abPhase !== 'idle' && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 font-medium text-accent">
                                 <Radio className="h-3 w-3 animate-pulse" />
@@ -651,7 +651,7 @@ function RecordShadowingView({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                         <Switch
                             label={t('shadowing.autoFlow', { defaultValue: '播完自动开麦' })}
                             value={autoRecordFlow}
@@ -718,12 +718,12 @@ export function RhythmFeedback({
             data-testid="practice-rhythm-feedback"
             className="flex flex-col gap-1.5 rounded-xl border border-border/50 bg-background/50 px-3 py-2"
         >
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 <span className="font-medium text-foreground">
                     {t('rhythm.title', { defaultValue: '节奏与重读' })}
                 </span>
                 {paceLabel && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 font-mono tabular-nums">
+                    <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-metadata tabular-nums">
                         {t('rhythm.pace', {
                             defaultValue: '语速 {{pace}}',
                             pace: paceLabel,
@@ -731,13 +731,13 @@ export function RhythmFeedback({
                     </span>
                 )}
                 {feedback.paceRatio !== null && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 font-mono tabular-nums">
+                    <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-metadata tabular-nums">
                         {feedback.paceRatio.toFixed(2)}×
                     </span>
                 )}
                 {feedback.syllables && feedback.syllables.verdict !== 'unknown' && (
                     <span
-                        className="rounded-full bg-muted px-2 py-0.5 font-mono tabular-nums"
+                        className="rounded-full bg-muted px-2 py-0.5 font-mono text-metadata tabular-nums"
                         title={t('rhythm.syllablesHint', {
                             defaultValue: '参考 {{reference}} 个音节，按语速估算你说了约 {{estimated}} 个',
                             reference: feedback.syllables.reference,
@@ -782,7 +782,7 @@ export function RhythmFeedback({
             {trend && trend.verdict !== 'insufficient' && trend.points.length > 0 && (
                 <div
                     data-testid="practice-rhythm-trend"
-                    className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-1.5 text-xs text-muted-foreground"
+                    className="flex flex-wrap items-center gap-2 border-t border-border/40 pt-1.5 text-metadata text-muted-foreground"
                 >
                     <span className="font-medium text-foreground">
                         {t('rhythm.trendTitle', { defaultValue: '最近几次' })}

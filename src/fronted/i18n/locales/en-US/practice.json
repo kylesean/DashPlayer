@@ -20,7 +20,9 @@
         "focusToggle": "Toggle focus mode",
         "totalPracticed": "Practiced {{done}}/{{total}}",
         "audioStageTitle": "Audio Practice Studio",
-        "audioStageHint": "Exiting practice returns cleanly to Podcast view"
+        "audioStageHint": "Exiting practice returns cleanly to Podcast view",
+        "returnToLearning": "Back to study",
+        "askAiAnalyze": "Ask AI"
     },
     "filter": {
         "title": "Sentence filter",

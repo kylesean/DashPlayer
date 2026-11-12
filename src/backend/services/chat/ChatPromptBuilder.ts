@@ -1,4 +1,7 @@
 import type { ModelMessage } from 'ai';
+import type { LocalChatMessage } from '@/backend/services/LocalAiService';
+import { BUILTIN_LEARNING_PROMPT_PRESETS } from '@/backend/services/chat/LearningPromptPresets';
+import type { SentenceMemoryHints } from '@/common/types/vo/SentenceVocabularyVO';
 
 /**
  * 会话创建时冻结的字幕规模概览。
@@ -20,10 +23,11 @@ export type SubtitleOverview = {
  * 格式化通用 TTS 朗读与排版规范指令，供聊天系统提示词复用。
  */
 const TTS_FORMAT_GUIDELINES = [
-    '## 朗读标记规范（重要）：',
-    '- 遇到英文词汇、短语、句子或例句时，必须使用 [[tts:英文内容]] 包裹以支持点击朗读。',
-    '- 严禁重复英文：英文内容仅在 [[tts:...]] 中出现一次，标记外部严禁重复输出相同英文。',
+    '## 朗读与排版规范（重要）：',
+    '- 遇到英文词汇、短语、句子或例句时，必须直接输出 [[tts:英文内容]] 以支持点击朗读。',
+    '- 严禁用反引号（`）、引号或括号包裹 [[tts:...]]（错误示例：`[[tts:example]]`），也不要在标记外重复相同英文。',
     '- 标记内仅包含纯英文字符，不要夹带中文翻译，也不要使用 [] 或 | 等特殊符号。',
+    '- 使用标准 Markdown 排版：标题 `#` 与文字之间保留一个空格（如 `### 物理画面`），列表与段落之间保持清晰换行。',
     '- 示例：[[tts:This is an example.]] 这是一个示例。',
 ].join('\n');
 
@@ -44,47 +48,123 @@ export const formatSubtitleOverview = (
     ].join('\n');
 };
 
+const SUBTITLE_TOOL_GUIDELINES = [
+    '# 字幕上下文工具调用指南（ReAct 工作流）',
+    '当用户询问需要超越当前单句的信息（如剧情发展、人物对话、前因后果、某人是否说过某话等）时，请按以下策略主动调用工具：',
+    '1. 【定位线索】：使用 `search_subtitles` 工具搜索关键词（可提供一个或多个关键词，支持 any/all 匹配）；只为看清命中处的语境时，把 `context` 设为若干行，返回的每个命中会各自带上前后连续字幕，不必再单独展开一次。',
+    '2. 【展开上下文】：需要更长的上下文时，用命中索引 `index` 调用 `get_subtitle_context`，通过 `before`/`after` 指定向前、向后各读多少行（片头/片尾处不足则少给）；想继续往后读，把返回的 `endIndex` 当作下一次的 `index`。',
+    '3. 【综合回答】：结合检索到的影视台词上下文，给出准确、有依据的回答。',
+    '注：如果用户仅询问当前句的语法、词汇或通用英语知识，直接回答即可，无需调用字幕工具。',
+].join('\n');
+
 /**
- * 构建整句学习的结构化分析提示词。
- *
- * 说明：
- * - 一次分析只产出结构化解析（意群、词组），左栏据此渲染句子卡片；
- * - 生词不在此处提取：由本地词典选词（vocabulary/pick-sentence）负责，模型不再重复产出词表；
- * - 语法不在此处展开：需要语法讲解时由对话流承担（输入框上方的快捷提问），模型不再重复产出；
- * - 例句不在此处生成：需要例句时由聊天中的字幕检索工具取真实台词，避免模型生造语料。
- *
- * @param text 用户选中的学习文本（已由会话冻结）。
- * @returns 交给 Output.object 的单条分析提示词。
+ * 双层 System Prompt 拼装引擎：
+ * - 第一层（教学人格层）：来自用户选中或自定义编辑的教学提示词；
+ * - 第二层（应用协议层）：系统托管的 [[tts:...]] 点读格式与可选字幕工具调用规范，确保任何自定义提示词都不会破坏播放器交互能力。
  */
-export const buildAnalysisPrompt = (text: string): string => {
-    return [
-        '你是一个专业、严谨的英语语言分析助手。',
-        '请对目标句子进行全面的语言学与教学分析，并严格输出符合指定 JSON 契约的数据，不要包含任何额外字段或 markdown 外层包裹。',
-        '所有中文解释均使用简体中文。',
+export const composeChatSystemPrompt = (
+    personaPrompt?: string,
+    options?: { enableSubtitleTools?: boolean },
+): string => {
+    const fallbackPersona = BUILTIN_LEARNING_PROMPT_PRESETS[0].systemPrompt;
+    const persona = personaPrompt && personaPrompt.trim().length > 0
+        ? personaPrompt.trim()
+        : fallbackPersona;
+    const sections = [
+        persona,
         '',
-        '分析目标句子:',
-        text,
-        '',
-        '# 分析要求',
-        '- structure: 意群拆解。phraseGroups 为字符串数组，按原句自然阅读顺序切分出 2~5 个英文意群片段。',
-        '- phrases: 提取重点词组或搭配，提供中文释义；如无短语则 phrases 为空数组且 hasPhrase=false。',
-        '',
-        '# 字段契约与示例模板（请完全遵循此 JSON 结构与字段命名）:',
-        '```json',
-        '{',
-        '  "structure": {',
-        '    "phraseGroups": ["意群片段1", "意群片段2", "意群片段3"]',
-        '  },',
-        '  "phrases": {',
-        '    "hasPhrase": true,',
-        '    "phrases": [',
-        '      { "phrase": "词组/搭配", "meaning": "中文释义" }',
-        '    ]',
-        '  }',
-        '}',
-        '```',
-    ].join('\n');
+        TTS_FORMAT_GUIDELINES,
+    ];
+    if (options?.enableSubtitleTools !== false) {
+        sections.push('', SUBTITLE_TOOL_GUIDELINES);
+    }
+    return sections.join('\n');
 };
+
+/**
+ * 构建整句学习统一首卡（SentenceStudyCardSchema）的上下文感知提示词。
+ */
+export const buildStudyCardPrompt = (params: {
+    text: string;
+    precedingLines?: string[];
+    followingLines?: string[];
+    paragraphLines?: string[];
+    subtitleOverview?: SubtitleOverview;
+    memoryHints?: SentenceMemoryHints;
+    personaPrompt?: string;
+}): string => {
+    const formatLines = (lines?: string[]) => (lines && lines.length > 0
+        ? lines.map((line, index) => `${index + 1}. ${line}`).join('\n')
+        : '（无）');
+
+    const overviewText = formatSubtitleOverview(params.subtitleOverview);
+    const hasSplitContext = (params.precedingLines?.length ?? 0) > 0 || (params.followingLines?.length ?? 0) > 0;
+    const focusWords = params.memoryHints?.focusWords ?? [];
+    const masteredWords = params.memoryHints?.masteredWords ?? [];
+
+    const parts: string[] = [
+        '你在为一档沉浸式英语影视精读工作台生成“整句精读首卡”。',
+        '所有中文讲解与译文必须使用自然流畅的简体中文，保留必要的英文词组与片段；只输出一个合法 JSON 对象，不要包含 markdown 代码块包裹或多余文字。',
+        '',
+        `当前字幕行：\n${params.text}`,
+    ];
+
+    if (hasSplitContext) {
+        parts.push(
+            '',
+            `前文紧邻台词（时间升序）：\n${formatLines(params.precedingLines)}`,
+            '',
+            `后续紧邻台词（时间升序）：\n${formatLines(params.followingLines)}`,
+        );
+    } else if (params.paragraphLines && params.paragraphLines.length > 0) {
+        parts.push('', `周边台词上下文：\n${formatLines(params.paragraphLines)}`);
+    }
+
+    if (overviewText) {
+        parts.push('', overviewText);
+    }
+
+    if (focusWords.length > 0 || masteredWords.length > 0) {
+        const memoryLines: string[] = ['', '# 学习者记忆信号（用于精准筛选 focalPoints）'];
+        if (focusWords.length > 0) {
+            memoryLines.push(`- 重点候选词（到期/在学/刚查过，若确属关键难点请优先拆解）：${focusWords.join(', ')}`);
+        }
+        if (masteredWords.length > 0) {
+            memoryLines.push(`- 已熟练掌握词（除非在本句属于罕见“熟词僻义”，否则不要浪费 focalPoints 名额）：${masteredWords.join(', ')}`);
+        }
+        parts.push(...memoryLines);
+    }
+
+    if (params.personaPrompt && params.personaPrompt.trim().length > 0) {
+        parts.push('', `# 当前导师风格参考\n${params.personaPrompt.trim().slice(0, 600)}`);
+    }
+
+    parts.push(
+        '',
+        '# 输出 JSON 契约（SentenceStudyCardSchema）',
+        '1. `sentence`：',
+        '   - `completeText`：结合前后台词把被字幕断行截断的当前句补全为完整英文句子；若当前行本就完整则保持原句，不擅自改写。',
+        '   - `contextualTranslation`：贴合当下剧情情绪与口气的自然中文译文。',
+        '   - `chunks`：2~5 个按自然停顿与意群切分的英文片段（按顺序覆盖完整句）。',
+        '2. `focalPoints`（0~3 条；简单日常句可返回空数组 `[]`，宁缺毋滥）：',
+        '   - 挑选句中最值得讲透的高价值词、动词短语、俚语或微妙语用表达。',
+        '   - `expression`：句中出现的目标表达；`kind`：word / phrase / slang / nuance；`tag`：如“熟词僻义”“物理动词”“地道搭配”。',
+        '   - `coreImage`（核心亮点）：用 1~2 句直观中文描绘它最底层的物理空间画面、身体动作或力学体感（不要背词典定义）。',
+        '   - `meaningInContext`：点明母语者如何从上面的物理画面抽象投射到当前语境，并给出地道中文含义。',
+        '3. `listeningLens`（0~2 条；语速清晰无连音陷阱可返回空数组 `[]`）：',
+        '   - `span`：出现音变的连续英文词段；`phenomenon`：连读 / 弱读 / 失爆 / 语调重音；`tip`：1 句听音抓手。',
+        '4. `sentenceLens`：',
+        '   - `structureInsight`：1 句大白话点破这句话的语序重心或表达组织方式（禁用枯燥语法学术语）。',
+        '   - `subtext`：1 句点出说话人此刻的潜台词、态度或情绪温度。',
+    );
+
+    return parts.join('\n');
+};
+
+/**
+ * 构建整句学习的结构化分析提示词（兼容旧单参调用，内部转发至统一首卡提示词）。
+ */
+export const buildAnalysisPrompt = (text: string): string => buildStudyCardPrompt({ text });
 
 /**
  * 把消息列表中的 system 角色消息拆分出来，供 AI SDK v7 的 streamText(system, messages) 使用。
@@ -108,40 +188,64 @@ export const splitSystemMessages = (
 };
 
 /**
- * 确保消息流包含完整的角色人设与字幕工具调用指南。
+ * 确保消息流包含双层拼装后的角色人设与工具规范；若存在自定义人格覆盖，
+ * 会重建首条 system 消息以确保动态切换人设立即生效。
  */
-export const ensureChatRoleMessage = (messages: ModelMessage[]): ModelMessage[] => {
-    if (messages.some((message) => message.role === 'system')) {
-        return messages;
+export const ensureChatRoleMessage = (
+    messages: ModelMessage[],
+    options?: { personaPrompt?: string; enableSubtitleTools?: boolean },
+): ModelMessage[] => {
+    const systemContent = composeChatSystemPrompt(options?.personaPrompt, options);
+    const nonSystem = messages.filter((message) => message.role !== 'system');
+    return [{ role: 'system', content: systemContent }, ...nonSystem];
+};
+
+/**
+ * 为本地大模型（每 slot 上下文约 4096 token）裁剪多轮历史，
+ * 保留 system 人设 + 首轮上下文摘要锚点 + 尽量多的最近对话轮次，防止触顶截断。
+ */
+export const toLocalChatMessagesWithWindow = (
+    messages: ModelMessage[],
+    maxHistoryChars = 6500,
+): LocalChatMessage[] => {
+    const { system, messages: turns } = splitSystemMessages(messages);
+    const normalized: LocalChatMessage[] = turns
+        .filter((msg): msg is ModelMessage & { role: 'user' | 'assistant' } => (
+            msg.role === 'user' || msg.role === 'assistant'
+        ))
+        .map((msg) => ({
+            role: msg.role,
+            content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+        }));
+
+    if (normalized.length === 0) {
+        return system ? [{ role: 'system', content: system }] : [];
     }
-    return [
-        {
-            role: 'system',
-            content: [
-                '你是用户的影视英语学习专属伙伴，陪伴用户看剧学英语。',
-                '',
-                '# 交流原则与风格',
-                '- 语气自然、亲切、像朋友交流，简洁直接，避免冗长陈述。',
-                '- 遵循问什么答什么的原则，重点突出，切中要害。',
-                '- 中文回答为主，英文内容保持原汁原味。',
-                '',
-                TTS_FORMAT_GUIDELINES,
-                '',
-                '# 典型问题处理模式',
-                '- 单词/词组解析：提供音标、中文释义、英文释义及 2~3 个地道双语例句（英文使用 [[tts:...]]）。',
-                '- 句意/句式解析：先说明句子语境含义，再拆解关键结构或词汇在句中的具体用法。',
-                '- 表达改写/润色：提供 2~3 个不同语域的地道改写（Markdown 列表 - 开头），英文均包裹 [[tts:...]]。',
-                '',
-                '# 字幕上下文工具调用指南（ReAct 工作流）',
-                '当用户询问需要超越当前单句的信息（如剧情发展、人物对话、前因后果、某人是否说过某话等）时，请按以下策略主动调用工具：',
-                '1. 【定位线索】：使用 `search_subtitles` 工具搜索关键词（可提供一个或多个关键词，支持 any/all 匹配）；只为看清命中处的语境时，把 `context` 设为若干行，返回的每个命中会各自带上前后连续字幕，不必再单独展开一次。',
-                '2. 【展开上下文】：需要更长的上下文时，用命中索引 `index` 调用 `get_subtitle_context`，通过 `before`/`after` 指定向前、向后各读多少行（片头/片尾处不足则少给）；想继续往后读，把返回的 `endIndex` 当作下一次的 `index`。',
-                '3. 【综合回答】：结合检索到的影视台词上下文，给出准确、有依据的回答。',
-                '注：如果用户仅询问当前句的语法、词汇或通用英语知识，直接回答即可，无需调用字幕工具。',
-            ].join('\n'),
-        },
-        ...messages,
-    ];
+
+    // 保留最近完整尾部窗口
+    const kept: LocalChatMessage[] = [];
+    let usedChars = system ? system.length : 0;
+    for (let i = normalized.length - 1; i >= 0; i -= 1) {
+        const item = normalized[i];
+        if (usedChars + item.content.length > maxHistoryChars && kept.length >= 2) {
+            break;
+        }
+        kept.unshift(item);
+        usedChars += item.content.length;
+    }
+
+    // 若窗口丢弃了最前面那条含【字幕参考材料】的用户消息，把锚点摘录补回第一条 user 顶部
+    const firstTurn = normalized[0];
+    if (kept[0] !== firstTurn && firstTurn.role === 'user' && firstTurn.content.startsWith(SUBTITLE_CONTEXT_PREFIX)) {
+        const anchorSnippet = firstTurn.content.split('\n\n').slice(0, 2).join('\n\n').slice(0, 800);
+        if (kept[0].role === 'user') {
+            kept[0] = { role: 'user', content: `${anchorSnippet}\n\n${kept[0].content}` };
+        } else {
+            kept.unshift({ role: 'user', content: anchorSnippet });
+        }
+    }
+
+    return system ? [{ role: 'system', content: system }, ...kept] : kept;
 };
 
 /** 字幕参考材料的固定前缀。 */

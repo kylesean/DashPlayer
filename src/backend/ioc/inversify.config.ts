@@ -53,6 +53,12 @@ import { SentencePracticeServiceImpl } from '@/backend/services/SentencePractice
 import SentencePracticeController from '@/backend/controllers/SentencePracticeController';
 import type DpTaskService from '@/backend/services/DpTaskService';
 import { DpTaskServiceImpl } from '@/backend/services/DpTaskService';
+import type SentenceStudyNoteRepository from '@/backend/services/repositories/SentenceStudyNoteRepository';
+import SentenceStudyNoteRepositoryImpl from '@/backend/infrastructure/db/repositories/SentenceStudyNoteRepositoryImpl';
+import type LearningPromptPresetRepository from '@/backend/services/repositories/LearningPromptPresetRepository';
+import LearningPromptPresetRepositoryImpl from '@/backend/infrastructure/db/repositories/LearningPromptPresetRepositoryImpl';
+import type LearningPromptPresetService from '@/backend/services/chat/LearningPromptPresetService';
+import { LearningPromptPresetServiceImpl } from '@/backend/services/chat/LearningPromptPresetService';
 import type ChatSessionService from '@/backend/services/ChatSessionService';
 import { ChatSessionServiceImpl } from '@/backend/services/ChatSessionService';
 import type SentenceLearningService from '@/backend/services/SentenceLearningService';
@@ -307,6 +313,15 @@ container.bind<SentenceTranslatesRepository>(TYPES.SentenceTranslatesRepository)
 container.bind<SentencePracticeRecordRepository>(TYPES.SentencePracticeRecordRepository).to(SentencePracticeRecordRepositoryImpl).inSingletonScope();
 container.bind<ProductionPracticeRecordRepository>(TYPES.ProductionPracticeRecordRepository).to(ProductionPracticeRecordRepositoryImpl).inSingletonScope();
 container.bind<RolePlayTurnRepository>(TYPES.RolePlayTurnRepository).to(RolePlayTurnRepositoryImpl).inSingletonScope();
+container.bind<SentenceStudyNoteRepository>(TYPES.SentenceStudyNoteRepository)
+    .to(SentenceStudyNoteRepositoryImpl)
+    .inSingletonScope();
+container.bind<LearningPromptPresetRepository>(TYPES.LearningPromptPresetRepository)
+    .to(LearningPromptPresetRepositoryImpl)
+    .inSingletonScope();
+container.bind<LearningPromptPresetService>(TYPES.LearningPromptPresetService)
+    .to(LearningPromptPresetServiceImpl)
+    .inSingletonScope();
 container.bind<SysConfRepository>(TYPES.SysConfRepository).to(SysConfRepositoryImpl).inSingletonScope();
 container.bind<SubtitleTimestampAdjustmentsRepository>(TYPES.SubtitleTimestampAdjustmentsRepository).to(SubtitleTimestampAdjustmentsRepositoryImpl).inSingletonScope();
 container.bind<ClipOssService>(TYPES.VideoLearningOssService).to(VideoLearningOssServiceImpl).inSingletonScope();

@@ -333,6 +333,15 @@ export class SettingServiceImpl implements SettingService {
             case 'player.vocabularyGuidance':
                 value = this.requireEnumValue(value, VOCABULARY_GUIDANCE_LEVELS, request.key);
                 break;
+            case 'features.openai.autoGenerateStudyCard':
+                value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
+                break;
+            case 'learning.activePromptPresetId':
+                if (!value || value.trim().length === 0) {
+                    throw new Error('设置项 learning.activePromptPresetId 不能为空');
+                }
+                value = value.trim();
+                break;
             case 'userSelect.playbackRateStack':
                 if (!this.isValidPlaybackRateStack(value)) {
                     throw new Error(`设置项 userSelect.playbackRateStack 非法: ${value}`);

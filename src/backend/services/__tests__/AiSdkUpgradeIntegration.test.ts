@@ -145,10 +145,21 @@ const runTests = (): void => {
             it('结构化分析能流式回推意群与词组并在 finish 结束，而不是空流直接 done', async () => {
                 const events: Array<{ event: string; payload: Record<string, unknown> }> = [];
                 const analyzed = JSON.stringify({
-                    structure: { phraseGroups: ['Hello world'] },
-                    phrases: {
-                        hasPhrase: true,
-                        phrases: [{ phrase: 'hello world', meaning: '你好，世界' }],
+                    sentence: {
+                        completeText: 'Hello world',
+                        contextualTranslation: '你好，世界',
+                        chunks: ['Hello world'],
+                    },
+                    focalPoints: [{
+                        expression: 'hello world',
+                        kind: 'phrase',
+                        coreImage: '一个人站上舞台对着整个世界招手打招呼的开场瞬间。',
+                        meaningInContext: '常规的开场问候语：你好，世界。',
+                    }],
+                    listeningLens: [],
+                    sentenceLens: {
+                        structureInsight: '两个实词直接并列作为呼告语。',
+                        subtext: '友好、开场式的问候。',
                     },
                 });
                 const provider: AiProviderService = {
@@ -187,9 +198,9 @@ const runTests = (): void => {
                 expect(chunks.length).toBeGreaterThan(0);
                 const lastChunk = chunks[chunks.length - 1];
                 const partial = (lastChunk.payload.chunk as {
-                    data?: { structure?: { phraseGroups?: string[] } };
+                    data?: { sentence?: { chunks?: string[] } };
                 }).data;
-                expect(partial?.structure?.phraseGroups?.[0]).toContain('Hello world');
+                expect(partial?.sentence?.chunks?.[0]).toContain('Hello world');
                 expect(done).toBeDefined();
             }, 15000);
         });
@@ -318,9 +329,9 @@ const runTests = (): void => {
                 expect(chunks.length).toBeGreaterThan(0);
                 expect(done).toBeDefined();
                 const lastChunk = chunks[chunks.length - 1];
-                const partial = (lastChunk.payload.chunk as { data?: { structure?: unknown } }).data;
+                const partial = (lastChunk.payload.chunk as { data?: { sentence?: unknown } }).data;
                 expect(partial).toBeDefined();
-                expect(partial?.structure).toBeDefined();
+                expect(partial?.sentence).toBeDefined();
             }, 60000);
 
         });

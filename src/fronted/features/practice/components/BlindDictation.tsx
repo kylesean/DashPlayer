@@ -119,7 +119,7 @@ export default function BlindDictation({
             {peekingSpoiler && (
                 <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-1.5 text-sm text-muted-foreground">
                     <span>{unit.text}</span>
-                    {translationText ? <span className="ml-2 text-xs opacity-80">· {translationText}</span> : null}
+                    {translationText ? <span className="ml-2 text-metadata opacity-80">· {translationText}</span> : null}
                 </div>
             )}
             <div className="flex items-center justify-between gap-2">

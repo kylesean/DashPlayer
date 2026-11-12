@@ -39,7 +39,7 @@ export default function DictationCompletedView({
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span
                         className={cn(
-                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums',
+                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold tabular-nums',
                             result.score >= 80
                                 ? 'bg-success/15 text-success-text'
                                 : result.score >= 50
@@ -50,7 +50,7 @@ export default function DictationCompletedView({
                         {t('result.scoreBadge', { defaultValue: '得分 {{score}}', score: Math.round(result.score) })}
                     </span>
                     {hintedCount > 0 && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                             {t('dictation.hintUsedCount', { defaultValue: '字母提示 {{count}} 次', count: hintedCount })}
                         </span>
                     )}

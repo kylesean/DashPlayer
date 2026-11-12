@@ -19,6 +19,8 @@ export interface AnalyzedToken {
     lemma: string;
     /** wink 的 token 类型（word / punctuation 等）。 */
     type: string;
+    /** Universal Dependencies 词性标记（NOUN/VERB/ADJ/ADV/ADP/CCONJ/SCONJ/PRON/DET/AUX 等）。 */
+    pos: string;
 }
 
 /**
@@ -37,10 +39,12 @@ export function analyzeWords(text: string): AnalyzedToken[] {
     const values = doc.tokens().out(nlp.its.value as unknown as ItsFunction<string>) as string[];
     const lemmas = doc.tokens().out(nlp.its.lemma as unknown as ItsFunction<string>) as string[];
     const types = doc.tokens().out(nlp.its.type as unknown as ItsFunction<string>) as string[];
+    const poses = doc.tokens().out(nlp.its.pos as unknown as ItsFunction<string>) as string[];
     return values.map((value, index) => ({
         text: value,
         lemma: lemmas[index] ?? value,
         type: types[index] ?? 'text',
+        pos: poses[index] ?? '',
     }));
 }
 

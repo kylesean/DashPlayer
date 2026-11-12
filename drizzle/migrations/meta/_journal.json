@@ -169,6 +169,13 @@
       "when": 1794443812812,
       "tag": "0023_role_play_turn",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1794463538673,
+      "tag": "0024_true_skin",
+      "breakpoints": true
     }
   ]
 }
