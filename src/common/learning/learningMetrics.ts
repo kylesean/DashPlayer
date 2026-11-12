@@ -62,34 +62,58 @@ export function reviewCompletionRate(
 }
 
 /**
- * 主动反馈率：在窗口内的学习词中，用户明确标记认识或忽略的比例。
+ * 窗口内收到 known / ignore 的去重词。
  *
- * 分母只算「有反馈价值」的活跃词（learning / familiar），已掌握或已忽略的词
- * 不再需要用户判断，纳入分母会稀释这个数字。
+ * 不按当前状态过滤：known / ignore 本身就会让词离开 active 集合，再要求
+ * “当前仍 active”会让反馈永远无法回填分子。
  */
-export function feedbackRate(
-    events: readonly MetricEncounter[],
-    activeWords: readonly { word: string; status: WordStatus }[],
-): number | null {
-    if (activeWords.length === 0) {
-        return null;
-    }
-    const active = new Set(activeWords.map((word) => word.word.toLowerCase()));
+const feedbackLemmas = (events: readonly MetricEncounter[]): Set<string> => {
     const fedBack = new Set<string>();
     for (const event of events) {
         if (!FEEDBACK_ACTIONS.includes(event.action as (typeof FEEDBACK_ACTIONS)[number])) {
             continue;
         }
+        fedBack.add(event.lemma.toLowerCase());
+    }
+    return fedBack;
+};
+
+/**
+ * 主动反馈率的分母：窗口内有遭遇且当前仍 active 的词 ∪ 已反馈词。
+ *
+ * 已反馈词即使已经离开 active 也保留在分母里，保证分子始终是分母的子集，
+ * 不会再出现“反馈了却永远算不进去”的群体错配。
+ */
+export function feedbackPopulation(
+    events: readonly MetricEncounter[],
+    activeWords: readonly { word: string; status: WordStatus }[],
+): number {
+    const active = new Set(activeWords.map((word) => word.word.toLowerCase()));
+    const population = new Set<string>();
+    for (const event of events) {
         const lemma = event.lemma.toLowerCase();
         if (active.has(lemma)) {
-            fedBack.add(lemma);
+            population.add(lemma);
         }
     }
-    return fedBack.size / active.size;
+    for (const lemma of feedbackLemmas(events)) {
+        population.add(lemma);
+    }
+    return population.size;
 }
 
 /**
- * 练习覆盖率：窗口内的活跃词中，至少被跟读 / 听写 / 复习过一次的比例。
+ * 主动反馈率：窗口内被曝光/交互过的学习词中，用户明确标记认识或忽略的比例。
+ */
+export function feedbackRate(
+    events: readonly MetricEncounter[],
+    activeWords: readonly { word: string; status: WordStatus }[],
+): number | null {
+    return ratio(feedbackLemmas(events).size, feedbackPopulation(events, activeWords));
+}
+
+/**
+ * 练习覆盖率：窗口内的活跃词中，至少被跟读 / 听写 / 复述 / 角色扮演 / 复习过一次的比例。
  */
 export function practiceCoverage(
     events: readonly MetricEncounter[],
@@ -171,7 +195,7 @@ export function buildLearningMetrics(input: LearningMetricsInput): {
         {
             key: 'feedbackRate',
             value: feedbackRate(input.encounters, input.activeWords),
-            denominator: input.activeWords.length,
+            denominator: feedbackPopulation(input.encounters, input.activeWords),
         },
         {
             key: 'dueBacklog',

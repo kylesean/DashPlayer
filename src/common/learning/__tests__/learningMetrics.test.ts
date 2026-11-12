@@ -58,27 +58,29 @@ describe('reviewCompletionRate', () => {
 });
 
 describe('feedbackRate', () => {
-    it('只统计活跃词的明确反馈', () => {
+    it('分子是窗口内明确反馈，分母是窗口被曝光活跃词与反馈词的并集', () => {
         const events = [
             encounter('grasp', 'known'),
             encounter('elusive', 'ignore'),
+            encounter('third', 'shadow'),
             encounter('grasp', 'hover'),
         ];
+        // 分母：grasp / elusive / third（fourth 窗口内没有遭遇，不参与）
         expect(feedbackRate(events, [
             activeWord('grasp'),
             activeWord('elusive'),
             activeWord('third'),
             activeWord('fourth'),
-        ])).toBeCloseTo(0.5);
+        ])).toBeCloseTo(2 / 3);
     });
 
-    it('不在活跃词表里的反馈不计入分子', () => {
+    it('已经离开 active 的反馈词仍计入分子与分母', () => {
         const events = [encounter('retired', 'known')];
-        expect(feedbackRate(events, [activeWord('grasp')])).toBe(0);
+        expect(feedbackRate(events, [activeWord('grasp')])).toBe(1);
     });
 
-    it('没有活跃词时为 null', () => {
-        expect(feedbackRate([encounter('grasp', 'known')], [])).toBeNull();
+    it('没有任何活跃词与反馈时为 null', () => {
+        expect(feedbackRate([], [])).toBeNull();
     });
 });
 
@@ -125,7 +127,7 @@ describe('buildLearningMetrics', () => {
         retention30Reviewed: 10,
     };
 
-    it('北极星指标是去重后的成功回忆词数', () => {
+    it('成功回忆指标是去重后的成功回忆词数', () => {
         const result = buildLearningMetrics(base);
         expect(result.northStar.key).toBe('weeklyRecallWords');
         expect(result.northStar.value).toBe(1);
@@ -160,6 +162,13 @@ describe('buildLearningMetrics', () => {
         const openMetric = result.metrics.find((metric) => metric.key === 'recommendationOpen');
         expect(openMetric?.value).toBeCloseTo(0.3);
         expect(openMetric?.denominator).toBe(10);
+    });
+
+    it('反馈率分母与分子使用同一群体', () => {
+        const result = buildLearningMetrics(base);
+        const feedbackMetric = result.metrics.find((metric) => metric.key === 'feedbackRate');
+        expect(feedbackMetric?.value).toBeCloseTo(0.5);
+        expect(feedbackMetric?.denominator).toBe(2);
     });
 
     it('全空输入不会产生 NaN 或 Infinity', () => {

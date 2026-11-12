@@ -41,7 +41,7 @@ describe('LearningMetricsService', () => {
         expect((await service.getMetrics({ windowDays: 30 })).windowDays).toBe(30);
     });
 
-    it('北极星指标按 lemma 去重，只计成功回忆', async () => {
+    it('成功回忆指标按 lemma 去重，只计成功回忆', async () => {
         const { service } = buildService({
             reviewEvents: [
                 { lemma: 'grasp', rating: 'good' },
@@ -77,6 +77,12 @@ describe('LearningMetricsService', () => {
                 { word: 'the', status: 'learning', source: 'default' },
                 { word: 'retired', status: 'ignored', source: 'manual' },
                 { word: 'known', status: 'known', source: 'manual' },
+            ],
+            encounters: [
+                { lemma: 'grasp', action: 'hover' },
+                { lemma: 'the', action: 'hover' },
+                { lemma: 'retired', action: 'hover' },
+                { lemma: 'known', action: 'hover' },
             ],
         });
         const result = await service.getMetrics();
