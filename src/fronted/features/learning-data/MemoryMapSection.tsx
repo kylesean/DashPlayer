@@ -16,6 +16,13 @@ import { cn } from '@/fronted/lib/utils';
 export interface MemoryMapSectionProps {
     /** 点击词条时跳转到该词的片段。 */
     onSelectWord: (word: string) => void;
+    /**
+     * 开始按主题顺序连续学习。
+     *
+     * 传入该主题代表词的有序列表；由调用方决定「连续学习」具体表现
+     * （当前实现是按顺序筛选词表），图谱本身不复制一套学习流程。
+     */
+    onStartTopicQueue?: (words: string[]) => void;
 }
 
 const STATUS_ORDER: readonly WordStatus[] = ['learning', 'familiar', 'known', 'ignored'];
@@ -25,7 +32,7 @@ const STATUS_ORDER: readonly WordStatus[] = ['learning', 'familiar', 'known', 'i
  *
  * 只读取本地数据；没有词时整段隐藏，避免空面板噪声。
  */
-export default function MemoryMapSection({ onSelectWord }: MemoryMapSectionProps) {
+export default function MemoryMapSection({ onSelectWord, onStartTopicQueue }: MemoryMapSectionProps) {
     const { t } = useTranslation('memoryMap');
     const [expanded, setExpanded] = useState(false);
     const { data, error } = useSWR<MemoryMapVO>(
@@ -80,6 +87,7 @@ export default function MemoryMapSection({ onSelectWord }: MemoryMapSectionProps
                             counts={topic.counts}
                             words={topic.words}
                             onSelectWord={onSelectWord}
+                            onStartQueue={onStartTopicQueue}
                         />
                     ))}
                     {data.looseWords && (
@@ -89,6 +97,7 @@ export default function MemoryMapSection({ onSelectWord }: MemoryMapSectionProps
                             words={data.looseWords.words}
                             onSelectWord={onSelectWord}
                             hint={t('looseHint')}
+                            onStartQueue={onStartTopicQueue}
                         />
                     )}
                 </div>
@@ -105,12 +114,14 @@ function TopicCard({
     counts,
     words,
     onSelectWord,
+    onStartQueue,
     hint,
 }: {
     label: string;
     counts: Record<WordStatus, number>;
     words: MemoryMapWordVO[];
     onSelectWord: (word: string) => void;
+    onStartQueue?: (words: string[]) => void;
     hint?: string;
 }) {
     const { t } = useTranslation('memoryMap');
@@ -119,9 +130,19 @@ function TopicCard({
         <div className="rounded-xl border border-border/50 bg-background/50 px-3 py-2.5">
             <HStack vAlign="end" hAlign="between" gap={2} width="100%">
                 <Text type="body" weight="medium" maxLines={1}>{label}</Text>
-                <Text type="supporting" color="secondary" className="shrink-0 tabular-nums">
-                    {t('wordCount', { count: total })}
-                </Text>
+                <HStack vAlign="center" gap={2} className="shrink-0">
+                    <Text type="supporting" color="secondary" className="tabular-nums">
+                        {t('wordCount', { count: total })}
+                    </Text>
+                    {onStartQueue && words.length > 0 && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            label={t('startQueue')}
+                            onClick={() => onStartQueue(words.map((word) => word.word))}
+                        />
+                    )}
+                </HStack>
             </HStack>
             {hint && (
                 <Text type="supporting" color="secondary" className="mt-0.5">
@@ -150,7 +171,14 @@ function TopicCard({
                     <button
                         key={word.word}
                         type="button"
-                        title={word.context ?? word.translate ?? word.word}
+                        title={[
+                            word.context ?? word.translate ?? word.word,
+                            word.neighbors && word.neighbors.length > 0
+                                ? t('neighborsHint', {
+                                    words: word.neighbors.map((neighbor) => neighbor.word).join(', '),
+                                })
+                                : null,
+                        ].filter(Boolean).join('\n')}
                         onClick={() => onSelectWord(word.word)}
                         className={cn(
                             'rounded-md px-1.5 py-0.5 text-metadata transition-colors',

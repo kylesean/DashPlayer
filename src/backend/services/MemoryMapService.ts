@@ -5,6 +5,7 @@ import type LearningDataRepository from '@/backend/services/repositories/Learnin
 import type WatchHistoryRepository from '@/backend/services/repositories/WatchHistoryRepository';
 import { WatchHistoryProjectType } from '@/backend/services/repositories/WatchHistoryRepository';
 import {
+    buildCooccurrenceEdges,
     buildMemoryTopic,
     normalizeTopicLabel,
 } from '@/common/learning/memoryMap';
@@ -160,6 +161,37 @@ export class MemoryMapServiceImpl implements MemoryMapService {
                 words: Array.from(looseWords.values()),
             })
             : null;
+
+        // 共现边按主题计算后回填到每个词上：同一句里一起出现过的词，
+        // 才是真正可以放在一起复习的一组。
+        const cooccurrenceEncounters = encounters.flatMap((encounter) => {
+            const lemma = encounter.lemma.toLowerCase();
+            if (!wordMap.has(lemma)) {
+                return [];
+            }
+            const topicKey = encounter.video_id
+                ? `video:${encounter.video_id}`
+                : encounter.file_hash
+                    ? `subtitle:${encounter.file_hash}`
+                    : null;
+            if (!topicKey) {
+                return [];
+            }
+            return [{
+                lemma,
+                sentenceHash: encounter.sentence_hash,
+                topicKey,
+            }];
+        });
+        const edges = buildCooccurrenceEdges(cooccurrenceEncounters);
+        for (const topic of topics) {
+            for (const word of topic.words) {
+                const neighbors = edges.get(word.word.toLowerCase());
+                if (neighbors && neighbors.length > 0) {
+                    word.neighbors = neighbors;
+                }
+            }
+        }
 
         return {
             generatedAt: new Date().toISOString(),

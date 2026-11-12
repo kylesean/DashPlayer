@@ -34,6 +34,20 @@ export interface MemoryMapWordVO {
     lastSeenAt: string;
     /** 一句真实上下文，供回忆；没有时为 null。 */
     context: string | null;
+    /**
+     * 与本词在同一句字幕里共现过的其他词（按共现次数降序，最多 3 个）。
+     *
+     * 共现边是「这两个词一起出现在真实语境里」的证据，比主题分组更细：
+     * 同一视频里两个从没同句出现过的词，不该被当成一组来复习。
+     */
+    neighbors?: MemoryMapNeighborVO[];
+}
+
+/** 一条共现边。 */
+export interface MemoryMapNeighborVO {
+    word: string;
+    /** 共同出现的句子数。 */
+    weight: number;
 }
 
 /** 记忆图谱快照。 */

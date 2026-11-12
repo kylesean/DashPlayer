@@ -7,5 +7,7 @@
     "wordCount": "{{count}} words",
     "untitledTopic": "Untitled content",
     "looseTitle": "Words without context",
-    "looseHint": "These came from manual entries or older records. They join a topic once you meet them in a video."
+    "looseHint": "These came from manual entries or older records. They join a topic once you meet them in a video.",
+    "startQueue": "Study in topic order",
+    "neighborsHint": "Often appears with: {{words}}"
 }

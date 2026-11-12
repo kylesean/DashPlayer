@@ -1,4 +1,5 @@
 import type {
+    MemoryMapNeighborVO,
     MemoryMapTopicVO,
     MemoryMapWordVO,
 } from '@/common/types/memoryMap';
@@ -11,6 +12,75 @@ export const MEMORY_MAP_STATUSES: readonly WordStatus[] = [
     'known',
     'ignored',
 ];
+
+/**
+ * 一条带句子定位的遭遇，用于计算共现。
+ */
+export interface CooccurrenceEncounter {
+    lemma: string;
+    /** 句子内容哈希；同一句的不同词共享该键。 */
+    sentenceHash: string | null;
+    /** 主题键，共现只在同一主题内计算。 */
+    topicKey: string;
+}
+
+/**
+ * 计算词与词在同一句里共现的次数。
+ *
+ * 只在同一句内统计：同一视频里从没同句出现过的两个词没有共现关系，
+ * 按视频分组会把整集变成一个全连接图，边就没有信息量了。
+ *
+ * @param encounters 带句子定位的遭遇列表。
+ * @param limitPerWord 每个词最多保留多少条边。
+ * @returns 词 → 共现邻居（按权重降序）。
+ */
+export const buildCooccurrenceEdges = (
+    encounters: readonly CooccurrenceEncounter[],
+    limitPerWord = 3,
+): Map<string, MemoryMapNeighborVO[]> => {
+    // 先把同一句里的词聚成组，再在组内两两计数。
+    const sentenceGroups = new Map<string, Set<string>>();
+    for (const encounter of encounters) {
+        if (!encounter.sentenceHash) {
+            continue;
+        }
+        const key = `${encounter.topicKey}|${encounter.sentenceHash}`;
+        const group = sentenceGroups.get(key) ?? new Set<string>();
+        group.add(encounter.lemma.toLowerCase());
+        sentenceGroups.set(key, group);
+    }
+
+    const counts = new Map<string, Map<string, number>>();
+    const bump = (from: string, to: string) => {
+        const neighbors = counts.get(from) ?? new Map<string, number>();
+        neighbors.set(to, (neighbors.get(to) ?? 0) + 1);
+        counts.set(from, neighbors);
+    };
+    for (const group of sentenceGroups.values()) {
+        const lemmas = Array.from(group);
+        if (lemmas.length < 2) {
+            continue;
+        }
+        for (let left = 0; left < lemmas.length; left += 1) {
+            for (let right = left + 1; right < lemmas.length; right += 1) {
+                bump(lemmas[left], lemmas[right]);
+                bump(lemmas[right], lemmas[left]);
+            }
+        }
+    }
+
+    const edges = new Map<string, MemoryMapNeighborVO[]>();
+    for (const [lemma, neighbors] of counts) {
+        edges.set(
+            lemma,
+            Array.from(neighbors.entries())
+                .map(([word, weight]) => ({ word, weight }))
+                .sort((left, right) => right.weight - left.weight || left.word.localeCompare(right.word))
+                .slice(0, limitPerWord),
+        );
+    }
+    return edges;
+};
 
 /**
  * 统计一个主题内各记忆阶段的词数。

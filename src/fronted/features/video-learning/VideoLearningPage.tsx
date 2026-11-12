@@ -48,6 +48,12 @@ export default function VideoLearningPage() {
   const [words, setWords] = useState<WordItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  /**
+   * 主题内连续学习队列：按记忆图谱给的顺序排列的词。
+   *
+   * 为空表示未进入队列；此时词表按用户原来的排序展示，不改变任何既有行为。
+   */
+  const [topicQueue, setTopicQueue] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [pendingClip, setPendingClip] = useState<PendingClipRequest | null>(null);
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({});
@@ -62,6 +68,25 @@ export default function VideoLearningPage() {
   const [currentLineIndex, setCurrentLineIndex] = useState(-1);
 
   const selectedWordValue = selectedWord?.word ?? '';
+  /**
+   * 队列排序后的词表：队列里的词按图谱顺序置顶，其余词保持原顺序跟在后面。
+   */
+  const sidebarWords = useMemo(() => {
+    if (topicQueue.length === 0) {
+      return words;
+    }
+    const order = new Map(topicQueue.map((word, index) => [word.toLowerCase(), index]));
+    return words
+      .slice()
+      .sort((left, right) => {
+        const leftIndex = order.get(left.word.toLowerCase());
+        const rightIndex = order.get(right.word.toLowerCase());
+        if (leftIndex === undefined && rightIndex === undefined) return 0;
+        if (leftIndex === undefined) return 1;
+        if (rightIndex === undefined) return -1;
+        return leftIndex - rightIndex;
+      });
+  }, [topicQueue, words]);
   const searchKey = `${apiPath('video-learning/search')}::word=${selectedWordValue}::page=${page}::size=${PAGE_SIZE}`;
   const { data: learningClips = DEFAULT_LEARNING_RESPONSE, isValidating } = useSWR(
     searchKey,
@@ -416,6 +441,24 @@ export default function VideoLearningPage() {
     handlePageChange(1, { targetIndex: 0 });
   }, [handlePageChange, handleWordClick, words]);
 
+  /**
+   * 开始主题内连续学习：把该主题的代表词按图谱顺序排到词表最前面。
+   *
+   * 只做排序与置顶，不隐藏其他词——用户仍然可以自由跳到队列外的词，
+   * 队列只是一个「建议的下一步」，不是限制。
+   */
+  const handleStartTopicQueue = useCallback((queue: string[]) => {
+    setTopicQueue(queue);
+    setSearchTerm('');
+    const first = queue[0];
+    if (first) {
+      const matched = words.find((item) => item.word.toLowerCase() === first.toLowerCase());
+      if (matched) {
+        handleWordClick(matched);
+      }
+    }
+  }, [handleWordClick, words]);
+
   // 处理清除选择
   const handleClearSelection = useCallback(() => {
     setSelectedWord(null);
@@ -521,7 +564,10 @@ export default function VideoLearningPage() {
       </div>
 
       <div className="px-6 pb-1">
-        <MemoryMapSection onSelectWord={handleMemoryMapWord} />
+        <MemoryMapSection
+          onSelectWord={handleMemoryMapWord}
+          onStartTopicQueue={handleStartTopicQueue}
+        />
       </div>
 
       {/* 主体内容区域：双栏现代化卡片工作台 */}
@@ -529,7 +575,7 @@ export default function VideoLearningPage() {
         {/* 左栏卡片：生词库 */}
         <Card padding={4} height="100%" className="min-h-0 overflow-hidden">
           <WordSidebar
-            words={words}
+            words={sidebarWords}
             loading={loading}
             selectedWord={selectedWord}
             searchTerm={searchTerm}
