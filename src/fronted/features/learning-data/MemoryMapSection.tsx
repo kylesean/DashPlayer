@@ -3,6 +3,7 @@ import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import { Brain, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@astryxdesign/core/Button';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { Text } from '@astryxdesign/core/Text';
 import { HStack } from '@astryxdesign/core/HStack';
 import { VStack } from '@astryxdesign/core/VStack';
@@ -11,6 +12,7 @@ import type { MemoryMapVO, MemoryMapWordVO } from '@/common/types/memoryMap';
 import type { WordStatus } from '@/common/types/vocabulary';
 import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
 import { cn } from '@/fronted/lib/utils';
+import MemoryMapGraph from './MemoryMapGraph';
 
 /** 记忆图谱在词汇工坊中的入参。 */
 export interface MemoryMapSectionProps {
@@ -35,6 +37,7 @@ const STATUS_ORDER: readonly WordStatus[] = ['learning', 'familiar', 'known', 'i
 export default function MemoryMapSection({ onSelectWord, onStartTopicQueue }: MemoryMapSectionProps) {
     const { t } = useTranslation('memoryMap');
     const [expanded, setExpanded] = useState(false);
+    const [view, setView] = useState<'cards' | 'graph'>('cards');
     const { data, error } = useSWR<MemoryMapVO>(
         'learning-data/memory-map',
         () => learningDataApi.getMemoryMap({ limit: 8 }),
@@ -79,26 +82,42 @@ export default function MemoryMapSection({ onSelectWord, onStartTopicQueue }: Me
             </HStack>
 
             {expanded && (
-                <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-                    {topics.map((topic) => (
-                        <TopicCard
-                            key={topic.key}
-                            label={topic.label ?? t('untitledTopic')}
-                            counts={topic.counts}
-                            words={topic.words}
-                            onSelectWord={onSelectWord}
-                            onStartQueue={onStartTopicQueue}
-                        />
-                    ))}
-                    {data.looseWords && (
-                        <TopicCard
-                            label={t('looseTitle')}
-                            counts={data.looseWords.counts}
-                            words={data.looseWords.words}
-                            onSelectWord={onSelectWord}
-                            hint={t('looseHint')}
-                            onStartQueue={onStartTopicQueue}
-                        />
+                <div className="mt-3">
+                    <SegmentedControl
+                        value={view}
+                        onChange={(value) => setView(value === 'graph' ? 'graph' : 'cards')}
+                        label={t('viewLabel')}
+                        size="sm"
+                    >
+                        <SegmentedControlItem value="cards" label={t('viewCards')} />
+                        <SegmentedControlItem value="graph" label={t('viewGraph')} />
+                    </SegmentedControl>
+
+                    {view === 'graph' ? (
+                        <MemoryMapGraph data={data} onSelectWord={onSelectWord} />
+                    ) : (
+                        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+                            {topics.map((topic) => (
+                                <TopicCard
+                                    key={topic.key}
+                                    label={topic.label ?? t('untitledTopic')}
+                                    counts={topic.counts}
+                                    words={topic.words}
+                                    onSelectWord={onSelectWord}
+                                    onStartQueue={onStartTopicQueue}
+                                />
+                            ))}
+                            {data.looseWords && (
+                                <TopicCard
+                                    label={t('looseTitle')}
+                                    counts={data.looseWords.counts}
+                                    words={data.looseWords.words}
+                                    onSelectWord={onSelectWord}
+                                    hint={t('looseHint')}
+                                    onStartQueue={onStartTopicQueue}
+                                />
+                            )}
+                        </div>
                     )}
                 </div>
             )}

@@ -9,5 +9,10 @@
     "looseTitle": "Words without context",
     "looseHint": "These came from manual entries or older records. They join a topic once you meet them in a video.",
     "startQueue": "Study in topic order",
-    "neighborsHint": "Often appears with: {{words}}"
+    "neighborsHint": "Often appears with: {{words}}",
+    "viewLabel": "Map view",
+    "viewCards": "Topics",
+    "viewGraph": "Relations",
+    "graphLabel": "Word co-occurrence graph",
+    "graphHint": "Select a word to see its clips. A line means those words appeared in the same subtitle line."
 }

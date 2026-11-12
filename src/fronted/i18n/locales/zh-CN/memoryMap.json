@@ -9,5 +9,10 @@
     "looseTitle": "还没有上下文的词",
     "looseHint": "这些词来自手动添加或更早的记录，进入视频后会自动归入主题。",
     "startQueue": "按主题顺序学",
-    "neighborsHint": "常一起出现：{{words}}"
+    "neighborsHint": "常一起出现：{{words}}",
+    "viewLabel": "图谱显示方式",
+    "viewCards": "主题卡",
+    "viewGraph": "关系图",
+    "graphLabel": "词与词共现关系图",
+    "graphHint": "点按任意词可查看它的片段；连线表示这些词在同一句字幕里一起出现过。"
 }

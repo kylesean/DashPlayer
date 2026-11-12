@@ -114,4 +114,35 @@ describe('MemoryMapSection', () => {
 
         await waitFor(() => expect(container.textContent).toBe(''));
     });
+
+    it('切换到关系图后按共现关系画节点，点击节点仍回传词条', async () => {
+        const onSelectWord = vi.fn();
+        vi.mocked(useSWR).mockReturnValue({
+            data: {
+                ...map,
+                topics: [{
+                    ...map.topics[0],
+                    words: [
+                        { ...map.topics[0].words[0], neighbors: [{ word: 'orbit', weight: 3 }] },
+                        { ...map.topics[0].words[1], neighbors: [{ word: 'journey', weight: 3 }] },
+                    ],
+                }],
+            },
+            error: undefined,
+            isLoading: false,
+            mutate: vi.fn(),
+        } as never);
+        render(<MemoryMapSection onSelectWord={onSelectWord} />);
+
+        fireEvent.click(await screen.findByText('expand'));
+        fireEvent.click(screen.getByText('viewGraph'));
+
+        expect(screen.getByRole('img', { name: 'graphLabel' })).toBeDefined();
+        expect(screen.getByText('graphHint')).toBeDefined();
+        // 关系图里每条无向边只画一次。
+        expect(document.querySelectorAll('svg line')).toHaveLength(1);
+
+        fireEvent.click(screen.getByRole('button', { name: 'journey' }));
+        expect(onSelectWord).toHaveBeenCalledWith('journey');
+    });
 });
