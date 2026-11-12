@@ -25,16 +25,79 @@ export const meanSquareToDb = (meanSquare: number): number => {
 };
 
 /**
- * 直接从 PCM 采样生成 dBFS 能量包络。
+ * 流式能量包络累加器。
  *
- * 不保留逐 30ms 的中间数组：一小时 16kHz 单声道素材有近 200 万个 30ms 帧，
- * 先展开再聚合纯属浪费内存。这里一次遍历直接按目标分辨率累加。
+ * 长视频不能整段读进内存：两小时 16kHz 单声道 PCM 约 460 MB。这里按块喂
+ * 采样，内部只保留「当前桶的累加和」，输出规模与音频时长成正比（0.1 秒
+ * 一格），与块大小无关。
  *
- * 聚合取桶内均值而不是峰值：峰值会被单次爆音主导，均值更接近听感音量。
+ * 桶按「累计样本数」推进而不是按块边界推进：块大小不必是桶长的整数倍，
+ * 调用方可以任意选择读块大小，包络的时间对齐不会漂移。
+ */
+export class EnergyEnvelopeBuilder {
+    private readonly bucketLength: number;
+
+    private readonly envelope: number[] = [];
+
+    private bucketSum = 0;
+
+    private bucketSamples = 0;
+
+    /**
+     * @param sampleRate 采样率。
+     * @param bucketSec 包络分辨率（秒）。
+     */
+    public constructor(
+        private readonly sampleRate: number,
+        private readonly bucketSec: number = PROSODY_ENVELOPE_SEC,
+    ) {
+        this.bucketLength = Math.max(1, Math.round(sampleRate * bucketSec));
+    }
+
+    /**
+     * 追加一段 16-bit 采样。
+     *
+     * @param samples 采样；跨块边界的桶会被正确接续。
+     */
+    public push(samples: Int16Array): void {
+        for (const raw of samples) {
+            const sample = raw / 32768;
+            this.bucketSum += sample * sample;
+            this.bucketSamples += 1;
+            if (this.bucketSamples >= this.bucketLength) {
+                this.flushBucket();
+            }
+        }
+    }
+
+    /**
+     * 结束累加。
+     *
+     * 不足一桶的尾巴直接丢弃：末桶不完整时按较少样本数求均值会被系统性
+     * 低估或高估，而 0.1 秒的缺口对整段韵律判定没有影响。
+     *
+     * @returns dBFS 包络。
+     */
+    public finish(): number[] {
+        return [...this.envelope];
+    }
+
+    private flushBucket(): void {
+        this.envelope.push(Number(meanSquareToDb(this.bucketSum / this.bucketSamples).toFixed(1)));
+        this.bucketSum = 0;
+        this.bucketSamples = 0;
+    }
+}
+
+/**
+ * 一次性把整段采样压成 dBFS 能量包络。
  *
- * @param samples 16-bit 采样。
- * @param sampleRate 采样率。
- * @param bucketSec 包络分辨率（秒）。
+ * 只是 `EnergyEnvelopeBuilder` 的便捷包装，供短音频与测试使用；长音频
+ * 应直接用 builder 分块喂入，避免整段驻留内存。
+ *
+ * @param input.samples 16-bit 采样。
+ * @param input.sampleRate 采样率。
+ * @param input.bucketSec 包络分辨率（秒）。
  * @returns dBFS 包络；样本不足一格时为空数组。
  */
 export const buildEnergyEnvelope = (input: {
@@ -42,23 +105,9 @@ export const buildEnergyEnvelope = (input: {
     sampleRate: number;
     bucketSec?: number;
 }): number[] => {
-    const bucketSec = input.bucketSec ?? PROSODY_ENVELOPE_SEC;
-    if (input.sampleRate <= 0 || bucketSec <= 0) {
-        return [];
-    }
-    const bucketLength = Math.max(1, Math.round(input.sampleRate * bucketSec));
-    const bucketCount = Math.floor(input.samples.length / bucketLength);
-    const envelope: number[] = [];
-    for (let bucket = 0; bucket < bucketCount; bucket += 1) {
-        const offset = bucket * bucketLength;
-        let sumSq = 0;
-        for (let index = offset; index < offset + bucketLength; index += 1) {
-            const sample = input.samples[index] / 32768;
-            sumSq += sample * sample;
-        }
-        envelope.push(Number(meanSquareToDb(sumSq / bucketLength).toFixed(1)));
-    }
-    return envelope;
+    const builder = new EnergyEnvelopeBuilder(input.sampleRate, input.bucketSec);
+    builder.push(input.samples);
+    return builder.finish();
 };
 
 /**

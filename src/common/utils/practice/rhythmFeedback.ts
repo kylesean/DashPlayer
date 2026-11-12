@@ -3,6 +3,7 @@ import type {
     SentencePracticeWordRhythm,
 } from '@/common/contracts/sentence-practice';
 import { isContentLemma } from '@/common/learning/contentWords';
+import { parsePcm16WavHeader } from '@/common/utils/audio/wav';
 import {
     alignPracticeTokens,
     normalizePracticeTokens,
@@ -46,60 +47,26 @@ const FLAT_STRESS_RANGE = 0.15;
  * 解析 16kHz 单声道 16-bit PCM WAV。
  *
  * 只接受应用自己用 ffmpeg 生成的格式；其他格式返回 null，节奏分析静默跳过。
+ *
+ * 会把整段采样读进内存，只适合跟读这类短音频；整段视频请用流式读取。
  */
 export const decodePcm16Wav = (buffer: Uint8Array): PcmAudio | null => {
-    if (buffer.byteLength < 44) {
+    const header = parsePcm16WavHeader(buffer);
+    if (!header) {
         return null;
     }
-    const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-    const riff = String.fromCharCode(buffer[0], buffer[1], buffer[2], buffer[3]);
-    const wave = String.fromCharCode(buffer[8], buffer[9], buffer[10], buffer[11]);
-    if (riff !== 'RIFF' || wave !== 'WAVE') {
-        return null;
-    }
-
-    let offset = 12;
-    let sampleRate = 0;
-    let channels = 0;
-    let bitsPerSample = 0;
-    let audioFormat = 0;
-    let dataOffset = -1;
-    let dataLength = 0;
-
-    while (offset + 8 <= buffer.byteLength) {
-        const chunkId = String.fromCharCode(
-            buffer[offset],
-            buffer[offset + 1],
-            buffer[offset + 2],
-            buffer[offset + 3],
-        );
-        const chunkSize = view.getUint32(offset + 4, true);
-        const body = offset + 8;
-        if (chunkId === 'fmt ' && body + 16 <= buffer.byteLength) {
-            audioFormat = view.getUint16(body, true);
-            channels = view.getUint16(body + 2, true);
-            sampleRate = view.getUint32(body + 4, true);
-            bitsPerSample = view.getUint16(body + 14, true);
-        } else if (chunkId === 'data') {
-            dataOffset = body;
-            dataLength = Math.min(chunkSize, buffer.byteLength - body);
-            break;
-        }
-        offset = body + chunkSize + (chunkSize % 2);
-    }
-
-    if (audioFormat !== 1 || channels !== 1 || bitsPerSample !== 16 || sampleRate <= 0 || dataOffset < 0) {
-        return null;
-    }
-    const sampleCount = Math.floor(dataLength / 2);
+    // 录制中断时 RIFF 头里的长度会大于实际文件，按实际可用字节收敛。
+    const available = Math.min(header.dataLength, buffer.byteLength - header.dataOffset);
+    const sampleCount = Math.floor(available / 2);
     if (sampleCount <= 0) {
         return null;
     }
+    const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
     const samples = new Int16Array(sampleCount);
     for (let i = 0; i < sampleCount; i += 1) {
-        samples[i] = view.getInt16(dataOffset + i * 2, true);
+        samples[i] = view.getInt16(header.dataOffset + i * 2, true);
     }
-    return { samples, sampleRate };
+    return { samples, sampleRate: header.sampleRate };
 };
 
 /**

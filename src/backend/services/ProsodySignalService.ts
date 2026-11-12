@@ -12,12 +12,12 @@ import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/Stor
 import type { SceneSentence } from '@/common/learning/sceneSegmentation';
 import {
     analyzeSentencesProsody,
-    buildEnergyEnvelope,
     detectProsodyShifts,
+    EnergyEnvelopeBuilder,
     PROSODY_ENVELOPE_SEC,
     type ProsodyShift,
 } from '@/common/learning/prosodySignal';
-import { decodePcm16Wav } from '@/common/utils/practice/rhythmFeedback';
+import { parsePcm16WavHeader, resolveDataLength } from '@/common/utils/audio/wav';
 
 /**
  * 语音韵律信号的算法版本。
@@ -153,16 +153,8 @@ export class ProsodySignalServiceImpl implements ProsodySignalService {
         );
         try {
             await this.ffmpegService.convertToWav(videoPath, wavPath);
-            const pcm = decodePcm16Wav(await fs.promises.readFile(wavPath));
-            if (!pcm) {
-                return null;
-            }
-            const envelope = buildEnergyEnvelope({
-                samples: pcm.samples,
-                sampleRate: pcm.sampleRate,
-                bucketSec: PROSODY_ENVELOPE_SEC,
-            });
-            if (envelope.length === 0) {
+            const envelope = await readEnvelope(wavPath);
+            if (!envelope) {
                 return null;
             }
             const payload: ProsodyPayload = { frameSec: PROSODY_ENVELOPE_SEC, envelope };
@@ -196,6 +188,71 @@ export class ProsodySignalServiceImpl implements ProsodySignalService {
                 // 清理失败不影响结果。
             }
         }
+    }
+}
+
+/**
+ * 流式读取 WAV 并生成能量包络。
+ *
+ * 按固定大小分块读：两小时素材的整段 PCM 有 460 MB，一次性读入会直接把
+ * 主进程内存打爆。包络只与时长成正比（0.1 秒一格），块大小与内存无关。
+ *
+ * @param wavPath WAV 文件路径。
+ * @returns dBFS 包络；格式不受支持或没有采样时返回 null。
+ */
+async function readEnvelope(wavPath: string): Promise<number[] | null> {
+    const handle = await fs.promises.open(wavPath, 'r');
+    try {
+        // ffmpeg 会在 data 前插入 LIST/INFO 等块，头部可能远超 44 字节。
+        // 64KB 足够覆盖常见元数据；仍找不到 data 就按不支持处理。
+        const headSize = 64 * 1024;
+        const headBuffer = Buffer.alloc(headSize);
+        const headRead = await handle.read(headBuffer, 0, headSize, 0);
+        const header = parsePcm16WavHeader(headBuffer.subarray(0, headRead.bytesRead));
+        if (!header) {
+            return null;
+        }
+        const { size: fileSize } = await handle.stat();
+        const dataLength = resolveDataLength(header, fileSize);
+        if (dataLength < 2) {
+            return null;
+        }
+        const builder = new EnergyEnvelopeBuilder(header.sampleRate, PROSODY_ENVELOPE_SEC);
+        const chunkBytes = 64 * 1024;
+        // 用独立 ArrayBuffer 而不是 Buffer 池：`Int16Array` 视图要求字节偏移
+        // 为偶数，池分配的 Buffer 偏移无法保证这一点。
+        const rawBuffer = new ArrayBuffer(chunkBytes + 2);
+        const buffer = Buffer.from(rawBuffer);
+        let position = header.dataOffset;
+        let remaining = dataLength;
+        // 读到的字节数不保证是偶数：奇数字节会拆散一个采样，必须留到下一块
+        // 拼回去，否则后续所有采样都会错位一个字节。
+        let carry = 0;
+        while (remaining > 0) {
+            const want = Math.min(chunkBytes, remaining);
+            const { bytesRead } = await handle.read(buffer, carry, want, position);
+            if (bytesRead === 0) {
+                break;
+            }
+            position += bytesRead;
+            remaining -= bytesRead;
+            const total = carry + bytesRead;
+            const usable = total - (total % 2);
+            if (usable > 0) {
+                // 视图直接指向读缓冲，push 同步消费，不会跨块持有。
+                builder.push(new Int16Array(rawBuffer, 0, usable / 2));
+            }
+            if (total % 2 === 1) {
+                buffer[0] = buffer[total - 1];
+                carry = 1;
+            } else {
+                carry = 0;
+            }
+        }
+        const envelope = builder.finish();
+        return envelope.length > 0 ? envelope : null;
+    } finally {
+        await handle.close();
     }
 }
 

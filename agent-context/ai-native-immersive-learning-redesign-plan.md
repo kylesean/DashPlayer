@@ -1354,12 +1354,14 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - 短句与短有声时长不参与比较：`Yes.` 这类回应按词数算语速毫无统计意义，min 4 词 + min 0.8 秒有声，宁可漏报也不制造噪声。
 - 静音判定用句内相对阈值（10 分位噪声底与 90 分位峰值的中点）而不是全局固定值：不同视频录音电平差异很大，固定阈值在低音量素材上会把整句判成静音。
 - **持久化能量包络而不是 PCM**：一小时 16kHz 单声道 PCM 约 108 MB，包络只要约 360 KB。包络是跨会话复用的部分；逐句特征不持久化，因为它依赖当前字幕切分，字幕重新校对后要能立即重算。
+- **流式读取，不整段入内存**：两小时素材的 PCM 约 460 MB，一次性读入会打爆主进程。按 64KB 分块读、边读边累加桶，内存只与块大小相关；跨块残字节单独暂存，避免奇数字节把后续采样整体错位。
 - 与跟读韵律共用同一套解码口径（`decodePcm16Wav`）与能量度量，但用途不同：跟读评的是学习者发音，这里评的是素材本身的说话方式。
 - 算法版本升到 `SCENE_SEGMENTATION_VERSION = 3`，韵律突变点（句序号、时间、原因、幅度）进入 `sceneInputHash`，旧索引自然失效。
 
 核心实现：
 
-- `src/common/learning/prosodySignal.ts`（`buildEnergyEnvelope` / `analyzeSentenceProsody` / `detectProsodyShifts` / `sliceEnvelope`）
+- `src/common/learning/prosodySignal.ts`（`EnergyEnvelopeBuilder` / `analyzeSentenceProsody` / `detectProsodyShifts` / `sliceEnvelope`）
+- `src/common/utils/audio/wav.ts`（`parsePcm16WavHeader` / `resolveDataLength`，与跟读解码共用）
 - `src/backend/services/ProsodySignalService.ts`（ffmpeg 抽音轨 → 包络 → 按视频持久化 `dp_media_signal`，kind 为 `prosody-envelope`）
 - `src/common/learning/sceneSegmentation.ts` 新增 `prosody-shift` 边界类型与 `prosodyShifts` 选项
 - `src/common/learning/sceneIndexKey.ts`、`src/backend/services/SceneIndexService.ts`（信号接入与指纹）
@@ -1369,9 +1371,10 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 验证：
 
 - 韵律纯函数 15 项测试通过（dB 换算、包络聚合、切片对齐、相对阈值静音判定、语速/音量突变、短语与短时长过滤、逐句合成）。
-- 韵律信号服务 8 项测试通过（缓存命中不重解码、字幕重校对按当前句重算、解码失败与非法 WAV 返回 null、文件不存在不触发解码、坏载荷重算、invalidate）。
+- 韵律信号服务 10 项测试通过（缓存命中不重解码、字幕重校对按当前句重算、解码失败与非法 WAV 返回 null、文件不存在不触发解码、坏载荷重算、invalidate、`LIST` 元数据块定位、跨 6 个读块的包络长度与能量分布）。
+- WAV 头解析 7 项测试通过（标准头、跳过未知块、多声道/24 位/浮点拒绝、过短与非 RIFF、声明长度不被传入缓冲截断、按文件大小收敛）。
 - 场景切分与场景索引各新增 3 项 / 2 项测试通过；场景提示组件 7 项测试通过（含韵律标签与优先级）。
-- `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1263 passed / 9 skipped。
+- `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1272 passed / 9 skipped。
 
 尚未包含：
 

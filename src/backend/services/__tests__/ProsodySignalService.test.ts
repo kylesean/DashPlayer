@@ -108,6 +108,26 @@ const wav = (pattern: readonly number[]): Buffer => {
     return buffer;
 };
 
+/**
+ * 在 fmt 与 data 之间插入一个 LIST 元数据块，模拟 ffmpeg 写出的真实文件。
+ *
+ * @param base 原始 WAV。
+ * @returns 带 LIST 块的 WAV。
+ */
+const withListChunk = (base: Buffer): Buffer => {
+    const payload = Buffer.from('INFOISFT\u0000', 'binary');
+    const list = Buffer.alloc(8 + payload.length + (payload.length % 2));
+    list.write('LIST', 0);
+    list.writeUInt32LE(payload.length, 4);
+    payload.copy(list, 8);
+    // fmt 块从 12 开始、长 24 字节（含头），data 从 36 开始。
+    const head = base.subarray(0, 36);
+    const body = base.subarray(36);
+    const result = Buffer.concat([head, list, body]);
+    result.writeUInt32LE(result.length - 8, 4);
+    return result;
+};
+
 const sentence = (index: number, start: number, end: number, text: string): SceneSentence => ({
     fileHash: 'hash-1',
     index,
@@ -263,6 +283,39 @@ describe('ProsodySignalService', () => {
 
         // 首次计算 1 次 + 手工写入坏载荷 1 次 + 重算覆盖 1 次。
         expect(spies.upsert).toHaveBeenCalledTimes(3);
+    });
+
+    it('data 前有 LIST 元数据块时仍能定位并解析', async () => {
+        const file = await setupVideo();
+        const { repository, spies } = memoryRepository();
+        const service = build(repository, withListChunk(wav([1, -0.4, 1])));
+
+        const shifts = await service.getShifts(file, [
+            sentence(0, 0, 1, 'We should leave before the storm arrives.'),
+            sentence(1, 1.4, 2.4, 'The wind is getting stronger now.'),
+        ]);
+
+        expect(shifts).not.toBeNull();
+        const payload = JSON.parse(spies.upsert.mock.calls[0][0].payloadJson);
+        // 1 + 0.4 + 1 = 2.4 秒音频按 0.1 秒一格应为 24 格，说明 LIST 块没有让数据偏移错位。
+        expect(payload.envelope).toHaveLength(24);
+    });
+
+    it('跨多个读块时包络长度与整段一致，不因块边界丢采样', async () => {
+        const file = await setupVideo();
+        const { repository, spies } = memoryRepository();
+        // 6 + 0.5 + 6 = 12.5 秒 = 200000 采样 = 400000 字节，跨 6 个 64KB 读块。
+        const service = build(repository, wav([6, -0.5, 6]));
+
+        await service.getShifts(file, [
+            sentence(0, 0, 6, 'We should leave before the storm arrives.'),
+            sentence(1, 6.5, 12.5, 'The wind is getting stronger now.'),
+        ]);
+
+        const payload = JSON.parse(spies.upsert.mock.calls[0][0].payloadJson);
+        expect(payload.envelope).toHaveLength(125);
+        // 有声段（第 1 秒）应显著高于静音段（第 6.2 秒），证明跨块拼接没有错位。
+        expect(payload.envelope[10]).toBeGreaterThan(payload.envelope[62] + 20);
     });
 
     it('invalidate 删除该视频的信号', async () => {
