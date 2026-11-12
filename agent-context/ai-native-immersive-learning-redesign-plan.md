@@ -1588,6 +1588,36 @@ R3 第十八阶段。
 - 新增 1 项复习坞交互测试：连评 5 张后出现收束文案与「继续下一组」，点击后进入下一组。
 - `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1314 passed / 9 skipped。
 
+#### R0 补记七：Astryx 规范收口（2026-11-12）
+
+用 Astryx MCP 逐条复核组件文档（`Item` / `StatusDot` / `DropdownMenu*` /
+`NumberInput`）后，修掉三处仍然存在的规范问题：
+
+1. **可交互行内嵌套按钮**（`SideSentence`、`ArticleBlock`）。整行点击区是
+   `role="button"`，却把「单句循环 / 重播」按钮放在它里面：键盘按 Enter 会同时
+   触发行跳转与按钮动作，读屏也会播报两个嵌套的动作目标（WCAG 4.1.2）。
+   现在点击区与操作栏是兄弟节点，操作栏浮在行尾；`ArticleBlock` 的句子与循环
+   按钮也拆成同级。新增 AST 级检查确认 `role="button"` 内部无嵌套可交互元素。
+2. **互斥筛选用了 action item + 勾选图标**（`Subtitle` 文稿筛选）。这只能让
+   界面「看起来选中」，语义是假的。改为 compound 模式的
+   `DropdownMenuGroup` + `DropdownMenuRadioGroup` + `DropdownMenuRadioItem`，
+   读屏播报 `menuitemradio`，方向键可在选项间移动。
+3. **Tooltip 包原生 disabled 按钮**（文稿搜索的上一/下一匹配）。原生 `disabled`
+   会吞掉 hover 与焦点，提示恰好在这一刻不可达。改为 `aria-disabled` + 点击内
+   拦截，视觉与行为不变。
+
+顺带复核并确认已合规：`SideNavItem` 不再双导航（`SideBar` 首页项的 `onClick`
+只切窗口尺寸，不做导航）、AlertDialog 保持打开直到异步动作完成、
+`SpeedSlider` 已移除伪 `role="combobox"`、`NumberInput` 不再静默丢弃越界值。
+
+验证：
+
+- 新增 2 项结构测试：行内 `role="button"` 不得包含 `button/a/input/select/textarea`；
+  文稿筛选的三条不变量（按真实标记筛选、保留当前句、`all` 原样返回）。
+- 全仓 AST 扫描：`role="button"` 均有 `tabIndex` 与键盘处理，且无嵌套交互控件；
+  Tooltip 内原生 `disabled` 计数为 0。
+- `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1318 passed / 9 skipped。
+
 #### R3 完成度总览（2026-11-12）
 
 R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。

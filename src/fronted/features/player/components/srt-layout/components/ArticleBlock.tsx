@@ -185,45 +185,50 @@ const ArticleBlock = forwardRef<HTMLDivElement, ArticleBlockProps>(
                         const isCurrent = !!currentSentence && s.index === currentSentence.index && s.fileHash === currentSentence.fileHash;
                         const isActiveMatch = activeMatchedSentenceIndex === s.index;
 
+                        /**
+                         * 句子与「单句循环」按钮必须是兄弟节点。
+                         *
+                         * 把按钮放进可点击的句子容器里，键盘用户按 Enter 会同时触发
+                         * 句子跳转与循环切换（事件冒泡），读屏也会播报两个嵌套的动作目标。
+                         * 这里用一层不带交互语义的 inline 包裹，让两者各自独立可聚焦。
+                         */
                         return (
-                            <span
-                                key={`${s.fileHash}:${s.index}`}
-                                data-testid={SENTENCE_CARD_TESTID}
-                                data-index={s.index}
-                                data-sentence-index={s.index}
-                                role="button"
-                                tabIndex={0}
-                                onClick={(e) => {
-                                    const target = e.target as HTMLElement | null;
-                                    if (target?.closest('[data-word="true"]') || target?.closest('button')) {
-                                        return;
-                                    }
-                                    onSentenceClick(s);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
+                            <span key={`${s.fileHash}:${s.index}`} className="inline">
+                                <span
+                                    data-testid={SENTENCE_CARD_TESTID}
+                                    data-index={s.index}
+                                    data-sentence-index={s.index}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={(e) => {
+                                        const target = e.target as HTMLElement | null;
+                                        if (target?.closest('[data-word="true"]')) {
+                                            return;
+                                        }
                                         onSentenceClick(s);
-                                    }
-                                }}
-                                className={cn(
-                                    'inline rounded-md px-1 py-0.5 mr-1 cursor-pointer transition-all duration-150',
-                                    isCurrent
-                                        ? 'bg-accent/20 text-foreground font-medium ring-1 ring-accent/35 shadow-xs'
-                                        : 'text-muted-foreground hover:text-foreground hover:bg-surface/80',
-                                    isActiveMatch && 'ring-1 ring-amber-500/80 bg-amber-500/15 text-foreground shadow-xs',
-                                )}
-                            >
-                                {renderSentenceWords(s, isCurrent, isActiveMatch)}
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            onSentenceClick(s);
+                                        }
+                                    }}
+                                    className={cn(
+                                        'inline rounded-md px-1 py-0.5 cursor-pointer transition-all duration-150',
+                                        isCurrent
+                                            ? 'bg-accent/20 text-foreground font-medium ring-1 ring-accent/35 shadow-xs'
+                                            : 'text-muted-foreground hover:text-foreground hover:bg-surface/80',
+                                        isActiveMatch && 'ring-1 ring-amber-500/80 bg-amber-500/15 text-foreground shadow-xs',
+                                    )}
+                                >
+                                    {renderSentenceWords(s, isCurrent, isActiveMatch)}
+                                </span>
                                 {onToggleSingleRepeat && isCurrent && (
                                     <button
                                         type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onToggleSingleRepeat(s);
-                                        }}
+                                        onClick={() => onToggleSingleRepeat(s)}
                                         className={cn(
-                                            'inline-flex items-center justify-center ml-1 p-0.5 rounded cursor-pointer transition-colors align-middle',
+                                            'inline-flex items-center justify-center mx-1 p-0.5 rounded cursor-pointer transition-colors align-middle',
                                             isRepeat
                                                 ? 'text-accent bg-accent/25 hover:bg-accent/35'
                                                 : 'text-muted-foreground/60 hover:text-foreground hover:bg-surface/80',

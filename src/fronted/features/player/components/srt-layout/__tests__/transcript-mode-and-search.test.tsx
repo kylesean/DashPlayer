@@ -121,7 +121,8 @@ describe('SideSentence - Single repeat shadowing loop & search highlight', () =>
             />,
         );
 
-        const card = container.firstElementChild as HTMLElement;
+        // 整行点击区是行内唯一的 role=button；行尾的操作按钮是它的兄弟节点。
+        const card = container.querySelector('[role="button"]') as HTMLElement;
         fireEvent.keyDown(card, { key: 'Enter' });
         expect(onClick).toHaveBeenCalledWith(mockSentence);
     });
@@ -176,6 +177,28 @@ describe('SideSentence - Single repeat shadowing loop & search highlight', () =>
         );
 
         expect(container.querySelector('[data-testid="sentence-vocabulary-dots"]')).toBeNull();
+    });
+
+    /**
+     * Astryx 的 Item 规范明确禁止在可交互行内嵌套按钮：焦点目标会重叠，
+     * Enter/Space 会同时触发行动作与按钮动作。这里锁定结构而不是样式。
+     */
+    it('keeps the row action button free of nested interactive controls', () => {
+        const { container } = render(
+            <SideSentence
+                sentence={mockSentence}
+                onClick={vi.fn()}
+                isCurrent={true}
+                isRepeat={false}
+                onToggleSingleRepeat={vi.fn()}
+            />,
+        );
+
+        const row = container.querySelector('[role="button"]') as HTMLElement;
+        expect(row).not.toBeNull();
+        expect(row.querySelector('button, a, input, select, textarea')).toBeNull();
+        // 操作按钮仍然存在，只是作为行的兄弟节点。
+        expect(container.querySelectorAll('button').length).toBeGreaterThan(0);
     });
 });
 

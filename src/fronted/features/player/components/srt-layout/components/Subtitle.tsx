@@ -5,7 +5,12 @@ import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { DropdownMenu } from '@astryxdesign/core/DropdownMenu';
+import {
+    DropdownMenu,
+    DropdownMenuGroup,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+} from '@astryxdesign/core/DropdownMenu';
 import { ArrowLeftRight, BookOpen, ChevronDown, ChevronUp, FileText, Filter, Languages, List, LocateFixed, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import ArticleBlock from './ArticleBlock';
@@ -734,6 +739,11 @@ export default function Subtitle() {
                       词汇筛选：只在文稿提供。主字幕是观看层，多一个筛选器就多一层噪音；
                       文稿是阅读层，用户需要「只看我还在学的词出现在哪些句子」。
                     */}
+                    {/*
+                      互斥筛选用 compound 模式的 DropdownMenuRadioGroup：它给的是
+                      role="menuitemradio"，读屏会播报「三选一」，方向键也能在选项间移动。
+                      用 action item 加一个勾选图标只能表达「看起来选中了」，语义是假的。
+                    */}
                     <DropdownMenu
                         button={{
                             label: t('transcriptVocabulary.filterLabel', { defaultValue: '筛选' }),
@@ -746,33 +756,31 @@ export default function Subtitle() {
                         hasChevron={false}
                         placement="below"
                         alignment="end"
-                        items={[
-                            {
-                                type: 'section',
-                                title: t('transcriptVocabulary.filterTitle', { defaultValue: '只看' }),
-                                items: [
-                                    {
-                                        label: t('transcriptVocabulary.filterAll', { defaultValue: '全部句子' }),
-                                        endContent: filterCounts.all,
-                                        icon: vocabularyFilter === 'all' ? 'check' : undefined,
-                                        onClick: () => setVocabularyFilter('all'),
-                                    },
-                                    {
-                                        label: t('transcriptVocabulary.filterLearning', { defaultValue: '含待学词' }),
-                                        endContent: filterCounts.learning,
-                                        icon: vocabularyFilter === 'learning' ? 'check' : undefined,
-                                        onClick: () => setVocabularyFilter('learning'),
-                                    },
-                                    {
-                                        label: t('transcriptVocabulary.filterFamiliar', { defaultValue: '含有印象的词' }),
-                                        endContent: filterCounts.familiar,
-                                        icon: vocabularyFilter === 'familiar' ? 'check' : undefined,
-                                        onClick: () => setVocabularyFilter('familiar'),
-                                    },
-                                ],
-                            },
-                        ]}
-                    />
+                    >
+                        <DropdownMenuGroup title={t('transcriptVocabulary.filterTitle', { defaultValue: '只看' })}>
+                            <DropdownMenuRadioGroup
+                                value={vocabularyFilter}
+                                onChange={(next) => setVocabularyFilter(next as TranscriptVocabularyFilter)}
+                                label={t('transcriptVocabulary.filterTitle', { defaultValue: '只看' })}
+                            >
+                                <DropdownMenuRadioItem
+                                    value="all"
+                                    label={t('transcriptVocabulary.filterAll', { defaultValue: '全部句子' })}
+                                    endContent={filterCounts.all}
+                                />
+                                <DropdownMenuRadioItem
+                                    value="learning"
+                                    label={t('transcriptVocabulary.filterLearning', { defaultValue: '含待学词' })}
+                                    endContent={filterCounts.learning}
+                                />
+                                <DropdownMenuRadioItem
+                                    value="familiar"
+                                    label={t('transcriptVocabulary.filterFamiliar', { defaultValue: '含有印象的词' })}
+                                    endContent={filterCounts.familiar}
+                                />
+                            </DropdownMenuRadioGroup>
+                        </DropdownMenuGroup>
+                    </DropdownMenu>
 
                     {/* 搜索开关 */}
                     <Tooltip content={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })} placement="below">
@@ -945,22 +953,32 @@ export default function Subtitle() {
                     )}
                     <div className="flex items-center gap-0.5 shrink-0">
                         <Tooltip content={t('prevMatch', { defaultValue: '上一个匹配 (Shift+Enter)' })} placement="below">
+                            {/* 用 aria-disabled 而不是原生 disabled：原生 disabled 会吞掉 hover 与焦点，
+                                提示恰好在这一刻不可达。点击里自行拦截，行为保持一致。 */}
                             <button
                                 type="button"
-                                disabled={matchedSentenceIndices.length === 0}
-                                onClick={handlePrevMatch}
-                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                                aria-disabled={matchedSentenceIndices.length === 0}
+                                onClick={() => {
+                                    if (matchedSentenceIndices.length === 0) return;
+                                    handlePrevMatch();
+                                }}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition-colors cursor-pointer"
                                 aria-label={t('prevMatch', { defaultValue: '上一个匹配 (Shift+Enter)' })}
                             >
                                 <ChevronUp className="w-3.5 h-3.5" />
                             </button>
                         </Tooltip>
                         <Tooltip content={t('nextMatch', { defaultValue: '下一个匹配 (Enter)' })} placement="below">
+                            {/* 用 aria-disabled 而不是原生 disabled：原生 disabled 会吞掉 hover 与焦点，
+                                提示恰好在这一刻不可达。点击里自行拦截，行为保持一致。 */}
                             <button
                                 type="button"
-                                disabled={matchedSentenceIndices.length === 0}
-                                onClick={handleNextMatch}
-                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 disabled:opacity-30 disabled:pointer-events-none transition-colors cursor-pointer"
+                                aria-disabled={matchedSentenceIndices.length === 0}
+                                onClick={() => {
+                                    if (matchedSentenceIndices.length === 0) return;
+                                    handleNextMatch();
+                                }}
+                                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted/80 aria-disabled:opacity-30 aria-disabled:cursor-not-allowed transition-colors cursor-pointer"
                                 aria-label={t('nextMatch', { defaultValue: '下一个匹配 (Enter)' })}
                             >
                                 <ChevronDown className="w-3.5 h-3.5" />
