@@ -671,6 +671,21 @@ export function RhythmFeedback({ feedback }: { feedback: NonNullable<SentencePra
     const noteText = (note: (typeof feedback.notes)[number]): string => {
         if (note === 'pace-fast') return t('rhythm.noteFast', { defaultValue: '整体语速偏快，重读容易糊在一起。' });
         if (note === 'pace-slow') return t('rhythm.noteSlow', { defaultValue: '整体语速偏慢，可以试着更连贯地连读。' });
+        if (note === 'syllables-fewer') {
+            return t('rhythm.noteSyllablesFewer', {
+                defaultValue: '比参考音节少了一些，可能有音节被吞掉或连读过度。',
+            });
+        }
+        if (note === 'syllables-more') {
+            return t('rhythm.noteSyllablesMore', {
+                defaultValue: '比参考音节多了一些，可能把辅音拆成了独立音节。',
+            });
+        }
+        if (note === 'stress-shifted') {
+            return t('rhythm.noteStressShifted', {
+                defaultValue: '多数词的重音位置和词典不同，试着把重音放回标注的音节。',
+            });
+        }
         return t('rhythm.noteFlat', { defaultValue: '重音起伏不明显，找一两个关键词说得更重。' });
     };
 
@@ -696,6 +711,18 @@ export function RhythmFeedback({ feedback }: { feedback: NonNullable<SentencePra
                         {feedback.paceRatio.toFixed(2)}×
                     </span>
                 )}
+                {feedback.syllables && feedback.syllables.verdict !== 'unknown' && (
+                    <span
+                        className="rounded-full bg-muted px-2 py-0.5 font-mono tabular-nums"
+                        title={t('rhythm.syllablesHint', {
+                            defaultValue: '参考 {{reference}} 个音节，按语速估算你说了约 {{estimated}} 个',
+                            reference: feedback.syllables.reference,
+                            estimated: feedback.syllables.estimated,
+                        })}
+                    >
+                        {feedback.syllables.estimated}/{feedback.syllables.reference}
+                    </span>
+                )}
             </div>
             <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-sm leading-relaxed">
                 {feedback.words.map((word, index) => (
@@ -703,10 +730,14 @@ export function RhythmFeedback({ feedback }: { feedback: NonNullable<SentencePra
                         key={`${word.word}-${index}`}
                         title={word.durationSec === null
                             ? t('rhythm.missingWord', { defaultValue: '这句没有说完整' })
-                            : undefined}
+                            : word.phonetic
+                                ? `${word.phonetic}${word.stressAligned === false ? ` · ${t('rhythm.stressShiftedWord', { defaultValue: '重音位置与词典不同' })}` : ''}`
+                                : undefined}
                         className={cn(
                             'transition-colors',
-                            word.stressed
+                            word.stressAligned === false
+                                ? 'font-semibold text-warning-text underline decoration-warning/50 decoration-2 underline-offset-4'
+                                : word.stressed
                                 ? 'font-semibold text-accent underline decoration-accent/50 decoration-2 underline-offset-4'
                                 : word.durationSec === null
                                     ? 'text-muted-foreground/50 line-through'

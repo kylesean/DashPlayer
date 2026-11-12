@@ -20,6 +20,7 @@ import type StorageDirectoryProvider from '@/backend/services/gateways/storage/S
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import type TranscriptionEngineSelector from '@/backend/services/TranscriptionEngineSelector';
 import type SentencePracticeRecordRepository from '@/backend/services/repositories/SentencePracticeRecordRepository';
+import type BuiltinDictionaryStore from '@/backend/services/gateways/translate/BuiltinDictionaryStore';
 
 /**
  * 句子跟读/听写练习业务服务。
@@ -82,6 +83,7 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         @inject(TYPES.StorageDirectoryProvider) private readonly storageDirectoryProvider: StorageDirectoryProvider,
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
         @inject(TYPES.TranscriptionEngineSelector) private readonly transcriptionEngineSelector: TranscriptionEngineSelector,
+        @inject(TYPES.BuiltinDictionaryStore) private readonly builtinDictionaryStore: BuiltinDictionaryStore,
     ) {}
 
     public async scoreShadowing(params: SentencePracticeShadowingParams): Promise<SentencePracticeResultVO> {
@@ -224,9 +226,30 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
                 tokens,
                 pcm,
                 referenceDurationSec,
+                lookupPhonetic: (word) => this.lookupPhonetic(word),
             });
         } catch (error) {
             this.logger.warn('跟读节奏分析失败，跳过附加信号', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+        }
+    }
+
+    /**
+     * 查词的词典音标，供音节级参考使用。
+     *
+     * 词典是可选资源：未安装或未命中时返回 null，音节分析会自动退化成
+     * 「只报节奏」，不会因此让整次跟读评分失败。
+     */
+    private lookupPhonetic(word: string): string | null {
+        try {
+            const entry = this.builtinDictionaryStore.lookup(word);
+            const phonetic = entry?.phonetic?.trim();
+            return phonetic ? phonetic : null;
+        } catch (error) {
+            this.logger.warn('词典音标查询失败，跳过音节分析', {
+                word,
                 error: error instanceof Error ? error.message : String(error),
             });
             return null;

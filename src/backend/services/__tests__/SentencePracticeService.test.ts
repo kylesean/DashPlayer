@@ -121,6 +121,7 @@ describe('句子练习服务', () => {
             storageProvider,
             fsGateway,
             new FakeTranscriptionEngineSelector(speechGateway),
+            { lookup: () => null } as never,
         );
     });
 
@@ -225,6 +226,7 @@ describe('句子练习服务', () => {
                 } as unknown as StorageDirectoryProvider,
                 fsGateway,
                 new FakeTranscriptionEngineSelector(speechGateway),
+                { lookup: () => null } as never,
             );
 
             const vo = await failingService.scoreShadowing({

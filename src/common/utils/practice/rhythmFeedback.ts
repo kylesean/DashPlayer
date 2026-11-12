@@ -7,6 +7,11 @@ import {
     alignPracticeTokens,
     normalizePracticeTokens,
 } from '@/common/utils/practice/pronunciationScoring';
+import {
+    buildWordSyllableFeedback,
+    compareSyllableCount,
+    splitIpaSyllables,
+} from '@/common/utils/practice/syllableFeedback';
 
 /**
  * 本地 ASR 子词时间轴。
@@ -179,6 +184,42 @@ const rmsForRange = (pcm: PcmAudio, startSec: number, endSec: number): number | 
 };
 
 /**
+ * 在真实录音上按音节切分时间片，测量每个音节的相对能量。
+ *
+ * 音节边界来自 IPA 的音节数，按时间等分——这不是强制对齐，所以只用于
+ * 判断「重音落在第几个音节」，不用于判断音素是否发对。词内各音节等分
+ * 时长是英语里可接受的近似：重读音节通常更长更响，等分后仍能拉开能量差。
+ *
+ * @returns 0–1 的逐音节相对能量；测量不到时返回 null。
+ */
+const measureSyllableEnergies = (
+    pcm: PcmAudio,
+    startSec: number,
+    endSec: number,
+    phonetic: string,
+): number[] | null => {
+    const count = splitIpaSyllables(phonetic).length;
+    if (count < 2 || endSec <= startSec) {
+        return null;
+    }
+    const span = endSec - startSec;
+    const step = span / count;
+    const energies: number[] = [];
+    for (let index = 0; index < count; index += 1) {
+        const energy = rmsForRange(pcm, startSec + step * index, startSec + step * (index + 1));
+        if (energy === null) {
+            return null;
+        }
+        energies.push(energy);
+    }
+    const max = Math.max(...energies);
+    if (max <= 0) {
+        return null;
+    }
+    return energies.map((energy) => Number((energy / max).toFixed(2)));
+};
+
+/**
  * 生成跟读节奏与重读分布。
  *
  * 只使用本地 ASR 时间轴和录音能量，不调用模型，也不评价音素发音。
@@ -192,6 +233,8 @@ export const buildRhythmFeedback = (input: {
     tokens: RhythmToken[];
     pcm: PcmAudio;
     referenceDurationSec?: number | null;
+    /** 词典音标查询；返回 null 表示没有可用音标。 */
+    lookupPhonetic?: (word: string) => string | null;
 }): SentencePracticeRhythmFeedback | null => {
     if (input.tokens.length === 0 || input.pcm.samples.length === 0) {
         return null;
@@ -246,13 +289,24 @@ export const buildRhythmFeedback = (input: {
         if (!match) {
             return { word: entry.expected, durationSec: null, emphasis: null, stressed: false };
         }
+        const emphasis = match.energy !== null && maxEnergy > 0
+            ? Number(Math.min(1, match.energy / maxEnergy).toFixed(2))
+            : null;
+        const phonetic = input.lookupPhonetic?.(entry.expected) ?? null;
+        const syllableEnergies = phonetic && match.energy !== null
+            ? measureSyllableEnergies(input.pcm, match.start, match.end, phonetic)
+            : null;
+        const syllable = buildWordSyllableFeedback(entry.expected, phonetic, syllableEnergies);
         return {
             word: entry.expected,
             durationSec: match.durationSec,
-            emphasis: match.energy !== null && maxEnergy > 0
-                ? Number(Math.min(1, match.energy / maxEnergy).toFixed(2))
-                : null,
+            emphasis,
             stressed: false,
+            phonetic,
+            syllables: syllable.syllables,
+            stressIndex: syllable.stressIndex,
+            spokenStressIndex: syllable.spokenStressIndex,
+            stressAligned: syllable.stressAligned,
         };
     });
 
@@ -310,6 +364,26 @@ export const buildRhythmFeedback = (input: {
     const lastEnd = Math.max(...measured.map((entry) => entry.end));
     const speechDurationSec = Math.max(0, Number((lastEnd - firstStart).toFixed(2)));
 
+    // 音节数对比：参考侧来自词典 IPA，用户侧由说话时长估算。
+    // 只有两侧都有信息时才给结论，避免在缺音标时编造「你说少了两个音节」。
+    const referenceSyllableCount = words.reduce(
+        (sum, word) => sum + (word.syllables?.length ?? 0),
+        0,
+    );
+    const syllables = referenceSyllableCount > 0
+        ? compareSyllableCount(referenceSyllableCount, speechDurationSec)
+        : undefined;
+    if (syllables?.verdict === 'fewer') notes.push('syllables-fewer');
+    if (syllables?.verdict === 'more') notes.push('syllables-more');
+
+    // 重音位置：只统计「参考重音已知且用户重音可测」的词，
+    // 且错位词数要达到多数才提示，单个词的波动不足以说明整体问题。
+    const measurable = words.filter((word) => word.stressAligned !== null);
+    const shifted = measurable.filter((word) => word.stressAligned === false).length;
+    if (measurable.length >= 3 && shifted / measurable.length >= 0.5) {
+        notes.push('stress-shifted');
+    }
+
     return {
         speechDurationSec,
         averageWordDurationSec: averageWordDurationSec === null
@@ -319,5 +393,6 @@ export const buildRhythmFeedback = (input: {
         pace,
         words,
         notes,
+        ...(syllables ? { syllables } : {}),
     };
 };

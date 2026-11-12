@@ -2,6 +2,11 @@
  * 句子跟读/听写练习的契约：录音 → 本地 ASR → 词级对齐评分 → 持久化。
  */
 
+import type {
+    ReferenceSyllable,
+    SyllableCountVerdict,
+} from '@/common/utils/practice/syllableFeedback';
+
 /**
  * 练习模式。
  * - shadowing：跟读——播放原句音频,用户朗读录音,后端转写后与原句对齐评分;
@@ -41,6 +46,16 @@ export interface SentencePracticeWordRhythm {
     emphasis: number | null;
     /** 相对同句其他内容词是否明显更重；弱读/虚词不参与重读判定。 */
     stressed: boolean;
+    /** 词典音标；词不在词典里时为 null。只展示参考结构，不判定音素对错。 */
+    phonetic?: string | null;
+    /** 由 IPA 切分出的参考音节；没有音标时为空数组。 */
+    syllables?: ReferenceSyllable[];
+    /** 参考主重音所在音节序号；没有音标或没有重音标记时为 null。 */
+    stressIndex?: number | null;
+    /** 用户录音里的重读音节序号；无法可靠判断时为 null。 */
+    spokenStressIndex?: number | null;
+    /** 重音位置是否与参考一致；任一侧未知时为 null。 */
+    stressAligned?: boolean | null;
 }
 
 /**
@@ -60,7 +75,13 @@ export interface SentencePracticeRhythmFeedback {
     /** 逐词节奏，按原句词序；无法对齐的词也保留，时长为 null。 */
     words: SentencePracticeWordRhythm[];
     /** 重读位置与平均语速的简短结论代码，由前端本地化。 */
-    notes: Array<'pace-fast' | 'pace-slow' | 'flat-stress'>;
+    notes: Array<'pace-fast' | 'pace-slow' | 'flat-stress' | 'syllables-fewer' | 'syllables-more' | 'stress-shifted'>;
+    /**
+     * 音节数对比结论。
+     *
+     * 用户音节数由说话时长估算，不是逐音节识别；只在差异明显时给出结论。
+     */
+    syllables?: SyllableCountVerdict;
 }
 
 /**
