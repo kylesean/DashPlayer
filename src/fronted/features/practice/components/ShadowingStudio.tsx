@@ -26,6 +26,7 @@ import { usePlayerState } from '@/fronted/features/player/playerState';
 import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { cn } from '@/fronted/lib/utils';
+import { isInteractiveTarget, isTextEntryTarget } from '@/fronted/lib/keyboard';
 import { decodeRecordedAudioSummary, playMicReadyCue } from '../audioFeedback';
 import type { PracticeUnit } from '../practiceUnit';
 import usePracticePanel, { type ShadowingStyle } from '../practiceStore';
@@ -387,11 +388,17 @@ function RecordShadowingView({
         });
     }, [startRecording, stopContrastAudio, unit]);
 
-    // 键盘交互：Space 对讲/启停、V 键 A/B 对比、Tab/Shift+Tab 重播、Enter 下一句
+    // 键盘交互：Space 对讲/启停、V 键 A/B 对比、Alt+R / Alt+Shift+R 重播、Enter 下一句
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement | null;
-            if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+            if (isTextEntryTarget(target) || isInteractiveTarget(target)) {
+                return;
+            }
+            if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                if (e.shiftKey) onSlowReplay();
+                else onReplay();
                 return;
             }
             if (e.key === ' ') {
@@ -439,6 +446,8 @@ function RecordShadowingView({
     }, [
         localRecording,
         onNextSentence,
+        onReplay,
+        onSlowReplay,
         playableMineUrl,
         recorderPhase,
         result,
@@ -553,7 +562,7 @@ function RecordShadowingView({
             )}
 
             {!asrReady && !localRecording && recorderPhase === 'idle' && (
-                <p className="text-xs text-muted-foreground flex items-center justify-between gap-2">
+                <p className="text-metadata text-muted-foreground flex items-center justify-between gap-2">
                     <span>{t('shadowing.asrDegradedNote', { defaultValue: '未安装语音识别模型：仍可直接录音并对比原音声纹' })}</span>
                     <button
                         type="button"
@@ -764,7 +773,7 @@ export function RhythmFeedback({
                 ))}
             </div>
             {feedback.notes.length > 0 && (
-                <ul className="flex flex-col gap-0.5 text-xs leading-relaxed text-muted-foreground">
+                <ul className="flex flex-col gap-0.5 text-sm leading-relaxed text-muted-foreground">
                     {feedback.notes.map((note) => (
                         <li key={note}>{noteText(note)}</li>
                     ))}

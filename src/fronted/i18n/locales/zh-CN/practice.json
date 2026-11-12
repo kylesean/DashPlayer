@@ -104,7 +104,7 @@
         "styleBlind": "整句盲听",
         "hintLetter": "提示一字母 (/)",
         "hintUsedCount": "字母提示 {{count}} 次",
-        "blindPlaceholder": "盲听挑战：听到整句后直接写出内容（Enter 提交，Tab 重播）…",
+        "blindPlaceholder": "盲听挑战：听到整句后直接写出内容（Enter 提交，Alt+R 重播）…",
         "blindHint": "无词数提示 · Shift+Enter 可换行",
         "spoilerVeilHint": "听写防剧透保护中 · 鼠标移入或按住 \\ 临时查看原文"
     },

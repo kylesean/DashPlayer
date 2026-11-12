@@ -27,6 +27,7 @@ import type {
 import UrlUtil from '@/common/utils/UrlUtil';
 import { cn } from '@/fronted/lib/utils';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
+import { isInteractiveTarget, isTextEntryTarget } from '@/fronted/lib/keyboard';
 import { usePopover } from '@astryxdesign/core/Popover';
 import { CONTROL_POPOVER_PANEL } from '@/fronted/features/player/components/ControlPopover';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
@@ -83,7 +84,7 @@ function SubStylePills<T extends string>({
                         type="button"
                         onClick={() => onChange(opt.value)}
                         className={cn(
-                            'rounded-md px-2 py-0.5 text-xs font-medium transition-colors cursor-pointer',
+                            'rounded-md px-2 py-0.5 text-metadata font-medium transition-colors cursor-pointer',
                             active
                                 ? 'bg-surface text-foreground shadow-xs'
                                 : 'text-muted-foreground hover:text-foreground',
@@ -423,15 +424,14 @@ export default function PracticeDock() {
         });
     }, [t]);
 
-    // 练习工作台主控快捷键：Esc 退出，Tab/Shift+Tab 试听，↑/↓ 切换队列句子，F 开关专注态，结果页 Enter 直接跳下一句
+    // 练习工作台主控快捷键：Esc 退出，Alt+R / Alt+Shift+R 试听，↑/↓ 切换队列句子，F 开关专注态，结果页 Enter 直接跳下一句
     useEffect(() => {
         if (!visible) return undefined;
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.defaultPrevented) return;
             const target = e.target as HTMLElement | null;
-            const isEditable = target
-                ? target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
-                : false;
+            const isEditable = isTextEntryTarget(target);
+            const isInteractive = isInteractiveTarget(target);
 
             if (e.key === 'Escape') {
                 if (filterPopover.isOpen || historyPopover.isOpen) return;
@@ -439,24 +439,23 @@ export default function PracticeDock() {
                 exitOverlayView();
                 return;
             }
-            if (e.key === 'Tab') {
-                if (filterPopover.isOpen || historyPopover.isOpen) return;
+            if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey && !isEditable) {
                 e.preventDefault();
                 if (e.shiftKey) handleSlowReplay();
                 else handleReplay();
                 return;
             }
-            if (e.key === 'ArrowUp' && (!isEditable || target?.tagName === 'INPUT')) {
+            if (e.key === 'ArrowUp' && !isEditable && !isInteractive) {
                 e.preventDefault();
                 navigateOffset(-1, !(mode === 'shadowing' && shadowingStyle === 'beat'));
                 return;
             }
-            if (e.key === 'ArrowDown' && (!isEditable || target?.tagName === 'INPUT')) {
+            if (e.key === 'ArrowDown' && !isEditable && !isInteractive) {
                 e.preventDefault();
                 navigateOffset(1, !(mode === 'shadowing' && shadowingStyle === 'beat'));
                 return;
             }
-            if ((e.key === 'f' || e.key === 'F') && !isEditable && !e.metaKey && !e.ctrlKey && !e.altKey) {
+            if ((e.key === 'f' || e.key === 'F') && !isEditable && !isInteractive && !e.metaKey && !e.ctrlKey && !e.altKey) {
                 e.preventDefault();
                 setFocusMode(!focusMode);
                 return;
@@ -467,6 +466,7 @@ export default function PracticeDock() {
                 && !e.ctrlKey
                 && !e.metaKey
                 && !isEditable
+                && !isInteractive
                 && mode === 'dictation'
                 && result !== null
             ) {
@@ -504,23 +504,23 @@ export default function PracticeDock() {
     const shortcutLegend = mode === 'dictation'
         ? dictationStyle === 'slots'
             ? [
-                { keys: 'tab', text: t('shortcut.replay', { defaultValue: '原音' }) },
-                { keys: 'shift+tab', text: '0.75×' },
+                { keys: 'alt+r', text: t('shortcut.replay', { defaultValue: '原音' }) },
+                { keys: 'alt+shift+r', text: '0.75×' },
                 { keys: '/', text: t('shortcut.hintChar', { defaultValue: '字母提示' }) },
                 { keys: '\\', text: t('shortcut.peek', { defaultValue: '按住偷看' }) },
                 { keys: 'space', text: t('shortcut.verifyWord', { defaultValue: '校验词' }) },
                 { keys: 'enter', text: t('shortcut.submitNext', { defaultValue: '提交/下一句' }) },
             ]
             : [
-                { keys: 'tab', text: t('shortcut.replay', { defaultValue: '原音' }) },
-                { keys: 'shift+tab', text: '0.75×' },
+                { keys: 'alt+r', text: t('shortcut.replay', { defaultValue: '原音' }) },
+                { keys: 'alt+shift+r', text: '0.75×' },
                 { keys: '\\', text: t('shortcut.peek', { defaultValue: '按住偷看' }) },
                 { keys: 'enter', text: t('shortcut.submitNext', { defaultValue: '提交/下一句' }) },
             ]
         : shadowingStyle === 'record'
             ? [
-                { keys: 'tab', text: t('shortcut.replay', { defaultValue: '原音' }) },
-                { keys: 'shift+tab', text: '0.75×' },
+                { keys: 'alt+r', text: t('shortcut.replay', { defaultValue: '原音' }) },
+                { keys: 'alt+shift+r', text: '0.75×' },
                 { keys: 'space', text: t('shortcut.ptt', { defaultValue: '对讲/启停' }) },
                 { keys: 'v', text: t('shortcut.abCompare', { defaultValue: 'A/B 对比' }) },
                 { keys: 'enter', text: t('shortcut.next', { defaultValue: '下一句' }) },
@@ -606,25 +606,32 @@ export default function PracticeDock() {
                         {filterPopover.render(
                             <>
                                 {(['all', 'unpracticed', 'weak', 'vocab'] as PracticeSentenceFilter[]).map((key) => (
-                                    <button
+                                    <label
                                         key={key}
-                                        type="button"
-                                        onClick={() => {
-                                            setSentenceFilter(key);
-                                            filterPopover.hide();
-                                        }}
                                         className={cn(
-                                            'flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors cursor-pointer',
+                                            'flex w-full cursor-pointer items-center justify-between rounded-lg px-2.5 py-1.5 text-sm transition-colors focus-within:ring-2 focus-within:ring-ring',
                                             sentenceFilter === key
                                                 ? 'bg-accent/15 text-accent font-medium'
                                                 : 'text-foreground hover:bg-muted/50',
                                         )}
                                     >
                                         <span>{filterLabelMap[key]}</span>
-                                        <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                                            {filterCounts[key]}
+                                        <span className="flex items-center gap-2">
+                                            <span className="font-mono text-metadata text-muted-foreground tabular-nums">
+                                                {filterCounts[key]}
+                                            </span>
+                                            <input
+                                                type="radio"
+                                                name="practice-sentence-filter"
+                                                className="sr-only"
+                                                checked={sentenceFilter === key}
+                                                onChange={() => {
+                                                    setSentenceFilter(key);
+                                                    filterPopover.hide();
+                                                }}
+                                            />
                                         </span>
-                                    </button>
+                                    </label>
                                 ))}
                             </>,
                             { placement: 'below', alignment: 'end', offset: 6 },
@@ -654,6 +661,7 @@ export default function PracticeDock() {
                                 ref={historyPopover.triggerRef}
                                 onClick={historyPopover.toggle}
                                 {...historyPopover.triggerProps}
+                                aria-label={`${t('result.history')} ${history.length}`}
                                 className={cn(
                                     'inline-flex items-center gap-1 rounded-lg border border-border/60 px-2 py-1 text-xs font-mono tabular-nums transition-colors cursor-pointer',
                                     summary && summary.bestScore >= PRACTICE_PASS_SCORE
@@ -666,7 +674,7 @@ export default function PracticeDock() {
                             </button>
                             {historyPopover.render(
                                 <>
-                                    <div className="mb-1.5 px-1 text-xs font-semibold text-muted-foreground">
+                                    <div className="mb-1.5 px-1 text-metadata font-semibold text-muted-foreground">
                                         {t('result.history')} ({history.length})
                                     </div>
                                     <div className="max-h-48 overflow-y-auto divide-y divide-border/40">
@@ -806,7 +814,7 @@ export default function PracticeDock() {
             </div>
 
             {/* 底部键盘流提示条 */}
-            <div className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/40 bg-muted/20 px-4 text-xs text-muted-foreground overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/40 bg-muted/20 px-4 text-metadata text-muted-foreground overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex items-center gap-3 shrink-0">
                     {shortcutLegend.map((item) => (
                         <span key={item.keys + item.text} className="inline-flex items-center gap-1">

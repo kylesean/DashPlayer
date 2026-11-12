@@ -104,7 +104,7 @@
         "styleBlind": "Blind Challenge",
         "hintLetter": "Reveal letter (/)",
         "hintUsedCount": "{{count}} letter hint(s)",
-        "blindPlaceholder": "Blind dictation: type the whole sentence (Enter to submit, Tab to replay)…",
+        "blindPlaceholder": "Blind dictation: type the whole sentence (Enter to submit, Alt+R to replay)…",
         "blindHint": "No word count hints · Shift+Enter for newline",
         "spoilerVeilHint": "Anti-spoiler protection · Hover or hold \\ to peek"
     },

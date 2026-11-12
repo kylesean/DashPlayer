@@ -24,7 +24,7 @@ interface BlindDictationProps {
 /**
  * 整句盲听挑战组件（无词数/字母数量提示）。
  *
- * `Enter` 提交，`Shift+Enter` 换行，`Tab` 原音，`Shift+Tab` 0.75× 慢速，
+ * `Enter` 提交，`Shift+Enter` 换行，`Alt+R` 原音，`Alt+Shift+R` 0.75× 慢速，
  * 按住 `\` 临时透视，提交后原地展示带划词词典的红绿差异句。
  */
 export default function BlindDictation({
@@ -75,12 +75,12 @@ export default function BlindDictation({
     }
 
     return (
-        // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 盲听写作区集中拦截 Tab 重播、\ 偷看与 Enter 提交快捷键
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 盲听写作区集中拦截 Alt+R 重播、\ 偷看与 Enter 提交快捷键
         <div
             ref={containerRef}
             className="flex flex-col gap-2.5"
             onKeyDown={(e) => {
-                if (e.key === 'Tab') {
+                if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey) {
                     e.preventDefault();
                     if (e.shiftKey) onSlowReplay();
                     else onReplay();
@@ -92,6 +92,8 @@ export default function BlindDictation({
                     return;
                 }
                 if (e.key === 'Enter' && !e.shiftKey) {
+                    const el = e.target as HTMLElement | null;
+                    if (el?.closest('button, a[href], [role="button"]')) return;
                     e.preventDefault();
                     void handleSubmit();
                 }
@@ -121,7 +123,7 @@ export default function BlindDictation({
                 </div>
             )}
             <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-muted-foreground">
+                <span className="text-metadata text-muted-foreground">
                     {t('dictation.blindHint', { defaultValue: '无词数提示 · Shift+Enter 可换行' })}
                 </span>
                 <Button
