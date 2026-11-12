@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
@@ -29,9 +29,14 @@ export default function DictionaryEnhancementCard() {
     /** 删除增强包的确认弹窗是否打开。 */
     const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
     const [removing, setRemoving] = useState(false);
+    const [installing, setInstalling] = useState(false);
+    const actionInFlightRef = useRef(false);
 
     /** 启动安装并订阅任务进度。 */
     const install = async (): Promise<void> => {
+        if (actionInFlightRef.current) return;
+        actionInFlightRef.current = true;
+        setInstalling(true);
         try {
             const id = await useDpTaskCenter.getState().register(
                 () => englishDictionaryApi.install(),
@@ -49,18 +54,24 @@ export default function DictionaryEnhancementCard() {
             toast.error(t('resources.dictionaryEnhancement.installFailed', {
                 message: error instanceof Error ? error.message : String(error),
             }));
+        } finally {
+            actionInFlightRef.current = false;
+            setInstalling(false);
         }
     };
 
     /** 取消安装。 */
     const cancel = async (): Promise<void> => {
-        if (taskId === null) return;
+        if (taskId === null || actionInFlightRef.current) return;
+        actionInFlightRef.current = true;
         try {
             await englishDictionaryApi.cancel(taskId);
         } catch (error) {
             toast.error(t('resources.dictionaryEnhancement.installFailed', {
                 message: error instanceof Error ? error.message : String(error),
             }));
+        } finally {
+            actionInFlightRef.current = false;
         }
     };
 
@@ -111,6 +122,8 @@ export default function DictionaryEnhancementCard() {
                     <Button
                         variant="primary"
                         size="sm"
+                        isLoading={installing}
+                        isDisabled={removing}
                         label={t('resources.dictionaryEnhancement.install')}
                         onClick={() => void install()}
                     />

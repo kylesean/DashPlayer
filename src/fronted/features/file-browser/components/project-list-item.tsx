@@ -48,16 +48,25 @@ const ProjectListItem = ({
     const [contextMenu, setContextMenu] = React.useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
     const [isDeleting, setIsDeleting] = React.useState(false);
+    const deletingRef = React.useRef(false);
 
     const handleDelete = async () => {
+        if (deletingRef.current || isDeleting) {
+            return;
+        }
+        deletingRef.current = true;
         try {
             setIsDeleting(true);
             await fileBrowserApi.deleteWatchHistoryGroup(video.id);
-            await swrApiMutate('watch-history/list');
+            await Promise.all([
+                swrApiMutate('watch-history/list'),
+                swrApiMutate('watch-history/list/basic'),
+            ]);
             setDeleteConfirmOpen(false);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : String(error));
         } finally {
+            deletingRef.current = false;
             setIsDeleting(false);
         }
     };

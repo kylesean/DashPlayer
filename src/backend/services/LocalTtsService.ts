@@ -2,8 +2,8 @@ import * as path from 'path';
 import { inject, injectable } from 'inversify';
 import { WithSemaphore } from '@/backend/utils/concurrency/decorators';
 import {
-    SHERPA_TTS_REQUIRED_FILES,
     SHERPA_TTS_VOICES,
+    getSherpaTtsRequiredFiles,
     resolveSherpaTtsVoice,
     type SherpaTtsVoice,
 } from '@/backend/services/models/sherpaTtsModel';
@@ -24,6 +24,11 @@ export default interface LocalTtsService {
      * @returns 临时 WAV 文件路径。
      */
     synthesize(text: string): Promise<string>;
+
+    /**
+     * 解析当前实际可用（已安装）的音色 id，用于上层音频缓存键精确匹配。
+     */
+    resolveActiveVoiceId?(): Promise<string | null>;
 }
 
 
@@ -60,12 +65,26 @@ export class LocalTtsServiceImpl implements LocalTtsService {
         await this.fileSystemGateway.ensureDirectory(outputDir);
         const outputPath = path.join(outputDir, `${Date.now()}-${Math.random().toString(36).slice(2)}.wav`);
         return this.cli.run({
+            engine: voice.engine,
             modelPath: path.join(modelDir, voice.modelFileName),
             tokensPath: path.join(modelDir, 'tokens.txt'),
             dataDir: path.join(modelDir, 'espeak-ng-data'),
+            voicesPath: voice.voicesFileName ? path.join(modelDir, voice.voicesFileName) : undefined,
+            speakerId: voice.speakerId,
             outputPath,
             text: text.trim(),
         });
+    }
+
+    /** @inheritdoc */
+    public async resolveActiveVoiceId(): Promise<string | null> {
+        try {
+            const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
+            const voice = await this.resolveUsableVoice(modelsRoot);
+            return voice.id;
+        } catch {
+            return null;
+        }
     }
 
     /**
@@ -86,10 +105,12 @@ export class LocalTtsServiceImpl implements LocalTtsService {
         if (await this.isVoiceInstalled(modelsRoot, selected)) {
             return selected;
         }
-        // 选中音色未装：按「同口音优先 → 其余」的顺序找一个已安装的。
+        // 选中音色未装：按「同口音优先 → 其余」且同档内优先选更高音质（high > medium > low）。
+        const qualityRank: Record<SherpaTtsVoice['quality'], number> = { high: 3, medium: 2, low: 1 };
+        const byQualityDesc = (a: SherpaTtsVoice, b: SherpaTtsVoice) => qualityRank[b.quality] - qualityRank[a.quality];
         const candidates = [
-            ...SHERPA_TTS_VOICES.filter((voice) => voice.accent === selected.accent),
-            ...SHERPA_TTS_VOICES.filter((voice) => voice.accent !== selected.accent),
+            ...SHERPA_TTS_VOICES.filter((voice) => voice.accent === selected.accent).sort(byQualityDesc),
+            ...SHERPA_TTS_VOICES.filter((voice) => voice.accent !== selected.accent).sort(byQualityDesc),
         ];
         for (const voice of candidates) {
             if (await this.isVoiceInstalled(modelsRoot, voice)) {
@@ -110,7 +131,7 @@ export class LocalTtsServiceImpl implements LocalTtsService {
         const modelDir = path.join(modelsRoot, voice.directoryName);
         // 必需条目里 `espeak-ng-data` 是目录，不能用 fileExists（目录会抛错）；
         // pathIsMissing 对文件和目录一视同仁，只判断路径是否存在。
-        const required = [voice.modelFileName, ...SHERPA_TTS_REQUIRED_FILES];
+        const required = getSherpaTtsRequiredFiles(voice);
         const missing = await Promise.all(
             required.map((name) => this.fileSystemGateway.pathIsMissing(path.join(modelDir, name))),
         );

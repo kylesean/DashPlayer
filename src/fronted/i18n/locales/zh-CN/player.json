@@ -219,6 +219,11 @@
         "paused": "已暂停",
         "loopSentence": "开启单句循环",
         "cancelSingleLoop": "关闭单句循环",
+        "saveSentence": "收藏为金句到语境工坊",
+        "unsaveSentence": "从语境工坊移除金句",
+        "sentenceSaved": "已收藏至语境工坊",
+        "sentenceUnsaved": "已取消金句收藏",
+        "sentenceSaveFailed": "收藏操作失败",
         "replaySentence": "从头重播此句"
     },
     "sourceLine": {

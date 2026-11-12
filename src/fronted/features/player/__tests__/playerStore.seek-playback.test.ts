@@ -156,4 +156,33 @@ describe('playerStore seek 与播放意图', () => {
         usePlayer.getState().resolveSeek(1.8, newId);
         expect(usePlayer.getState().internal.exactPlayTime).toBe(1.8);
     });
+
+    it('pause / seekTo / clearSubtitles 会清理残留的句末微调预览，clearSubtitles 一并清空锁定与在途 seek', () => {
+        arrange(true);
+
+        usePlayer.getState().adjustCurrentEnd(0.3);
+        expect(usePlayer.getState().internal.tailPreview).not.toBeNull();
+        usePlayer.getState().pause();
+        expect(usePlayer.getState().internal.tailPreview).toBeNull();
+
+        usePlayer.getState().adjustCurrentEnd(0.2);
+        expect(usePlayer.getState().internal.tailPreview).not.toBeNull();
+        usePlayer.getState().seekTo({ time: 0.5 });
+        expect(usePlayer.getState().internal.tailPreview).toBeNull();
+
+        usePlayer.getState().adjustCurrentEnd(0.2);
+        usePlayer.setState({
+            internal: {
+                ...usePlayer.getState().internal,
+                currentLock: { active: true, untilTs: Date.now() + 500, key: 'h-0' },
+                onPlaySeekTime: 1.1,
+            },
+        });
+        usePlayer.getState().clearSubtitles();
+        expect(usePlayer.getState().internal.tailPreview).toBeNull();
+        expect(usePlayer.getState().internal.currentLock).toBeNull();
+        expect(usePlayer.getState().internal.onPlaySeekTime).toBeNull();
+        expect(usePlayer.getState().internal.seekInFlight).toBe(false);
+        expect(usePlayer.getState().internal.timeOverride).toEqual({ active: false, time: 0 });
+    });
 });

@@ -51,18 +51,27 @@ const ProjectListCard = ({
     const [contextMenu, setContextMenu] = React.useState(false);
     const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
     const [isDeleting, setIsDeleting] = React.useState(false);
+    const deletingRef = React.useRef(false);
 
     const handleDelete = async () => {
+        if (deletingRef.current || isDeleting) {
+            return;
+        }
+        deletingRef.current = true;
         try {
             setIsDeleting(true);
             logger.debug('Deleting video from watch history', { id: video.id });
             await fileBrowserApi.deleteWatchHistoryGroup(video.id);
-            await swrApiMutate('watch-history/list');
+            await Promise.all([
+                swrApiMutate('watch-history/list'),
+                swrApiMutate('watch-history/list/basic'),
+            ]);
             setDeleteConfirmOpen(false);
         } catch (error) {
             logger.error('Failed to delete video from watch history', { error, id: video.id });
             toast.error(error instanceof Error ? error.message : String(error));
         } finally {
+            deletingRef.current = false;
             setIsDeleting(false);
         }
     };

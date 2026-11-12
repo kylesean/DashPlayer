@@ -3,8 +3,10 @@ import { act, renderHook } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
 
+let currentTranslate = (key: string) => key;
+
 vi.mock('react-i18next', () => ({
-    useTranslation: () => ({ t: (key: string) => key }),
+    useTranslation: () => ({ t: currentTranslate }),
 }));
 
 /** 保存成功后 hook 会 mutate 详情缓存；测试里只关心它不抛错。 */
@@ -123,5 +125,38 @@ describe('设置自动保存表单', () => {
         await settle();
 
         expect(onSave).not.toHaveBeenCalled();
+    });
+
+    it('切换语言导致 t 引用变化时，不得触发卸载冲刷提交', async () => {
+        const onSave = vi.fn(async () => undefined);
+        const { result, rerender } = mountForm(onSave);
+
+        act(() => result.current.auto.initialize({ url: 'a' }));
+        act(() => result.current.form.setValue('url', 'b'));
+
+        currentTranslate = (key: string) => `en:${key}`;
+        rerender();
+        expect(onSave).not.toHaveBeenCalled();
+
+        currentTranslate = (key: string) => key;
+    });
+
+    it('首轮保存失败期间用户改回原基线并触发第二轮短路时，flush 仍会抛出首轮错误', async () => {
+        let rejectFirst!: (err: Error) => void;
+        const onSave = vi.fn(() => new Promise<void>((_, reject) => {
+            rejectFirst = reject;
+        }));
+        const { result } = mountForm(onSave);
+
+        act(() => result.current.auto.initialize({ url: 'a' }));
+        act(() => result.current.form.setValue('url', 'b'));
+
+        const flushPromise = result.current.auto.flush();
+        // 第一轮保存仍在途时排队一次提交，并把值改回基线 a 让第二轮短路返回
+        act(() => result.current.form.setValue('url', 'a'));
+        await expect(result.current.auto.flush()).resolves.toBeUndefined();
+
+        rejectFirst(new Error('save failed'));
+        await expect(flushPromise).rejects.toThrow('save failed');
     });
 });

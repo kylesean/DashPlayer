@@ -11,8 +11,8 @@ import type FileSystemGateway from '@/backend/services/gateways/storage/FileSyst
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import {
-    SHERPA_TTS_REQUIRED_FILES,
     SHERPA_TTS_VOICES,
+    getSherpaTtsRequiredFiles,
     resolveSherpaTtsVoice,
 } from '@/backend/services/models/sherpaTtsModel';
 import type { TtsVoiceListVO } from '@/common/contracts/tts-voice';
@@ -51,10 +51,11 @@ export class SherpaTtsModelController implements Controller {
             const modelDir = path.join(modelsRoot, voice.directoryName);
             // 必需条目里 `espeak-ng-data` 是目录，fileExists 对目录会抛错，
             // 必须用 pathIsMissing 统一判断路径是否存在。
-            const required = [voice.modelFileName, ...SHERPA_TTS_REQUIRED_FILES];
+            const required = getSherpaTtsRequiredFiles(voice);
             const missing = await Promise.all(required.map((name) => this.fileSystemGateway.pathIsMissing(path.join(modelDir, name))));
             return {
                 id: voice.id,
+                name: voice.displayName,
                 accent: voice.accent,
                 gender: voice.gender,
                 quality: voice.quality,

@@ -115,35 +115,32 @@ describe('MemoryMapSection', () => {
         await waitFor(() => expect(container.textContent).toBe(''));
     });
 
-    it('切换到关系图后按共现关系画节点，点击节点仍回传词条', async () => {
-        const onSelectWord = vi.fn();
+    it('独立画布模式默认直接展开且隐藏折叠按钮，并不重复关键词副标题', () => {
         vi.mocked(useSWR).mockReturnValue({
             data: {
                 ...map,
-                topics: [{
-                    ...map.topics[0],
-                    words: [
-                        { ...map.topics[0].words[0], neighbors: [{ word: 'orbit', weight: 3 }] },
-                        { ...map.topics[0].words[1], neighbors: [{ word: 'journey', weight: 3 }] },
-                    ],
-                }],
+                topics: [
+                    {
+                        key: 'cluster:1',
+                        label: null,
+                        keywords: ['aware', 'couple'],
+                        wordCount: 2,
+                        counts: { learning: 2, familiar: 0, known: 0, ignored: 0 },
+                        words: map.topics[0].words,
+                    },
+                ],
             },
             error: undefined,
             isLoading: false,
             mutate: vi.fn(),
         } as never);
-        render(<MemoryMapSection onSelectWord={onSelectWord} />);
 
-        fireEvent.click(await screen.findByText('expand'));
-        fireEvent.click(screen.getByText('viewGraph'));
+        render(<MemoryMapSection defaultExpanded hideCollapseToggle onSelectWord={() => undefined} />);
 
-        // 关系图是交互容器：必须用 group 而非 img，否则内部按钮在无障碍树中被当作图像内容隐藏。
-        expect(screen.getByRole('group', { name: 'graphLabel' })).toBeDefined();
-        expect(screen.getByText('graphHint')).toBeDefined();
-        // 关系图里每条无向边只画一次。
-        expect(document.querySelectorAll('svg line')).toHaveLength(1);
-
-        fireEvent.click(screen.getByRole('button', { name: 'journey' }));
-        expect(onSelectWord).toHaveBeenCalledWith('journey');
+        expect(screen.queryByText('expand')).toBeNull();
+        expect(screen.queryByText('collapse')).toBeNull();
+        expect(screen.getByText('keywordTopic')).toBeDefined();
+        expect(screen.queryByText('topicKeywords')).toBeNull();
+        expect(screen.getByText('looseTitle')).toBeDefined();
     });
 });

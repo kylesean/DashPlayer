@@ -6,7 +6,11 @@ import type { FieldValues, UseFormReturn } from 'react-hook-form';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { useSWRConfig } from 'swr';
 import { showNotification } from '@/fronted/components/shared/toasts/notification';
-import { canApplyServerSnapshot } from '@/fronted/features/settings/lib/auto-save-machine';
+import {
+    canApplyServerSnapshot,
+    deriveAutoSavePhase,
+    shouldCommitAgain as shouldCommitAgainPhase,
+} from '@/fronted/features/settings/lib/auto-save-machine';
 
 /**
  * 自动保存状态。
@@ -74,8 +78,14 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
     const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const saveInFlightRef = React.useRef(false);
     const saveQueuedRef = React.useRef(false);
+    const lastCommitAttemptedRef = React.useRef(false);
     const commitRef = React.useRef<() => Promise<void>>(async () => undefined);
     const idleTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const tRef = React.useRef(t);
+
+    React.useEffect(() => {
+        tRef.current = t;
+    }, [t]);
 
     /**
      * 将状态从 saved 回落到 idle，避免 UI 一直停留在“已保存”。
@@ -109,6 +119,11 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
             return;
         }
 
+        if (idleTimerRef.current) {
+            clearTimeout(idleTimerRef.current);
+            idleTimerRef.current = null;
+        }
+        lastCommitAttemptedRef.current = true;
         saveInFlightRef.current = true;
         setStatus('saving');
         setError(null);
@@ -130,14 +145,21 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
             setError(saveError instanceof Error ? saveError.message : String(saveError));
             thrownError = saveError;
         } finally {
+            const phase = deriveAutoSavePhase({
+                dirty: saveQueuedRef.current,
+                inFlight: true,
+                failed: false,
+            });
             saveInFlightRef.current = false;
-            if (saveQueuedRef.current) {
-                saveQueuedRef.current = false;
-                shouldCommitAgain = true;
-            }
+            saveQueuedRef.current = false;
+            shouldCommitAgain = shouldCommitAgainPhase(phase);
         }
         if (shouldCommitAgain) {
+            lastCommitAttemptedRef.current = false;
             await commitRef.current();
+            if (thrownError && !lastCommitAttemptedRef.current) {
+                throw thrownError;
+            }
             return;
         }
         if (thrownError) {
@@ -227,12 +249,12 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
             commitRef.current().catch((saveError) => {
                 showNotification({
                     variant: 'error',
-                    title: t('common.saveFailed'),
+                    title: tRef.current('common.saveFailed'),
                     message: saveError instanceof Error ? saveError.message : String(saveError),
                 });
             });
         };
-    }, [t]);
+    }, []);
 
     return {
         status,

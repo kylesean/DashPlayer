@@ -157,6 +157,7 @@ export default function TrainingMenuButton({
 
     const singleRepeat = usePlayer((s) => s.singleRepeat);
     const autoPause = usePlayer((s) => s.autoPause);
+    const shadowing = usePlayer((s) => s.shadowing);
     const sentenceLoop = usePlayer((s) => s.sentenceLoop);
     const activePlan = usePlayer((s) => s.activePlan);
     const playbackRate = usePlayerState((s) => s.playbackRate);
@@ -174,11 +175,10 @@ export default function TrainingMenuButton({
     // 两种逐句循环配置互斥：×N 模式不带倍速表，精听模式带倍速表
     const loopTimesActive = sentenceLoop !== null && !sentenceLoop.rates;
     const loopRatesActive = sentenceLoop !== null && !!sentenceLoop.rates;
-    // 被动「影子跟读」已合并进跟读与听写工坊的「节拍流」,精听菜单不再激活影子跟读状态
-    const trainingActive = sentenceLoop !== null || skipGap || rewindOnResume;
+    const trainingActive = sentenceLoop !== null || shadowing || skipGap || rewindOnResume;
 
     const activeSentenceEndMode = deriveSentenceEndMode(
-        { autoPause, singleRepeat, shadowing: false },
+        { autoPause, singleRepeat, shadowing },
         sentenceLoop !== null,
     );
     const trainingLabel = (() => {

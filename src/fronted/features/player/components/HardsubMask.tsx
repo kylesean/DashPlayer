@@ -182,7 +182,16 @@ export default function HardsubMask({ video }: HardsubMaskProps) {
     );
 
     const showMask = maskOn && picture.width > 0 && picture.height > 0;
-    const rectNow = draft ?? maskRect;
+    const rectNow = (showMask && draft) || maskRect;
+    // 贴片不可见或被关闭时复位指针拖拽与悬停状态，避免下次打开仍停在 dragging/hovering
+    useEffect(() => {
+        if (!showMask) {
+            dragRef.current = null;
+            draftRef.current = null;
+            setMaskDragging(false);
+            setMaskHovering(false);
+        }
+    }, [showMask, setMaskDragging, setMaskHovering]);
     const patchWidth = rectNow.w * picture.width;
     const patchHeight = rectNow.h * picture.height;
     // 贴片上沿 / 下沿到舞台底部的距离：控制条按下沿判断要不要让位，按上沿决定抬多高

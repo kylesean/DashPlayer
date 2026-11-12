@@ -37,6 +37,7 @@ import type { Sentence } from '@/common/types/SentenceC';
 import { splitWords, isWordToken, cleanWord } from '@/common/utils/subtitle';
 import { isContentLemma } from '@/common/learning/contentWords';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
+import { useSavedSentences } from '@/fronted/features/context-studio/savedSentencesStore';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import {
     EMPTY_SENTENCE_VOCABULARY_COUNT,
@@ -75,6 +76,13 @@ export default function Subtitle() {
         })),
     );
     const { setBoundaryRef } = useBoundary();
+    const activeVideoId = usePlaybackSession((s) => s.videoId);
+
+    useEffect(() => {
+        if (activeVideoId) {
+            void useSavedSentences.getState().loadForVideo(activeVideoId);
+        }
+    }, [activeVideoId]);
 
     /**
      * 上报一次整句重播：按句内实际词形记录，供后续「重听」学习信号使用。
@@ -301,8 +309,15 @@ export default function Subtitle() {
         useSubtitleScroll.getState().delaySetNormal();
     }, []);
 
+    const lastScrolledBlockRef = useRef(-1);
+
     useEffect(() => {
-        if (transcriptViewMode === 'article' && currentBlockIndex >= 0 && scrollState === 'NORMAL') {
+        if (transcriptViewMode !== 'article') {
+            lastScrolledBlockRef.current = -1;
+            return;
+        }
+        if (currentBlockIndex >= 0 && scrollState === 'NORMAL' && lastScrolledBlockRef.current !== currentBlockIndex) {
+            lastScrolledBlockRef.current = currentBlockIndex;
             scrollArticleTo(currentBlockIndex);
         }
     }, [transcriptViewMode, currentBlockIndex, scrollState, scrollArticleTo]);
@@ -999,7 +1014,9 @@ export default function Subtitle() {
                                 data-testid="transcript-back-to-playhead"
                                 onClick={() => {
                                     if (transcriptViewMode === 'article' && currentBlockIndex >= 0) {
+                                        lastScrolledBlockRef.current = currentBlockIndex;
                                         returnToListPosition(currentBlockIndex);
+                                        return;
                                     }
                                     returnToCurrent();
                                 }}

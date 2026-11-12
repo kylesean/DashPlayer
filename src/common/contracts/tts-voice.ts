@@ -7,6 +7,8 @@
 export interface TtsVoiceVO {
     /** 稳定标识，用于持久化与切换。 */
     id: string;
+    /** 可选音色名称（如 Kokoro Bella / Piper Lessac），用于在设置页区分同一口音性别下的不同引擎音色。 */
+    name?: string;
     /** 口音：单词卡据此显示「美/英」并决定默认选择。 */
     accent: 'en-US' | 'en-GB';
     /** 音色性别，仅用于设置页展示。 */

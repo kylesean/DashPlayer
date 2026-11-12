@@ -122,4 +122,14 @@ describe('TrainingMenuButton', () => {
         // 语义名称仍然保留在分组上，读屏不受影响
         expect(screen.getByRole('radiogroup').getAttribute('aria-label')).toBe('controlBar.trainingMenuLabel');
     });
+
+    it('订阅 shadowing 状态后不会错误把连续播放标成激活态', () => {
+        act(() => {
+            usePlayer.setState({ shadowing: true });
+        });
+        render(<TrainingMenuButton tone="panel" popoverOffset={8} />);
+        fireEvent.click(screen.getByRole('button', { name: /controlBar\.trainingMenuLabel/i }));
+
+        expect(screen.getByTestId('training-mode-off')).toHaveAttribute('aria-checked', 'false');
+    });
 });

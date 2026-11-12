@@ -2,11 +2,14 @@ import React, { forwardRef, useMemo, useState } from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { useShallow } from 'zustand/react/shallow';
-import { History, Play, Repeat1 } from 'lucide-react';
+import { Bookmark, History, Play, Repeat1 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { usePlayerUiState } from '@/fronted/features/player/playerUiStore';
 import { usePlayerState } from '@/fronted/features/player/playerState';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
+import { useSavedSentences } from '@/fronted/features/context-studio/savedSentencesStore';
 import { cn } from '@/fronted/lib/utils';
 import type { Sentence } from '@/common/types/SentenceC';
 import useTranslation from '@/fronted/features/player/translationStore';
@@ -116,6 +119,10 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
     ) => {
         const { t } = useI18nTranslation('player');
         const playing = usePlayerState((state) => state.playing);
+        const videoId = usePlaybackSession((state) => state.videoId);
+        const sentenceKey = `${sentence.fileHash}:${sentence.index}`;
+        const isSaved = useSavedSentences((state) => state.savedKeys.has(sentenceKey));
+        const toggleSavedSentence = useSavedSentences((state) => state.toggleSentence);
         const { showSideTranslation } = usePlayerUiState(
             useShallow((s) => ({
                 showSideTranslation: s.showSideTranslation,
@@ -280,13 +287,58 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                 </div>
                 </div>
 
-                {/* 悬停微动作栏：单句精听循环 / 重播单句。浮在行尾，不参与整行点击区。 */}
+                {/* 悬停微动作栏：收藏金句 / 单句精听循环 / 重播单句。浮在行尾，不参与整行点击区。 */}
                 <div
                     className={cn(
                         'absolute right-2 top-1.5 flex items-center gap-1 transition-opacity duration-150',
-                        isCurrent && isRepeat ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+                        (isCurrent && isRepeat) || isSaved ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
                     )}
                 >
+                    <Tooltip
+                        content={
+                            isSaved
+                                ? t('sideSentence.unsaveSentence', { defaultValue: '从语境工坊移除金句' })
+                                : t('sideSentence.saveSentence', { defaultValue: '收藏为金句到语境工坊' })
+                        }
+                        placement="above"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void toggleSavedSentence({
+                                    sentenceKey,
+                                    videoId: videoId || '',
+                                    fileHash: sentence.fileHash,
+                                    sentenceIndex: sentence.index,
+                                    startTime: sentence.adjustedStart ?? sentence.start,
+                                    endTime: sentence.adjustedEnd ?? sentence.end,
+                                    text: primaryText,
+                                    textZh: sentence.textZH || newTranslation || '',
+                                }).then((saved) => {
+                                    toast.success(
+                                        saved
+                                            ? t('sideSentence.sentenceSaved', { defaultValue: '已收藏至语境工坊' })
+                                            : t('sideSentence.sentenceUnsaved', { defaultValue: '已取消金句收藏' }),
+                                    );
+                                }).catch(() => {
+                                    toast.error(t('sideSentence.sentenceSaveFailed', { defaultValue: '收藏操作失败' }));
+                                });
+                            }}
+                            className={cn(
+                                'p-1 rounded transition-colors cursor-pointer',
+                                isSaved
+                                    ? 'text-accent bg-accent/15 hover:bg-accent/25'
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-surface/80',
+                            )}
+                            aria-label={
+                                isSaved
+                                    ? t('sideSentence.unsaveSentence', { defaultValue: '从语境工坊移除金句' })
+                                    : t('sideSentence.saveSentence', { defaultValue: '收藏为金句到语境工坊' })
+                            }
+                        >
+                            <Bookmark className={cn('w-2.5 h-2.5', isSaved && 'fill-current')} />
+                        </button>
+                    </Tooltip>
                     <Tooltip
                         content={
                             isCurrent && isRepeat

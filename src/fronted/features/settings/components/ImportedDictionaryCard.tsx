@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
@@ -41,12 +41,17 @@ export default function ImportedDictionaryCard() {
         { shouldRetryOnError: false },
     );
     const [busy, setBusy] = useState(false);
+    const busyRef = useRef(false);
     /** 待确认删除的词典；null 表示没有打开确认弹窗。 */
     const [pendingDelete, setPendingDelete] = useState<ImportedDictionaryVO | null>(null);
     const [removing, setRemoving] = useState(false);
+    const [togglingIds, setTogglingIds] = useState<Record<string, boolean>>({});
+    const togglingIdsRef = useRef<Set<string>>(new Set());
 
     /** 选择文件并导入。 */
     const importDictionary = async (): Promise<void> => {
+        if (busyRef.current) return;
+        busyRef.current = true;
         setBusy(true);
         try {
             const [filePath] = await dictionaryImportApi.selectFile();
@@ -61,6 +66,7 @@ export default function ImportedDictionaryCard() {
                 message: error instanceof Error ? error.message : String(error),
             }));
         } finally {
+            busyRef.current = false;
             setBusy(false);
         }
     };
@@ -81,6 +87,9 @@ export default function ImportedDictionaryCard() {
 
     /** 切换词典启停。 */
     const toggleDictionary = async (dictionary: ImportedDictionaryVO, enabled: boolean): Promise<void> => {
+        if (togglingIdsRef.current.has(dictionary.id)) return;
+        togglingIdsRef.current.add(dictionary.id);
+        setTogglingIds((prev) => ({ ...prev, [dictionary.id]: true }));
         try {
             await dictionaryImportApi.setEnabled(dictionary.id, enabled);
             await mutate();
@@ -88,6 +97,13 @@ export default function ImportedDictionaryCard() {
             toast.error(t('resources.dictionaryPack.saveFailed', {
                 message: error instanceof Error ? error.message : String(error),
             }));
+        } finally {
+            togglingIdsRef.current.delete(dictionary.id);
+            setTogglingIds((prev) => {
+                const next = { ...prev };
+                delete next[dictionary.id];
+                return next;
+            });
         }
     };
 
@@ -148,11 +164,13 @@ export default function ImportedDictionaryCard() {
                         label={dictionary.name}
                         isLabelHidden
                         value={dictionary.enabled}
+                        isDisabled={Boolean(togglingIds[dictionary.id]) || removing}
                         onChange={(checked) => void toggleDictionary(dictionary, checked)}
                     />
                     <Button
                         variant="secondary"
                         size="sm"
+                        isDisabled={removing}
                         label={t('resources.dictionaryPack.remove')}
                         onClick={() => setPendingDelete(dictionary)}
                     />

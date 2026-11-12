@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
 import VolumeSlider from '../VolumeSlider';
@@ -76,6 +76,14 @@ export default function PlaybackControlBar({
 
     const [mouseOverOut, setMouseOverOut] = useState<boolean>(false);
     const mouseOverTimeout = useRef<number[]>([]);
+    useEffect(() => () => {
+        while (mouseOverTimeout.current.length > 0) {
+            const timer = mouseOverTimeout.current.pop();
+            if (timer !== undefined) {
+                window.clearTimeout(timer);
+            }
+        }
+    }, []);
     // 本条是否该显形：钉住/鼠标在条上才算「想显示」，且鼠标压到贴片上时要让位
     const barVisible = (mouseOverOut || pinned) && !maskAdjust.hiddenByMask;
 

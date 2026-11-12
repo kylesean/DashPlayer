@@ -1,33 +1,38 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
+import { Download, Square } from 'lucide-react';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
+import { Selector } from '@astryxdesign/core/Selector';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Selector } from '@astryxdesign/core/Selector';
 
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
+import {
+    cancelPackDownload,
+    startPackDownload,
+    updatePackCallbacks,
+    usePackDownloadState,
+} from '@/fronted/features/settings/resourcePackDownloadStore';
+import { clearTtsAudioCache } from '@/fronted/infrastructure/audio/AudioPlayer';
 import type { TtsVoiceVO } from '@/common/contracts/tts-voice';
 
+const TTS_VOICE_DOWNLOAD_ID = 'settings-tts-voice';
+const RECOMMENDED_KOKORO_VOICE_ID = 'kokoro-en-US-bella';
+
 interface TtsVoiceCardProps {
-    /**
-     * 音色切换后的回调。
-     *
-     * 上方资源包卡片展示的是「当前选中音色」的安装状态，切换后必须让它
-     * 重新拉取，否则会出现下拉框显示英音、卡片仍显示美音已就绪的错位。
-     */
+    /** 音色切换或安装完成后的回调，用于同步刷新上方资源包卡片。 */
     onVoiceChange?: () => void;
 }
 
 /**
- * 离线朗读音色选择。
- *
- * 只负责「选哪个音色」；模型下载仍由资源包卡片统一管理——音色选择与
- * 模型安装是两件事，混在一起会让用户以为切换下拉框就会自动下载几十兆。
- *
- * @param props 组件属性。
+ * 离线朗读音色选择与直达下载卡片。
  */
 export default function TtsVoiceCard({ onVoiceChange }: TtsVoiceCardProps) {
     const { t } = useTranslation('settings');
@@ -37,6 +42,26 @@ export default function TtsVoiceCard({ onVoiceChange }: TtsVoiceCardProps) {
         { revalidateOnFocus: false },
     );
 
+    const { downloading, live, error } = usePackDownloadState(TTS_VOICE_DOWNLOAD_ID);
+
+    const refreshAll = useCallback(() => {
+        void mutate();
+        onVoiceChange?.();
+    }, [mutate, onVoiceChange]);
+
+    const handleDownloadComplete = useCallback(() => {
+        clearTtsAudioCache();
+        toast.success(t('resources.ttsVoice.downloadedToast'));
+        refreshAll();
+    }, [refreshAll, t]);
+
+    useEffect(() => {
+        updatePackCallbacks(TTS_VOICE_DOWNLOAD_ID, {
+            onRefresh: refreshAll,
+            onComplete: handleDownloadComplete,
+        });
+    }, [refreshAll, handleDownloadComplete]);
+
     const options = useMemo(() => (data?.voices ?? []).map((voice: TtsVoiceVO) => ({
         value: voice.id,
         label: voiceLabel(voice, t),
@@ -44,19 +69,41 @@ export default function TtsVoiceCard({ onVoiceChange }: TtsVoiceCardProps) {
 
     const selected = data?.selected ?? '';
     const selectedVoice = data?.voices.find((voice) => voice.id === selected);
+    const recommendedUpgradeVoice = data?.voices.find(
+        (voice) => voice.id === RECOMMENDED_KOKORO_VOICE_ID && !voice.installed,
+    );
+    const showUpgradePrompt = Boolean(
+        selectedVoice
+        && selectedVoice.installed
+        && selectedVoice.quality !== 'high'
+        && recommendedUpgradeVoice,
+    );
 
-    const handleChange = async (voiceId: string) => {
+    const startVoiceDownload = async () => {
+        if (downloading) return;
+        await startPackDownload({
+            packId: TTS_VOICE_DOWNLOAD_ID,
+            entries: [{
+                key: 'tts',
+                download: async () => { await settingsApi.downloadSherpaTtsModel(); },
+                cancel: async () => { await settingsApi.cancelSherpaTtsModelDownload(); },
+            }],
+            onRefresh: refreshAll,
+            onComplete: handleDownloadComplete,
+        });
+    };
+
+    const handleChange = async (voiceId: string, autoDownload = false) => {
         try {
             await settingsApi.selectTtsVoice(voiceId);
+            clearTtsAudioCache();
             await mutate();
             onVoiceChange?.();
-            const voice = data?.voices.find((item) => item.id === voiceId);
-            if (voice && !voice.installed) {
-                // 切换不触发下载：明确告诉用户下一步做什么，而不是静默失败。
-                toast(t('resources.ttsVoice.notInstalled'), { icon: '⬇️' });
+            if (autoDownload) {
+                await startVoiceDownload();
             }
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error));
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : String(err));
         }
     };
 
@@ -75,19 +122,73 @@ export default function TtsVoiceCard({ onVoiceChange }: TtsVoiceCardProps) {
                             label={t('resources.ttsVoice.title')}
                             isLabelHidden
                             size="sm"
-                            width="220px"
+                            width="260px"
                             value={selected}
                             onChange={(value) => { void handleChange(value); }}
-                            isDisabled={isLoading || options.length === 0}
+                            isDisabled={isLoading || downloading || options.length === 0}
                             options={options}
                         />
                     </div>
                 </HStack>
+
                 {selectedVoice && !selectedVoice.installed && (
-                    <div className="border-t border-border/50 px-3 py-2">
-                        <Text type="supporting" color="secondary">
-                            {t('resources.ttsVoice.downloadHint')}
-                        </Text>
+                    <div className="border-t border-border/50 px-3 py-2.5">
+                        <VStack gap={2}>
+                            <HStack gap={3} align="center" justify="between" wrap="wrap">
+                                <Text type="supporting" color="secondary" className="min-w-0 flex-1">
+                                    {t('resources.ttsVoice.downloadHint')}
+                                </Text>
+                                <Button
+                                    size="sm"
+                                    variant={downloading ? 'secondary' : 'primary'}
+                                    icon={<Icon icon={(downloading ? Square : Download) as unknown as IconType} size="sm" />}
+                                    label={downloading
+                                        ? t('resources.ttsVoice.cancelDownload')
+                                        : t('resources.ttsVoice.downloadButton')}
+                                    onClick={() => {
+                                        if (downloading) {
+                                            void cancelPackDownload(TTS_VOICE_DOWNLOAD_ID);
+                                        } else {
+                                            void startVoiceDownload();
+                                        }
+                                    }}
+                                />
+                            </HStack>
+                            {downloading && (
+                                <VStack gap={1}>
+                                    <ProgressBar
+                                        label="Voice Download Progress"
+                                        value={live.percent}
+                                        max={100}
+                                        isLabelHidden
+                                    />
+                                    <Text size="xsm" color="secondary" hasTabularNumbers>
+                                        {t('resources.ttsVoice.downloadingVoice', { percent: live.percent })}
+                                    </Text>
+                                </VStack>
+                            )}
+                            {error && (
+                                <Banner status="error" title={error} />
+                            )}
+                        </VStack>
+                    </div>
+                )}
+
+                {showUpgradePrompt && (
+                    <div className="border-t border-border/50 px-3 py-2.5">
+                        <HStack gap={3} align="center" justify="between" wrap="wrap">
+                            <Text type="supporting" color="secondary" className="min-w-0 flex-1">
+                                {t('resources.ttsVoice.upgradeHint')}
+                            </Text>
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                icon={<Icon icon={Download as unknown as IconType} size="sm" />}
+                                isDisabled={downloading}
+                                label={t('resources.ttsVoice.upgradeAction')}
+                                onClick={() => { void handleChange(RECOMMENDED_KOKORO_VOICE_ID, true); }}
+                            />
+                        </HStack>
                     </div>
                 )}
             </VStack>
@@ -98,11 +199,7 @@ export default function TtsVoiceCard({ onVoiceChange }: TtsVoiceCardProps) {
 /**
  * 生成音色的人类可读名称。
  *
- * 例：`美音 · 女声 · 标准`。口音放在最前，因为这是学习者最先关心的差异。
- *
- * @param voice 音色。
- * @param t 翻译函数。
- * @returns 展示用名称。
+ * 例：`美音 · 女声 · 高清 · Kokoro Bella`。口音放在最前，因为这是学习者最先关心的差异。
  */
 function voiceLabel(voice: TtsVoiceVO, t: (key: string) => string): string {
     const accent = voice.accent === 'en-GB' ? t('resources.ttsVoice.accentGB') : t('resources.ttsVoice.accentUS');
@@ -112,6 +209,7 @@ function voiceLabel(voice: TtsVoiceVO, t: (key: string) => string): string {
         : voice.quality === 'high'
             ? t('resources.ttsVoice.qualityHigh')
             : t('resources.ttsVoice.qualityMedium');
+    const namePart = voice.name ? ` · ${voice.name}` : '';
     const suffix = voice.installed ? '' : ` · ${t('resources.ttsVoice.notInstalledShort')}`;
-    return `${accent} · ${gender} · ${quality}${suffix}`;
+    return `${accent} · ${gender} · ${quality}${namePart}${suffix}`;
 }

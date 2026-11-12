@@ -31,6 +31,8 @@ const resetStore = () => {
             currentRefPosition: -1,
             scrollStatusTimer: undefined,
             scrollTopTimer: undefined,
+            syncTimer: undefined,
+            pauseMeasurementTimer: undefined,
             currentRef: null,
             visibleRange: [0, 10],
             deferredPosition: -1,
@@ -39,6 +41,7 @@ const resetStore = () => {
             syncPending: false,
             interrupted: false,
             holdActive: false,
+            scrollOrigin: 'none',
         },
     });
 };
@@ -455,5 +458,32 @@ describe('useSubtitleScroll', () => {
 
         expect(virtuoso.scrollBy).toHaveBeenCalledWith({ top: 140 });
         expect(useSubtitleScroll.getState().internal.lastSyncIndex).toBe(7);
+    });
+
+    it('用户中断滚动会取消延迟同步与暂停测量定时器，用户主动回到播放位会标记 user origin', () => {
+        const virtuoso = mockVirtuoso();
+        useSubtitleScroll.setState({
+            scrollState: 'USER_BROWSING',
+            internal: {
+                ...useSubtitleScroll.getState().internal,
+                virtuoso: virtuoso.handle,
+                currentListPosition: 4,
+            },
+        });
+
+        useSubtitleScroll.getState().pauseMeasurement();
+        expect(useSubtitleScroll.getState().internal.pauseMeasurementTimer).toBeDefined();
+
+        useSubtitleScroll.getState().returnToCurrent();
+        expect(useSubtitleScroll.getState().internal.scrollOrigin).toBe('user');
+
+        useSubtitleScroll.getState().onUserInterrupt();
+        expect(useSubtitleScroll.getState().internal.pauseMeasurementTimer).toBeUndefined();
+        expect(useSubtitleScroll.getState().internal.syncTimer).toBeUndefined();
+
+        vi.advanceTimersByTime(500);
+        // pauseMeasurement 的 300ms delayed set('NORMAL') 已被取消，保持浏览态
+        expect(useSubtitleScroll.getState().scrollState).toBe('USER_BROWSING');
+        expect(useSubtitleScroll.getState().internal.pauseMeasurementTimer).toBeUndefined();
     });
 });

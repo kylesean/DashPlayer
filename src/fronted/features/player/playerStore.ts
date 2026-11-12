@@ -10,6 +10,7 @@ import useSetting from '@/fronted/features/settings/settingsStore';
 import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import { padPracticeClipRange } from '@/fronted/features/player/lib/practice-clip-range';
+import { stopActiveAudio } from '@/fronted/infrastructure/audio/AudioPlayer';
 import {
     findSentenceBlock,
     groupSentencesIntoBlocks,
@@ -1134,6 +1135,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
    * 统一的恢复播放入口：取消待触发的影子跟读自动下一句，并按 rewindOnResume 决定是否回退句首。
    */
   const startPlayback = () => {
+    stopActiveAudio();
     clearShadowTimer();
     const { onPlaySeekTime, exactPlayTime } = get().internal;
     if (onPlaySeekTime !== null) {
@@ -1261,7 +1263,12 @@ export const usePlayer = create<PlayerState>((set, get) => {
       clearTransientPlan();
       clearShadowTimer();
       clearClipStopBound(true, true);
+      clearTailPreview();
       shadowedSentenceKey = null;
+      if (currentLockTimer) {
+        clearTimeout(currentLockTimer);
+        currentLockTimer = null;
+      }
       set((prev) => ({
         srtTender: null,
         sentences: [],
@@ -1271,7 +1278,11 @@ export const usePlayer = create<PlayerState>((set, get) => {
         virtualGroup: { active: false, sentences: [] },
         internal: {
           ...prev.internal,
-          indexing: null // 清理索引
+          indexing: null, // 清理索引
+          seekInFlight: false,
+          onPlaySeekTime: null,
+          currentLock: null,
+          timeOverride: { active: false, time: 0 },
         }
       }));
     },
@@ -1288,6 +1299,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
      */
     pause: () => {
       clearShadowTimer();
+      clearTailPreview();
       clearClipStopBound(true);
       set({ playing: false });
     },
@@ -1301,6 +1313,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
         startPlayback();
       } else {
         clearShadowTimer();
+        clearTailPreview();
         clearClipStopBound(true);
         set({ playing: false });
       }
@@ -1326,6 +1339,7 @@ export const usePlayer = create<PlayerState>((set, get) => {
     seekTo: (seekTime) => {
       clearShadowTimer();
       clearTransientPlan();
+      clearTailPreview();
       clearClipStopBound(true);
       shadowedSentenceKey = null;
       if (currentLockTimer) { clearTimeout(currentLockTimer); currentLockTimer = null; }
@@ -1358,11 +1372,13 @@ export const usePlayer = create<PlayerState>((set, get) => {
      * @param play 是否在 seek 后继续播放
      */
     seekToTarget: (opts) => {
+      clearTailPreview();
       clearClipStopBound(true);
       applyTargetedSeek(opts);
     },
 
     playPracticeClip: (range, target, options) => {
+      stopActiveAudio();
       /*
         练习片段必须包含「完整的一句话」，而不是紧贴字幕边界。
         字幕边界是估算值，贴边起停会切掉首尾音——用户听到半截开头/被掐断的结尾，
@@ -1910,6 +1926,9 @@ export const usePlayer = create<PlayerState>((set, get) => {
       const previewMs = options?.previewMs ?? 1000;
       const epsilon = 0.05;
 
+      // 预览尾部：使用带目标的 seek，确保高亮不被 getByTime 干扰；先发起 seekToTarget 再写入 tailPreview，
+      // 避免被 seekToTarget 的清理逻辑清掉本次预览契约。
+      state.seekToTarget({ time: Math.max(end - epsilon, 0), target: updated });
       set((prev) => ({
         internal: {
           ...prev.internal,
@@ -1921,9 +1940,6 @@ export const usePlayer = create<PlayerState>((set, get) => {
           }
         }
       }));
-
-      // 预览尾部：使用带目标的 seek，确保高亮不被 getByTime 干扰
-      state.seekToTarget({ time: Math.max(end - epsilon, 0), target: updated });
     },
 
     // 别名

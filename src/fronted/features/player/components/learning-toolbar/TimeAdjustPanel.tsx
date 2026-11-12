@@ -20,10 +20,15 @@ export default function TimeAdjustPanel() {
     const srtTender = usePlayerState((s) => s.srtTender);
     const adjusted = Boolean(sentence && srtTender && srtTender.adjusted(sentence));
     const diff = srtTender && sentence && adjusted ? srtTender.timeDiff(sentence) : { start: 0, end: 0 };
-    const [draft, setDraft] = useState<{ start: string; end: string }>({
-        start: diff.start.toFixed(2),
-        end: diff.end.toFixed(2),
-    });
+    const snapshotKey = `${sentence?.fileHash ?? 'none'}:${sentence?.index ?? -1}:${diff.start.toFixed(2)}:${diff.end.toFixed(2)}`;
+    const [draftState, setDraftState] = useState<{
+        key: string;
+        start: string;
+        end: string;
+    } | null>(null);
+    const draft = draftState && draftState.key === snapshotKey
+        ? { start: draftState.start, end: draftState.end }
+        : { start: diff.start.toFixed(2), end: diff.end.toFixed(2) };
 
     /** 把草稿里的绝对偏移换算成增量，走增量调整动作（保留虚拟组归属与重播语义）。 */
     const applyDraft = (field: 'start' | 'end', raw: string) => {
@@ -74,7 +79,11 @@ export default function TimeAdjustPanel() {
                     units="s"
                     value={Number.parseFloat(draft[field]) || 0}
                     onChange={(val) => {
-                        setDraft((d) => ({ ...d, [field]: val.toFixed(2) }));
+                        setDraftState({
+                            key: snapshotKey,
+                            ...draft,
+                            [field]: val.toFixed(2),
+                        });
                         applyDraft(field, String(val));
                     }}
                 />
@@ -94,7 +103,7 @@ export default function TimeAdjustPanel() {
                     onClick={() => {
                         if (adjusted) {
                             void playerActions.clearAdjust();
-                            setDraft({ start: '0.00', end: '0.00' });
+                            setDraftState(null);
                         }
                     }}
                     disabled={!adjusted}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { Download, Image, Sparkles, Trash2 } from 'lucide-react';
@@ -40,8 +40,12 @@ export default function EmbeddingModelCard({
     const [installing, setInstalling] = useState(false);
     const [installingMultimodal, setInstallingMultimodal] = useState(false);
     const [removing, setRemoving] = useState(false);
+    const busyRef = useRef(false);
+    const busy = installing || installingMultimodal || removing;
 
     const install = async () => {
+        if (busyRef.current) return;
+        busyRef.current = true;
         setInstalling(true);
         try {
             await settingsApi.downloadEmbeddingModel();
@@ -50,11 +54,14 @@ export default function EmbeddingModelCard({
         } catch (error) {
             toast.error(error instanceof Error ? error.message : String(error));
         } finally {
+            busyRef.current = false;
             setInstalling(false);
         }
     };
 
     const installMultimodal = async () => {
+        if (busyRef.current) return;
+        busyRef.current = true;
         setInstallingMultimodal(true);
         try {
             await settingsApi.downloadEmbeddingMultimodal();
@@ -63,11 +70,14 @@ export default function EmbeddingModelCard({
         } catch (error) {
             toast.error(error instanceof Error ? error.message : String(error));
         } finally {
+            busyRef.current = false;
             setInstallingMultimodal(false);
         }
     };
 
     const remove = async () => {
+        if (busyRef.current) return;
+        busyRef.current = true;
         setRemoving(true);
         try {
             await settingsApi.removeEmbeddingModel();
@@ -76,6 +86,7 @@ export default function EmbeddingModelCard({
         } catch (error) {
             toast.error(error instanceof Error ? error.message : String(error));
         } finally {
+            busyRef.current = false;
             setRemoving(false);
         }
     };
@@ -96,7 +107,7 @@ export default function EmbeddingModelCard({
                             variant="secondary"
                             size="sm"
                             label={installing ? t('resources.embedding.installing') : t('resources.embedding.install')}
-                            isDisabled={installing}
+                            isDisabled={busy}
                             icon={<Download className="h-3.5 w-3.5" />}
                             onClick={() => { void install(); }}
                         />
@@ -105,7 +116,7 @@ export default function EmbeddingModelCard({
                             variant="ghost"
                             size="sm"
                             label={removing ? t('resources.embedding.removing') : t('resources.embedding.remove')}
-                            isDisabled={removing}
+                            isDisabled={busy}
                             icon={<Trash2 className="h-3.5 w-3.5" />}
                             onClick={() => { void remove(); }}
                         />
@@ -131,7 +142,7 @@ export default function EmbeddingModelCard({
                                 label={installingMultimodal
                                     ? t('resources.embedding.installing')
                                     : t('resources.embedding.multimodalInstall')}
-                                isDisabled={installingMultimodal}
+                                isDisabled={busy}
                                 icon={<Download className="h-3.5 w-3.5" />}
                                 onClick={() => { void installMultimodal(); }}
                             />

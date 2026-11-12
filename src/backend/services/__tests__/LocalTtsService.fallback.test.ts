@@ -85,4 +85,31 @@ describe('本地 TTS 音色回退', () => {
             path.join(MODELS_ROOT, 'vits-piper-en_US-lessac-medium', 'espeak-ng-data'),
         );
     });
+
+    it('选中 Kokoro 音色且已安装时，向 CLI 传递 Kokoro 引擎、voices.bin 与 speakerId', async () => {
+        const { service, cli } = buildService(['kokoro-int8-en-v0_19'], 'kokoro-en-GB-george');
+
+        await service.synthesize('approach');
+
+        expect(cli.run).toHaveBeenCalledWith(expect.objectContaining({
+            engine: 'kokoro',
+            modelPath: path.join(MODELS_ROOT, 'kokoro-int8-en-v0_19', 'model.int8.onnx'),
+            voicesPath: path.join(MODELS_ROOT, 'kokoro-int8-en-v0_19', 'voices.bin'),
+            speakerId: 9,
+        }));
+    });
+
+    it('同时装有 Piper 与 Kokoro 且所选音色未安装时，回退优先选择音质更高的 Kokoro', async () => {
+        const { service, cli } = buildService(
+            ['vits-piper-en_US-amy-low', 'kokoro-int8-en-v0_19'],
+            'en-US-lessac-medium',
+        );
+
+        await service.synthesize('hello');
+
+        expect(cli.run).toHaveBeenCalledWith(expect.objectContaining({
+            engine: 'kokoro',
+            speakerId: 1,
+        }));
+    });
 });

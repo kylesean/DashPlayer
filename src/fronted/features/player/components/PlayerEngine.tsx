@@ -91,6 +91,7 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
   const lastSeekRef = useRef<SeekRequest>({ time: -1, play: true });
   const lastSeekTsRef = useRef<number>(0);
   const pendingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingSamePosTimerRef = useRef<NodeJS.Timeout | null>(null);
   /** 尚未结算的 seek：用于把原生 seeked 映射回 store 的落点契约。 */
   const pendingResolveRef = useRef<{ requestId?: number; timer: NodeJS.Timeout | null } | null>(null);
   /** 最近一次真正写入 currentTime 的 seek 请求号；用于识别迟到的 seeked 属于哪一次请求。 */
@@ -175,8 +176,12 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
     return () => video.removeEventListener('seeked', handleSeeked);
   }, [src, recoveryKey, settleSeek]);
 
-  // 卸载时若仍有未结算的 seek，先收尾，避免 store 的在途标记永远挡住时间驱动
+  // 卸载时若仍有未结算的 seek 或延时播放定时器，先收尾，避免 store 的在途标记永远挡住时间驱动或残留回调触发
   useEffect(() => () => {
+    if (pendingSamePosTimerRef.current !== null) {
+      window.clearTimeout(pendingSamePosTimerRef.current);
+      pendingSamePosTimerRef.current = null;
+    }
     if (pendingResolveRef.current) {
       settleSeek(pendingResolveRef.current.requestId);
     }
@@ -291,7 +296,13 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
         return;
       }
       if (samePosition) {
-        setTimeout(() => settleSeek(next.requestId), 0);
+        if (pendingSamePosTimerRef.current) {
+          clearTimeout(pendingSamePosTimerRef.current);
+        }
+        pendingSamePosTimerRef.current = setTimeout(() => {
+          pendingSamePosTimerRef.current = null;
+          settleSeek(next.requestId);
+        }, 0);
       }
     };
 
@@ -335,6 +346,10 @@ const PlayerEngine: React.FC<PlayerEngineProps> = ({
     if (pendingTimerRef.current) {
       clearTimeout(pendingTimerRef.current);
       pendingTimerRef.current = null;
+    }
+    if (pendingSamePosTimerRef.current) {
+      clearTimeout(pendingSamePosTimerRef.current);
+      pendingSamePosTimerRef.current = null;
     }
   }, [src]);
 

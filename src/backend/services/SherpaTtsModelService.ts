@@ -6,7 +6,7 @@ import TYPES from '@/backend/ioc/types';
 import ModelArchiveService from '@/backend/services/models/ModelArchiveService';
 import type SettingService from '@/backend/services/SettingService';
 import {
-    SHERPA_TTS_REQUIRED_FILES,
+    getSherpaTtsRequiredFiles,
     resolveSherpaTtsVoice,
     sherpaTtsDownloadUrls,
     type SherpaTtsVoice,
@@ -37,14 +37,14 @@ class VoiceModelArchiveService extends ModelArchiveService {
             {
                 downloadUrls: sherpaTtsDownloadUrls(voice),
                 archiveSha256: voice.archiveSha256,
-                // 每个音色一个工作目录：断点续传的临时归档不能跨音色复用。
-                workDirectoryName: `.sherpa-tts-download-${voice.id}`,
+                // 以模型目录名为键：多个 Kokoro 音色共用同一个模型归档，切换音色不重复下载也不互删。
+                workDirectoryName: `.sherpa-tts-download-${voice.directoryName}`,
                 archiveFileName: voice.archiveName,
                 modelDirectoryName: voice.directoryName,
-                requiredFiles: [voice.modelFileName, ...SHERPA_TTS_REQUIRED_FILES],
+                requiredFiles: getSherpaTtsRequiredFiles(voice),
                 progressEventName: 'settings/sherpa-tts-model-download-progress',
                 cancelledMessage: 'Sherpa TTS 模型下载已取消',
-                modelDisplayName: `Sherpa TTS (${voice.id})`,
+                modelDisplayName: `Sherpa TTS (${voice.displayName ?? voice.id})`,
             },
             rendererGateway,
             storageDirectoryProvider,
@@ -81,7 +81,7 @@ export class SherpaTtsModelServiceImpl implements LocalModelService {
         this.storageDirectoryProvider = storageDirectoryProvider;
         this.fileSystemGateway = fileSystemGateway;
         const voice = resolveSherpaTtsVoice(this.settingService.getSherpaTtsVoice());
-        this.installers.set(voice.id, this.buildInstaller(voice));
+        this.installers.set(voice.directoryName, this.buildInstaller(voice));
     }
 
     /** @inheritdoc */
@@ -120,10 +120,10 @@ export class SherpaTtsModelServiceImpl implements LocalModelService {
      */
     private currentInstaller(): VoiceModelArchiveService {
         const voice = resolveSherpaTtsVoice(this.settingService.getSherpaTtsVoice());
-        let installer = this.installers.get(voice.id);
+        let installer = this.installers.get(voice.directoryName);
         if (!installer) {
             installer = this.buildInstaller(voice);
-            this.installers.set(voice.id, installer);
+            this.installers.set(voice.directoryName, installer);
         }
         return installer;
     }

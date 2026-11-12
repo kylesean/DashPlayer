@@ -40,6 +40,10 @@ export type SubtitleScrollState = {
         currentRef: HTMLDivElement | null;
         scrollStatusTimer: number | undefined | NodeJS.Timeout;
         scrollTopTimer: number | undefined | NodeJS.Timeout;
+        syncTimer: number | undefined | NodeJS.Timeout;
+        pauseMeasurementTimer: number | undefined | NodeJS.Timeout;
+        /** 最近一次驱动滚动的来源：auto=被动跟随，user=用户显式归位，none=未触发。 */
+        scrollOrigin: 'auto' | 'user' | 'none';
         /** Virtuoso 当前渲染的列表范围 [start, end]（含视口外 overscan 缓冲） */
         visibleRange: [number, number];
         /**
@@ -132,6 +136,15 @@ const useSubtitleScroll = create(
                     clearTimeout(internal.scrollTopTimer);
                     internal.scrollTopTimer = undefined;
                 }
+                if (internal.syncTimer) {
+                    clearTimeout(internal.syncTimer);
+                    internal.syncTimer = undefined;
+                    internal.syncPending = false;
+                }
+                if (internal.pauseMeasurementTimer) {
+                    clearTimeout(internal.pauseMeasurementTimer);
+                    internal.pauseMeasurementTimer = undefined;
+                }
             };
 
             /** 延迟回归 NORMAL；自动滚动期间的每次 scroll 事件都会重置该计时 */
@@ -152,9 +165,10 @@ const useSubtitleScroll = create(
             const executeScroll = (
                 virtuoso: VirtuosoHandle,
                 listPosition: number,
-                options?: { align?: 'start' | 'center' | 'end'; smooth?: boolean }
+                options?: { align?: 'start' | 'center' | 'end'; smooth?: boolean; origin?: 'auto' | 'user' }
             ) => {
                 cancelPendingTimers();
+                get().internal.scrollOrigin = options?.origin ?? 'auto';
                 set({ scrollState: 'AUTO_SCROLLING' });
                 // 应用发起、库内部写 scrollTop：不记一笔的话，埋点里就看不到这次写入
                 recordScrollRequest('subtitle-scroll:scroll-to-index');
@@ -199,7 +213,11 @@ const useSubtitleScroll = create(
                     return;
                 }
                 internal.syncPending = true;
-                setTimeout(() => {
+                if (internal.syncTimer) {
+                    clearTimeout(internal.syncTimer);
+                }
+                internal.syncTimer = setTimeout(() => {
+                    get().internal.syncTimer = undefined;
                     get().syncIntoView(get().internal.currentListPosition);
                 }, 0);
             };
@@ -211,6 +229,9 @@ const useSubtitleScroll = create(
                     currentRefPosition: -1,
                     scrollStatusTimer: undefined,
                     scrollTopTimer: undefined,
+                    syncTimer: undefined,
+                    pauseMeasurementTimer: undefined,
+                    scrollOrigin: 'none',
                     currentRef: null,
                     visibleRange: [0, 0],
                     deferredPosition: -1,
@@ -412,7 +433,7 @@ const useSubtitleScroll = create(
                     internal.lastSyncedPosition = currentListPosition;
                     internal.lastSyncIndex = currentListPosition;
                     internal.deferredPosition = -1;
-                    executeScroll(virtuoso, currentListPosition, { smooth: true });
+                    executeScroll(virtuoso, currentListPosition, { smooth: true, origin: 'user' });
                 },
                 returnToListPosition: (listPosition: number) => {
                     const { virtuoso } = get().internal;
@@ -425,7 +446,7 @@ const useSubtitleScroll = create(
                     internal.lastSyncIndex = listPosition;
                     internal.deferredPosition = -1;
                     internal.currentListPosition = listPosition;
-                    executeScroll(virtuoso, listPosition, { smooth: true });
+                    executeScroll(virtuoso, listPosition, { smooth: true, origin: 'user' });
                 },
                 /**
                  * 更新可视安全边界。
@@ -463,12 +484,16 @@ const useSubtitleScroll = create(
                  * 则放弃恢复快照，避免覆盖用户意图导致自动滚动复活。
                  */
                 pauseMeasurement: () => {
-                    const { scrollState } = get();
+                    const { scrollState, internal } = get();
                     if (scrollState === 'PAUSE_MEASUREMENT') {
                         return;
                     }
+                    if (internal.pauseMeasurementTimer) {
+                        clearTimeout(internal.pauseMeasurementTimer);
+                    }
                     set({ scrollState: 'PAUSE_MEASUREMENT' });
-                    setTimeout(() => {
+                    internal.pauseMeasurementTimer = setTimeout(() => {
+                        get().internal.pauseMeasurementTimer = undefined;
                         if (get().scrollState !== 'PAUSE_MEASUREMENT') {
                             return;
                         }

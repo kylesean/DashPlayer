@@ -10,6 +10,7 @@
 export const NAV_TESTIDS = {
     home: 'nav-home',
     player: 'nav-player',
+    reader: 'nav-reader',
     vocabulary: 'nav-vocabulary',
     settings: 'nav-settings',
 } as const;

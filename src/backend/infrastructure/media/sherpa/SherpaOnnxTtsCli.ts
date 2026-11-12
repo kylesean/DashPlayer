@@ -32,9 +32,12 @@ export class SherpaOnnxTtsCli {
      * @returns 生成的音频文件路径。
      */
     public async run(params: {
+        engine?: 'vits' | 'kokoro';
         modelPath: string;
         tokensPath: string;
         dataDir: string;
+        voicesPath?: string;
+        speakerId?: number;
         outputPath: string;
         text: string;
     }): Promise<string> {
@@ -42,13 +45,24 @@ export class SherpaOnnxTtsCli {
         // Kaldi ParseOptions 在遇到 '--' 前会把任何以 '--' 开头的参数当作命令行 flag 解析；
         // 对以 '-' 开头的字幕对话（如 "--Wait a minute!"）前置一个空格，既避免被解析为 flag，也不影响 TTS 发音。
         const safeText = params.text.startsWith('-') ? ` ${params.text}` : params.text;
-        const args = [
-            `--vits-model=${params.modelPath}`,
-            `--vits-tokens=${params.tokensPath}`,
-            `--vits-data-dir=${params.dataDir}`,
-            `--output-filename=${params.outputPath}`,
-            safeText,
-        ];
+        const args = params.engine === 'kokoro'
+            ? [
+                `--kokoro-model=${params.modelPath}`,
+                `--kokoro-voices=${params.voicesPath ?? ''}`,
+                `--kokoro-tokens=${params.tokensPath}`,
+                `--kokoro-data-dir=${params.dataDir}`,
+                ...(typeof params.speakerId === 'number' ? [`--sid=${params.speakerId}`] : []),
+                '--num-threads=2',
+                `--output-filename=${params.outputPath}`,
+                safeText,
+            ]
+            : [
+                `--vits-model=${params.modelPath}`,
+                `--vits-tokens=${params.tokensPath}`,
+                `--vits-data-dir=${params.dataDir}`,
+                `--output-filename=${params.outputPath}`,
+                safeText,
+            ];
         await new Promise<void>((resolve, reject) => {
             const child = spawn(executablePath, args, {
                 cwd: path.dirname(executablePath),

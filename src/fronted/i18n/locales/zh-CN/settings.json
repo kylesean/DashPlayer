@@ -621,7 +621,7 @@
         },
         "ttsVoice": {
             "title": "朗读音色",
-            "description": "离线朗读单词与例句时使用的声音。",
+            "description": "离线朗读单词与例句时使用的声音（推荐高拟真 Kokoro 音色）。",
             "accentUS": "美音",
             "accentGB": "英音",
             "male": "男声",
@@ -629,9 +629,15 @@
             "qualityLow": "轻量",
             "qualityMedium": "标准",
             "qualityHigh": "高清",
-            "notInstalled": "该音色尚未下载，请在上方资源包中下载",
+            "notInstalled": "该音色尚未下载，可直接在下方点击下载",
             "notInstalledShort": "未下载",
-            "downloadHint": "当前音色尚未安装，朗读会暂用其它已安装音色。请在上方资源包中下载。"
+            "downloadHint": "当前音色尚未安装，朗读会暂用其它已安装音色。",
+            "downloadButton": "下载音色",
+            "downloadingVoice": "正在下载 {{percent}}%",
+            "cancelDownload": "取消",
+            "downloadedToast": "音色模型已下载并就绪",
+            "upgradeHint": "新上线高拟真自然人声「Kokoro」（约 98.5 MB，单包解锁 4 组美/英男女声），语调更接近真人。",
+            "upgradeAction": "切换为 Kokoro 并下载"
         }
     },
     "runtime": {

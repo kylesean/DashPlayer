@@ -621,7 +621,7 @@
         },
         "ttsVoice": {
             "title": "Reading voice",
-            "description": "Voice used for offline playback of words and examples.",
+            "description": "Voice used for offline playback of words and examples (Kokoro natural voice recommended).",
             "accentUS": "US",
             "accentGB": "UK",
             "male": "Male",
@@ -629,9 +629,15 @@
             "qualityLow": "Light",
             "qualityMedium": "Standard",
             "qualityHigh": "High",
-            "notInstalled": "This voice is not downloaded yet. Download it in the resource pack above.",
+            "notInstalled": "This voice is not downloaded yet. Click Download below.",
             "notInstalledShort": "not downloaded",
-            "downloadHint": "This voice is not installed yet; playback temporarily uses another installed voice. Download it in the resource pack above."
+            "downloadHint": "This voice is not installed yet; playback temporarily uses another installed voice.",
+            "downloadButton": "Download voice",
+            "downloadingVoice": "Downloading {{percent}}%",
+            "cancelDownload": "Cancel",
+            "downloadedToast": "Voice model downloaded and ready",
+            "upgradeHint": "New expressive neural voice \"Kokoro\" (~98.5 MB, unlocks 4 US/UK voices) sounds much more natural than Piper.",
+            "upgradeAction": "Switch to Kokoro & download"
         }
     },
     "runtime": {

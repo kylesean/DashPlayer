@@ -120,6 +120,13 @@ import type { StorageStatusVO } from '@/common/types/vo/StorageStatusVO';
 import type { SentencePracticeDictationParams, SentencePracticeRecordVO, SentencePracticeResultVO, SentencePracticeShadowingParams, SentencePracticeSummaryVO } from '@/common/contracts/sentence-practice';
 import type { RhythmTrendVO } from '@/common/learning/rhythmTrend';
 import type { AttributionVO } from '@/common/learning/compassAttribution';
+import type {
+    ReaderDocumentSummary,
+    SavedSentenceVO,
+    SaveSentenceInput,
+    UpdateSavedSentenceInput,
+    WordContextOccurrence,
+} from '@/common/types/contextStudio';
 
 /** 跨进程请求与返回值契约。 */
 interface ApiDefinition {
@@ -713,6 +720,16 @@ interface PracticeDef {
     };
 }
 
+interface ContextStudioDef {
+    'context-studio/save-sentence': { params: SaveSentenceInput; return: SavedSentenceVO };
+    'context-studio/unsave-sentence': { params: { sentenceKey: string }; return: boolean };
+    'context-studio/list-saved-sentences': { params: void; return: SavedSentenceVO[] };
+    'context-studio/list-saved-keys': { params: { videoId: string }; return: string[] };
+    'context-studio/update-saved-sentence': { params: UpdateSavedSentenceInput; return: SavedSentenceVO | null };
+    'context-studio/get-word-contexts': { params: { word: string }; return: WordContextOccurrence[] };
+    'context-studio/list-reader-documents': { params: void; return: ReaderDocumentSummary[] };
+}
+
 // 使用交叉类型合并 ApiDefinitions 和 ExtraApiDefinition
 export type ApiDefinitions = ApiDefinition
     & AiFuncDef
@@ -739,7 +756,8 @@ export type ApiDefinitions = ApiDefinition
     & LearningDataDef
     & ContentCompassDef
     & VideoLearningDef
-    & PracticeDef;
+    & PracticeDef
+    & ContextStudioDef;
 
 // 更新 ApiMap 类型以使用 CombinedApiDefinitions
 export type ApiMap = {
@@ -785,6 +803,13 @@ export const API_ROUTE_KEYS = [
     'content-compass/list',
     'content-compass/stats',
     'content-compass/attribution',
+    'context-studio/get-word-contexts',
+    'context-studio/list-reader-documents',
+    'context-studio/list-saved-keys',
+    'context-studio/list-saved-sentences',
+    'context-studio/save-sentence',
+    'context-studio/unsave-sentence',
+    'context-studio/update-saved-sentence',
     'dictionary-enhancement/cancel',
     'dictionary-enhancement/install',
     'dictionary-enhancement/remove',

@@ -90,26 +90,44 @@ const StorageSetting: React.FC = () => {
         SETTINGS_DETAIL_SWR_OPTIONS,
     );
 
+    const storageStatusEpochRef = React.useRef(0);
+    React.useEffect(() => () => {
+        storageStatusEpochRef.current += 1;
+    }, []);
+
     const form = useForm<StorageFormValues>();
     const { control, formState, setValue } = form;
 
     const loadStorageStatus = React.useCallback(async (configuredPath: string) => {
+        const epoch = ++storageStatusEpochRef.current;
         try {
             const nextStatus = await settingsApi.getStorageStatus();
+            if (epoch !== storageStatusEpochRef.current) {
+                return;
+            }
             setStorageStatus(nextStatus);
 
             if (!nextStatus.available) {
                 setUsage(null);
+                setUsageLoading(false);
                 return;
             }
 
             setUsageLoading(true);
             try {
-                setUsage(await settingsApi.getStorageUsage());
+                const nextUsage = await settingsApi.getStorageUsage();
+                if (epoch === storageStatusEpochRef.current) {
+                    setUsage(nextUsage);
+                }
             } finally {
-                setUsageLoading(false);
+                if (epoch === storageStatusEpochRef.current) {
+                    setUsageLoading(false);
+                }
             }
         } catch (error) {
+            if (epoch !== storageStatusEpochRef.current) {
+                return;
+            }
             const message = error instanceof Error ? error.message : String(error);
             setStorageStatus({
                 configuredPath,
@@ -123,6 +141,7 @@ const StorageSetting: React.FC = () => {
                 message,
             });
             setUsage(null);
+            setUsageLoading(false);
         }
     }, []);
 
@@ -147,9 +166,12 @@ const StorageSetting: React.FC = () => {
         if (!detail) {
             return;
         }
-        window.setTimeout(() => {
+        const timerId = window.setTimeout(() => {
             loadStorageStatus(detail.path).catch(() => undefined);
         }, 0);
+        return () => {
+            window.clearTimeout(timerId);
+        };
     }, [detail, loadStorageStatus]);
 
     async function reloadWordLearningClips() {

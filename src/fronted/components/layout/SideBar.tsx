@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import React, { useMemo } from 'react';
-import { BookOpen, LayoutGrid, PanelLeftClose, PanelLeftOpen, Settings, Video } from 'lucide-react';
+import { BookOpenText, Layers, LayoutGrid, PanelLeftClose, PanelLeftOpen, Settings, Video } from 'lucide-react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Center } from '@astryxdesign/core/Center';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
@@ -69,7 +69,8 @@ const SideBar: React.FC<SideBarProps> = ({
 
     const isHome = location.pathname === '/' || location.pathname === '/home';
     const isPlayer = location.pathname.startsWith('/player');
-    const isVocabulary = location.pathname.startsWith('/vocabulary');
+    const isReader = location.pathname.startsWith('/reader');
+    const isVocabulary = location.pathname.startsWith('/vocabulary') || location.pathname.startsWith('/context-studio');
     const isSettings = location.pathname.startsWith('/settings');
 
     const navigateHome = () => {
@@ -212,12 +213,26 @@ const SideBar: React.FC<SideBarProps> = ({
                 />
 
                 <SideNavItem
+                    data-testid={NAV_TESTIDS.reader}
+                    label={t('scriptReader', { defaultValue: '精读文稿' })}
+                    href={videoId && videoId !== 'undefined' ? `/reader/${videoId}` : '/reader'}
+                    icon={
+                        <Icon
+                            icon={BookOpenText as unknown as IconType}
+                            size="sm"
+                            color={isReader ? 'primary' : 'secondary'}
+                        />
+                    }
+                    isSelected={isReader}
+                />
+
+                <SideNavItem
                     data-testid={NAV_TESTIDS.vocabulary}
                     label={t('vocabularyStudio')}
                     href="/vocabulary"
                     icon={
                         <Icon
-                            icon={BookOpen as unknown as IconType}
+                            icon={Layers as unknown as IconType}
                             size="sm"
                             color={isVocabulary ? 'primary' : 'secondary'}
                         />

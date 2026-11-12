@@ -3,22 +3,26 @@ import { describe, expect, it } from 'vitest';
 import {
     SHERPA_TTS_DEFAULT_VOICE_ID,
     SHERPA_TTS_VOICES,
+    getSherpaTtsRequiredFiles,
     resolveSherpaTtsVoice,
     sherpaTtsDownloadUrls,
 } from '@/backend/services/models/sherpaTtsModel';
 
 describe('TTS 音色清单', () => {
-    it('默认音色是 medium 档美音（lessac），而不是低音质的 amy-low', () => {
+    it('默认音色是高拟真 Kokoro 美音（Bella），而不是早期低音质 Piper', () => {
         const voice = resolveSherpaTtsVoice(SHERPA_TTS_DEFAULT_VOICE_ID);
-        expect(voice.id).toBe('en-US-lessac-medium');
-        expect(voice.quality).toBe('medium');
+        expect(voice.id).toBe('kokoro-en-US-bella');
+        expect(voice.engine).toBe('kokoro');
+        expect(voice.quality).toBe('high');
+        expect(voice.speakerId).toBe(1);
     });
 
-    it('同时提供美音与英音，且英音覆盖男女声', () => {
+    it('同时提供美音与英音，且美英音均覆盖男女声', () => {
         const us = SHERPA_TTS_VOICES.filter((voice) => voice.accent === 'en-US');
         const gb = SHERPA_TTS_VOICES.filter((voice) => voice.accent === 'en-GB');
         expect(us.length).toBeGreaterThan(0);
         expect(gb.length).toBeGreaterThan(0);
+        expect(new Set(us.map((voice) => voice.gender))).toEqual(new Set(['male', 'female']));
         expect(new Set(gb.map((voice) => voice.gender))).toEqual(new Set(['male', 'female']));
     });
 
@@ -29,20 +33,31 @@ describe('TTS 音色清单', () => {
         expect(resolveSherpaTtsVoice(undefined).id).toBe(SHERPA_TTS_DEFAULT_VOICE_ID);
     });
 
-    it('每个音色的 id、目录名、归档名、模型文件名互不重复', () => {
-        for (const field of ['id', 'directoryName', 'archiveName', 'modelFileName'] as const) {
-            const values = SHERPA_TTS_VOICES.map((voice) => voice[field]);
-            expect(new Set(values).size, `${field} 存在重复`).toBe(values.length);
-        }
+    it('每个音色的 id 互不重复，且必需文件清单包含 voices.bin（Kokoro）', () => {
+        const ids = SHERPA_TTS_VOICES.map((voice) => voice.id);
+        expect(new Set(ids).size).toBe(ids.length);
+
+        const bella = resolveSherpaTtsVoice('kokoro-en-US-bella');
+        expect(getSherpaTtsRequiredFiles(bella)).toEqual([
+            'model.int8.onnx',
+            'tokens.txt',
+            'espeak-ng-data',
+            'voices.bin',
+        ]);
     });
 
-    it('下载地址优先走国内镜像，GitHub 作为兜底', () => {
-        const urls = sherpaTtsDownloadUrls(SHERPA_TTS_VOICES[0]);
-        expect(urls).toHaveLength(2);
-        expect(urls[0]).toContain('modelscope.cn');
-        expect(urls[1]).toContain('github.com');
-        // 两个地址必须指向同一个归档文件名，否则镜像与兜底会装出不同的模型。
-        expect(urls[0].endsWith(SHERPA_TTS_VOICES[0].archiveName)).toBe(true);
-        expect(urls[1].endsWith(SHERPA_TTS_VOICES[0].archiveName)).toBe(true);
+    it('Piper 音色优先走国内镜像，Kokoro 音色指向官方 release', () => {
+        const piperUrls = sherpaTtsDownloadUrls(SHERPA_TTS_VOICES[0]);
+        expect(piperUrls).toHaveLength(2);
+        expect(piperUrls[0]).toContain('modelscope.cn');
+        expect(piperUrls[1]).toContain('github.com');
+        expect(piperUrls[0].endsWith(SHERPA_TTS_VOICES[0].archiveName)).toBe(true);
+        expect(piperUrls[1].endsWith(SHERPA_TTS_VOICES[0].archiveName)).toBe(true);
+
+        const kokoro = resolveSherpaTtsVoice('kokoro-en-US-bella');
+        const kokoroUrls = sherpaTtsDownloadUrls(kokoro);
+        expect(kokoroUrls).toHaveLength(1);
+        expect(kokoroUrls[0]).toContain('github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/');
+        expect(kokoroUrls[0].endsWith('kokoro-int8-en-v0_19.tar.bz2')).toBe(true);
     });
 });

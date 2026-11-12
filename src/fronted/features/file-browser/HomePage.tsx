@@ -54,7 +54,20 @@ const HomePage = () => {
         fileBrowserApi.listBasicWatchHistory,
         { revalidateOnMount: true, dedupingInterval: 0 }
     );
-    const [vpsFull, setVpsFull] = React.useState<typeof vpsBasic>(undefined);
+    const [fullHistoryReady, setFullHistoryReady] = React.useState(false);
+    const { data: vpsFull } = useSWR(
+        fullHistoryReady ? apiPath('watch-history/list') : null,
+        fileBrowserApi.listWatchHistory,
+        {
+            revalidateOnMount: true,
+            dedupingInterval: 0,
+            onError: (error) => {
+                logger.warn('failed to load full watch history list', {
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            },
+        }
+    );
     const vps = vpsFull ?? vpsBasic;
     const clear = usePlaybackSession((s) => s.clear);
     const [num, setNum] = React.useState(4);
@@ -67,28 +80,25 @@ const HomePage = () => {
     }, [clear]);
 
     useEffect(() => {
-        let cancelled = false;
+        let timerId: ReturnType<typeof setTimeout> | null = null;
         let idleId: number | null = null;
 
-        const loadFullList = async () => {
-            try {
-                const full = await fileBrowserApi.listWatchHistory();
-                if (!cancelled) {
-                    setVpsFull(full);
-                }
-            } catch (error) {
-                logger.warn('failed to load full watch history list', { error: error instanceof Error ? error.message : String(error) });
-            }
-        };
-
-        idleId = window.requestIdleCallback(() => {
-            void loadFullList();
-        }, { timeout: 1500 });
+        if ('requestIdleCallback' in window) {
+            idleId = window.requestIdleCallback(() => {
+                setFullHistoryReady(true);
+            }, { timeout: 1500 });
+        } else {
+            timerId = globalThis.setTimeout(() => {
+                setFullHistoryReady(true);
+            }, 0);
+        }
 
         return () => {
-            cancelled = true;
             if (idleId !== null && 'cancelIdleCallback' in window) {
                 window.cancelIdleCallback(idleId);
+            }
+            if (timerId !== null) {
+                globalThis.clearTimeout(timerId);
             }
         };
     }, []);

@@ -27,7 +27,12 @@ import {
     ManualDownloadPathRow,
     ManualDownloadSourceRow,
 } from '@/fronted/components/shared/ManualDownloadGuide';
-import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
+import {
+    cancelPackDownload,
+    startPackDownload,
+    updatePackCallbacks,
+    usePackDownloadState,
+} from '@/fronted/features/settings/resourcePackDownloadStore';
 import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { SettingField } from '@/fronted/features/settings/components/form/SettingSection';
@@ -38,11 +43,8 @@ import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installa
 /** 资源包内的资源标识。 */
 type PackItemKey = 'tts' | 'transcription' | 'diarization';
 
-/** 进度与网速刷新到 UI 的最小间隔（毫秒）：进度事件很密，节流后数字才不会闪。 */
-const PROGRESS_RENDER_INTERVAL_MS = 500;
-
-/** 网速的指数滑动平均系数，抑制进度事件抖动。 */
-const SPEED_SMOOTHING = 0.3;
+/** 持久化下载队列的包标识：切走设置标签页或离开设置页后再回来仍可续接进度展示。 */
+const SETTINGS_RESOURCE_PACK_ID = 'settings-resource-pack';
 
 /** 收尾阶段的文案键；下载中的文案统一用 `resources.pack.downloading`。 */
 const PHASE_LABEL_KEYS: Partial<Record<ModelDownloadPhase, string>> = {
@@ -114,61 +116,27 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
 }) => {
     const { t } = useTranslation('settings');
 
-    const [downloading, setDownloading] = React.useState(false);
     const [deleting, setDeleting] = React.useState(false);
     const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
-    const [activePhase, setActivePhase] = React.useState<ModelDownloadPhase | null>(null);
-    /** 正在下载的项；取消时用它决定中断哪一项。 */
-    const [activeItemKey, setActiveItemKey] = React.useState<PackItemKey | null>(null);
-    /** 整体进度按项数均分：已完成项数 + 当前项的完成比例。 */
-    const [packProgress, setPackProgress] = React.useState({ completed: 0, count: 0 });
-    /** 展示用的进度与网速；由 liveRef 按固定间隔刷新。 */
-    const [live, setLive] = React.useState({ percent: 0, downloaded: 0, total: 0, speed: 0 });
-    const liveRef = React.useRef({ percent: 0, downloaded: 0, total: 0, speed: 0 });
-    const [error, setError] = React.useState<string | null>(null);
-    /** 用户是否点了取消：用于中断串行队列，并区分"取消"与"失败"。 */
-    const cancelRequestedRef = React.useRef(false);
-    /** 最近一次进度采样，用于估算网速。 */
-    const speedSampleRef = React.useRef<{ at: number; downloaded: number } | null>(null);
+    const deletingRef = React.useRef(false);
+    const {
+        downloading,
+        activePhase,
+        packProgress,
+        live,
+        error,
+    } = usePackDownloadState(SETTINGS_RESOURCE_PACK_ID);
 
-    /** 记录一次进度采样：写入原始快照，并用指数滑动平均估算网速。 */
-    const trackProgress = React.useCallback((downloaded: number, total: number) => {
-        const now = Date.now();
-        const last = speedSampleRef.current;
-        let speed = liveRef.current.speed;
-        if (last && now > last.at && downloaded >= last.downloaded) {
-            const instant = ((downloaded - last.downloaded) * 1000) / (now - last.at);
-            speed = speed === 0 ? instant : speed * (1 - SPEED_SMOOTHING) + instant * SPEED_SMOOTHING;
-        }
-        speedSampleRef.current = { at: now, downloaded };
-        liveRef.current = {
-            percent: total > 0 ? Math.min(100, Math.floor((downloaded / total) * 100)) : 0,
-            downloaded,
-            total,
-            speed,
-        };
-    }, []);
+    const notifyComplete = React.useCallback(() => {
+        toast.success(t('resources.pack.downloaded'));
+    }, [t]);
 
-    // 按固定节奏把原始进度刷到界面上
     React.useEffect(() => {
-        if (!downloading) return undefined;
-        const timer = window.setInterval(() => {
-            setLive({ ...liveRef.current });
-        }, PROGRESS_RENDER_INTERVAL_MS);
-        return () => window.clearInterval(timer);
-    }, [downloading]);
-
-    // 订阅主进程推送的下载进度
-    React.useEffect(() => {
-        const unsubscribe = subscribeArchiveDownloadProgress((detail) => {
-            setActivePhase(detail.phase);
-            if (detail.phase === 'downloading' && detail.total > 0) {
-                trackProgress(detail.downloaded, detail.total);
-            }
-            if (detail.phase === 'idle') onRefresh();
+        updatePackCallbacks(SETTINGS_RESOURCE_PACK_ID, {
+            onRefresh,
+            onComplete: notifyComplete,
         });
-        return unsubscribe;
-    }, [onRefresh, trackProgress]);
+    }, [onRefresh, notifyComplete]);
 
     /** 复制文本到剪贴板。 */
     const copyText = async (value: string) => {
@@ -292,52 +260,32 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
      * 依次下载资源包里尚未完成的项。
      */
     const downloadPack = async () => {
-        cancelRequestedRef.current = false;
-        setError(null);
-        setDownloading(true);
-        setPackProgress({ completed: 0, count: pendingItems.length });
-        try {
-            for (const item of pendingItems) {
-                setActiveItemKey(item.key);
-                setActivePhase(null);
-                liveRef.current = { percent: 0, downloaded: 0, total: 0, speed: 0 };
-                setLive({ percent: 0, downloaded: 0, total: 0, speed: 0 });
-                speedSampleRef.current = null;
-                await item.download();
-                if (cancelRequestedRef.current) break;
-                setPackProgress((previous) => ({ ...previous, completed: previous.completed + 1 }));
-            }
-            if (!cancelRequestedRef.current) {
-                toast.success(t('resources.pack.downloaded'));
-            }
-        } catch (err) {
-            if (!cancelRequestedRef.current) {
-                setError(err instanceof Error ? err.message : String(err));
-            }
-        } finally {
-            setActiveItemKey(null);
-            setActivePhase(null);
-            setDownloading(false);
-            onRefresh();
-        }
+        if (downloading || deletingRef.current) return;
+        await startPackDownload({
+            packId: SETTINGS_RESOURCE_PACK_ID,
+            entries: pendingItems.map((item) => ({
+                key: item.key,
+                download: item.download,
+                cancel: item.cancel,
+            })),
+            onRefresh,
+            onComplete: notifyComplete,
+        });
     };
 
     /** 取消当前项的下载并中断队列。 */
     const cancelDownload = async () => {
-        cancelRequestedRef.current = true;
-        const current = items.find((item) => item.key === activeItemKey);
-        if (!current) return;
         try {
-            await current.cancel();
+            await cancelPackDownload(SETTINGS_RESOURCE_PACK_ID);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : String(err));
-        } finally {
-            onRefresh();
         }
     };
 
     /** 删除资源包内全部已下载的资源。 */
     const deletePack = async () => {
+        if (downloading || deletingRef.current) return;
+        deletingRef.current = true;
         setDeleting(true);
         try {
             for (const item of items) {
@@ -349,6 +297,7 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
         } catch (err) {
             toast.error(err instanceof Error ? err.message : String(err));
         } finally {
+            deletingRef.current = false;
             setDeleting(false);
             setDeleteAlertOpen(false);
             onRefresh();

@@ -219,6 +219,11 @@
         "paused": "Paused",
         "loopSentence": "Loop sentence",
         "cancelSingleLoop": "Cancel single-sentence loop",
+        "saveSentence": "Save sentence to Context Studio",
+        "unsaveSentence": "Remove from Context Studio",
+        "sentenceSaved": "Saved to Context Studio",
+        "sentenceUnsaved": "Removed from Context Studio",
+        "sentenceSaveFailed": "Failed to save sentence",
         "replaySentence": "Replay sentence"
     },
     "sourceLine": {

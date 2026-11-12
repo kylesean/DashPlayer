@@ -55,6 +55,10 @@ import type DpTaskService from '@/backend/services/DpTaskService';
 import { DpTaskServiceImpl } from '@/backend/services/DpTaskService';
 import type SentenceStudyNoteRepository from '@/backend/services/repositories/SentenceStudyNoteRepository';
 import SentenceStudyNoteRepositoryImpl from '@/backend/infrastructure/db/repositories/SentenceStudyNoteRepositoryImpl';
+import type SavedSentenceRepository from '@/backend/services/repositories/SavedSentenceRepository';
+import SavedSentenceRepositoryImpl from '@/backend/infrastructure/db/repositories/SavedSentenceRepositoryImpl';
+import ContextStudioService from '@/backend/services/ContextStudioService';
+import ContextStudioController from '@/backend/controllers/ContextStudioController';
 import type LearningPromptPresetRepository from '@/backend/services/repositories/LearningPromptPresetRepository';
 import LearningPromptPresetRepositoryImpl from '@/backend/infrastructure/db/repositories/LearningPromptPresetRepositoryImpl';
 import type LearningPromptPresetService from '@/backend/services/chat/LearningPromptPresetService';
@@ -272,6 +276,8 @@ container.bind<Controller>(TYPES.Controller).to(SpeakerDiarizationModelControlle
 container.bind<ResourceFallbackService>(TYPES.ResourceFallbackService).to(ResourceFallbackServiceImpl).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SherpaTtsModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VocabularyController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(ContextStudioController).inSingletonScope();
+container.bind<ContextStudioService>(TYPES.ContextStudioService).to(ContextStudioService).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(LearningDataController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(ContentCompassController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VideoLearningApiController).inSingletonScope();
@@ -315,6 +321,9 @@ container.bind<ProductionPracticeRecordRepository>(TYPES.ProductionPracticeRecor
 container.bind<RolePlayTurnRepository>(TYPES.RolePlayTurnRepository).to(RolePlayTurnRepositoryImpl).inSingletonScope();
 container.bind<SentenceStudyNoteRepository>(TYPES.SentenceStudyNoteRepository)
     .to(SentenceStudyNoteRepositoryImpl)
+    .inSingletonScope();
+container.bind<SavedSentenceRepository>(TYPES.SavedSentenceRepository)
+    .to(SavedSentenceRepositoryImpl)
     .inSingletonScope();
 container.bind<LearningPromptPresetRepository>(TYPES.LearningPromptPresetRepository)
     .to(LearningPromptPresetRepositoryImpl)

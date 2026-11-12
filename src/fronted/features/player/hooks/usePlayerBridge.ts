@@ -189,6 +189,7 @@ export function usePlayerBridge(navigate: (path: string) => void) {
         if (!videoId) return;
         let stopped = false;
         let counter = 0;
+        let timerId: ReturnType<typeof setTimeout> | null = null;
         // 上次上报的位置与播放状态；用于判断是否真的需要上报，避免暂停期间每 5 秒空刷日志。
         let lastReportedPosition = -1;
         let lastReportedPlaying: boolean | null = null;
@@ -222,12 +223,18 @@ export function usePlayerBridge(navigate: (path: string) => void) {
             } catch (error) {
                 logger.error('failed to update watch history progress', { error: error instanceof Error ? error.message : String(error) });
             } finally {
-                setTimeout(tick, 1000);
+                if (!stopped) {
+                    timerId = setTimeout(tick, 1000);
+                }
             }
         };
         tick();
         return () => {
             stopped = true;
+            if (timerId !== null) {
+                clearTimeout(timerId);
+                timerId = null;
+            }
         };
     }, [videoId]);
 

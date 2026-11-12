@@ -25,6 +25,7 @@ function isSubtitleEngine(value: string): value is SubtitleEngine {
 }
 
 let cleanupFn: (() => void) | null = null;
+let syncEpoch = 0;
 
 /**
  * 初始化运行时设置快照和设置变化监听。
@@ -39,7 +40,12 @@ export function initSettingsSync(): () => void {
         return cleanupFn;
     }
 
+    const epoch = ++syncEpoch;
+
     backendClient.call('settings/runtime/detail').then((snapshot: RuntimeSettingsSnapshot) => {
+        if (epoch !== syncEpoch) {
+            return;
+        }
         useSetting.getState().initialize(snapshot);
         const subtitleProvider = snapshot['providers.subtitleTranslation'];
         const subtitleMode = snapshot['features.openai.subtitleTranslationMode'];
@@ -57,6 +63,9 @@ export function initSettingsSync(): () => void {
         }
         useTranslation.getState().initializeRuntimeSettings(subtitleProvider, subtitleMode);
     }).catch((error) => {
+        if (epoch !== syncEpoch) {
+            return;
+        }
         logger.error('failed to sync runtime settings', { error });
     });
 
@@ -84,6 +93,7 @@ export function initSettingsSync(): () => void {
     });
 
     cleanupFn = () => {
+        syncEpoch += 1;
         unsubscribe();
         cleanupFn = null;
         logger.info('settings sync stopped');

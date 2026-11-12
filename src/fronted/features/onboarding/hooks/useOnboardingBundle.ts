@@ -97,7 +97,11 @@ export function useOnboardingBundle() {
 
     // 下载过程
     const [downloadingBundle, setDownloadingBundle] = React.useState(false);
+    const downloadingBundleRef = React.useRef(false);
+    const finishingRef = React.useRef(false);
+    const choosingStorageRef = React.useRef(false);
     const [activeItem, setActiveItem] = React.useState<BundleItemKey | null>(null);
+    const activeItemRef = React.useRef<BundleItemKey | null>(null);
     const [activePhase, setActivePhase] = React.useState<ModelDownloadPhase | null>(null);
     /** 整体进度按项数均分：已完成项数 + 当前项的完成比例。 */
     const [packProgress, setPackProgress] = React.useState({ completed: 0, count: 0 });
@@ -222,6 +226,8 @@ export function useOnboardingBundle() {
 
     /** 选择媒体库与模型存放目录，并立即生效。 */
     const handleChooseStorage = async () => {
+        if (choosingStorageRef.current || downloadingBundleRef.current) return;
+        choosingStorageRef.current = true;
         setChoosingStorage(true);
         try {
             const picked = await settingsApi.selectStorageFolder({ createDirectory: true });
@@ -234,6 +240,7 @@ export function useOnboardingBundle() {
         } catch (error) {
             toast.error(error instanceof Error ? error.message : String(error));
         } finally {
+            choosingStorageRef.current = false;
             setChoosingStorage(false);
         }
     };
@@ -295,6 +302,8 @@ export function useOnboardingBundle() {
      * 词典固定走内置词库（引擎关闭），超出词库的查询留到设置页再配。
      */
     const finishOnboarding = async () => {
+        if (finishingRef.current) return;
+        finishingRef.current = true;
         dispatch('START_FINISH');
         try {
             const [current, whisperCpp] = await Promise.all([
@@ -317,6 +326,8 @@ export function useOnboardingBundle() {
             toast.error(error instanceof Error ? error.message : String(error));
             // 失败退回下载页：用户能重试，也能改走手动下载。
             dispatch('FINISH_FAILED');
+        } finally {
+            finishingRef.current = false;
         }
     };
 
@@ -327,12 +338,15 @@ export function useOnboardingBundle() {
      * 任一项失败即停下（原因展示在主按钮下方），已完成的部分保留。
      */
     const downloadBundle = async () => {
+        if (downloadingBundleRef.current || finishingRef.current) return;
+        downloadingBundleRef.current = true;
         cancelRequestedRef.current = false;
         setBundleError(null);
         setDownloadingBundle(true);
         setPackProgress({ completed: 0, count: pendingEntries.length });
         try {
             for (const entry of pendingEntries) {
+                activeItemRef.current = entry.key;
                 setActiveItem(entry.key);
                 setActivePhase(null);
                 liveRef.current = { percent: 0, downloaded: 0, total: 0, speed: 0 };
@@ -350,6 +364,8 @@ export function useOnboardingBundle() {
                 setBundleError(error instanceof Error ? error.message : String(error));
             }
         } finally {
+            activeItemRef.current = null;
+            downloadingBundleRef.current = false;
             setActiveItem(null);
             setActivePhase(null);
             setDownloadingBundle(false);
@@ -363,7 +379,7 @@ export function useOnboardingBundle() {
      * 而且用户之所以要看手动教程，多半就是自动下载走不通。
      */
     const openManualGuide = async () => {
-        if (downloadingBundle) {
+        if (downloadingBundleRef.current) {
             await cancelBundleDownload();
         }
         dispatch('OPEN_MANUAL');
@@ -372,7 +388,8 @@ export function useOnboardingBundle() {
     /** 取消当前项的下载并中断队列。 */
     const cancelBundleDownload = async () => {
         cancelRequestedRef.current = true;
-        const entry = bundleEntries.find((item) => item.key === activeItem);
+        const currentKey = activeItemRef.current ?? activeItem;
+        const entry = bundleEntries.find((item) => item.key === currentKey);
         if (!entry) return;
         try {
             await entry.cancel();

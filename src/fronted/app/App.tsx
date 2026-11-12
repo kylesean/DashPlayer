@@ -21,7 +21,8 @@ import { toast, Toaster as HotToaster, type Toast } from 'react-hot-toast';
 
 import GlobalShortCut from '@/fronted/components/shared/shortcuts/GlobalShortCut';
 import Eb from '@/fronted/components/shared/common/Eb';
-import VideoLearningPage from '@/fronted/features/video-learning/VideoLearningPage';
+import ContextStudioPage from '@/fronted/features/context-studio/ContextStudioPage';
+import ScriptReaderPage from '@/fronted/features/script-reader/ScriptReaderPage';
 import { OnboardingView } from '@/fronted/features/onboarding/OnboardingView';
 import { getOnboardingCompletedVersion } from '@/fronted/features/onboarding/onboardingApi';
 import { MigrationFailureGate } from '@/fronted/features/migration-failure/MigrationFailureGate';
@@ -219,8 +220,20 @@ export const App = () => {
                                 />
                                 <Route path="*" element={<AppShellLayout />}>
                                     <Route
+                                        path="reader"
+                                        element={<Eb key="reader"><ScriptReaderPage /></Eb>}
+                                    />
+                                    <Route
+                                        path="reader/:videoId"
+                                        element={<Eb key="reader-video"><ScriptReaderPage /></Eb>}
+                                    />
+                                    <Route
                                         path="vocabulary"
-                                        element={<Eb key="vocabulary"><VideoLearningPage /></Eb>}
+                                        element={<Eb key="vocabulary"><ContextStudioPage /></Eb>}
+                                    />
+                                    <Route
+                                        path="context-studio"
+                                        element={<Eb key="context-studio"><ContextStudioPage /></Eb>}
                                     />
                                     <Route path="about" element={<Navigate to="/settings/about" replace />} />
                                     <Route

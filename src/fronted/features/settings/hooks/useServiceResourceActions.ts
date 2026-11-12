@@ -34,19 +34,32 @@ export function useServiceResourceActions({
     localAiStatus,
     cacheTargets,
 }: ServiceResourceActionsOptions) {
+    const mountedRef = React.useRef(true);
+    React.useEffect(() => {
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+        };
+    }, []);
+
     // 云端密钥的连通性测试
     const [testingOpenAiModel, setTestingOpenAiModel] = React.useState<string | null>(null);
     const [openAiTestResults, setOpenAiTestResults] = React.useState<Record<string, {
         success: boolean;
         message: string;
     } | null>>({});
+    const testingOpenAiModelsRef = React.useRef(new Set<string>());
+    const openAiEpochRef = React.useRef(new Map<string, number>());
 
     // 本地增强模型
     const [localAiBusy, setLocalAiBusy] = React.useState(false);
+    const localAiBusyRef = React.useRef(false);
     const [clearingCache, setClearingCache] = React.useState(false);
+    const clearingCacheRef = React.useRef(false);
     /** 清缓存确认弹窗是否打开。 */
     const [cacheConfirmOpen, setCacheConfirmOpen] = React.useState(false);
     const [testingModelId, setTestingModelId] = React.useState<string | null>(null);
+    const testingModelIdRef = React.useRef<string | null>(null);
     const [testResultsMap, setTestResultsMap] = React.useState<Record<string, {
         success: boolean;
         warmSec: string;
@@ -64,6 +77,8 @@ export function useServiceResourceActions({
     };
 
     const clearCaches = async () => {
+        if (clearingCacheRef.current) return false;
+        clearingCacheRef.current = true;
         setClearingCache(true);
         try {
             const [subtitle, dictionary] = await Promise.all([
@@ -78,7 +93,10 @@ export function useServiceResourceActions({
             toast.error(error instanceof Error ? error.message : String(error));
             return false;
         } finally {
-            setClearingCache(false);
+            clearingCacheRef.current = false;
+            if (mountedRef.current) {
+                setClearingCache(false);
+            }
         }
     };
 
@@ -86,6 +104,8 @@ export function useServiceResourceActions({
         model.custom ? model.name : t('serviceCredentials.localAi.builtinModelName');
 
     const runLocalAiAction = async (model: LocalAiModelStatus, action: () => Promise<unknown>, successMessage: string) => {
+        if (localAiBusyRef.current) return false;
+        localAiBusyRef.current = true;
         setLocalAiBusy(true);
         try {
             await action();
@@ -95,7 +115,10 @@ export function useServiceResourceActions({
             toast.error(`${localAiDisplayName(model)}: ${error instanceof Error ? error.message : String(error)}`);
             return false;
         } finally {
-            setLocalAiBusy(false);
+            localAiBusyRef.current = false;
+            if (mountedRef.current) {
+                setLocalAiBusy(false);
+            }
             await refreshResourceStatus();
         }
     };
@@ -121,9 +144,12 @@ export function useServiceResourceActions({
     };
 
     const testLocalAiModel = async (modelId: string) => {
+        if (testingModelIdRef.current) return;
+        testingModelIdRef.current = modelId;
         setTestingModelId(modelId);
         try {
             const result = await settingsApi.speedTestLocalAi(modelId);
+            if (!mountedRef.current) return;
             setTestResultsMap((prev) => ({
                 ...prev,
                 [modelId]: {
@@ -133,6 +159,7 @@ export function useServiceResourceActions({
                 },
             }));
         } catch (error) {
+            if (!mountedRef.current) return;
             setTestResultsMap((prev) => ({
                 ...prev,
                 [modelId]: {
@@ -143,7 +170,10 @@ export function useServiceResourceActions({
                 },
             }));
         } finally {
-            setTestingModelId(null);
+            testingModelIdRef.current = null;
+            if (mountedRef.current) {
+                setTestingModelId(null);
+            }
             await refreshResourceStatus();
         }
     };
@@ -176,17 +206,25 @@ export function useServiceResourceActions({
 
     /** 取消本地模型下载：与下载共用忙碌态，结束后刷新资源状态。 */
     const cancelLocalAiDownload = () => {
+        if (localAiBusyRef.current) return;
+        localAiBusyRef.current = true;
         setLocalAiBusy(true);
         void settingsApi.cancelLocalAiDownload()
             .catch((error) => toast.error(error instanceof Error ? error.message : String(error)))
             .finally(() => {
-                setLocalAiBusy(false);
+                localAiBusyRef.current = false;
+                if (mountedRef.current) {
+                    setLocalAiBusy(false);
+                }
                 void refreshResourceStatus();
             });
     };
 
-    /** 模型被删除后清掉它的连通性测试结果，避免残留过期信息。 */
+    /** 模型被删除后清掉它的连通性测试结果，并递增值代数使在途测试响应失效。 */
     const forgetOpenAiTestResult = (model: string) => {
+        openAiEpochRef.current.set(model, (openAiEpochRef.current.get(model) ?? 0) + 1);
+        testingOpenAiModelsRef.current.delete(model);
+        setTestingOpenAiModel((current) => (current === model ? null : current));
         setOpenAiTestResults((prev) => {
             const next = { ...prev };
             delete next[model];
@@ -195,10 +233,21 @@ export function useServiceResourceActions({
     };
 
     const testOpenAiModel = async (model: string) => {
+        if (testingOpenAiModelsRef.current.has(model)) return;
+        const epoch = (openAiEpochRef.current.get(model) ?? 0) + 1;
+        openAiEpochRef.current.set(model, epoch);
+        testingOpenAiModelsRef.current.add(model);
+
         try {
             await flushCredentials();
         } catch (flushError) {
+            testingOpenAiModelsRef.current.delete(model);
             toast.error(`${t('common.saveFailed')}\n${flushError instanceof Error ? flushError.message : String(flushError)}`);
+            return;
+        }
+
+        if (openAiEpochRef.current.get(model) !== epoch || !mountedRef.current) {
+            testingOpenAiModelsRef.current.delete(model);
             return;
         }
 
@@ -206,14 +255,23 @@ export function useServiceResourceActions({
         setOpenAiTestResults((prev) => ({ ...prev, [model]: null }));
         try {
             const result = await settingsApi.testOpenAi(model);
+            if (openAiEpochRef.current.get(model) !== epoch || !mountedRef.current) {
+                return;
+            }
             setOpenAiTestResults((prev) => ({ ...prev, [model]: result }));
         } catch (error) {
+            if (openAiEpochRef.current.get(model) !== epoch || !mountedRef.current) {
+                return;
+            }
             setOpenAiTestResults((prev) => ({
                 ...prev,
                 [model]: { success: false, message: error instanceof Error ? error.message : String(error) },
             }));
         } finally {
-            setTestingOpenAiModel(null);
+            testingOpenAiModelsRef.current.delete(model);
+            if (mountedRef.current && openAiEpochRef.current.get(model) === epoch) {
+                setTestingOpenAiModel((current) => (current === model ? null : current));
+            }
         }
     };
 

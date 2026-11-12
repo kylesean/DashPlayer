@@ -62,10 +62,10 @@ export const SettingKeyObj = {
     'player.sceneCues': 'false',
     /**
      * 离线朗读音色标识（见 SHERPA_TTS_VOICES）。
-     * 默认取 medium 档美音（lessac），音质明显优于原来的 amy-low；
-     * 已设置过该键的老用户保持原值，不会被强制切换。
+     * 默认取高拟真 Kokoro 美音女声（Bella），自然度与呼吸感远超早期 Piper；
+     * 已设置过该键的老用户保持原值，未下载 Kokoro 时合成会自动回退到已安装的离线音色。
      */
-    'tts.voice': 'en-US-lessac-medium',
+    'tts.voice': 'kokoro-en-US-bella',
     'storage.path': '',
     'storage.collection': 'default',
     'proxy.mode': 'system',
