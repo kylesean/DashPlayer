@@ -36,7 +36,7 @@ export type ChatPanelState = {
     chatSessionId: string;
     topicText: string;
     topicTranslation: string;
-    queuedMessage: { id: number; content: string } | null;
+    queuedMessage: { id: number; sessionId: string; content: string } | null;
     hasLearningContext: boolean;
     learningVisible: boolean;
     sentenceResolveError: string | null;
@@ -226,11 +226,11 @@ const isCloudLearningAvailable = async (): Promise<boolean> => {
     }
 };
 
-// 会话创建的在途令牌：0 表示空闲，>0 是在途创建的代数。
-// clear() 把令牌清零即可让并发创建放行；旧创建完成时发现令牌易主就丢弃结果并关闭会话，
-// 不再像布尔标志那样「clear 强行复位 → 新旧创建并发」。
+// 会话创建的在途令牌：每次发起创建都递增代数；旧创建完成时发现令牌易主就丢弃并关闭会话，
+// 不再阻塞后续切句/快速重选的并发请求，也不会让 clear() 强行复位后出现双写。
 let sessionCreationToken = 0;
 let analysisStreamChunkCount = 0;
+let analysisStartEpoch = 0;
 let learningEntryInFlight = false;
 let learningCloseRequested = false;
 let learningRequestEpoch = 0;
@@ -259,10 +259,6 @@ const startSessionForTopic = async (
     if (expectedEpoch !== learningRequestEpoch) {
         return null;
     }
-    if (sessionCreationToken !== 0) {
-        chatLogger.warn('忽略重复的整句学习会话创建请求');
-        return null;
-    }
 
     const sentences = usePlayer.getState().sentences;
     const anchorPosition = sentences.findIndex(
@@ -273,8 +269,7 @@ const startSessionForTopic = async (
         .filter(TypeGuards.isNotNull)
         .map((sentence) => sentence.text ?? '');
 
-    sessionCreationToken += 1;
-    const creationToken = sessionCreationToken;
+    const creationToken = ++sessionCreationToken;
     const previousSessionId = useChatPanel.getState().chatSessionId;
     if (previousSessionId) {
         chatApi.closeSession(previousSessionId).catch((error) => {
@@ -313,30 +308,22 @@ const startSessionForTopic = async (
     });
 
     const sentenceKey = buildSentenceStudyKey(anchor.fileHash, anchor.index);
-    let sessionId: string;
-    try {
-        ({ sessionId } = await chatApi.createSession({
-            videoId,
-            originalTopic: text,
-            paragraphLines,
-            subtitleFileHash: anchor.fileHash,
-            anchorSentenceIndex: anchor.index,
-            sentenceKey,
-            presetId: activePresetId,
-            memoryHints: options?.memoryHints ?? undefined,
-            restoredMessages: options?.restoredMessages,
-        }));
-    } catch (error) {
-        // 只在令牌仍是本人时清零；clear() 清零或新创建已占用时不覆盖
-        if (sessionCreationToken === creationToken) {
-            sessionCreationToken = 0;
-        }
-        throw error;
-    }
-    if (sessionCreationToken === creationToken) {
-        sessionCreationToken = 0;
-    }
-    if (expectedEpoch !== learningRequestEpoch || usePlaybackSession.getState().videoId !== videoId) {
+    const { sessionId } = await chatApi.createSession({
+        videoId,
+        originalTopic: text,
+        paragraphLines,
+        subtitleFileHash: anchor.fileHash,
+        anchorSentenceIndex: anchor.index,
+        sentenceKey,
+        presetId: activePresetId,
+        memoryHints: options?.memoryHints ?? undefined,
+        restoredMessages: options?.restoredMessages,
+    });
+    if (
+        sessionCreationToken !== creationToken
+        || expectedEpoch !== learningRequestEpoch
+        || usePlaybackSession.getState().videoId !== videoId
+    ) {
         chatApi.closeSession(sessionId).catch((error) => {
             chatLogger.error('failed to close stale chat session', { error });
         });
@@ -381,8 +368,46 @@ const useChatPanel = create(
                 reopenLearning();
                 return;
             }
-            const available = await isCloudLearningAvailable();
-            await startSessionForTopic(text, currentSentence, text, currentSentence.textZH ?? '', available);
+            learningEntryInFlight = true;
+            learningCloseRequested = false;
+            const requestEpoch = ++learningRequestEpoch;
+            try {
+                const available = await isCloudLearningAvailable();
+                if (requestEpoch !== learningRequestEpoch) {
+                    return;
+                }
+                if (isSameLiveTopic(text, currentSentence.index, currentSentence.fileHash)) {
+                    reopenLearning();
+                    return;
+                }
+                await startSessionForTopic(text, currentSentence, text, currentSentence.textZH ?? '', available, {
+                    expectedEpoch: requestEpoch,
+                });
+            } catch (error) {
+                if (requestEpoch === learningRequestEpoch) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    set({ sentenceResolveError: message, learningVisible: false });
+                }
+                throw error;
+            } finally {
+                if (requestEpoch === learningRequestEpoch) {
+                    learningEntryInFlight = false;
+                    if (!useChatPanel.getState().chatSessionId) {
+                        const preservedPresets = get().presets;
+                        const preservedError = get().sentenceResolveError;
+                        const preservedCollapsed = get().miniVideoCollapsed;
+                        set({
+                            ...empty(),
+                            presets: preservedPresets,
+                            sentenceResolveError: preservedError,
+                            miniVideoCollapsed: preservedCollapsed,
+                        });
+                    } else if (learningCloseRequested) {
+                        learningCloseRequested = false;
+                        set({ learningVisible: false });
+                    }
+                }
+            }
         },
         createFromCurrent: async () => {
             const currentSentence = usePlayer.getState().currentSentence;
@@ -399,11 +424,9 @@ const useChatPanel = create(
                 }
                 return;
             }
-            if (learningEntryInFlight) {
-                enterLearning();
-                return;
-            }
+            // 用代数抢占取代「在途即丢弃」：连续切句/选句时最新目标胜出，旧请求在首个异步边界自动退出
             learningEntryInFlight = true;
+            learningCloseRequested = false;
             const requestEpoch = ++learningRequestEpoch;
             enterLearningOptimistically(sentence);
             try {
@@ -461,11 +484,25 @@ const useChatPanel = create(
                 ) {
                     void get().startAnalysis();
                 }
+            } catch (error) {
+                if (requestEpoch === learningRequestEpoch) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    set({ sentenceResolveError: message, learningVisible: false });
+                }
+                throw error;
             } finally {
                 if (requestEpoch === learningRequestEpoch) {
                     learningEntryInFlight = false;
                     if (!useChatPanel.getState().chatSessionId) {
-                        set(empty());
+                        const preservedPresets = get().presets;
+                        const preservedError = get().sentenceResolveError;
+                        const preservedCollapsed = get().miniVideoCollapsed;
+                        set({
+                            ...empty(),
+                            presets: preservedPresets,
+                            sentenceResolveError: preservedError,
+                            miniVideoCollapsed: preservedCollapsed,
+                        });
                     } else if (learningCloseRequested) {
                         learningCloseRequested = false;
                         set({ learningVisible: false });
@@ -513,10 +550,10 @@ const useChatPanel = create(
         },
         clear: () => {
             learningRequestEpoch += 1;
+            sessionCreationToken += 1;
+            analysisStartEpoch += 1;
             learningEntryInFlight = false;
             learningCloseRequested = false;
-            // 令牌清零即可放行下一次创建；旧创建完成时发现令牌易主会自行丢弃结果
-            sessionCreationToken = 0;
             const sessionId = get().chatSessionId;
             if (sessionId) {
                 chatApi.closeSession(sessionId).catch((error) => {
@@ -528,15 +565,18 @@ const useChatPanel = create(
         resetConversationView: () => {
             set({
                 input: '',
+                queuedMessage: null,
                 restoredMessages: [],
                 conversationEpoch: get().conversationEpoch + 1,
             });
         },
         sent: async (msg: string) => {
-            if (StrUtil.isBlank(msg)) return;
+            const sessionId = get().chatSessionId;
+            if (!sessionId || StrUtil.isBlank(msg)) return;
             set({
                 queuedMessage: {
                     id: Date.now(),
+                    sessionId,
                     content: msg,
                 },
             });
@@ -622,19 +662,38 @@ const useChatPanel = create(
             if (!sessionId) {
                 return;
             }
-            // 前端去重：流式进行中不允许重复发起（后端对并发 startAnalysis 也幂等返回在跑的 run）
+            // 前端同步占坑去重：避免 startAnalysis await 窗口内重复点击或覆盖已提前抵达的流式 chunk
             if (get().analysisStatus === 'streaming') {
                 return;
             }
+            const reqEpoch = ++analysisStartEpoch;
+            set({
+                analysis: {},
+                analysisMessageId: null,
+                analysisStatus: 'streaming',
+                analysisError: null,
+            });
             try {
                 const { messageId } = await chatApi.startAnalysis({ sessionId });
-                set({
-                    analysis: {},
-                    analysisMessageId: messageId,
-                    analysisStatus: 'streaming',
-                    analysisError: null,
-                });
+                if (get().chatSessionId !== sessionId) {
+                    return;
+                }
+                if (reqEpoch !== analysisStartEpoch || get().analysisStatus === 'aborted') {
+                    // startAnalysis 仍在途时已被 stopAnalysis/切句中止：补发停流请求，且不再切回 streaming
+                    void chatApi.stopAnalysis(sessionId).catch(() => undefined);
+                    return;
+                }
+                // 若 'start'/分片/finish 事件已在 IPC 返回前到达，analysisMessageId 已被流事件设为该 messageId，绝不覆盖
+                if (get().analysisMessageId !== messageId) {
+                    set({
+                        analysisMessageId: messageId,
+                        analysisStatus: 'streaming',
+                    });
+                }
             } catch (error) {
+                if (get().chatSessionId !== sessionId || reqEpoch !== analysisStartEpoch) {
+                    return;
+                }
                 const message = error instanceof Error ? error.message : String(error);
                 chatLogger.error('failed to start analysis', { sessionId, error: message });
                 set({
@@ -651,6 +710,7 @@ const useChatPanel = create(
             if (!sessionId || get().analysisStatus !== 'streaming') {
                 return;
             }
+            analysisStartEpoch += 1;
             // 本地先落 aborted 态（半卡保留展示），后端 abort chunk 会随后到达
             set({ analysisStatus: 'aborted', analysisMessageId: null });
             try {

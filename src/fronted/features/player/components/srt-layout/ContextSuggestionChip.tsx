@@ -138,21 +138,23 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
         if (!suggestion || saving) {
             return;
         }
+        const targetKey = sentenceKey;
+        const targetWord = suggestion.word;
         setSaving(true);
         try {
             const result = await videoLearningApi.favoriteWord(
-                suggestion.word,
+                targetWord,
                 suggestion.meaning,
             );
             if (!result.success || !result.data) {
                 throw new Error(result.error || t('contextSuggestion.favoriteFailed'));
             }
             useVocabularyStore.getState().addVocabularyWords([result.data.word]);
-            recordEncounter('save', suggestion.word);
+            recordEncounter('save', targetWord);
             revalidateReviewQueue();
             toast.success(t('contextSuggestion.favorited'));
-            setOpenForKey(null);
-            setDismissedKey(sentenceKey);
+            setOpenForKey((prev) => (prev === targetKey ? null : prev));
+            setDismissedKey(targetKey);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             toast.error(`${t('contextSuggestion.favoriteFailed')}\n${message}`);
@@ -165,13 +167,15 @@ export default function ContextSuggestionChip({ sentence }: { sentence: Sentence
         if (!suggestion || ignoring) {
             return;
         }
+        const targetKey = sentenceKey;
+        const targetWord = suggestion.word;
         setIgnoring(true);
         try {
             // “先忽略”只作用于当前句的建议，不改变用户词表里的学习状态。
-            recordEncounter('ignore', suggestion.word);
+            recordEncounter('ignore', targetWord);
             toast.success(t('contextSuggestion.ignored'));
-            setOpenForKey(null);
-            setDismissedKey(sentenceKey);
+            setOpenForKey((prev) => (prev === targetKey ? null : prev));
+            setDismissedKey(targetKey);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             toast.error(`${t('contextSuggestion.ignoreFailed')}\n${message}`);

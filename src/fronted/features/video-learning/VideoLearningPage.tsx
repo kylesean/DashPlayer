@@ -90,6 +90,7 @@ export default function VideoLearningPage() {
   // 正在删除的片段键，用于删除按钮转圈与防重复提交
   const [deletingClipKey, setDeletingClipKey] = useState<string | null>(null);
   const inFlightThumbsRef = useRef<Set<string>>(new Set());
+  const fetchWordsEpochRef = useRef(0);
   const { mutate } = useSWRConfig();
 
   // 播放状态管理
@@ -248,12 +249,16 @@ export default function VideoLearningPage() {
 
   // 获取单词列表
   const fetchWords = useCallback(async () => {
+    const reqEpoch = ++fetchWordsEpochRef.current;
     setLoading(true);
     try {
       const [result, statsResult] = await Promise.all([
         videoLearningApi.getVocabulary(),
         videoLearningApi.getWordClipStats()
       ]);
+      if (fetchWordsEpochRef.current !== reqEpoch) {
+        return;
+      }
       if (result.success) {
         setWordsError(null);
         const wordData: WordItem[] = Array.isArray(result.data) ? result.data as WordItem[] : [];
@@ -278,11 +283,16 @@ export default function VideoLearningPage() {
         toast.error(result.error || t('vocabularyStudio.fetchWordsFailed'));
       }
     } catch (error) {
+      if (fetchWordsEpochRef.current !== reqEpoch) {
+        return;
+      }
       logger.error('获取单词失败', { error });
       setWordsError(t('vocabularyStudio.fetchWordsFailed'));
       toast.error(t('vocabularyStudio.fetchWordsFailed'));
     } finally {
-      setLoading(false);
+      if (fetchWordsEpochRef.current === reqEpoch) {
+        setLoading(false);
+      }
     }
   }, [t]);
 
@@ -417,29 +427,31 @@ export default function VideoLearningPage() {
 
   // 初始化：有列表则默认选中第一个视频（不自动播放），用户点击片段卡片后才出声
   useEffect(() => {
+    const timers: number[] = [];
     if (!clips.length) {
-      const timer = window.setTimeout(() => {
+      timers.push(window.setTimeout(() => {
         setCurrentClipIndex(-1);
         setCurrentLineIndex(-1);
-      }, 0);
+      }, 0));
       if (pendingClip && pendingClip.page === loadedPage) {
-        window.setTimeout(() => setPendingClip(null), 0);
+        timers.push(window.setTimeout(() => setPendingClip(null), 0));
       }
-      return () => window.clearTimeout(timer);
+      return () => timers.forEach((id) => window.clearTimeout(id));
     }
 
     if (pendingClip && pendingClip.page === loadedPage) {
       const targetIndex = pendingClip.index === 'last'
         ? clips.length - 1
         : Math.max(0, Math.min(pendingClip.index, clips.length - 1));
-      window.setTimeout(() => selectClip(targetIndex), 0);
-      window.setTimeout(() => setPendingClip(null), 0);
-      return;
+      timers.push(window.setTimeout(() => selectClip(targetIndex), 0));
+      timers.push(window.setTimeout(() => setPendingClip(null), 0));
+      return () => timers.forEach((id) => window.clearTimeout(id));
     }
 
     if (currentClipIndex < 0 || currentClipIndex >= clips.length) {
-      window.setTimeout(() => selectClip(0), 0);
+      timers.push(window.setTimeout(() => selectClip(0), 0));
     }
+    return () => timers.forEach((id) => window.clearTimeout(id));
   }, [clips, currentClipIndex, loadedPage, pendingClip, selectClip, setPendingClip]);
 
   // 初始化加载单词

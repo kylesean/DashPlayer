@@ -22,7 +22,7 @@ import Style from '@/fronted/styles/style';
 import { cn } from '@/fronted/lib/utils';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import Eb from '@/fronted/components/shared/common/Eb';
-import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
+import { useVocabularyState, useVocabularyStore } from '@/fronted/features/player/vocabularyStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useTransLineTheme } from './translatable-theme';
 import useSetting from '@/fronted/features/settings/settingsStore';
@@ -141,6 +141,7 @@ export default function Word({
         getWordStatus,
         setWordStatus: updateLocalWordStatus,
         removeVocabularyWords,
+        version: vocabVersion,
     } = useVocabularyState(
         useShallow((s) => ({
             isVocabularyWord: s.isVocabularyWord,
@@ -162,8 +163,9 @@ export default function Word({
     const [playLoading, setPlayLoading] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [statusSaving, setStatusSaving] = useState(false);
-    // 收藏状态：idle 未收藏；saving 提交中；saved 已加入收藏
-    const [favoriteState, setFavoriteState] = useState<'idle' | 'saving' | 'saved'>('idle');
+    const [favoriteSaving, setFavoriteSaving] = useState(false);
+    // 仅当返词形态与词面不同且形式映射尚未刷新时兜底记录，词库任何外部变更（version 递增）都会自动失效它
+    const [optimisticSavedVersion, setOptimisticSavedVersion] = useState<number | null>(null);
 
     const theme = useTransLineTheme();
 
@@ -172,6 +174,7 @@ export default function Word({
     const baseWord = getBaseWord(cleanWord);
     const wordStatus = getWordStatus(cleanWord) ?? (baseWord ? getWordStatus(baseWord) : undefined);
     const isVocabularyWord = cleanWord && checkIsVocab(cleanWord);
+    const isFavorited = Boolean(isVocabularyWord) || (optimisticSavedVersion !== null && optimisticSavedVersion === vocabVersion);
 
     const hoverBg = classNames?.hover ?? (alwaysDark ? 'hover:bg-muted/70' : theme.word.hoverBgClass);
     const guidanceRaw = useSetting((state) => state.values.get('player.vocabularyGuidance'));
@@ -386,15 +389,14 @@ export default function Word({
      * 切换生词收藏：未收藏时加入词汇工坊，已收藏时从词表移除。
      */
     const handleFavorite = async () => {
-        const favorited = isVocabularyWord || favoriteState === 'saved';
-        if (favoriteState === 'saving') {
+        if (favoriteSaving) {
             return;
         }
 
-        const previousState = favoriteState;
-        setFavoriteState('saving');
+        const wasFavorited = isFavorited;
+        setFavoriteSaving(true);
         try {
-            if (favorited) {
+            if (wasFavorited) {
                 const result = await videoLearningApi.deleteWord(original);
                 if (result.success) {
                     const localBase = getBaseWord(cleanWord);
@@ -402,10 +404,9 @@ export default function Word({
                         ...(result.data ? [result.data.word] : []),
                         ...(localBase ? [localBase] : [])
                     ]);
-                    setFavoriteState('idle');
+                    setOptimisticSavedVersion(null);
                     toast.success(t('wordUnfavorited'));
                 } else {
-                    setFavoriteState(previousState);
                     toast.error(result.error || t('unfavoriteWordFailed'));
                 }
                 return;
@@ -414,17 +415,17 @@ export default function Word({
             const result = await videoLearningApi.favoriteWord(original, buildFavoriteTranslate(dictionaryResponse));
             if (result.success && result.data) {
                 updateLocalWordStatus(result.data.word, 'learning');
-                setFavoriteState('saved');
+                setOptimisticSavedVersion(useVocabularyStore.getState().version);
                 recordEncounter('save');
                 toast.success(result.data.alreadyExists ? t('wordAlreadyFavorited') : t('wordFavorited'));
             } else {
-                setFavoriteState('idle');
                 toast.error(result.error || t('favoriteWordFailed'));
             }
         } catch (error) {
             logger.error('failed to toggle favorite word', { error: error instanceof Error ? error.message : error });
-            setFavoriteState(previousState);
-            toast.error(favorited ? t('unfavoriteWordFailed') : t('favoriteWordFailed'));
+            toast.error(wasFavorited ? t('unfavoriteWordFailed') : t('favoriteWordFailed'));
+        } finally {
+            setFavoriteSaving(false);
         }
     };
 
@@ -443,7 +444,7 @@ export default function Word({
             const result = await videoLearningApi.updateWordState(cleanWord, target);
             if (result.success && result.data) {
                 updateLocalWordStatus(result.data.word, result.data.status);
-                setFavoriteState(target === 'learning' ? 'saved' : 'idle');
+                setOptimisticSavedVersion(null);
                 recordEncounter(target === 'known' ? 'known' : target === 'ignored' ? 'ignore' : 'save');
                 if (target === 'known') {
                     toast.success(t('wordMarkedKnown'));
@@ -565,8 +566,8 @@ export default function Word({
                         isStreaming={!!dictionaryEntry && !dictionaryEntry.isComplete}
                         onRefresh={handleRefresh}
                         onFavorite={handleFavorite}
-                        isFavorited={isVocabularyWord || favoriteState === 'saved'}
-                        isFavoriting={favoriteState === 'saving'}
+                        isFavorited={isFavorited}
+                        isFavoriting={favoriteSaving}
                         wordStatus={wordStatus ?? null}
                         isUpdatingStatus={statusSaving}
                         contextWord={original}

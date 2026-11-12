@@ -4,7 +4,7 @@ import useSWR from 'swr';
 
 import ReviewDock from '../ReviewDock';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
-import type { ReviewQueueVO } from '@/common/types/review';
+import type { ReviewQueueVO, ReviewRateResultVO } from '@/common/types/review';
 import { useReviewDockStore } from '../reviewDockStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 
@@ -256,5 +256,37 @@ describe('ReviewDock', () => {
 
         fireEvent.click(screen.getByTestId('review-batch-next'));
         expect(screen.getByTestId('review-card-word').textContent).toBe('f');
+    });
+
+    it('深链打开同样记录返回点并展示返回按钮，关闭面板时丢弃在途评分结果', async () => {
+        mockSWR(queue);
+        usePlayer.setState({ currentTime: 18 } as never);
+        useReviewDockStore.setState({ requestId: 2, consumedId: 0 });
+        render(<ReviewDock tone="panel" popoverOffset={8} />);
+
+        await screen.findByTestId('review-dock-panel');
+        expect(await screen.findByTestId('review-dock-return')).toBeDefined();
+
+        let resolveRate!: (res: ReviewRateResultVO) => void;
+        vi.mocked(videoLearningApi.rateReview).mockImplementationOnce(
+            () => new Promise((resolve) => {
+                resolveRate = resolve;
+            }),
+        );
+        fireEvent.click(screen.getByTestId('review-reveal'));
+        fireEvent.click(screen.getByTestId('review-rating-good'));
+
+        // 在 rateReview 尚未返回时关闭弹窗
+        fireEvent.click(screen.getByTestId('review-dock-trigger'));
+
+        resolveRate({
+            card: { ...queue.items[0], schedule: { ...queue.items[0].schedule, dueAt: '2026-01-02T00:00:00.000Z' } },
+            status: 'learning',
+        });
+        await Promise.resolve();
+
+        // 再次打开应是全新的会话起点（不带上次被关闭那轮的 feedback / review-last-rated）
+        fireEvent.click(screen.getByTestId('review-dock-trigger'));
+        expect(screen.queryByTestId('review-last-rated')).toBeNull();
     });
 });

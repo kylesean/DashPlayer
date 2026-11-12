@@ -64,7 +64,10 @@ export interface StudyCopilotPaneProps {
     attachedFocusExpr: string | null;
     onClearFocusExpr: () => void;
     activePresetName: string;
-    dictation: UseSpeechRecognitionReturn & { isTranscribing?: boolean };
+    dictation: UseSpeechRecognitionReturn & {
+        isTranscribing?: boolean;
+        isRequesting?: boolean;
+    };
 }
 
 interface SlashCommandItem {
@@ -325,11 +328,16 @@ export default function StudyCopilotPane({
                 />
             ) : undefined}
             sendActions={(
-                <ChatDictationButton
-                    dictation={dictation}
-                    size="sm"
-                    isHiddenWhenUnsupported
-                />
+                <span
+                    className="inline-flex"
+                    aria-busy={Boolean(dictation.isRequesting || dictation.isTranscribing) || undefined}
+                >
+                    <ChatDictationButton
+                        dictation={dictation}
+                        size="sm"
+                        isHiddenWhenUnsupported
+                    />
+                </span>
             )}
         />
     );

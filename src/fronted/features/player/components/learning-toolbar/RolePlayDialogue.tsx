@@ -44,15 +44,16 @@ export default function RolePlayDialogue({
     // 字幕来自播放器当前已解析的结果：不额外请求后端，也不会与播放进度脱节。
     const sentences = usePlayer((state) => state.sentences);
     const [draft, setDraft] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    // 轮次按会话键存放：切到另一个会话时旧轮次自动失效，不需要在 effect 里清空。
+    // 轮次、提交态与错误均按会话键作用域化：切到另一个会话时自动归位，不在 effect 里同步 setState。
+    const [submittingKey, setSubmittingKey] = useState<string | null>(null);
+    const [errorState, setErrorState] = useState<{ key: string; message: string } | null>(null);
     const [sessionState, setSessionState] = useState<{
         key: string;
         turns: RolePlayTurnVO[];
         restored: boolean;
     }>({ key: '', turns: [], restored: false });
     const scrollAnchorRef = useRef<HTMLDivElement | null>(null);
+    const submitEpochRef = useRef(0);
 
     const lines = useMemo<RolePlaySubtitleLine[]>(
         () => sentences.map((sentence) => ({ index: sentence.index, text: sentence.text })),
@@ -68,6 +69,7 @@ export default function RolePlayDialogue({
     // 重开弹窗时恢复已发生的轮次；失败只是丢掉历史，不影响继续对话。
     useEffect(() => {
         let cancelled = false;
+        submitEpochRef.current += 1;
         void learningDataApi.getRolePlaySession({ sessionKey, videoId, fileHash })
             .then((session) => {
                 if (!cancelled) {
@@ -83,6 +85,9 @@ export default function RolePlayDialogue({
             cancelled = true;
         };
     }, [sessionKey, videoId, fileHash]);
+
+    const submitting = submittingKey === sessionKey;
+    const error = errorState?.key === sessionKey ? errorState.message : null;
 
     // 会话切换后、恢复完成前一律当作「还没有轮次且仍在恢复」，避免闪现上一个会话的对话。
     const activeSession = sessionState.key === sessionKey
@@ -115,8 +120,9 @@ export default function RolePlayDialogue({
         if (!response || !partnerLine || submitting) {
             return;
         }
-        setSubmitting(true);
-        setError(null);
+        const submitEpoch = ++submitEpochRef.current;
+        setSubmittingKey(sessionKey);
+        setErrorState(null);
         try {
             const result: RolePlayTurnResultVO = await learningDataApi.evaluateRolePlayTurn({
                 sessionKey,
@@ -133,6 +139,9 @@ export default function RolePlayDialogue({
                 videoId,
                 fileHash,
             });
+            if (submitEpochRef.current !== submitEpoch) {
+                return;
+            }
             setSessionState({
                 key: sessionKey,
                 restored: true,
@@ -150,9 +159,14 @@ export default function RolePlayDialogue({
             });
             setDraft('');
         } catch {
-            setError(t('rolePlayFailed'));
+            if (submitEpochRef.current !== submitEpoch) {
+                return;
+            }
+            setErrorState({ key: sessionKey, message: t('rolePlayFailed') });
         } finally {
-            setSubmitting(false);
+            if (submitEpochRef.current === submitEpoch) {
+                setSubmittingKey((cur) => (cur === sessionKey ? null : cur));
+            }
         }
     };
 
@@ -239,12 +253,15 @@ export default function RolePlayDialogue({
                 <button
                     type="button"
                     data-testid="learning-role-play-restart"
+                    disabled={submitting}
                     onClick={() => {
+                        if (submitting) return;
+                        submitEpochRef.current += 1;
                         setSessionState({ key: sessionKey, turns: [], restored: true });
                         setDraft('');
-                        setError(null);
+                        setErrorState(null);
                     }}
-                    className="mt-2 flex h-7 items-center gap-1.5 rounded-lg px-2 text-metadata text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                    className="mt-2 flex h-7 items-center gap-1.5 rounded-lg px-2 text-metadata text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                 >
                     <RotateCcw className="h-3 w-3" />
                     {t('rolePlayRestart')}

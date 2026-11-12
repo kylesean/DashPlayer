@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { useShallow } from 'zustand/react/shallow';
@@ -224,7 +224,14 @@ export default function LearningPage() {
         }
     }, [topicLine]);
 
+    const favoriteInFlightRef = useRef<Set<string>>(new Set());
+
     const toggleFavorite = useCallback(async (word: string, meaning: string) => {
+        const key = word.trim().toLowerCase();
+        if (!key || favoriteInFlightRef.current.has(key)) {
+            return;
+        }
+        favoriteInFlightRef.current.add(key);
         const favorited = isVocabularyWord(word);
         try {
             if (favorited) {
@@ -252,6 +259,8 @@ export default function LearningPage() {
         } catch (error) {
             logger.error('failed to toggle favorite word', { error: error instanceof Error ? error.message : error });
             toast.error(favorited ? t('unfavoriteWordFailed') : t('favoriteWordFailed'));
+        } finally {
+            favoriteInFlightRef.current.delete(key);
         }
     }, [t, isVocabularyWord, getBaseWord, removeVocabularyWords, addVocabularyWords]);
 

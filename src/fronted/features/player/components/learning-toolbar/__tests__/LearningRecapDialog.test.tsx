@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { LearningRecapContent } from '../LearningRecapDialog';
 import { learningDataApi } from '@/fronted/features/learning-data/learningDataApi';
@@ -333,5 +333,80 @@ describe('LearningRecapContent', () => {
 
         expect(await screen.findByText('loadFailed')).toBeDefined();
         expect(screen.getByText('retry')).toBeDefined();
+    });
+
+    it('复述评分进行中时禁用刷新按钮，rolePlay 提交中时禁用重新开始按钮', async () => {
+        let releaseRetell!: () => void;
+        let releaseRolePlay!: () => void;
+        vi.mocked(learningDataApi.getRecap).mockResolvedValue(aiRecap);
+        vi.mocked(learningDataApi.evaluateRetell).mockImplementationOnce(
+            () => new Promise((resolve) => {
+                releaseRetell = () => resolve({
+                    level: 'good',
+                    feedback: 'ok',
+                    improved: '',
+                    coverage: 1,
+                    matchedKeywords: 1,
+                    totalKeywords: 1,
+                    missingWords: [],
+                    source: 'local',
+                    cached: false,
+                });
+            }),
+        );
+
+        renderContent('video-busy-guards');
+
+        const refreshButton = await screen.findByTestId('learning-recap-refresh') as HTMLButtonElement;
+        expect(refreshButton.disabled).toBe(false);
+
+        const textarea = screen.getByTestId('learning-retell-input');
+        fireEvent.change(textarea, { target: { value: 'My retell draft.' } });
+        fireEvent.click(screen.getByTestId('learning-retell-submit'));
+        expect(refreshButton.disabled).toBe(true);
+
+        releaseRetell();
+        await waitFor(() => expect(refreshButton.disabled).toBe(false));
+
+        // RolePlay 先完成一轮出现 restart 按钮，再提交第二轮挂起验证 restart 禁用
+        vi.mocked(learningDataApi.evaluateRolePlayTurn).mockResolvedValueOnce({
+            turn: 1,
+            partnerIndex: 0,
+            level: 'good',
+            feedback: 'first ok',
+            improved: '',
+            usedExpressions: [],
+            source: 'ai',
+            cached: false,
+        });
+        const composer = document.querySelector('[contenteditable="true"]') as HTMLElement;
+        composer.textContent = 'First turn.';
+        fireEvent.input(composer);
+        fireEvent.keyDown(composer, { key: 'Enter' });
+
+        const restartBtn = await screen.findByTestId('learning-role-play-restart') as HTMLButtonElement;
+        expect(restartBtn.disabled).toBe(false);
+
+        vi.mocked(learningDataApi.evaluateRolePlayTurn).mockImplementationOnce(
+            () => new Promise((resolve) => {
+                releaseRolePlay = () => resolve({
+                    turn: 2,
+                    partnerIndex: 1,
+                    level: 'good',
+                    feedback: 'second ok',
+                    improved: '',
+                    usedExpressions: [],
+                    source: 'ai',
+                    cached: false,
+                });
+            }),
+        );
+        composer.textContent = 'Second turn.';
+        fireEvent.input(composer);
+        fireEvent.keyDown(composer, { key: 'Enter' });
+        expect(restartBtn.disabled).toBe(true);
+
+        releaseRolePlay();
+        await waitFor(() => expect(restartBtn.disabled).toBe(false));
     });
 });

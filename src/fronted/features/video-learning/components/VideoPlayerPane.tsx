@@ -131,6 +131,7 @@ export default function VideoPlayerPane({
   const clearVocabularyWords = useVocabularyState((s) => s.clearVocabularyWords);
 
   const playerReadyRef = useRef(false);
+  const lastVideoUrlRef = useRef<string | null>(null);
   const pendingTargetRef = useRef<{ sentence: Sentence; time: number } | null>(null);
   const pendingHighlightRef = useRef<{ fileHash?: string; index: number } | null>(null);
   const autoPlayRef = useRef(false);
@@ -196,12 +197,16 @@ export default function VideoPlayerPane({
   useEffect(() => {
     if (clip) {
       const videoUrl = clip.videoPath ? UrlUtil.toUrl(clip.videoPath) : '';
+      const sameVideoSource = videoUrl === lastVideoUrlRef.current && playerReadyRef.current;
+      lastVideoUrlRef.current = videoUrl;
       setSource(videoUrl);
 
       const sentencesConverted = clipLinesToSentences(clip.clipContent, clip.videoPath, clip.key);
       loadSubtitles(sentencesConverted);
 
-      playerReadyRef.current = false;
+      if (!sameVideoSource) {
+        playerReadyRef.current = false;
+      }
       // 仅显式播放请求（点击片段卡片等使 forcePlayKey 变化）才自动起播；进页面、切换单词等静默选中保持暂停
       const shouldAutoPlay = forcePlayKey !== undefined && forcePlayKey !== lastForcePlayKeyRef.current;
       lastForcePlayKeyRef.current = forcePlayKey;
@@ -224,14 +229,23 @@ export default function VideoPlayerPane({
       }
 
       queuePendingTarget(targetSentence);
+      // 同视频文件切片段不会重触发 onReady：若底层视频已就绪，立即落地目标时间并按需起播
+      if (sameVideoSource) {
+        applyPendingTarget();
+        if (autoPlayRef.current) {
+          play();
+          autoPlayRef.current = false;
+        }
+      }
     } else {
+      lastVideoUrlRef.current = null;
       setSource(null);
       clearSubtitles();
       queuePendingTarget(null);
       playerReadyRef.current = false;
       autoPlayRef.current = false;
     }
-  }, [clip, forcePlayKey, setSource, loadSubtitles, clearSubtitles, onLineIdxChange, queuePendingTarget]);
+  }, [applyPendingTarget, clip, forcePlayKey, play, setSource, loadSubtitles, clearSubtitles, onLineIdxChange, queuePendingTarget]);
 
   useEffect(() => {
     if (!clip) {

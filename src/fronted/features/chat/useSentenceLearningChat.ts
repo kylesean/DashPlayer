@@ -140,7 +140,7 @@ export const useSentenceLearningChat = () => {
     const appliedEpochRef = useRef(conversationEpoch);
     const hydratedSessionRef = useRef<string>('');
 
-    // 当切换到带有 SQLite 历史的句子会话时，恢复历史消息卡片到 useChat
+    // 当切换到带有 SQLite 历史的句子会话时，恢复历史消息卡片到 useChat；只在会话 ID 切换时同步 conversationEpoch
     useEffect(() => {
         if (!chatSessionId) {
             hydratedSessionRef.current = '';
@@ -150,6 +150,7 @@ export const useSentenceLearningChat = () => {
             return;
         }
         hydratedSessionRef.current = chatSessionId;
+        appliedEpochRef.current = conversationEpoch;
         if (restoredMessages.length > 0 && messages.length === 0) {
             setMessages(persistedToUiMessages(restoredMessages));
             logger.debug('restored persisted study chat messages', {
@@ -157,6 +158,7 @@ export const useSentenceLearningChat = () => {
                 count: restoredMessages.length,
             });
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- conversationEpoch 仅在会话切换时对齐，不能作为本 effect 触发依赖
     }, [chatSessionId, logger, messages.length, restoredMessages, setMessages]);
 
     // 显式点击清空对话按钮（conversationEpoch 递增）时清空当前列表
@@ -172,7 +174,14 @@ export const useSentenceLearningChat = () => {
     }, [conversationEpoch, isBusy, setMessages]);
 
     useEffect(() => {
-        if (!queuedMessage || !chatSessionId || status !== 'ready') {
+        if (!queuedMessage || !chatSessionId) {
+            return;
+        }
+        if (queuedMessage.sessionId !== chatSessionId) {
+            consumeQueuedMessage(queuedMessage.id);
+            return;
+        }
+        if (status !== 'ready') {
             return;
         }
         const { id, content } = queuedMessage;

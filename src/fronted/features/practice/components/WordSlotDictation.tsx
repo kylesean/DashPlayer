@@ -67,6 +67,11 @@ export default function WordSlotDictation({
     // 会补发一次携带相同内容的 change 事件，用它把同一次提交的重复触发挡掉，
     // 避免重复音效与「把已提交词误写入下一槽草稿」的污染。
     const lastVerifiedRef = useRef<{ idx: number; word: string } | null>(null);
+    const activeUnitKeyRef = useRef(unit.key);
+
+    useEffect(() => {
+        activeUnitKeyRef.current = unit.key;
+    }, [unit.key]);
 
     const focusInput = (): void => {
         if (!result) {
@@ -89,6 +94,7 @@ export default function WordSlotDictation({
 
     const submitSlots = async (nextDrafts: string[], nextLocked: boolean[]): Promise<void> => {
         if (submitting || slots.length === 0) return;
+        const targetUnitKey = unit.key;
         const assembled = buildSentenceFromSlotAnswers(slots, nextDrafts, nextLocked);
         if (!assembled.trim()) {
             onReplay();
@@ -97,12 +103,18 @@ export default function WordSlotDictation({
         setSubmitting(true);
         try {
             const ok = await onSubmitSentence(assembled);
+            // 切换练习单元/退出后，过期提交不播音效也不改当前状态
+            if (activeUnitKeyRef.current !== targetUnitKey) {
+                return;
+            }
             // 评分失败/结果过期时不播成功音效，避免误导用户
             if (ok) {
                 playSentencePassCue();
             }
         } finally {
-            setSubmitting(false);
+            if (activeUnitKeyRef.current === targetUnitKey) {
+                setSubmitting(false);
+            }
         }
     };
 

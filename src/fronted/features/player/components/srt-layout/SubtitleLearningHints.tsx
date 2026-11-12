@@ -104,7 +104,7 @@ export default function SubtitleLearningHints({
     const pauseKey = `${sentenceHash}:${playRequestId}`;
     const [dwell, setDwell] = useState<{ key: string; at: number } | null>(null);
     const [openForKey, setOpenForKey] = useState<string | null>(null);
-    const [pending, setPending] = useState(false);
+    const [pendingForKey, setPendingForKey] = useState<string | null>(null);
     const [dismissedKey, setDismissedKey] = useState<string | null>(null);
     const [memory, setMemory] = useState<LearningMomentMemory | null>(() => readMomentMemory());
     const [rememberedForKey, setRememberedForKey] = useState<string | null>(null);
@@ -202,24 +202,27 @@ export default function SubtitleLearningHints({
     };
 
     const handleRate = async (rating: 'again' | 'good'): Promise<void> => {
-        if (!decision.candidate || pending) {
+        if (!decision.candidate || pendingForKey === pauseKey) {
             return;
         }
-        setPending(true);
+        const targetPauseKey = pauseKey;
+        const targetSentenceHash = sentenceHash;
+        const targetWord = decision.candidate.word;
+        setPendingForKey(targetPauseKey);
         try {
-            await videoLearningApi.rateReview(decision.candidate.word, rating, {
+            await videoLearningApi.rateReview(targetWord, rating, {
                 videoId: videoId ?? undefined,
                 fileHash: sentence.fileHash,
             });
             revalidateReviewQueue();
-            setDismissedKey(sentenceHash);
-            setOpenForKey(null);
+            setDismissedKey((prev) => prev ?? targetSentenceHash);
+            setOpenForKey((prev) => (prev === targetPauseKey ? null : prev));
             toast.success(t(rating === 'good' ? 'ratedGood' : 'ratedAgain'));
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             toast.error(`${t('rateFailed')}\n${message}`);
         } finally {
-            setPending(false);
+            setPendingForKey((prev) => (prev === targetPauseKey ? null : prev));
         }
     };
 
@@ -249,7 +252,7 @@ export default function SubtitleLearningHints({
             key={pauseKey}
             candidate={decision.candidate}
             open={open}
-            pending={pending}
+            pending={pendingForKey === pauseKey}
             onOpenChange={handleOpenChange}
             onDismiss={dismissMoment}
             onRate={(rating) => { void handleRate(rating); }}

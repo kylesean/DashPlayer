@@ -99,4 +99,80 @@ describe('chatStore 同句判重的跨视频边界', () => {
         expect(useChatPanel.getState().chatSessionId).toBe('sess-b');
         expect(useChatPanel.getState().anchorFileHash).toBe('hash-b');
     });
+
+    it('快速连续 openSentenceSession 切换句子时新目标抢占旧请求，不丢弃最后目标', async () => {
+        let resolveFirst!: (val: { sessionId: string }) => void;
+        let callIdx = 0;
+        vi.mocked(chatApi.createSession).mockImplementation(() => {
+            callIdx += 1;
+            if (callIdx === 1) {
+                return new Promise((resolve) => {
+                    resolveFirst = resolve as (val: { sessionId: string }) => void;
+                });
+            }
+            return Promise.resolve({ sessionId: 'sess-second' } as never);
+        });
+
+        const first = useChatPanel.getState().openSentenceSession({ text: 'First', index: 0, fileHash: 'h1', start: 0, end: 1 } as never);
+        await vi.waitFor(() => expect(chatApi.createSession).toHaveBeenCalledTimes(1));
+
+        const second = useChatPanel.getState().openSentenceSession({ text: 'Second', index: 1, fileHash: 'h1', start: 1, end: 2 } as never);
+        await second;
+
+        resolveFirst({ sessionId: 'sess-first' });
+        await first;
+
+        expect(chatApi.closeSession).toHaveBeenCalledWith('sess-first');
+        expect(useChatPanel.getState().chatSessionId).toBe('sess-second');
+        expect(useChatPanel.getState().anchorIndex).toBe(1);
+    });
+
+    it('startAnalysis 在途时若已被 stopAnalysis 或早到 stream 完成，返回后不得覆盖为 streaming/空卡片', async () => {
+        const stopAnalysisMock = vi.fn().mockResolvedValue(undefined);
+        const startAnalysisMock = vi.fn();
+        (chatApi as Record<string, unknown>).stopAnalysis = stopAnalysisMock;
+        (chatApi as Record<string, unknown>).startAnalysis = startAnalysisMock;
+
+        useChatPanel.setState({ chatSessionId: 'sess-a', analysisStatus: 'idle', analysis: null });
+
+        let resolveStart!: (val: { messageId: string }) => void;
+        startAnalysisMock.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveStart = resolve;
+        }));
+
+        const pStart = useChatPanel.getState().startAnalysis();
+        expect(useChatPanel.getState().analysisStatus).toBe('streaming');
+
+        // 停止请求先于 IPC 返回到达
+        await useChatPanel.getState().stopAnalysis();
+        expect(useChatPanel.getState().analysisStatus).toBe('aborted');
+
+        resolveStart({ messageId: 'msg-aborted' });
+        await pStart;
+        expect(useChatPanel.getState().analysisStatus).toBe('aborted');
+        expect(stopAnalysisMock).toHaveBeenCalledWith('sess-a');
+
+        // 场景 B：IPC 返回前 stream chunk（start -> finish）已经完成
+        startAnalysisMock.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveStart = resolve;
+        }));
+        useChatPanel.setState({ analysisStatus: 'idle', analysisMessageId: null, analysis: null });
+        const pEarly = useChatPanel.getState().startAnalysis();
+
+        useChatPanel.getState().receiveAnalysisStream({
+            sessionId: 'sess-a',
+            messageId: 'msg-fast',
+            chunk: { type: 'start', messageId: 'msg-fast' },
+        });
+        useChatPanel.getState().receiveAnalysisStream({
+            sessionId: 'sess-a',
+            messageId: 'msg-fast',
+            chunk: { type: 'finish' },
+        });
+        expect(useChatPanel.getState().analysisStatus).toBe('done');
+
+        resolveStart({ messageId: 'msg-fast' });
+        await pEarly;
+        expect(useChatPanel.getState().analysisStatus).toBe('done');
+    });
 });

@@ -265,12 +265,13 @@ export default function ReviewDock({
     const [reviewedWords, setReviewedWords] = useState<string[]>([]);
     // 打开复习坞时记住当时的播放位置：复习是临时插入的动作，结束后应当能回到
     // 刚才那句话，而不是让用户自己拖进度条找回来。
-    //
-    // 用 ref 存位置、用 state 只存「有没有可回去的位置」：effect 里同步 setState
-    // 会触发级联渲染，而 ref 的写入本来就是外部快照，不需要参与渲染。
+    // `openDock` 与深链 effect 在打开前都会写入 `returnToSecRef`，关闭时重置。
     const returnToSecRef = useRef<number | null>(null);
-    const [hasReturnPoint, setHasReturnPoint] = useState(false);
+    const dockEpochRef = useRef(0);
     const handlePopoverHide = useCallback(() => {
+        dockEpochRef.current += 1;
+        returnToSecRef.current = null;
+        setPending(false);
         setRevealedFor(null);
         setLastRated(null);
         // 关闭即结束本组：下次打开从新的一组开始，不把上次的进度带过来。
@@ -293,7 +294,6 @@ export default function ReviewDock({
     const openDock = useCallback(() => {
         if (!popover.isOpen) {
             returnToSecRef.current = usePlayer.getState().getExactPlayTime();
-            setHasReturnPoint(true);
         }
         popover.show();
     }, [popover]);
@@ -357,7 +357,6 @@ export default function ReviewDock({
         if (requestId > consumedId) {
             consumeRequest(requestId);
             if (!popover.isOpen) {
-                // 只在真正打开时记录一次；这里写 ref 不触发渲染。
                 returnToSecRef.current = usePlayer.getState().getExactPlayTime();
                 popover.show();
             }
@@ -366,25 +365,34 @@ export default function ReviewDock({
 
     const rate = async (rating: ReviewRating) => {
         if (!card || pending) return;
+        const epoch = dockEpochRef.current;
+        const targetWord = card.word;
         setPending(true);
         try {
-            const result = await videoLearningApi.rateReview(card.word, rating, {
+            const result = await videoLearningApi.rateReview(targetWord, rating, {
                 videoId: videoId ?? undefined,
                 fileHash: fileHash ?? undefined,
             });
+            await mutate();
+            if (dockEpochRef.current !== epoch) {
+                return;
+            }
             setLastRated({
                 rating,
                 dueAt: result.card.schedule.dueAt,
             });
-            setReviewedWords((words) => [...words, card.word]);
+            setReviewedWords((words) => [...words, targetWord]);
             setRevealedFor(null);
-            await mutate();
             // 评分按钮会随 revealed 卸载；把焦点交给下一张的「显示答案」，键盘流不断档。
             requestAnimationFrame(() => revealButtonRef.current?.focus());
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : t('reviewDock.rateFailed'));
+            if (dockEpochRef.current === epoch) {
+                toast.error(error instanceof Error ? error.message : t('reviewDock.rateFailed'));
+            }
         } finally {
-            setPending(false);
+            if (dockEpochRef.current === epoch) {
+                setPending(false);
+            }
         }
     };
 
@@ -522,7 +530,7 @@ export default function ReviewDock({
                     </div>
                 )}
 
-                {hasReturnPoint && (
+                {popover.isOpen && (
                     <div className="mt-2 flex justify-end px-1">
                         <button
                             type="button"

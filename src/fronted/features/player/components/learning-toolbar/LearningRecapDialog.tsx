@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { Loader2, Mic, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
@@ -96,6 +96,7 @@ export function LearningRecapContent({
     const [retellLoading, setRetellLoading] = useState(false);
     const [retellError, setRetellError] = useState<string | null>(null);
     const [spokenTranscript, setSpokenTranscript] = useState<string | null>(null);
+    const recapEpochRef = useRef(0);
 
     const enabled = Boolean(videoId || fileHash);
     const summaryKey = enabled
@@ -130,7 +131,8 @@ export function LearningRecapContent({
      * 绕过缓存重新生成，并用新结果替换 SWR 缓存。
      */
     const handleRefresh = async () => {
-        if (refreshing || !enabled) return;
+        if (refreshing || retellLoading || recorderPhase !== 'idle' || !enabled) return;
+        const epoch = ++recapEpochRef.current;
         setRefreshing(true);
         try {
             const next = await learningDataApi.getRecap({
@@ -140,15 +142,21 @@ export function LearningRecapContent({
                 locale,
                 forceRefresh: true,
             });
+            if (recapEpochRef.current !== epoch) return;
             await mutate(next, { revalidate: false });
+            if (recapEpochRef.current !== epoch) return;
             setDraft('');
             setRetellResult(null);
             setRetellError(null);
             setSpokenTranscript(null);
         } catch {
-            toast.error(t('loadFailed'));
+            if (recapEpochRef.current === epoch) {
+                toast.error(t('loadFailed'));
+            }
         } finally {
-            setRefreshing(false);
+            if (recapEpochRef.current === epoch) {
+                setRefreshing(false);
+            }
         }
     };
 
@@ -157,9 +165,10 @@ export function LearningRecapContent({
      */
     const handleCheckRetell = async () => {
         const original = data?.sentence?.text;
-        if (!original || !draft.trim() || retellLoading) {
+        if (!original || !draft.trim() || retellLoading || refreshing) {
             return;
         }
+        const epoch = recapEpochRef.current;
         setRetellLoading(true);
         setRetellError(null);
         try {
@@ -170,12 +179,17 @@ export function LearningRecapContent({
                 videoId,
                 fileHash,
             });
+            if (recapEpochRef.current !== epoch) return;
             setRetellResult(result);
             void mutateHistory();
         } catch {
-            setRetellError(t('retellFailed'));
+            if (recapEpochRef.current === epoch) {
+                setRetellError(t('retellFailed'));
+            }
         } finally {
-            setRetellLoading(false);
+            if (recapEpochRef.current === epoch) {
+                setRetellLoading(false);
+            }
         }
     };
 
@@ -193,9 +207,10 @@ export function LearningRecapContent({
      */
     const handleSpokenRecording = async (audio: Uint8Array) => {
         const original = data?.sentence?.text;
-        if (!original || retellLoading) {
+        if (!original || retellLoading || refreshing) {
             return;
         }
+        const epoch = recapEpochRef.current;
         setRetellLoading(true);
         setRetellError(null);
         try {
@@ -206,14 +221,19 @@ export function LearningRecapContent({
                 videoId,
                 fileHash,
             });
+            if (recapEpochRef.current !== epoch) return;
             setRetellResult(result);
             setSpokenTranscript(result.transcript);
             setDraft(result.transcript);
             void mutateHistory();
         } catch {
-            setRetellError(t('spokenRetellFailed'));
+            if (recapEpochRef.current === epoch) {
+                setRetellError(t('spokenRetellFailed'));
+            }
         } finally {
-            setRetellLoading(false);
+            if (recapEpochRef.current === epoch) {
+                setRetellLoading(false);
+            }
         }
     };
 
@@ -352,7 +372,8 @@ function RecapBody({
                     data-testid="learning-recap-refresh"
                     title={t('refresh')}
                     aria-label={t('refresh')}
-                    disabled={refreshing}
+                    aria-busy={refreshing || undefined}
+                    disabled={refreshing || retellLoading || recorderPhase !== 'idle'}
                     onClick={onRefresh}
                     className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
                 >

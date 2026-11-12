@@ -61,12 +61,15 @@ export function useLearningRouteSync(): void {
     const learningVisible = useChatPanel((s) => s.learningVisible);
     const currentSentenceReady = usePlayerState((s) => !!s.currentSentence);
     const onLearningPath = isLearningPath(location.pathname);
-    /** 防止同一地址重复发起进入流程（字幕尚未就绪时会在就绪后重试）。 */
+    /** 当前进入学习视图的请求代数：后退离开 /learn 后递增，允许紧接着的前进重新发起，避免被在途旧请求锁死。 */
     const enterAttemptRef = useRef(false);
+    const enterEpochRef = useRef(0);
 
     // 地址 → 视图：深链或前进到 /learn 时进入学习页；离开 /learn 时退回播放画面。
     useEffect(() => {
         if (!onLearningPath) {
+            enterEpochRef.current += 1;
+            enterAttemptRef.current = false;
             if (useChatPanel.getState().learningVisible) {
                 exitOverlayView();
             }
@@ -80,11 +83,17 @@ export function useLearningRouteSync(): void {
             return;
         }
         enterAttemptRef.current = true;
+        const attemptEpoch = ++enterEpochRef.current;
         void useChatPanel.getState().createFromCurrent()
             .catch((error) => {
-                toast.error(error instanceof Error ? error.message : String(error));
+                if (enterEpochRef.current === attemptEpoch) {
+                    toast.error(error instanceof Error ? error.message : String(error));
+                }
             })
             .finally(() => {
+                if (enterEpochRef.current !== attemptEpoch) {
+                    return;
+                }
                 enterAttemptRef.current = false;
                 if (!useChatPanel.getState().learningVisible) {
                     const { pathname, search } = locationRef.current;

@@ -75,23 +75,27 @@ const createEmptyEntry = (word: string, requestId: string): DictionaryEntry => (
     updatedAt: Date.now()
 });
 
+const normalizeDictionaryKey = (word: string): string => word.trim().toLowerCase();
+
 const useDictionaryStream = create<DictionaryState>((set, get) => ({
     entries: new Map<string, DictionaryEntry>(),
     wordActiveRequest: new Map<string, string>(),
 
     startRequest: (word: string, requestId: string) => {
+        const key = normalizeDictionaryKey(word);
+        if (!key) return;
         set(state => {
             const entries = new Map(state.entries);
             const wordActiveRequest = new Map(state.wordActiveRequest);
 
-            const previousId = wordActiveRequest.get(word);
+            const previousId = wordActiveRequest.get(key);
             if (previousId && previousId !== requestId) {
                 entries.delete(previousId);
             }
 
             const entry = createEmptyEntry(word, requestId);
             entries.set(requestId, entry);
-            wordActiveRequest.set(word, requestId);
+            wordActiveRequest.set(key, requestId);
 
             return {
                 ...state,
@@ -102,10 +106,14 @@ const useDictionaryStream = create<DictionaryState>((set, get) => ({
     },
 
     receiveUpdate: (requestId: string, word: string, data: OpenAIDictionaryResult, isComplete = false) => {
+        const key = normalizeDictionaryKey(word);
+        if (!key) return;
         set(state => {
+            // 只允许当前仍为 active request 的流更新，防止 clear/切换后迟到事件复活旧条目
+            if (state.wordActiveRequest.get(key) !== requestId) {
+                return state;
+            }
             const entries = new Map(state.entries);
-            const wordActiveRequest = new Map(state.wordActiveRequest);
-
             const existing = entries.get(requestId) ?? createEmptyEntry(word, requestId);
 
             const updatedEntry: DictionaryEntry = {
@@ -117,20 +125,22 @@ const useDictionaryStream = create<DictionaryState>((set, get) => ({
             };
 
             entries.set(requestId, updatedEntry);
-            wordActiveRequest.set(word, requestId);
 
             return {
                 ...state,
                 entries,
-                wordActiveRequest
             };
         });
     },
 
     setFinalResult: (word: string, requestId: string, data: OpenAIDictionaryResult | null) => {
+        const key = normalizeDictionaryKey(word);
+        if (!key) return;
         set(state => {
+            if (state.wordActiveRequest.get(key) !== requestId) {
+                return state;
+            }
             const entries = new Map(state.entries);
-            const wordActiveRequest = new Map(state.wordActiveRequest);
 
             if (!data) {
                 // 如果没有结果，仍然确保状态为完成
@@ -146,7 +156,6 @@ const useDictionaryStream = create<DictionaryState>((set, get) => ({
                 return {
                     ...state,
                     entries,
-                    wordActiveRequest
                 };
             }
 
@@ -159,25 +168,25 @@ const useDictionaryStream = create<DictionaryState>((set, get) => ({
             };
 
             entries.set(requestId, updatedEntry);
-            wordActiveRequest.set(word, requestId);
 
             return {
                 ...state,
                 entries,
-                wordActiveRequest
             };
         });
     },
 
     clearByWord: (word: string) => {
+        const key = normalizeDictionaryKey(word);
+        if (!key) return;
         set(state => {
             const entries = new Map(state.entries);
             const wordActiveRequest = new Map(state.wordActiveRequest);
-            const requestId = wordActiveRequest.get(word);
+            const requestId = wordActiveRequest.get(key);
 
             if (requestId) {
                 entries.delete(requestId);
-                wordActiveRequest.delete(word);
+                wordActiveRequest.delete(key);
             }
 
             return {
@@ -189,7 +198,11 @@ const useDictionaryStream = create<DictionaryState>((set, get) => ({
     },
 
     getActiveEntry: (word: string) => {
-        const requestId = get().wordActiveRequest.get(word);
+        const key = normalizeDictionaryKey(word);
+        if (!key) {
+            return undefined;
+        }
+        const requestId = get().wordActiveRequest.get(key);
         if (!requestId) {
             return undefined;
         }

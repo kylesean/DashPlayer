@@ -63,6 +63,7 @@ function PromptPresetDialogBody({
     const [saving, setSaving] = useState(false);
 
     const handlePickItem = (preset: LearningPromptPresetVO) => {
+        if (saving) return;
         setCreatingNew(false);
         setSelectedId(preset.id);
         setDraftName(preset.name);
@@ -71,6 +72,7 @@ function PromptPresetDialogBody({
     };
 
     const handleStartNew = () => {
+        if (saving) return;
         const newId = `custom-${Date.now()}`;
         setCreatingNew(true);
         setSelectedId(newId);
@@ -80,15 +82,17 @@ function PromptPresetDialogBody({
     };
 
     const handleSave = async (setAsActive: boolean) => {
+        if (saving) return;
         if (!draftName.trim() || !draftPrompt.trim()) {
             toast.error(t('learning.presetRequiredFields', { defaultValue: '请填写预设名称与提示词内容' }));
             return;
         }
+        const targetId = selectedId;
         setSaving(true);
         try {
-            const current = presets.find((p) => p.id === selectedId);
+            const current = presets.find((p) => p.id === targetId);
             await chatApi.savePromptPreset({
-                id: selectedId,
+                id: targetId,
                 name: draftName.trim(),
                 description: draftDesc.trim(),
                 roleMode: current?.roleMode ?? 'custom',
@@ -98,7 +102,7 @@ function PromptPresetDialogBody({
             const refreshed = await chatApi.listPromptPresets();
             onPresetsUpdated(refreshed);
             if (setAsActive) {
-                onSelectPreset(selectedId);
+                onSelectPreset(targetId);
             }
             setCreatingNew(false);
             toast.success(t('learning.presetSaved', { defaultValue: '教学提示词已保存' }));
@@ -114,7 +118,7 @@ function PromptPresetDialogBody({
 
     const handleResetBuiltin = async () => {
         const current = presets.find((p) => p.id === selectedId);
-        if (!current?.isBuiltin) return;
+        if (!current?.isBuiltin || saving) return;
         setSaving(true);
         try {
             const restored = await chatApi.resetPromptPreset({ id: current.id });
@@ -147,8 +151,9 @@ function PromptPresetDialogBody({
                         <div className="flex flex-col gap-1.5 border-r border-border/50 pr-3">
                             <button
                                 type="button"
+                                disabled={saving}
                                 onClick={handleStartNew}
-                                className="mb-1 flex items-center gap-1.5 rounded-lg border border-dashed border-border/70 px-2.5 py-2 text-sm font-medium text-accent hover:bg-accent/5 cursor-pointer"
+                                className="mb-1 flex items-center gap-1.5 rounded-lg border border-dashed border-border/70 px-2.5 py-2 text-sm font-medium text-accent hover:bg-accent/5 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 <Plus className="h-3.5 w-3.5" />
                                 <span>{t('learning.presetCreate', { defaultValue: '新建私人预设' })}</span>
@@ -159,9 +164,10 @@ function PromptPresetDialogBody({
                                     <button
                                         key={preset.id}
                                         type="button"
+                                        disabled={saving}
                                         onClick={() => handlePickItem(preset)}
                                         className={cn(
-                                            'flex flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors cursor-pointer',
+                                            'flex flex-col items-start gap-0.5 rounded-lg px-2.5 py-2 text-left transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60',
                                             selected
                                                 ? 'bg-accent/12 text-foreground border border-accent/35'
                                                 : 'hover:bg-muted/60 text-foreground/85 border border-transparent',
