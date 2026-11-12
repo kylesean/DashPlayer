@@ -15,6 +15,7 @@ import type YtDlpGateway from '@/backend/services/gateways/ytdlp/YtDlpGateway';
 import { ModelArchiveInstaller } from '@/backend/services/models/ModelArchiveInstaller';
 import { ytDlpBinaryFileName, ytDlpBinarySha256, ytDlpDownloadUrls } from '@/backend/services/models/ytDlpBinary';
 import { DpTaskState } from '@/common/contracts/dp-task';
+import { parseYoutubeVideoId } from '@/common/utils/youtubeUrl';
 import type {
     YoutubeImportSettingDetailVO,
     YoutubeImportSettingSaveVO,
@@ -38,42 +39,21 @@ const BINARY_DOWNLOAD_CANCELLED_MESSAGE = 'yt-dlp 组件下载已取消';
 const ENGLISH_SRT_PATTERN = /\.en(?:-[A-Za-z0-9-]+)?\.srt$/i;
 
 /**
- * 允许导入的 YouTube 主机名白名单（精确匹配）。
+ * 把 yt-dlp / 系统错误归一成稳定的原因 code，供前端按 code 映射本地化摘要；
+ * 原始错误仍写入 result，作为可展开的技术详情。
  *
- * 必须精确匹配而非按后缀匹配：后缀匹配会误收 evil-youtube.com、notyoutube.com
- * 这类仿冒域名，进而把链接交给 yt-dlp 下载任意站点的内容。
- * www. 前缀在解析时统一剥除，因此 www.youtube.com 天然命中。
+ * @param message 原始错误文本。
+ * @returns 稳定原因 code，未知情况返回 `generic`。
  */
-const YOUTUBE_ALLOWED_HOSTS = new Set(['youtube.com', 'm.youtube.com', 'youtu.be']);
-
-/**
- * 从 YouTube URL 中提取视频 ID；支持 watch?v=、youtu.be/、shorts/、embed/ 四种形态。
- * @param url 用户粘贴的地址。
- * @returns 11 位视频 ID；无法识别时返回 null。
- */
-export function parseYoutubeVideoId(url: string): string | null {
-    const trimmed = url.trim();
-    if (!trimmed) return null;
-    try {
-        const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
-        const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
-        if (!YOUTUBE_ALLOWED_HOSTS.has(host)) return null;
-        if (host === 'youtu.be') {
-            const id = parsed.pathname.split('/').filter(Boolean)[0];
-            return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
-        }
-        const vParam = parsed.searchParams.get('v');
-        if (vParam && /^[A-Za-z0-9_-]{11}$/.test(vParam)) return vParam;
-        const segments = parsed.pathname.split('/').filter(Boolean);
-        const marker = segments.findIndex((s) => s === 'shorts' || s === 'embed' || s === 'live');
-        if (marker >= 0 && segments[marker + 1] && /^[A-Za-z0-9_-]{11}$/.test(segments[marker + 1])) {
-            return segments[marker + 1];
-        }
-        return null;
-    } catch {
-        return null;
-    }
-}
+const classifyImportFailure = (message: string): string => {
+    if (/429|too many requests|rate.?limit/i.test(message)) return 'rateLimited';
+    if (/sign in|login|cookie|bot check|captcha|not a bot/i.test(message)) return 'needCookies';
+    if (/country|region|geo.?block|not available in your/i.test(message)) return 'regionBlocked';
+    if (/unavailable|private video|removed|deleted|does not exist/i.test(message)) return 'unavailable';
+    if (/ENOSPC|no space left|disk full/i.test(message)) return 'diskFull';
+    if (/ffmpeg/i.test(message)) return 'ffmpegMissing';
+    return 'generic';
+};
 
 /**
  * YouTube 导入业务契约。
@@ -175,6 +155,8 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             throw error;
         }
         this.activeImports.set(videoId, taskId);
+        // 任务创建时 dp-task 会写入中文占位进度；这里立刻切成结构化阶段，UI 只认 progressMeta。
+        this.dpTaskService.process(taskId, { progress: null, progressMeta: { code: 'preparing' } });
         // 后台长任务不继承 IPC 的 traceId，用 job 键标注日志，便于按任务串起整条链路。
         this.logger.info('youtube import start', { job: `download:${videoId}`, taskId, url });
         void this.runImport(taskId, url, videoId)
@@ -225,18 +207,28 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
         try {
             const result = await this.importVideo(taskId, url, videoId);
             this.dpTaskService.finish(taskId, {
-                progress: '导入完成',
+                progress: null,
+                progressMeta: { code: 'done' },
                 result: JSON.stringify(result),
             });
             this.logger.info('youtube import finished', { job: `download:${videoId}`, taskId, ...result });
         } catch (error) {
             if (error instanceof CancelByUserError) {
-                this.dpTaskService.update({ id: taskId, status: DpTaskState.CANCELLED, progress: '任务取消' });
+                this.dpTaskService.update({
+                    id: taskId,
+                    status: DpTaskState.CANCELLED,
+                    progress: null,
+                    progressMeta: { code: 'cancelled' },
+                });
                 this.logger.info('youtube import cancelled', { job: `download:${videoId}`, taskId });
                 return;
             }
             const message = error instanceof Error ? error.message : String(error);
-            this.dpTaskService.fail(taskId, { progress: '导入失败', result: message });
+            this.dpTaskService.fail(taskId, {
+                progress: null,
+                progressMeta: { code: 'failed', params: { reason: classifyImportFailure(message) } },
+                result: message,
+            });
             this.logger.error('youtube import failed', { job: `download:${videoId}`, taskId, error });
         }
     }
@@ -262,14 +254,18 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             // 已导入过同一视频时直接复用库内产物，避免重复下载与重复记录。
             const existing = await this.findExistingVideo(targetDir, videoId);
             if (existing) {
-                this.dpTaskService.process(taskId, { progress: '该视频已导入过，直接复用' });
+                this.dpTaskService.process(taskId, { progress: null, progressMeta: { code: 'reusing' } });
                 return this.registerVideo(existing.videoPath, existing.srtPaths);
             }
 
-            this.dpTaskService.process(taskId, { progress: '连接 YouTube…' });
             const cookiesFilePath = this.getCookiesFilePath();
             // 信号量必须包住“启动下载”，否则并发任务会同时 spawn yt-dlp。
+            const queue = concurrency.semaphore('yt-dlp').snapshot();
+            if (queue.inUse >= queue.capacity || queue.waiting > 0) {
+                this.dpTaskService.process(taskId, { progress: null, progressMeta: { code: 'queued' } });
+            }
             const { videoPath, srtPaths } = await concurrency.withSemaphore('yt-dlp', async () => {
+                this.dpTaskService.process(taskId, { progress: null, progressMeta: { code: 'connecting' } });
                 this.dpTaskService.checkCancel(taskId);
                 const running = this.ytDlpGateway.download({
                     url,
@@ -277,14 +273,17 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
                     ytDlpBinaryPath,
                     cookiesFilePath: cookiesFilePath || undefined,
                     onProgress: (percent) => {
-                        this.dpTaskService.process(taskId, { progress: `下载中 ${percent.toFixed(1)}%` });
+                        this.dpTaskService.process(taskId, {
+                            progress: null,
+                            progressMeta: { code: 'downloading', percent },
+                        });
                     },
                 });
                 this.dpTaskService.registerTask(taskId, { cancel: () => running.cancel() });
                 return await running.result;
             });
 
-            this.dpTaskService.process(taskId, { progress: '整理下载产物…' });
+            this.dpTaskService.process(taskId, { progress: null, progressMeta: { code: 'finalizing' } });
             const fileName = path.basename(videoPath);
             const targetVideoPath = path.join(targetDir, fileName);
             await this.fileSystemGateway.moveFile(videoPath, targetVideoPath);
@@ -356,7 +355,7 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
         if (!(await this.fileSystemGateway.pathIsMissing(binaryPath))) {
             return binaryPath;
         }
-        this.dpTaskService.process(taskId, { progress: '首次使用，正在下载 yt-dlp 组件…' });
+        this.dpTaskService.process(taskId, { progress: null, progressMeta: { code: 'preparing' } });
         // 先检查取消：在登记取消回调之前就已请求取消的任务，不要再发起无谓的下载。
         this.dpTaskService.checkCancel(taskId);
         this.binaryDownloadWaiters.add(taskId);
@@ -377,7 +376,10 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             void this.binaryInstaller.getStatus()
                 .then((status) => {
                     if (status.downloading) {
-                        this.dpTaskService.process(taskId, { progress: `下载 yt-dlp 组件 ${status.percent}%` });
+                        this.dpTaskService.process(taskId, {
+                            progress: null,
+                            progressMeta: { code: 'binaryDownload', percent: status.percent },
+                        });
                     }
                 })
                 .catch(() => undefined);

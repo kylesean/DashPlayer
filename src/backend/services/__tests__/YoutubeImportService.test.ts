@@ -16,7 +16,8 @@ import type {
 } from '@/backend/services/gateways/ytdlp/YtDlpGateway';
 import type WatchHistoryService from '@/backend/services/WatchHistoryService';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
-import { parseYoutubeVideoId, YoutubeImportServiceImpl } from '../YoutubeImportService';
+import { parseYoutubeVideoId } from '@/common/utils/youtubeUrl';
+import { YoutubeImportServiceImpl } from '../YoutubeImportService';
 
 // 日志基建依赖 electron app（AppStatePath → app.isPackaged），服务层测试替换为空实现。
 vi.mock('@/backend/infrastructure/logger', () => ({

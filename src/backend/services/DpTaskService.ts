@@ -149,6 +149,7 @@ export class DpTaskServiceImpl implements DpTaskService {
             id: update.id as number,
             status: update.status as DpTaskState,
             progress: update.progress ?? null,
+            progressMeta: update.progressMeta ?? null,
             result: update.result ?? null,
             created_at: update.created_at as string,
             updated_at: update.updated_at as string,
@@ -199,7 +200,13 @@ export class DpTaskServiceImpl implements DpTaskService {
                 ...updatedTask,
             });
         }
-        this.mergePendingUpdate(task.id, updatedTask);
+        // progressMeta 只走内存与 IPC：dp_task 表没有对应列，落库前必须剔除。
+        this.mergePendingUpdate(task.id, {
+            status: updatedTask.status,
+            progress: updatedTask.progress,
+            result: updatedTask.result,
+            updated_at: updatedTask.updated_at,
+        });
         this.scheduleUpdateFlush(isFinal);
         this.notify(task.id);
     }
@@ -266,6 +273,9 @@ export class DpTaskServiceImpl implements DpTaskService {
         }
         if (info.result !== undefined) {
             task.result = info.result;
+        }
+        if (info.progressMeta !== undefined) {
+            task.progressMeta = info.progressMeta;
         }
     }
 
