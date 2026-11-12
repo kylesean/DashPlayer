@@ -219,6 +219,8 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
 
     /** 非播放窗口场景的独立直译器：编排逻辑见 DirectSubtitleTranslator。 */
     private readonly directTranslator: DirectSubtitleTranslator;
+    /** 按 (fileHash, rendererSessionId) 追踪最新提交的 demandId；releaseSession 同步清掉以防在途 async 复活已释放会话。 */
+    private readonly latestDemandBySession = new Map<string, number>();
 
     /**
      * 构造字幕翻译编排服务。
@@ -373,10 +375,18 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
         if (!input.rendererSessionId.trim()) {
             throw new Error('renderer 会话标识不能为空');
         }
+        const sessionKey = `${fileHash}::${input.rendererSessionId}`;
+        if ((this.latestDemandBySession.get(sessionKey) ?? 0) >= input.demandId) {
+            return;
+        }
+        this.latestDemandBySession.set(sessionKey, input.demandId);
 
         const srtData = this.cacheService.get('cache:srt', fileHash);
         if (!srtData) {
-            this.scheduler.release(fileHash, input.rendererSessionId);
+            if (this.latestDemandBySession.get(sessionKey) === input.demandId) {
+                this.latestDemandBySession.delete(sessionKey);
+                this.scheduler.release(fileHash, input.rendererSessionId);
+            }
             throw new Error('未找到字幕缓存，请重新加载字幕或重新打开视频');
         }
         // 坐标升序排列；普通 SRT 的坐标即 0..N-1，与数组下标一致。
@@ -385,7 +395,11 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
             .sort((left, right) => left - right);
 
         const rawProvider = await this.settingService.getCurrentTranslationProvider();
+        if (this.latestDemandBySession.get(sessionKey) !== input.demandId) {
+            return;
+        }
         if (!rawProvider) {
+            this.latestDemandBySession.delete(sessionKey);
             this.scheduler.release(fileHash, input.rendererSessionId);
             throw new Error('未启用字幕翻译服务');
         }
@@ -416,8 +430,14 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
         try {
             resolvedContext = await this.resolveCurrentStorageContext(provider);
         } catch (error) {
-            this.scheduler.release(fileHash, input.rendererSessionId);
+            if (this.latestDemandBySession.get(sessionKey) === input.demandId) {
+                this.latestDemandBySession.delete(sessionKey);
+                this.scheduler.release(fileHash, input.rendererSessionId);
+            }
             throw error;
+        }
+        if (this.latestDemandBySession.get(sessionKey) !== input.demandId) {
+            return;
         }
         const { mode, storageMode, style, profileKey, localModelId } = resolvedContext;
         this.scheduler.updateDemand({
@@ -461,6 +481,7 @@ export class SubtitleTranslationServiceImpl implements SubtitleTranslationServic
         if (!normalized) {
             return;
         }
+        this.latestDemandBySession.delete(`${normalized}::${rendererSessionId}`);
         this.scheduler.release(normalized, rendererSessionId);
     }
 

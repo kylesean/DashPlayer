@@ -62,11 +62,8 @@ class VoiceModelArchiveService extends ModelArchiveService {
  */
 @injectable()
 export class SherpaTtsModelServiceImpl implements LocalModelService {
-    /** 当前音色对应的安装器；音色切换时重建。 */
-    private installer: VoiceModelArchiveService;
-
-    /** 构建 `installer` 时使用的音色 id，用于判断是否需要重建。 */
-    private installerVoiceId: string;
+    /** 按音色 id 缓存安装器实例：音色来回切换时不丢弃进行中的下载句柄与状态，避免重入写同一个工作目录。 */
+    private readonly installers = new Map<string, VoiceModelArchiveService>();
 
     private readonly rendererGateway: RendererGateway;
 
@@ -84,8 +81,7 @@ export class SherpaTtsModelServiceImpl implements LocalModelService {
         this.storageDirectoryProvider = storageDirectoryProvider;
         this.fileSystemGateway = fileSystemGateway;
         const voice = resolveSherpaTtsVoice(this.settingService.getSherpaTtsVoice());
-        this.installerVoiceId = voice.id;
-        this.installer = this.buildInstaller(voice);
+        this.installers.set(voice.id, this.buildInstaller(voice));
     }
 
     /** @inheritdoc */
@@ -95,12 +91,21 @@ export class SherpaTtsModelServiceImpl implements LocalModelService {
 
     /** @inheritdoc */
     public async download(): Promise<{ success: boolean; message: string }> {
-        return this.currentInstaller().download();
+        const target = this.currentInstaller();
+        // 各音色共用同一进度事件通道：开启新音色下载前先停掉其他音色的在途下载。
+        for (const installer of this.installers.values()) {
+            if (installer !== target) {
+                await installer.cancelDownload();
+            }
+        }
+        return target.download();
     }
 
     /** @inheritdoc */
     public async cancelDownload(): Promise<{ cancelled: boolean }> {
-        return this.currentInstaller().cancelDownload();
+        // 即使切走了音色，取消动作也应能停下之前发起的在途下载。
+        const results = await Promise.all([...this.installers.values()].map((installer) => installer.cancelDownload()));
+        return { cancelled: results.some((item) => item.cancelled) };
     }
 
     /** @inheritdoc */
@@ -109,19 +114,18 @@ export class SherpaTtsModelServiceImpl implements LocalModelService {
     }
 
     /**
-     * 取当前音色的安装器；用户切换音色后按需重建。
-     *
-     * 旧音色进行中的下载不会被取消——它属于另一个音色，用户可能只是先切过去看看。
+     * 取当前选中音色对应的安装器，按音色 id 复用实例。
      *
      * @returns 与当前选中音色匹配的安装器。
      */
     private currentInstaller(): VoiceModelArchiveService {
         const voice = resolveSherpaTtsVoice(this.settingService.getSherpaTtsVoice());
-        if (voice.id !== this.installerVoiceId) {
-            this.installerVoiceId = voice.id;
-            this.installer = this.buildInstaller(voice);
+        let installer = this.installers.get(voice.id);
+        if (!installer) {
+            installer = this.buildInstaller(voice);
+            this.installers.set(voice.id, installer);
         }
-        return this.installer;
+        return installer;
     }
 
     /**

@@ -93,4 +93,32 @@ describe('toInstallationStatus', () => {
         expect(status.ready).toBe(false);
         expect(status.missingFiles).toEqual(['segmentation', 'embedding']);
     });
+
+    it('两阶段下载中途取消后不会继续下载第二阶段，且 getStatus 暴露 downloading 状态', async () => {
+        const service = build();
+        const seg = (service as unknown as {
+            segmentation: { download: () => Promise<{ success: boolean; message: string }>; cancelDownload: () => Promise<{ cancelled: boolean }> };
+            embedding: { download: () => Promise<{ success: boolean; message: string }>; cancelDownload: () => Promise<{ cancelled: boolean }> };
+        });
+        let finishSeg!: (res: { success: boolean; message: string }) => void;
+        vi.spyOn(seg.segmentation, 'download').mockImplementation(
+            () => new Promise((resolve) => {
+                finishSeg = resolve;
+            }),
+        );
+        vi.spyOn(seg.segmentation, 'cancelDownload').mockResolvedValue({ cancelled: true });
+        const embDownload = vi.spyOn(seg.embedding, 'download').mockResolvedValue({ success: true, message: 'ok' });
+
+        const dlPromise = service.download().catch((error: unknown) => error);
+        const midStatus = await service.getStatus();
+        expect(midStatus.downloading).toBe(true);
+
+        const cancelPromise = service.cancelDownload();
+        finishSeg({ success: true, message: 'ok' });
+
+        await expect(cancelPromise).resolves.toEqual({ cancelled: true });
+        const outcome = await dlPromise;
+        expect(outcome).toBeInstanceOf(Error);
+        expect(embDownload).not.toHaveBeenCalled();
+    });
 });

@@ -147,6 +147,9 @@ export class MobileAccessServiceImpl implements MobileAccessService {
     private serverPort: number | null = null;
     /** 最近一次启动失败的原因，供设置页展示。 */
     private lastError: string | null = null;
+    /** 串行化启停/改端口/关闭生命周期，防止并发 await 泄漏已启动但未登记的 HTTP 服务。 */
+    private lifecycleQueue: Promise<void> = Promise.resolve();
+    private disposed = false;
     /** 缩略图生成队列尾；手机页首屏会并发请求多张，排成串行避免同时拉起多个 ffmpeg。 */
     private thumbnailQueue: Promise<void> = Promise.resolve();
     /** 当前排队中的缩略图请求数（含正在生成的那个）。 */
@@ -224,56 +227,78 @@ export class MobileAccessServiceImpl implements MobileAccessService {
     }
 
     /** {@inheritDoc MobileAccessService.saveSettings} */
-    public async saveSettings(settings: MobileAccessSettingSaveVO): Promise<void> {
-        if (!settings.enabled) {
-            // 关闭优先：端口填错了也不该拦着用户停服务。
-            await this.stopServer();
-            this.settingsStore.set('mobileAccess.enabled', 'false');
-            if (isValidPort(settings.port)) {
-                this.settingsStore.set('mobileAccess.port', String(settings.port));
+    public saveSettings(settings: MobileAccessSettingSaveVO): Promise<void> {
+        return this.runLifecycle(async () => {
+            if (this.disposed) {
+                return;
             }
+            if (!settings.enabled) {
+                // 关闭优先：端口填错了也不该拦着用户停服务。
+                await this.stopServer();
+                this.settingsStore.set('mobileAccess.enabled', 'false');
+                if (isValidPort(settings.port)) {
+                    this.settingsStore.set('mobileAccess.port', String(settings.port));
+                }
+                this.lastError = null;
+                return;
+            }
+
+            assertValidPort(settings.port);
+            if (this.server === null || this.serverPort !== settings.port) {
+                await this.restartServer(settings.port);
+            }
+
+            this.settingsStore.set('mobileAccess.enabled', 'true');
+            this.settingsStore.set('mobileAccess.port', String(settings.port));
             this.lastError = null;
-            return;
-        }
-
-        assertValidPort(settings.port);
-        if (this.server === null || this.serverPort !== settings.port) {
-            await this.restartServer(settings.port);
-        }
-
-        this.settingsStore.set('mobileAccess.enabled', 'true');
-        this.settingsStore.set('mobileAccess.port', String(settings.port));
-        this.lastError = null;
+        });
     }
 
     /** {@inheritDoc MobileAccessService.startFromSettings} */
-    public async startFromSettings(): Promise<void> {
-        const settings = this.readSettings();
-        if (settings.error !== null) {
-            this.lastError = settings.error;
-            this.logger.warn('mobile access settings invalid', { error: settings.error });
-            return;
-        }
-        if (!settings.enabled || this.server !== null) {
-            return;
-        }
+    public startFromSettings(): Promise<void> {
+        return this.runLifecycle(async () => {
+            if (this.disposed) {
+                return;
+            }
+            const settings = this.readSettings();
+            if (settings.error !== null) {
+                this.lastError = settings.error;
+                this.logger.warn('mobile access settings invalid', { error: settings.error });
+                return;
+            }
+            if (!settings.enabled || this.server !== null) {
+                return;
+            }
 
-        try {
-            await this.startServer(settings.port);
-            this.lastError = null;
-            this.logger.info('mobile access started from settings', { port: settings.port });
-        } catch (error) {
-            this.lastError = error instanceof Error ? error.message : String(error);
-            this.logger.error('failed to start mobile access', {
-                port: settings.port,
-                error: this.lastError,
-            });
-        }
+            try {
+                await this.startServer(settings.port);
+                this.lastError = null;
+                this.logger.info('mobile access started from settings', { port: settings.port });
+            } catch (error) {
+                this.lastError = error instanceof Error ? error.message : String(error);
+                this.logger.error('failed to start mobile access', {
+                    port: settings.port,
+                    error: this.lastError,
+                });
+            }
+        });
     }
 
     /** {@inheritDoc MobileAccessService.shutdown} */
-    public async shutdown(): Promise<void> {
-        await this.stopServer();
+    public shutdown(): Promise<void> {
+        this.disposed = true;
+        return this.runLifecycle(async () => {
+            await this.stopServer();
+        });
+    }
+
+    private runLifecycle<T>(task: () => Promise<T>): Promise<T> {
+        const next = this.lifecycleQueue.then(task, task);
+        this.lifecycleQueue = next.then(
+            () => undefined,
+            () => undefined,
+        );
+        return next;
     }
 
     /**
@@ -332,7 +357,17 @@ export class MobileAccessServiceImpl implements MobileAccessService {
                 translateTexts: (texts) => this.translateTexts(texts),
             },
         });
+        if (this.disposed) {
+            return;
+        }
         await server.start(port);
+        if (this.disposed) {
+            // 启动期间收到关闭信号时立刻停掉刚刚绑定好的端口，不留孤儿监听。
+            await server.stop();
+            return;
+        }
+        // 启动期间可能触发过 regenerateToken()：落座后同步最新令牌。
+        server.setToken(this.getOrCreateToken());
         this.server = server;
         this.serverPort = port;
     }

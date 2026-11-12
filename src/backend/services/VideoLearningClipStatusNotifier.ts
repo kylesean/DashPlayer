@@ -18,6 +18,8 @@ export default class VideoLearningClipStatusNotifier {
     private readonly statusCache: Map<string, VideoLearningClipStatusVO> = new Map();
     /** 各字幕状态通知的递增序号。 */
     private readonly seqBySrtKey: Map<string, number> = new Map();
+    /** 串行化状态推送 IPC，保证渲染进程严格按递增 seq 顺序收包。 */
+    private sendQueue: Promise<void> = Promise.resolve();
 
     constructor(
         private readonly deps: {
@@ -103,7 +105,7 @@ export default class VideoLearningClipStatusNotifier {
             this.statusCache.set(srtKey, cachePayload);
 
             if (!sameStatus) {
-                await this.deps.rendererGateway.call('video-learning/clip-status-update', {
+                const payload = {
                     videoPath,
                     srtKey,
                     status,
@@ -112,8 +114,13 @@ export default class VideoLearningClipStatusNotifier {
                     completedCount,
                     message,
                     analyzingProgress,
-                    seq: nextSeq
+                    seq: nextSeq,
+                };
+                const dispatched = this.sendQueue.then(async () => {
+                    await this.deps.rendererGateway.call('video-learning/clip-status-update', payload);
                 });
+                this.sendQueue = dispatched.catch(() => undefined);
+                await dispatched;
             }
         } catch (error) {
             this.deps.logger.error('failed to notify clip status', { error });

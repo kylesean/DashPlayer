@@ -47,7 +47,8 @@ export class LlamaServerProcess {
     private childExit: Promise<void> | null = null;
     private endpoint: string | null = null;
     private loadedPath: string | null = null;
-    private startInFlight: { modelPath: string; promise: Promise<string> } | null = null;
+    private startInFlight: { modelPath: string; abort: AbortController; promise: Promise<string> } | null = null;
+    private activeStop: Promise<void> | null = null;
     private readonly apiKey = randomBytes(32).toString('hex');
     /** 仅用于连接本机回环 `127.0.0.1` 推理端口的直连客户端，绕过全局代理。 */
     private readonly directLoopbackAgent = new Agent();
@@ -240,19 +241,22 @@ export class LlamaServerProcess {
             if (this.endpoint && this.loadedPath === modelPath && this.child) return this.endpoint;
         }
 
-        const promise = this.doStart(model, modelPath, this.deps.lifetimeSignal)
+        const startAbort = new AbortController();
+        const combinedStartSignal = AbortSignal.any([this.deps.lifetimeSignal, startAbort.signal]);
+        const promise = this.doStart(model, modelPath, combinedStartSignal)
             .finally(() => {
                 if (this.startInFlight?.promise === promise) {
                     this.startInFlight = null;
                 }
             });
-        this.startInFlight = { modelPath, promise };
+        this.startInFlight = { modelPath, abort: startAbort, promise };
         return await this.awaitWithCallerSignal(promise, signal);
     }
 
     /** 实际执行模型完整性校验与 llama-server 进程拉起。 */
     private async doStart(model: LocalAiModelDefinition, modelPath: string, signal: AbortSignal): Promise<string> {
-        await this.stop();
+        await this.stopChild();
+        signal.throwIfAborted();
         if (await this.deps.fileSize(modelPath) !== model.bytes) {
             throw new Error(`本地模型「${model.name}」未安装，请前往设置-服务凭据下载`);
         }
@@ -266,6 +270,7 @@ export class LlamaServerProcess {
         signal.throwIfAborted();
         const endpoint = `http://127.0.0.1:${port}`;
         const gpuRequested = await this.gpuEnabled();
+        signal.throwIfAborted();
         const child = spawn(this.runtimePath(), [
             '--model', modelPath, '--host', '127.0.0.1', '--port', String(port),
             '--ctx-size', String(LOCAL_TOTAL_CTX), '--parallel', String(LOCAL_PARALLEL_SLOTS), '--jinja', '--no-webui',
@@ -316,7 +321,7 @@ export class LlamaServerProcess {
             }
         } catch (error) {
             this.logger.error('local runtime load failed', { error, stderrTail });
-            await this.stop();
+            await this.stopChild();
             throw error instanceof Error ? error : new Error(String(error));
         }
     }
@@ -459,16 +464,38 @@ export class LlamaServerProcess {
         }
     }
 
-    /** 结束私有子进程并等待文件句柄释放；超时强制终止。 */
-    public async stop(): Promise<void> {
+    /** 结束当前已孵化的子进程并等待句柄释放；同一时间只执行一次终止流程。 */
+    private async stopChild(): Promise<void> {
+        if (this.activeStop) {
+            await this.activeStop;
+            return;
+        }
         const child = this.child;
         const exited = this.childExit;
         this.child = null; this.endpoint = null; this.loadedPath = null;
         if (!child) return;
-        child.kill();
-        const timer = setTimeout(() => child.kill('SIGKILL'), 3000);
-        try { await exited; } finally { clearTimeout(timer); }
-        this.logger.info('local runtime stopped', { pid: child.pid });
+        const stopPromise = (async () => {
+            child.kill();
+            const timer = setTimeout(() => child.kill('SIGKILL'), 3000);
+            try { await exited; } finally { clearTimeout(timer); }
+            this.logger.info('local runtime stopped', { pid: child.pid });
+        })().finally(() => {
+            if (this.activeStop === stopPromise) {
+                this.activeStop = null;
+            }
+        });
+        this.activeStop = stopPromise;
+        await stopPromise;
+    }
+
+    /** 结束冷启动流程与私有子进程并等待文件句柄释放；超时强制终止。 */
+    public async stop(): Promise<void> {
+        const inFlight = this.startInFlight;
+        if (inFlight) {
+            inFlight.abort.abort();
+            await inFlight.promise.catch(() => undefined);
+        }
+        await this.stopChild();
     }
 
     /** 应用退出时结束子进程并释放回环连接池。 */

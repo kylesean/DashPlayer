@@ -43,6 +43,12 @@ type AnalysisState = {
     progress: number;
 };
 
+type AnalysisSubscriber = {
+    onProgress?: (progress: number) => Promise<void> | void;
+    isCurrent?: () => boolean;
+    active: boolean;
+};
+
 type ActiveAnalysis = {
     /** 当前运行的字幕哈希。 */
     fileHash: string;
@@ -50,6 +56,8 @@ type ActiveAnalysis = {
     runId: number;
     /** 当前运行 Promise。 */
     promise: Promise<SubtitleVocabularyAnalysisResult>;
+    /** 订阅同一次运行的所有调用方（各自保留进度回调与有效性检查，互不误杀）。 */
+    subscribers: AnalysisSubscriber[];
 };
 
 /**
@@ -151,14 +159,20 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
         ) {
             return existingState.result;
         }
+        if (isCurrent && !isCurrent()) {
+            throw new Error('SUBTITLE_VOCABULARY_ANALYSIS_CANCELLED');
+        }
         if (
             this.activeAnalysis?.fileHash === fileHash
             && existingState?.vocabularyRevision === vocabularyRevision
         ) {
-            return this.activeAnalysis.promise;
-        }
-        if (isCurrent && !isCurrent()) {
-            throw new Error('SUBTITLE_VOCABULARY_ANALYSIS_CANCELLED');
+            const subscriber: AnalysisSubscriber = { onProgress, isCurrent, active: true };
+            this.activeAnalysis.subscribers.push(subscriber);
+            const result = await this.activeAnalysis.promise;
+            if (subscriber.isCurrent && !subscriber.isCurrent()) {
+                throw new Error('SUBTITLE_VOCABULARY_ANALYSIS_CANCELLED');
+            }
+            return result;
         }
 
         const chunkSize = 50;
@@ -187,6 +201,7 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
             }
         }
 
+        const initialSubscriber: AnalysisSubscriber = { onProgress, isCurrent, active: true };
         const run: ActiveAnalysis = {
             fileHash,
             runId: ++this.nextRunId,
@@ -195,10 +210,15 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
                 vocabularyRevision,
                 lineMatches: [],
             }),
+            subscribers: [initialSubscriber],
         };
         this.activeAnalysis = run;
-        run.promise = this.runAnalysis(fileHash, texts, state, run, onProgress, isCurrent);
-        return run.promise;
+        run.promise = this.runAnalysis(fileHash, texts, state, run);
+        const result = await run.promise;
+        if (initialSubscriber.isCurrent && !initialSubscriber.isCurrent()) {
+            throw new Error('SUBTITLE_VOCABULARY_ANALYSIS_CANCELLED');
+        }
+        return result;
     }
 
     /**
@@ -263,8 +283,6 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
         texts: string[],
         state: AnalysisState,
         run: ActiveAnalysis,
-        onProgress?: (progress: number) => Promise<void> | void,
-        isCurrent?: () => boolean,
     ): Promise<SubtitleVocabularyAnalysisResult> {
         try {
             this.scheduler.beginFrame();
@@ -284,10 +302,10 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
                 completedChunks++;
             }
 
-            await this.notifyProgress(state, completedChunks, run, onProgress, isCurrent);
+            await this.notifyProgress(state, completedChunks, run);
 
             for (let chunkIndex = 0; chunkIndex < state.totalChunks; chunkIndex++) {
-                this.assertCurrent(run, state, isCurrent);
+                this.assertCurrent(run, state);
                 if (state.chunks.has(chunkIndex)) {
                     continue;
                 }
@@ -296,18 +314,18 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
                 const matches = await this.wordMatchService.matchWordsInTexts(
                     texts.slice(start, start + chunkSize),
                 );
-                this.assertCurrent(run, state, isCurrent);
+                this.assertCurrent(run, state);
                 state.chunks.set(chunkIndex, matches);
                 matches.forEach((matchesForLine, offset) => {
                     lineMatches[start + offset] = matchesForLine;
                 });
 
                 completedChunks++;
-                await this.notifyProgress(state, completedChunks, run, onProgress, isCurrent);
+                await this.notifyProgress(state, completedChunks, run);
                 await this.scheduler.yieldIfNeeded();
             }
 
-            this.assertCurrent(run, state, isCurrent);
+            this.assertCurrent(run, state);
             const result: SubtitleVocabularyAnalysisResult = {
                 fileHash,
                 vocabularyRevision: state.vocabularyRevision,
@@ -315,14 +333,25 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
             };
             state.result = result;
             state.progress = 100;
-            if (onProgress) {
-                await onProgress(100);
-            }
+            await this.fanOutProgress(run, 100);
             return result;
         } finally {
             if (this.activeAnalysis?.runId === run.runId) {
                 this.activeAnalysis = undefined;
             }
+        }
+    }
+
+    private async fanOutProgress(run: ActiveAnalysis, progress: number): Promise<void> {
+        for (const subscriber of run.subscribers) {
+            if (!subscriber.active || !subscriber.onProgress) {
+                continue;
+            }
+            if (subscriber.isCurrent && !subscriber.isCurrent()) {
+                subscriber.active = false;
+                continue;
+            }
+            await subscriber.onProgress(progress);
         }
     }
 
@@ -332,37 +361,29 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
      * @param state 当前字幕缓存状态。
      * @param completedChunks 已完成的分块数量。
      * @param run 当前运行标识。
-     * @param onProgress 分析进度通知。
-     * @param isCurrent 可选的任务有效性检查。
      */
     private async notifyProgress(
         state: AnalysisState,
         completedChunks: number,
         run: ActiveAnalysis,
-        onProgress?: (progress: number) => Promise<void> | void,
-        isCurrent?: () => boolean,
     ): Promise<void> {
-        this.assertCurrent(run, state, isCurrent);
+        this.assertCurrent(run, state);
         const progress = state.totalChunks === 0
             ? 100
             : Math.min(99, Math.round((completedChunks / state.totalChunks) * 100));
         state.progress = progress;
-        if (onProgress) {
-            await onProgress(progress);
-        }
+        await this.fanOutProgress(run, progress);
     }
 
     /**
-     * 确认共享分析任务仍然有效。
+     * 确认共享分析任务仍然有效；仅当所有订阅调用方都失效时才中止本轮运行。
      *
      * @param run 当前运行标识。
      * @param state 当前字幕缓存状态。
-     * @param isCurrent 可选的外部身份检查。
      */
     private assertCurrent(
         run: ActiveAnalysis,
         state: AnalysisState,
-        isCurrent?: () => boolean,
     ): void {
         if (this.activeAnalysis?.runId !== run.runId) {
             throw new Error('SUBTITLE_VOCABULARY_ANALYSIS_REPLACED');
@@ -370,7 +391,16 @@ export class SubtitleVocabularyAnalysisServiceImpl implements SubtitleVocabulary
         if (this.states.get(run.fileHash) !== state) {
             throw new Error('SUBTITLE_VOCABULARY_ANALYSIS_INVALIDATED');
         }
-        if (isCurrent && !isCurrent()) {
+        let anyActive = false;
+        for (const subscriber of run.subscribers) {
+            if (!subscriber.active) continue;
+            if (subscriber.isCurrent && !subscriber.isCurrent()) {
+                subscriber.active = false;
+                continue;
+            }
+            anyActive = true;
+        }
+        if (!anyActive) {
             throw new Error('SUBTITLE_VOCABULARY_ANALYSIS_CANCELLED');
         }
     }

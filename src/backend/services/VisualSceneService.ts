@@ -84,6 +84,7 @@ export default interface VisualSceneService {
 export class VisualSceneServiceImpl implements VisualSceneService {
     private readonly logger = getMainLogger('VisualSceneService');
     private readonly inFlight = new Map<string, Promise<VisualSceneBoundary[] | null>>();
+    private readonly epochs = new Map<string, number>();
 
     public constructor(
         @inject(TYPES.LocalEmbeddingRuntime) private readonly embedding: LocalEmbeddingRuntime,
@@ -95,39 +96,46 @@ export class VisualSceneServiceImpl implements VisualSceneService {
         videoPath: string,
         sentences: readonly SceneSentence[] = [],
     ): Promise<VisualSceneBoundary[] | null> {
-        const inputHash = await videoInputHash(videoPath);
-        if (!inputHash) {
-            return null;
-        }
-        try {
-            const cached = await this.repository.find(videoPath, VISUAL_SCENE_KIND, VISUAL_SCENE_VERSION);
-            if (cached && cached.input_hash === inputHash) {
-                const parsed = parseBoundaries(cached.payload_json);
-                if (parsed) {
-                    return parsed;
-                }
-                this.logger.warn('visual scene payload invalid, recomputing', { videoPath });
-            }
-        } catch (error) {
-            this.logger.warn('visual scene read skipped', {
-                error: error instanceof Error ? error.message : String(error),
-            });
-        }
-
+        // 必须在任何 await 前登记单飞，避免哈希/查库期间并发进入并竞争同一临时目录。
         const existing = this.inFlight.get(videoPath);
         if (existing) {
             return existing;
         }
-        const task = this.compute(videoPath, inputHash, sentences);
+        const epoch = this.epochs.get(videoPath) ?? 0;
+        const task = (async () => {
+            const inputHash = await videoInputHash(videoPath);
+            if (!inputHash) {
+                return null;
+            }
+            try {
+                const cached = await this.repository.find(videoPath, VISUAL_SCENE_KIND, VISUAL_SCENE_VERSION);
+                if (cached && cached.input_hash === inputHash) {
+                    const parsed = parseBoundaries(cached.payload_json);
+                    if (parsed) {
+                        return parsed;
+                    }
+                    this.logger.warn('visual scene payload invalid, recomputing', { videoPath });
+                }
+            } catch (error) {
+                this.logger.warn('visual scene read skipped', {
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+            return this.compute(videoPath, inputHash, sentences, epoch);
+        })();
         this.inFlight.set(videoPath, task);
         try {
             return await task;
         } finally {
-            this.inFlight.delete(videoPath);
+            if (this.inFlight.get(videoPath) === task) {
+                this.inFlight.delete(videoPath);
+            }
         }
     }
 
     public async invalidate(videoPath: string): Promise<number> {
+        this.epochs.set(videoPath, (this.epochs.get(videoPath) ?? 0) + 1);
+        this.inFlight.delete(videoPath);
         try {
             return await this.repository.deleteByVideo(videoPath);
         } catch (error) {
@@ -148,6 +156,7 @@ export class VisualSceneServiceImpl implements VisualSceneService {
         videoPath: string,
         inputHash: string,
         sentences: readonly SceneSentence[],
+        epoch: number,
     ): Promise<VisualSceneBoundary[] | null> {
         // 未安装多模态投影时直接退出，连抽帧都不必做。
         if (!await this.embedding.isMultimodalReady()) {
@@ -188,18 +197,20 @@ export class VisualSceneServiceImpl implements VisualSceneService {
                 });
             }
             const boundaries = detectSceneChanges(vectors);
-            try {
-                await this.repository.upsert({
-                    videoId: videoPath,
-                    kind: VISUAL_SCENE_KIND,
-                    algorithmVersion: VISUAL_SCENE_VERSION,
-                    inputHash,
-                    payloadJson: JSON.stringify(boundaries),
-                });
-            } catch (error) {
-                this.logger.warn('visual scene write skipped', {
-                    error: error instanceof Error ? error.message : String(error),
-                });
+            if ((this.epochs.get(videoPath) ?? 0) === epoch) {
+                try {
+                    await this.repository.upsert({
+                        videoId: videoPath,
+                        kind: VISUAL_SCENE_KIND,
+                        algorithmVersion: VISUAL_SCENE_VERSION,
+                        inputHash,
+                        payloadJson: JSON.stringify(boundaries),
+                    });
+                } catch (error) {
+                    this.logger.warn('visual scene write skipped', {
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                }
             }
             return boundaries;
         } catch (error) {

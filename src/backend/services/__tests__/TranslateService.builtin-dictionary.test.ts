@@ -190,4 +190,44 @@ describe('单词查询的预置词典优先链路', () => {
         const withoutContext = buildDictionaryPrompt('cues');
         expect(withoutContext).not.toContain('AS USED IN THIS SENTENCE');
     });
+
+    it('ResourceFallback 按提供方隔离且并发 forceRefresh 会合流单飞', async () => {
+        const generateMock = vi.fn().mockImplementation(
+            () => new Promise((resolve) => setTimeout(() => resolve({
+                word: 'ephemeral',
+                phonetic: '/ɪˈfemərəl/',
+                definitions: [{ partOfSpeech: 'adj.', meaning: '短暂的', examples: [] }],
+            }), 10)),
+        );
+        const { service } = buildService({
+            dictionaryProvider: Promise.resolve('local'),
+            words: [],
+            localAiService: {
+                getActiveModelId: vi.fn().mockResolvedValue('model-1'),
+                generate: generateMock,
+            },
+            resourceFallback: {
+                // 仅 openai 处于回退，不应阻塞 local 提供方
+                getState: vi.fn().mockReturnValue({
+                    feature: 'dictionary',
+                    from: 'openai',
+                    to: 'builtinDictionary',
+                    reason: 'timeout',
+                    at: Date.now(),
+                    until: Date.now() + 60_000,
+                }),
+                isFallbackActive: vi.fn().mockReturnValue(true),
+                clear: vi.fn(),
+                markFallback: vi.fn(),
+            },
+        });
+
+        const [r1, r2] = await Promise.all([
+            service.transWord('ephemeral', true),
+            service.transWord('ephemeral', true),
+        ]);
+        expect(r1).toMatchObject({ word: 'ephemeral' });
+        expect(r2).toMatchObject({ word: 'ephemeral' });
+        expect(generateMock).toHaveBeenCalledTimes(1);
+    });
 });

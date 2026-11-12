@@ -53,6 +53,9 @@ export default interface ChatSessionStore {
     appendPersistedMessage(sessionId: string, message: PersistedChatMessage): void;
     updatePreset(sessionId: string, preset: { presetId?: string; customPromptOverride?: string }): void;
     markContextInjected(sessionId: string): void;
+    /** 原子认领首轮上下文注入资格；返回 true 表示本轮需要注入且已置位。 */
+    claimContextInjection(sessionId: string): boolean;
+    releaseContextInjection(sessionId: string): void;
     startRun(sessionId: string, runId: string): AbortSignal;
     finishRun(sessionId: string, runId: string): void;
     /** 只中止一个 run（如精读分析），不影响同会话的其它流。 */
@@ -162,6 +165,22 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
         session.contextInjected = true;
     }
 
+    public claimContextInjection(sessionId: string): boolean {
+        const session = this.getOpenSession(sessionId);
+        if (session.contextInjected) {
+            return false;
+        }
+        session.contextInjected = true;
+        return true;
+    }
+
+    public releaseContextInjection(sessionId: string): void {
+        const session = this.sessions.get(sessionId);
+        if (session && !session.closed) {
+            session.contextInjected = false;
+        }
+    }
+
     public startRun(sessionId: string, runId: string): AbortSignal {
         const session = this.getOpenSession(sessionId);
         const controller = new AbortController();
@@ -197,6 +216,7 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
             controller.abort('chat run stopped');
         }
         session.runs.clear();
+        session.analysisRunId = null;
     }
 
     public close(sessionId: string): void {
@@ -205,6 +225,7 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
             return;
         }
         session.closed = true;
+        session.analysisRunId = null;
         for (const controller of session.runs.values()) {
             controller.abort('chat session closed');
         }

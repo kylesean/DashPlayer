@@ -56,6 +56,7 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
         const stderrTail = new OutputTail();
         let cancelRequested = false;
         let processRef: ChildProcess | null = null;
+        let processExited = false;
         let sigkillTimer: NodeJS.Timeout | undefined;
 
         // 下载落盘的二进制可能丢失执行位，启动前显式补齐（Windows 上为无害操作）。
@@ -121,19 +122,25 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
             });
 
             child.on('error', (error) => {
+                processExited = true;
                 processRef = null;
+                if (sigkillTimer) {
+                    clearTimeout(sigkillTimer);
+                    sigkillTimer = undefined;
+                }
                 reject(error);
             });
 
             child.on('close', (code) => {
+                processExited = true;
                 processRef = null;
                 if (sigkillTimer) {
                     clearTimeout(sigkillTimer);
+                    sigkillTimer = undefined;
                 }
                 const durationMs = Date.now() - startedAt;
-                // 取消优先判定：SIGTERM/SIGKILL 后视频流可能已部分落盘，
-                // 部分产物不代表成功，用户取消必须如实上报而不是被“视频为主”吞掉。
-                if (cancelRequested && code !== 0) {
+                // 取消优先判定：无论退出码是否碰巧为 0，只要用户已请求取消，就绝不能把部分产物当成功提交。
+                if (cancelRequested) {
                     reject(new CancelByUserError(`yt-dlp 已取消（退出码 ${code}）`));
                     return;
                 }
@@ -158,10 +165,11 @@ export class YtDlpProcessGatewayImpl implements YtDlpGateway {
 
         const cancel = () => {
             cancelRequested = true;
-            if (!processRef || processRef.killed) return;
+            // 不能看 processRef.killed：child.kill('SIGTERM') 会立即把它置成 true，导致 SIGKILL 定时器成为死代码。
+            if (!processRef || processExited) return;
             processRef.kill('SIGTERM');
             sigkillTimer = setTimeout(() => {
-                if (!processRef || processRef.killed) return;
+                if (!processRef || processExited) return;
                 processRef.kill('SIGKILL');
             }, 1200);
         };

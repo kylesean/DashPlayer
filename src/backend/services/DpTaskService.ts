@@ -80,6 +80,8 @@ export class DpTaskServiceImpl implements DpTaskService {
     private isFlushingUpdates = false;
     /** 当前刷写结束后是否需要立即处理新到达的结束状态。 */
     private shouldFlushImmediately = false;
+    /** 连续落库失败次数，用于失败退避，避免持久异常时 0ms 热循环刷写。 */
+    private flushFailureCount = 0;
     /** 普通进度更新的合并等待计时器。 */
     private flushTimer: ReturnType<typeof setTimeout> | undefined;
     private readonly cancelQueue = new Set<number>();
@@ -196,12 +198,11 @@ export class DpTaskServiceImpl implements DpTaskService {
         if (task.id === undefined || task.id === null) {
             return;
         }
-        // 终态守卫：已终态的任务拒绝被非终态状态复活。迟到的 onProgress（如
-        // clearInterval 后仍在飞的 getStatus().then）会把 CANCELLED/FAILED 覆写回
-        // IN_PROGRESS，渲染端任务卡片随之回跳。终态 → 终态（如取消的双写收尾）幂等放行。
+        // 终态守卫：已终态的任务拒绝被非终态或其他终态覆写（只放行同终态幂等重入），
+        // 避免取消与收尾竞态时把 CANCELLED 改写成 DONE，或迟到的进度回调复活终态卡片。
         const cached = this.cache.get(task.id);
-        if (cached && this.isFinalState(cached.status) && !this.isFinalState(task.status)) {
-            this.logger.warn('ignored non-terminal update for finalized task', {
+        if (cached && this.isFinalState(cached.status) && cached.status !== task.status) {
+            this.logger.warn('ignored conflicting update for finalized task', {
                 taskId: task.id,
                 cachedStatus: cached.status,
                 incoming: task.status,
@@ -386,7 +387,10 @@ export class DpTaskServiceImpl implements DpTaskService {
             this.shouldFlushImmediately = this.shouldFlushImmediately || immediately;
             return;
         }
-        if (immediately) {
+        const delayMs = this.flushFailureCount > 0
+            ? Math.min(30_000, 300 * (2 ** (this.flushFailureCount - 1)))
+            : 300;
+        if (immediately && this.flushFailureCount === 0) {
             if (this.flushTimer) {
                 clearTimeout(this.flushTimer);
                 this.flushTimer = undefined;
@@ -400,13 +404,13 @@ export class DpTaskServiceImpl implements DpTaskService {
         this.flushTimer = setTimeout(() => {
             this.flushTimer = undefined;
             void this.flushPendingUpdates();
-        }, 300);
+        }, delayMs);
     }
 
     /**
      * 顺序写入当前待处理更新。
      *
-     * 刷写期间新到达的更新保留在原队列中；写入失败的项目会合并回队列并在稍后重试。
+     * 刷写期间新到达的更新保留在原队列中；写入失败的项目会合并回队列并在退避后重试。
      */
     private async flushPendingUpdates(): Promise<void> {
         if (this.isFlushingUpdates || this.pendingUpdates.size === 0) {
@@ -416,6 +420,7 @@ export class DpTaskServiceImpl implements DpTaskService {
         this.isFlushingUpdates = true;
         const updates = Array.from(this.pendingUpdates.entries());
         this.pendingUpdates.clear();
+        let failed = false;
 
         try {
             for (let index = 0; index < updates.length; index++) {
@@ -423,22 +428,37 @@ export class DpTaskServiceImpl implements DpTaskService {
                 try {
                     await this.dpTaskRepository.updateById(taskId, update);
                 } catch (error) {
-                    const newer = this.pendingUpdates.get(taskId);
-                    this.pendingUpdates.set(taskId, { ...update, ...newer });
-                    for (const [remainingTaskId, remainingUpdate] of updates.slice(index + 1)) {
-                        const newerRemaining = this.pendingUpdates.get(remainingTaskId);
-                        this.pendingUpdates.set(remainingTaskId, { ...remainingUpdate, ...newerRemaining });
+                    failed = true;
+                    this.flushFailureCount += 1;
+                    if (this.flushFailureCount <= 8) {
+                        const newer = this.pendingUpdates.get(taskId);
+                        this.pendingUpdates.set(taskId, { ...update, ...newer });
+                        for (const [remainingTaskId, remainingUpdate] of updates.slice(index + 1)) {
+                            const newerRemaining = this.pendingUpdates.get(remainingTaskId);
+                            this.pendingUpdates.set(remainingTaskId, { ...remainingUpdate, ...newerRemaining });
+                        }
+                    } else {
+                        this.logger.error('任务状态连续写入失败超过重试上限，放弃本批落库', {
+                            taskId,
+                            attempts: this.flushFailureCount,
+                            error,
+                        });
                     }
-                    this.logger.error('任务状态写入失败，将在稍后重试', { taskId, error });
+                    this.logger.error('任务状态写入失败，将在退避后重试', {
+                        taskId,
+                        attempt: this.flushFailureCount,
+                        error,
+                    });
                     return;
                 }
             }
+            this.flushFailureCount = 0;
             // 有任务落库后顺带清理过期终态任务，长会话里任务表不会无界增长。
             this.maybeCleanupExpiredTasks();
         } finally {
             this.isFlushingUpdates = false;
             if (this.pendingUpdates.size > 0) {
-                const immediately = this.shouldFlushImmediately;
+                const immediately = !failed && this.shouldFlushImmediately;
                 this.shouldFlushImmediately = false;
                 this.scheduleUpdateFlush(immediately);
             }

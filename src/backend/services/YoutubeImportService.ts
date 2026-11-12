@@ -298,14 +298,27 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             });
 
             this.dpTaskService.process(taskId, { progress: null, progressMeta: { code: 'finalizing' } });
+            this.dpTaskService.checkCancel(taskId);
             const fileName = path.basename(videoPath);
             const targetVideoPath = path.join(targetDir, fileName);
             await this.fileSystemGateway.moveFile(videoPath, targetVideoPath);
             const movedSrtPaths: string[] = [];
-            for (const srtPath of srtPaths) {
-                const targetSrtPath = path.join(targetDir, path.basename(srtPath));
-                await this.fileSystemGateway.moveFile(srtPath, targetSrtPath);
-                movedSrtPaths.push(targetSrtPath);
+            try {
+                for (const srtPath of srtPaths) {
+                    this.dpTaskService.checkCancel(taskId);
+                    const targetSrtPath = path.join(targetDir, path.basename(srtPath));
+                    await this.fileSystemGateway.moveFile(srtPath, targetSrtPath);
+                    movedSrtPaths.push(targetSrtPath);
+                }
+                this.dpTaskService.checkCancel(taskId);
+            } catch (error) {
+                if (error instanceof CancelByUserError) {
+                    await this.fileSystemGateway.removeFileIfExists(targetVideoPath).catch(() => undefined);
+                    for (const movedSrt of movedSrtPaths) {
+                        await this.fileSystemGateway.removeFileIfExists(movedSrt).catch(() => undefined);
+                    }
+                }
+                throw error;
             }
 
             return this.registerVideo(targetVideoPath, movedSrtPaths);
@@ -386,9 +399,13 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             },
         });
         // 安装器只向渲染层事件广播进度，这里轮询状态同步到 dp-task 进度文本。
+        let pollingActive = true;
         const pollTimer = setInterval(() => {
             void this.binaryInstaller.getStatus()
                 .then((status) => {
+                    if (!pollingActive || !this.binaryDownloadWaiters.has(taskId)) {
+                        return;
+                    }
                     if (status.downloading) {
                         this.dpTaskService.process(taskId, {
                             progress: null,
@@ -410,6 +427,7 @@ export class YoutubeImportServiceImpl implements YoutubeImportService {
             }
             throw error;
         } finally {
+            pollingActive = false;
             this.binaryDownloadWaiters.delete(taskId);
             clearInterval(pollTimer);
         }

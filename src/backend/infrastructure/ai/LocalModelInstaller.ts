@@ -57,7 +57,7 @@ export interface LocalModelDownloadSnapshot {
  */
 export class LocalModelInstaller {
     private readonly logger = getMainLogger('LocalModelInstaller');
-    private activeDownload: { modelId: string; task: Promise<void>; abort: AbortController } | null = null;
+    private activeDownload: { modelId: string; task: Promise<void>; done: Promise<void>; abort: AbortController } | null = null;
     private phase: LocalAiStatus['models'][number]['phase'] = 'idle';
     private downloaded = 0;
     private lastProgressAt = 0;
@@ -254,7 +254,11 @@ export class LocalModelInstaller {
         this.emitProgress(modelId, true);
         const signal = AbortSignal.any([abort.signal, lifetimeSignal]);
         const task = this.install(model, signal);
-        this.activeDownload = { modelId, task, abort };
+        let markDone!: () => void;
+        const done = new Promise<void>((resolve) => {
+            markDone = resolve;
+        });
+        this.activeDownload = { modelId, task, done, abort };
         try {
             await task;
         } catch (error) {
@@ -267,19 +271,24 @@ export class LocalModelInstaller {
             this.phase = 'idle';
             this.activeDownload = null;
             this.emitProgress(modelId, true);
+            markDone();
         }
     }
 
     /** 等待取消完成后再允许重试，避免多个写入器同时操作续传文件。 */
     public async cancelDownload(): Promise<void> {
-        const task = this.activeDownload?.task;
-        if (!task) return;
-        this.activeDownload?.abort.abort();
-        await task.catch((error) => {
-            if (!(error instanceof Error) || (error.name !== 'AbortError' && error.name !== 'CanceledError')) {
-                throw error;
-            }
-        });
+        const active = this.activeDownload;
+        if (!active) return;
+        active.abort.abort();
+        // 等待外层 finally 完成 activeDownload 清理与终态广播，避免刚 cancel 完成就立即 retry 命中互斥锁。
+        await Promise.allSettled([
+            active.task.catch((error) => {
+                if (!(error instanceof Error) || (error.name !== 'AbortError' && error.name !== 'CanceledError')) {
+                    throw error;
+                }
+            }),
+            active.done,
+        ]);
     }
 
     /**

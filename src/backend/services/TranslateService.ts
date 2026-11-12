@@ -337,11 +337,7 @@ export class TranslateServiceImpl implements TranslateService {
             return null;
         }
 
-        if (forceRefresh) {
-            return this.executeWordLookup(str, currentProvider, true, requestId, normalizedContext);
-        }
-
-        const lookupKey = this.buildWordLookupKey(currentProvider, str, normalizedContext);
+        const lookupKey = this.buildWordLookupKey(currentProvider, str, normalizedContext, Boolean(forceRefresh));
         const existingPromise = this.wordLookupInFlight.get(lookupKey);
         if (existingPromise) {
             this.logger.debug('复用进行中的单词查询请求', {
@@ -352,7 +348,7 @@ export class TranslateServiceImpl implements TranslateService {
             return existingPromise;
         }
 
-        const lookupPromise = this.executeWordLookup(str, currentProvider, false, requestId, normalizedContext)
+        const lookupPromise = this.executeWordLookup(str, currentProvider, Boolean(forceRefresh), requestId, normalizedContext)
             .finally(() => {
                 this.wordLookupInFlight.delete(lookupKey);
             });
@@ -365,12 +361,15 @@ export class TranslateServiceImpl implements TranslateService {
      *
      * @param provider 当前字典 provider。
      * @param word 原始查询词。
+     * @param context 可选句子上下文。
+     * @param forceRefresh 是否强制刷新；强制刷新单飞键独立，既防连点重复请求也不复用带缓存命中路径的旧请求。
      * @returns 可用于 in-flight 映射的稳定 key。
      */
-    private buildWordLookupKey(provider: 'openai' | 'local', word: string, context?: string): string {
+    private buildWordLookupKey(provider: 'openai' | 'local', word: string, context?: string, forceRefresh = false): string {
         // 语境参与键:同一个词在不同句子里义项不同,语境解释必须按句隔离缓存。
         const contextSuffix = context?.trim() ? `#ctx:${ObjUtil.hash(context.trim())}` : '';
-        return `${provider}:${word.trim().toLowerCase()}${contextSuffix}`;
+        const refreshSuffix = forceRefresh ? '#refresh' : '';
+        return `${provider}:${word.trim().toLowerCase()}${contextSuffix}${refreshSuffix}`;
     }
 
     /**
@@ -417,14 +416,16 @@ export class TranslateServiceImpl implements TranslateService {
         }
 
         if (currentProvider === 'local') {
-            // 补充资源处于回退冷却时不再调用，直接用内置词库结果
-            if (this.resourceFallback.isFallbackActive('dictionary')) {
+            // 补充资源处于本引擎回退冷却时不再调用（用户显式 forceRefresh 时放行探测恢复）。
+            if (!forceRefresh && this.isProviderInFallback('local')) {
                 return null;
             }
             try {
                 const result = await this.translateWordWithLocal(str, requestId, context);
-                this.resourceFallback.clear('dictionary');
-                if (result) await this.wordRecordOpenAI(cacheTerm, result, 'local');
+                if (result) {
+                    this.resourceFallback.clear('dictionary');
+                    await this.wordRecordOpenAI(cacheTerm, result, 'local');
+                }
                 return result;
             } catch (error) {
                 this.resourceFallback.markFallback(
@@ -438,7 +439,17 @@ export class TranslateServiceImpl implements TranslateService {
                     ?? this.builtinDictionaryStore.lookup(str);
             }
         }
+        if (!forceRefresh && this.isProviderInFallback('openai')) {
+            return null;
+        }
         return await this.translateWordWithOpenAI(str, requestId, context);
+    }
+
+    private isProviderInFallback(provider: 'openai' | 'local'): boolean {
+        if (typeof this.resourceFallback.getState === 'function') {
+            return this.resourceFallback.getState('dictionary')?.from === provider;
+        }
+        return this.resourceFallback.isFallbackActive('dictionary');
     }
 
     /**
@@ -522,6 +533,7 @@ export class TranslateServiceImpl implements TranslateService {
             finalResult.source = 'ai';
 
             if (finalResult.definitions.length > 0) {
+                this.resourceFallback.clear('dictionary');
                 if (requestId) {
                     await this.emitOpenAIDictionaryUpdate(streamId, finalResult.word, finalResult, true);
                 }

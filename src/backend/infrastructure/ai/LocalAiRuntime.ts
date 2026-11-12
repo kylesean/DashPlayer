@@ -270,20 +270,27 @@ export class LocalAiRuntime implements LocalAiService {
 
     public async setActiveModelId(modelId: string): Promise<void> {
         // 切换模型会 stop() 当前进程，在途推理会被直接杀掉；
-        // 与下载/删除一致，忙时拒绝切换，由上层调度器稍后重试。
+        // 与删除/测速一致，在首个 await 前同步占坑并在 try/finally 内释放，避免并发校验窗口穿插。
         if (this.busy > 0) throw new Error('本地模型正在使用，请稍后切换');
-        const model = await this.resolveModelDefinition(modelId);
-        const modelPath = await this.modelPath(model);
-        if (await this.installer.fileSize(modelPath) !== model.bytes) {
-            throw new Error(`模型未下载完成，无法设为使用中：${model.name}`);
-        }
-        // 校验期间可能已有推理开始，落库前再确认一次。
-        if (this.busy > 0) throw new Error('本地模型正在使用，请稍后切换');
-        if (!this.settingsStore.set('models.local.active', model.id)) {
-            throw new Error(`保存本地模型选择失败：${model.name}`);
+        this.busy++;
+        this.clearIdleTimer();
+        let shouldPreload = false;
+        try {
+            const model = await this.resolveModelDefinition(modelId);
+            const modelPath = await this.modelPath(model);
+            if (await this.installer.fileSize(modelPath) !== model.bytes) {
+                throw new Error(`模型未下载完成，无法设为使用中：${model.name}`);
+            }
+            if (!this.settingsStore.set('models.local.active', model.id)) {
+                throw new Error(`保存本地模型选择失败：${model.name}`);
+            }
+            shouldPreload = this.isLocalEngineEnabled();
+        } finally {
+            this.busy--;
+            this.settleBusy();
         }
         // 常驻模式下后台切换到新模型；引擎未启用时不做任何加载。
-        if (this.isLocalEngineEnabled()) void this.preloadActiveModel();
+        if (shouldPreload) void this.preloadActiveModel();
     }
 
     /** 启动指定模型的下载；下载状态机与互斥检查在 LocalModelInstaller，忙时拒绝在编排层。 */
@@ -312,12 +319,14 @@ export class LocalAiRuntime implements LocalAiService {
 
     /** 删除指定模型的安装文件及续传数据；先释放已加载的模型。 */
     public async deleteModel(modelId: string): Promise<void> {
-        const model = await this.resolveModelDefinition(modelId);
         if (this.installer.downloadingModelId === modelId) throw new Error('模型正在下载，请先取消下载');
-        // busy 计数必须在任何 await 之前递增，否则推理请求可能落在检查与递增之间。
+        // busy 计数必须在任何 await（含 resolveModelDefinition）之前同步递增，否则切换/推理可能落在检查与递增之间。
         if (this.busy > 0) throw new Error('本地模型正在使用，请稍后删除');
         this.busy++;
+        this.clearIdleTimer();
         try {
+            const model = await this.resolveModelDefinition(modelId);
+            if (this.installer.downloadingModelId === modelId) throw new Error('模型正在下载，请先取消下载');
             if (modelId === await this.getActiveModelId()) {
                 throw new Error(`「${model.name}」是使用中的本地模型，请先在服务凭据页切换到其他模型`);
             }
@@ -333,7 +342,10 @@ export class LocalAiRuntime implements LocalAiService {
                 await fs.promises.rm(`${modelPath}${LOCAL_AI_INTEGRITY_MARKER_SUFFIX}`, { force: true });
             }
             this.installer.forgetModel(modelId);
-        } finally { this.busy--; }
+        } finally {
+            this.busy--;
+            this.settleBusy();
+        }
     }
 
     /**
@@ -593,12 +605,13 @@ export class LocalAiRuntime implements LocalAiService {
     private async preloadActiveModel(): Promise<void> {
         try {
             this.lifetime.signal.throwIfAborted();
-            const model = await this.resolveModelDefinition(await this.getActiveModelId());
-            if (this.serverProcess.isLoadedModel(await this.modelPath(model))) return;
-            await this.runSerial(async () => {
-                await this.serverProcess.start(model, this.lifetime.signal);
+            await this.runSerial(async (signal) => {
+                if (!this.isLocalEngineEnabled()) return;
+                const model = await this.resolveModelDefinition(await this.getActiveModelId());
+                if (this.serverProcess.isLoadedModel(await this.modelPath(model))) return;
+                await this.serverProcess.start(model, signal);
+                this.logger.info('local model preloaded', { model: model.id });
             }, this.lifetime.signal);
-            this.logger.info('local model preloaded', { model: model.id });
         } catch (error) {
             this.logger.warn('local model preload failed', { error });
         }

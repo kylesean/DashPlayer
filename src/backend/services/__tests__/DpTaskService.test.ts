@@ -245,4 +245,27 @@ describe('任务状态终态守卫与 cache-miss 读路径', () => {
         const dbRow = await repository.findById(row.id);
         expect(dbRow?.progress).toBe('下载中 10%');
     });
+
+    it('CANCELLED 终态后到达的不同终态（DONE/FAILED）同样被拒绝覆写', async () => {
+        const taskId = await service.create();
+        service.update({ id: taskId, status: DpTaskState.CANCELLED, progress: '任务取消' });
+
+        service.finish(taskId, { progress: '完成', result: '{"videoId":"x"}' });
+        service.fail(taskId, { progress: '失败', result: 'boom' });
+
+        const detail = await service.detail(taskId);
+        expect(detail?.status).toBe(DpTaskState.CANCELLED);
+        expect(detail?.progress).toBe('任务取消');
+    });
+
+    it('落库连续异常时采用退避调度而不是 0ms 热循环反复刷库', async () => {
+        const updateSpy = vi.spyOn(repository, 'updateById').mockRejectedValue(new Error('SQLITE_BUSY'));
+        const taskId = await service.create();
+        service.finish(taskId, { progress: '完成' });
+
+        await Promise.resolve();
+        await Promise.resolve();
+        // 首次立即刷写失败后应转为退避定时重试，而不是在微任务里无限连刷。
+        expect(updateSpy).toHaveBeenCalledTimes(1);
+    });
 });

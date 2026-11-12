@@ -136,24 +136,27 @@ export class ModelArchiveInstaller {
     }
 
     /**
-     * 取消进行中的模型下载；无下载任务时直接返回。
+     * 取消进行中的模型下载并等待写入与工作区收尾完成；无下载任务时直接返回。
      * @returns 是否确实中止了一个下载任务。
      */
     public async cancelDownload(): Promise<{ cancelled: boolean }> {
         const controller = this.activeAbortController;
-        if (!controller || this.activeDownload === null) {
+        const activeDownload = this.activeDownload;
+        if (!controller || activeDownload === null) {
             return { cancelled: false };
         }
         controller.abort();
         this.logger.warn('model download cancel requested', { model: this.options.modelDisplayName });
+        await activeDownload.catch(() => undefined);
         return { cancelled: true };
     }
 
     /**
-     * 删除已安装的模型目录；模型不存在时视为已删除。
+     * 删除已安装的模型目录；若有进行中的下载会先取消并等待收尾，防止解压/安装回写复活。
      * @returns 删除结果。
      */
     public async deleteModel(): Promise<{ success: boolean; message: string }> {
+        await this.cancelDownload();
         const modelPath = await this.getModelPath();
         await this.fileSystemGateway.removeDirectoryIfExists(modelPath);
         return { success: true, message: `${this.options.modelDisplayName} 模型已删除` };
@@ -194,7 +197,7 @@ export class ModelArchiveInstaller {
                 await this.fileSystemGateway.removeDirectoryIfExists(extractPath);
                 await this.fileSystemGateway.ensureDirectory(extractPath);
                 this.emitPhase('extracting');
-                await this.extractArchive(archivePath, extractPath);
+                await this.extractArchive(archivePath, extractPath, controller.signal);
                 sourceDir = await this.findModelDirectory(extractPath);
             }
             const missingFiles: string[] = [];
@@ -413,15 +416,20 @@ export class ModelArchiveInstaller {
      * 在 Node 进程内流式解压官方 tar.bz2 归档，避免依赖系统 tar 或 bzip2。
      * @param archivePath 归档文件。
      * @param extractPath 解压目录。
+     * @param signal 可选取消信号，取消时立即中止流式解压与磁盘写入。
      */
-    private async extractArchive(archivePath: string, extractPath: string): Promise<void> {
+    private async extractArchive(archivePath: string, extractPath: string, signal?: AbortSignal): Promise<void> {
         try {
             await pipeline(
                 fs.createReadStream(archivePath),
                 unbzip2Stream(),
                 tarFs.extract(extractPath),
+                { signal },
             );
         } catch (error) {
+            if (signal?.aborted) {
+                throw new Error(this.options.cancelledMessage, { cause: error });
+            }
             throw new Error(`${this.options.modelDisplayName} 模型归档解压失败：${error instanceof Error ? error.message : String(error)}`, { cause: error });
         }
     }

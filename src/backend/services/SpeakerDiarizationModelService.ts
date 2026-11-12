@@ -35,6 +35,12 @@ export interface DiarizationModelStatus {
     segmentationUrls: string[];
     /** 声纹嵌入模型下载地址。 */
     embeddingUrls: string[];
+    /** 任一段落是否正在下载。 */
+    downloading?: boolean;
+    /** 当前进行中的阶段。 */
+    phase?: ModelInstallationStatusVO['phase'];
+    /** 当前进度（0-100）。 */
+    percent?: number;
 }
 
 /**
@@ -74,6 +80,9 @@ export default interface SpeakerDiarizationModelService {
 export class SpeakerDiarizationModelServiceImpl implements SpeakerDiarizationModelService {
     private readonly segmentation: ModelArchiveInstaller;
     private readonly embedding: ModelArchiveInstaller;
+    /** 串联“分割 + 声纹嵌入”两阶段下载的单飞锁与取消标志，防止阶段切换间隙被重入或漏取消。 */
+    private activeDownload: Promise<{ success: boolean; message: string }> | null = null;
+    private downloadCancelled = false;
 
     constructor(
         @inject(TYPES.RendererGateway) rendererGateway: RendererGateway,
@@ -121,33 +130,59 @@ export class SpeakerDiarizationModelServiceImpl implements SpeakerDiarizationMod
             this.segmentation.getStatus(),
             this.embedding.getStatus(),
         ]);
+        const activePart = segmentation.downloading ? segmentation : (embedding.downloading ? embedding : null);
+        const downloading = this.activeDownload !== null || activePart !== null;
         return {
             segmentationReady: segmentation.ready,
             embeddingReady: embedding.ready,
             ready: segmentation.ready && embedding.ready,
             segmentationUrls: segmentation.downloadUrls,
             embeddingUrls: embedding.downloadUrls,
+            downloading,
+            phase: activePart?.phase ?? (this.activeDownload ? 'downloading' : null),
+            percent: activePart?.percent ?? 0,
         };
     }
 
     public async download(): Promise<{ success: boolean; message: string }> {
-        const segmentation = await this.segmentation.download();
-        if (!segmentation.success) {
-            return segmentation;
+        if (this.activeDownload) {
+            return this.activeDownload;
         }
-        return await this.embedding.download();
+        this.downloadCancelled = false;
+        const run = (async () => {
+            const segmentation = await this.segmentation.download();
+            if (!segmentation.success) {
+                return segmentation;
+            }
+            if (this.downloadCancelled) {
+                throw new Error(DOWNLOAD_CANCELLED_MESSAGE);
+            }
+            return await this.embedding.download();
+        })().finally(() => {
+            if (this.activeDownload === run) {
+                this.activeDownload = null;
+            }
+        });
+        this.activeDownload = run;
+        return run;
     }
 
     public async cancelDownload(): Promise<{ cancelled: boolean }> {
-        // 两个安装器各自持有取消控制器；当前下载只在其中一个上，逐个尝试即可。
+        const activeDownload = this.activeDownload;
+        this.downloadCancelled = true;
+        // 两个安装器各自持有取消控制器；同步取消两段并等待整条两段流水线收尾。
         const [segmentation, embedding] = await Promise.all([
             this.segmentation.cancelDownload(),
             this.embedding.cancelDownload(),
         ]);
-        return { cancelled: segmentation.cancelled || embedding.cancelled };
+        if (activeDownload) {
+            await activeDownload.catch(() => undefined);
+        }
+        return { cancelled: segmentation.cancelled || embedding.cancelled || activeDownload !== null };
     }
 
     public async deleteModel(): Promise<{ success: boolean; message: string }> {
+        await this.cancelDownload();
         const segmentation = await this.segmentation.deleteModel();
         const embedding = await this.embedding.deleteModel();
         return {
@@ -171,9 +206,9 @@ export function toInstallationStatus(status: DiarizationModelStatus): ModelInsta
         modelPath: '',
         ready: status.ready,
         missingFiles: status.ready ? [] : ['segmentation', 'embedding'],
-        downloading: false,
-        phase: null,
-        percent: 0,
+        downloading: status.downloading ?? false,
+        phase: status.phase ?? null,
+        percent: status.percent ?? 0,
         downloadUrls: [...status.segmentationUrls, ...status.embeddingUrls],
         archivePath: '',
     };

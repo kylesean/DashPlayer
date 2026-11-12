@@ -150,31 +150,43 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         const sessionId = params.sessionId;
         const session = this.chatSessionStore.get(sessionId);
         // 并发去重：同一会话已有精读 run 在跑时幂等返回它的 messageId，
-        // 避免双击/重入产生两个 run 并发 upsert 同一张学习卡。
+        // 必须在首个 await 之前同步占坑，避免重入 await 窗口启动两个并发分析 run。
         if (session.analysisRunId) {
             return { messageId: session.analysisRunId };
         }
-        const model = this.resolveCloudModelOrNull();
-        let localModelId: string | null = null;
-        if (!model) {
-            localModelId = await this.sentenceLearningService.resolveLocalModelId();
-            if (!localModelId) {
-                throw new Error(CLOUD_AI_NOT_CONFIGURED_MESSAGE);
-            }
-        }
-
-        const personaPrompt = await this.resolveSessionPersonaPrompt(session);
         const messageId = this.createMessageId();
-        const prompt = buildStudyCardPrompt({
-            text: session.originalTopic,
-            paragraphLines: session.paragraphLines,
-            subtitleOverview: this.tryGetSubtitleOverview(session.subtitleFileHash, session.anchorSentenceIndex),
-            memoryHints: session.memoryHints,
-            personaPrompt,
-        });
-
         const abortSignal = this.chatSessionStore.startRun(sessionId, messageId);
         session.analysisRunId = messageId;
+
+        let model: LanguageModel | null = null;
+        let localModelId: string | null = null;
+        let prompt = '';
+        try {
+            model = this.resolveCloudModelOrNull();
+            if (!model) {
+                localModelId = await this.sentenceLearningService.resolveLocalModelId();
+                if (!localModelId) {
+                    throw new Error(CLOUD_AI_NOT_CONFIGURED_MESSAGE);
+                }
+            }
+            abortSignal.throwIfAborted();
+            const personaPrompt = await this.resolveSessionPersonaPrompt(session);
+            abortSignal.throwIfAborted();
+            if (this.chatSessionStore.get(sessionId).closed) {
+                throw new Error(`chat session is closed: ${sessionId}`);
+            }
+            prompt = buildStudyCardPrompt({
+                text: session.originalTopic,
+                paragraphLines: session.paragraphLines,
+                subtitleOverview: this.tryGetSubtitleOverview(session.subtitleFileHash, session.anchorSentenceIndex),
+                memoryHints: session.memoryHints,
+                personaPrompt,
+            });
+        } catch (error) {
+            this.chatSessionStore.finishRun(sessionId, messageId);
+            throw error;
+        }
+
         this.rendererGateway.fireAndForget('chat/analysis/stream', {
             sessionId,
             messageId,
@@ -203,10 +215,18 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         const model = this.resolveCloudModelOrNull();
         const messageId = this.createMessageId();
 
+        // 首个 await 前原子认领首轮上下文注入权，避免并发 sendMessage 双重注入大段字幕材料。
+        const shouldInjectContext = this.chatSessionStore.claimContextInjection(sessionId);
         let localModelId: string | null = null;
         if (!model) {
-            localModelId = await this.sentenceLearningService.resolveLocalModelId();
+            try {
+                localModelId = await this.sentenceLearningService.resolveLocalModelId();
+            } catch (error) {
+                if (shouldInjectContext) this.chatSessionStore.releaseContextInjection(sessionId);
+                throw error;
+            }
             if (!localModelId) {
+                if (shouldInjectContext) this.chatSessionStore.releaseContextInjection(sessionId);
                 this.rendererGateway.fireAndForget('chat/stream', {
                     sessionId,
                     chunk: { type: 'error', errorText: CLOUD_AI_NOT_CONFIGURED_MESSAGE },
@@ -215,17 +235,20 @@ export class ChatSessionServiceImpl implements ChatSessionService {
             }
         }
 
-        const personaPrompt = await this.resolveSessionPersonaPrompt(session);
-        const contextText = !session.contextInjected
+        let personaPrompt: string | undefined;
+        try {
+            personaPrompt = await this.resolveSessionPersonaPrompt(session);
+        } catch (error) {
+            if (shouldInjectContext) this.chatSessionStore.releaseContextInjection(sessionId);
+            throw error;
+        }
+        const contextText = shouldInjectContext
             ? buildSubtitleContext({
                 originalTopic: session.originalTopic,
                 paragraphLines: session.paragraphLines,
                 subtitleOverview: this.tryGetSubtitleOverview(session.subtitleFileHash, session.anchorSentenceIndex),
             })
             : null;
-        if (!session.contextInjected) {
-            this.chatSessionStore.markContextInjected(sessionId);
-        }
 
         const userContent = contextText ? `${contextText}\n\n${content}` : content;
         this.chatSessionStore.appendMessage(sessionId, { role: 'user', content: userContent });
@@ -588,6 +611,9 @@ export class ChatSessionServiceImpl implements ChatSessionService {
 
         let accumulated = '';
         let lastPartialEmitAt = 0;
+        let parseSeq = 0;
+        let latestEmittedSeq = 0;
+        let finished = false;
 
         const output = await this.localAiService.streamText(
             prompt,
@@ -600,8 +626,14 @@ export class ChatSessionServiceImpl implements ChatSessionService {
                         return;
                     }
                     lastPartialEmitAt = now;
-                    void parsePartialJson(accumulated).then((parsed) => {
+                    const seq = ++parseSeq;
+                    const snapshot = accumulated;
+                    void parsePartialJson(snapshot).then((parsed) => {
+                        if (abortSignal.aborted || finished || seq < latestEmittedSeq) {
+                            return;
+                        }
                         if (parsed.value && typeof parsed.value === 'object' && !Array.isArray(parsed.value)) {
+                            latestEmittedSeq = seq;
                             this.rendererGateway.fireAndForget('chat/analysis/stream', {
                                 sessionId,
                                 messageId,
@@ -617,6 +649,7 @@ export class ChatSessionServiceImpl implements ChatSessionService {
                 temperature: 0.4,
             },
         );
+        finished = true;
 
         const parsed = SentenceStudyCardSchema.safeParse(parseMaybeJson(output));
         if (!parsed.success) {

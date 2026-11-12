@@ -62,6 +62,7 @@ export class SpeakerDiarizationServiceImpl implements SpeakerDiarizationService 
 
     /** 进行中的计算，避免同一视频并发重复分离。 */
     private readonly inFlight = new Map<string, Promise<SpeakerInterval[] | null>>();
+    private readonly epochs = new Map<string, number>();
 
     public constructor(
         @inject(TYPES.SpeakerDiarizationGateway)
@@ -76,39 +77,46 @@ export class SpeakerDiarizationServiceImpl implements SpeakerDiarizationService 
         videoPath: string,
         isCancelled?: () => boolean,
     ): Promise<SpeakerInterval[] | null> {
-        const inputHash = await videoInputHash(videoPath);
-        if (!inputHash) {
-            return null;
-        }
-        try {
-            const cached = await this.repository.find(videoPath, SPEAKER_SEGMENTATION_KIND, SPEAKER_SEGMENTATION_VERSION);
-            if (cached && cached.input_hash === inputHash) {
-                const parsed = parseIntervals(cached.payload_json);
-                if (parsed) {
-                    return parsed;
-                }
-                this.logger.warn('speaker signal payload invalid, recomputing', { videoPath });
-            }
-        } catch (error) {
-            this.logger.warn('speaker signal read skipped', {
-                error: error instanceof Error ? error.message : String(error),
-            });
-        }
-
+        // 同步占位，阻止并发调用穿透 await videoInputHash/repository.find 并写同一临时 wav 文件。
         const existing = this.inFlight.get(videoPath);
         if (existing) {
             return existing;
         }
-        const task = this.compute(videoPath, inputHash, isCancelled);
+        const epoch = this.epochs.get(videoPath) ?? 0;
+        const task = (async () => {
+            const inputHash = await videoInputHash(videoPath);
+            if (!inputHash) {
+                return null;
+            }
+            try {
+                const cached = await this.repository.find(videoPath, SPEAKER_SEGMENTATION_KIND, SPEAKER_SEGMENTATION_VERSION);
+                if (cached && cached.input_hash === inputHash) {
+                    const parsed = parseIntervals(cached.payload_json);
+                    if (parsed) {
+                        return parsed;
+                    }
+                    this.logger.warn('speaker signal payload invalid, recomputing', { videoPath });
+                }
+            } catch (error) {
+                this.logger.warn('speaker signal read skipped', {
+                    error: error instanceof Error ? error.message : String(error),
+                });
+            }
+            return this.compute(videoPath, inputHash, epoch, isCancelled);
+        })();
         this.inFlight.set(videoPath, task);
         try {
             return await task;
         } finally {
-            this.inFlight.delete(videoPath);
+            if (this.inFlight.get(videoPath) === task) {
+                this.inFlight.delete(videoPath);
+            }
         }
     }
 
     public async invalidate(videoPath: string): Promise<number> {
+        this.epochs.set(videoPath, (this.epochs.get(videoPath) ?? 0) + 1);
+        this.inFlight.delete(videoPath);
         try {
             return await this.repository.deleteByVideo(videoPath);
         } catch (error) {
@@ -128,6 +136,7 @@ export class SpeakerDiarizationServiceImpl implements SpeakerDiarizationService 
     private async compute(
         videoPath: string,
         inputHash: string,
+        epoch: number,
         isCancelled?: () => boolean,
     ): Promise<SpeakerInterval[] | null> {
         const tempDirectory = await this.directories.provideDirectory(StorageDirectoryTarget.TEMP);
@@ -145,19 +154,21 @@ export class SpeakerDiarizationServiceImpl implements SpeakerDiarizationService 
                 end: segment.end,
                 speaker: segment.speaker,
             }));
-            try {
-                await this.repository.upsert({
-                    videoId: videoPath,
-                    kind: SPEAKER_SEGMENTATION_KIND,
-                    algorithmVersion: SPEAKER_SEGMENTATION_VERSION,
-                    inputHash,
-                    payloadJson: JSON.stringify(intervals),
-                });
-            } catch (error) {
-                // 写入失败只影响下次是否重算，不影响本次结果。
-                this.logger.warn('speaker signal write skipped', {
-                    error: error instanceof Error ? error.message : String(error),
-                });
+            if ((this.epochs.get(videoPath) ?? 0) === epoch) {
+                try {
+                    await this.repository.upsert({
+                        videoId: videoPath,
+                        kind: SPEAKER_SEGMENTATION_KIND,
+                        algorithmVersion: SPEAKER_SEGMENTATION_VERSION,
+                        inputHash,
+                        payloadJson: JSON.stringify(intervals),
+                    });
+                } catch (error) {
+                    // 写入失败只影响下次是否重算，不影响本次结果。
+                    this.logger.warn('speaker signal write skipped', {
+                        error: error instanceof Error ? error.message : String(error),
+                    });
+                }
             }
             return intervals;
         } catch (error) {

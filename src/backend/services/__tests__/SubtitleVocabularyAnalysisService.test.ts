@@ -71,4 +71,31 @@ describe('字幕生词分析：被取代任务的活跃判定', () => {
         expect(service.isActive('hash-A')).toBe(false);
         expect(service.getStatus('hash-A').status).toBe('completed');
     });
+
+    it('同字幕并发调用时，后接入调用方能收到进度且首位取消不会误杀首位之后的订阅者', async () => {
+        let releaseChunk0!: () => void;
+        const matchMock = vi.fn().mockImplementation(
+            () => new Promise<MatchedWord[][]>((resolve) => {
+                releaseChunk0 = () => resolve([[]]);
+            }),
+        );
+        const service = makeService(matchMock);
+
+        let caller1Active = true;
+        const caller1Progress: number[] = [];
+        const caller2Progress: number[] = [];
+
+        const p1 = service.analyze('hash-shared', ['one line'], (p) => { caller1Progress.push(p); }, () => caller1Active);
+        const p2 = service.analyze('hash-shared', ['one line'], (p) => { caller2Progress.push(p); }, () => true);
+        await flushMicrotasks();
+
+        // 首位调用方随后失效（如组件卸载），第二位仍活跃
+        caller1Active = false;
+        releaseChunk0();
+
+        await expect(p1).rejects.toThrow('SUBTITLE_VOCABULARY_ANALYSIS_CANCELLED');
+        const res2 = await p2;
+        expect(res2.fileHash).toBe('hash-shared');
+        expect(caller2Progress).toContain(100);
+    });
 });

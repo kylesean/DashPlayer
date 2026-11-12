@@ -417,4 +417,41 @@ describe('模型归档安装器', () => {
             expect(remaining).toEqual([]);
         });
     });
+
+    it('cancelDownload 必须等待底层下载彻底结束，deleteModel 不会与在途安装并发复活文件', async () => {
+        const modelPath = path.join('/', 'models', 'test-model');
+        let finishAbort: (() => void) | undefined;
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+            const signal = (init as RequestInit | undefined)?.signal;
+            return new Promise((_resolve, reject) => {
+                if (signal?.aborted) {
+                    reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+                    return;
+                }
+                signal?.addEventListener('abort', () => {
+                    finishAbort = () => reject(Object.assign(new Error('Aborted'), { name: 'AbortError' }));
+                }, { once: true });
+            });
+        });
+
+        const downloadPromise = installer.download().catch(() => ({ success: false, message: 'cancelled' }));
+        await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+
+        let cancelResolved = false;
+        const cancelPromise = installer.cancelDownload().then((res) => {
+            cancelResolved = true;
+            return res;
+        });
+        await vi.waitFor(() => expect(finishAbort).toBeTypeOf('function'));
+        expect(cancelResolved).toBe(false);
+
+        finishAbort?.();
+        await expect(cancelPromise).resolves.toEqual({ cancelled: true });
+        expect(cancelResolved).toBe(true);
+        await downloadPromise;
+
+        const deleted = await installer.deleteModel();
+        expect(deleted.success).toBe(true);
+        expect(await gateway.directoryExists(modelPath)).toBe(false);
+    });
 });
