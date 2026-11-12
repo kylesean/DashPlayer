@@ -36,6 +36,10 @@ type SortMode = 'usage' | 'alphabetical' | 'recentVideo';
 type Props = {
   words: WordItem[];
   loading: boolean;
+  /** 拉取词表失败时的可读错误；与「空词表」区分展示。 */
+  error?: string | null;
+  /** 错误态下的重试动作。 */
+  onRetry?: () => void;
   selectedWord: WordItem | null;
   searchTerm: string;
   onSearchChange: (term: string) => void;
@@ -55,6 +59,8 @@ type Props = {
 export default function WordSidebar({
   words,
   loading,
+  error = null,
+  onRetry,
   selectedWord,
   searchTerm,
   onSearchChange,
@@ -243,6 +249,19 @@ export default function WordSidebar({
               <span>{t('loadingWords')}</span>
             </div>
           </div>
+        ) : error ? (
+          <div role="alert" className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-muted-foreground">
+            <span>{error}</span>
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="rounded-md border border-border px-2.5 py-1 text-metadata text-foreground transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t('learning.retry')}
+              </button>
+            )}
+          </div>
         ) : displayedWords.length === 0 ? (
           <div className="text-center py-10 text-sm text-muted-foreground px-4">
             {searchTerm ? t('noMatchingWords') : t('wordListEmpty')}
@@ -314,7 +333,7 @@ export default function WordSidebar({
                       type="button"
                       onClick={() => onEditWord(word)}
                       className={cn(
-                        'p-1 rounded-md transition-all cursor-pointer shrink-0',
+                        'p-1 rounded-md transition-all cursor-pointer shrink-0 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         active
                           ? 'text-on-accent/70 hover:text-on-accent hover:bg-on-accent/10'
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/80 opacity-0 group-hover:opacity-100'
@@ -330,8 +349,8 @@ export default function WordSidebar({
                       onConfirm={() => handleDeleteConfirmed(word)}
                       triggerClassName={
                         active
-                          ? 'text-on-accent/70 hover:text-on-accent'
-                          : 'opacity-0 group-hover:opacity-100'
+                          ? 'text-on-accent/70 hover:text-on-accent focus-visible:opacity-100'
+                          : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'
                       }
                     />
                     {!!word.videoCount && word.videoCount > 0 && (

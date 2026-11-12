@@ -29,6 +29,13 @@ export interface MemoryMapSectionProps {
 
 const STATUS_ORDER: readonly WordStatus[] = ['learning', 'familiar', 'known', 'ignored'];
 
+const STATUS_I18N: Record<WordStatus, string> = {
+    learning: 'wordStatusLearning',
+    familiar: 'wordStatusFamiliar',
+    known: 'wordStatusKnown',
+    ignored: 'wordStatusIgnored',
+};
+
 /**
  * 主题显示名。
  *
@@ -166,8 +173,13 @@ function TopicCard({
     onStartQueue?: (words: string[]) => void;
     hint?: string;
 }) {
-    const { t } = useTranslation('memoryMap');
+    const { t } = useTranslation(['memoryMap', 'common']);
     const total = STATUS_ORDER.reduce((sum, status) => sum + counts[status], 0);
+    const statusLabel = (status: WordStatus) => t(`common:${STATUS_I18N[status]}`);
+    const distributionLabel = STATUS_ORDER
+        .filter((status) => counts[status] > 0)
+        .map((status) => `${statusLabel(status)} ${counts[status]}`)
+        .join(' · ');
     return (
         <div className="rounded-xl border border-border/50 bg-background/50 px-3 py-2.5">
             <HStack vAlign="end" hAlign="between" gap={2} width="100%">
@@ -196,7 +208,11 @@ function TopicCard({
                     {t('topicKeywords', { words: keywords.join(' · ') })}
                 </Text>
             )}
-            <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+            <div
+                className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-muted/50"
+                role="img"
+                aria-label={distributionLabel}
+            >
                 {STATUS_ORDER.map((status) => (
                     counts[status] > 0 && (
                         <span
@@ -227,6 +243,7 @@ function TopicCard({
                                 : null,
                         ].filter(Boolean).join('\n')}
                         onClick={() => onSelectWord(word.word)}
+                        aria-label={`${word.word} · ${statusLabel(word.status)}`}
                         className={cn(
                             'rounded-md px-1.5 py-0.5 text-metadata transition-colors',
                             word.due

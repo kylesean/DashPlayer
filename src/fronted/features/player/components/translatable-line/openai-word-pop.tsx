@@ -243,11 +243,13 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onFavorite}
                                 disabled={isFavoriting}
                                 className={cn(
-                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer',
+                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                                     isFavorited && 'text-warning-text hover:text-warning-text scale-105',
                                     isFavoriting && 'cursor-default'
                                 )}
                                 title={isFavorited ? t('unfavoriteWord') : t('favoriteWord')}
+                                aria-label={isFavorited ? t('unfavoriteWord') : t('favoriteWord')}
+                                aria-pressed={isFavorited}
                             >
                                 {isFavoriting
                                     ? <Loader2 size={15} className="animate-spin" />
@@ -260,7 +262,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onMarkKnown}
                                 disabled={isUpdatingStatus}
                                 className={cn(
-                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer',
+                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                                     wordStatus === 'known' && 'text-success-text hover:text-success-text',
                                     isUpdatingStatus && 'cursor-default opacity-60',
                                 )}
@@ -278,7 +280,7 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onMarkIgnored}
                                 disabled={isUpdatingStatus}
                                 className={cn(
-                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer',
+                                    'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                                     wordStatus === 'ignored' && 'text-foreground',
                                     isUpdatingStatus && 'cursor-default opacity-60',
                                 )}
@@ -294,10 +296,11 @@ const OpenAIWordPop: React.FC<OpenAIWordPopProps> = ({
                                 onClick={onRefresh}
                                 disabled={isLoading || isStreaming}
                                 className={cn(
-                                    'p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer',
+                                    'p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/70 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                                     (isLoading || isStreaming) && 'opacity-50 cursor-not-allowed'
                                 )}
                                 title={t('forceRefresh')}
+                                aria-label={t('forceRefresh')}
                             >
                                 <RefreshCw size={14} className={isLoading || isStreaming ? 'animate-spin' : ''} />
                             </button>

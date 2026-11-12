@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/refs -- Astryx usePopover 把 triggerRef/triggerProps/render 作为渲染期 API 返回，会被 refs 规则误判 */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type Ref } from 'react';
 import { BookOpenCheck, Check, Clapperboard, CornerUpLeft, Loader2, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
@@ -93,6 +93,7 @@ const ReviewCardBody = ({
     onRate,
     clipCount,
     onOpenClips,
+    revealRef,
 }: {
     card: ReviewCardVO;
     revealed: boolean;
@@ -103,6 +104,8 @@ const ReviewCardBody = ({
     clipCount: number;
     /** 打开该词的片段（词汇工坊按词筛选）。 */
     onOpenClips: (word: string) => void;
+    /** 评分后把焦点交还给「显示答案」，避免键盘焦点落回 body。 */
+    revealRef?: Ref<HTMLButtonElement>;
 }) => {
     const { t } = useTranslation('player');
     const statusLabel = card.status === 'familiar'
@@ -204,6 +207,7 @@ const ReviewCardBody = ({
                             onClick={() => onRate(rating)}
                             className={cn(
                                 'h-8 rounded-lg border text-sm font-medium transition-colors cursor-pointer',
+                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-card',
                                 'disabled:cursor-wait disabled:opacity-60',
                                 RATING_STYLES[rating],
                             )}
@@ -215,9 +219,10 @@ const ReviewCardBody = ({
             ) : (
                 <button
                     type="button"
+                    ref={revealRef}
                     data-testid="review-reveal"
                     onClick={onReveal}
-                    className="h-8 w-full rounded-lg border border-border/70 bg-background/60 text-sm font-medium text-foreground transition-colors hover:bg-muted/60 cursor-pointer"
+                    className="h-8 w-full rounded-lg border border-border/70 bg-background/60 text-sm font-medium text-foreground transition-colors hover:bg-muted/60 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-card"
                 >
                     {t('reviewDock.reveal')}
                 </button>
@@ -245,6 +250,7 @@ export default function ReviewDock({
     const consumedId = useReviewDockStore((state) => state.consumedId);
     const consumeRequest = useReviewDockStore((state) => state.consume);
     const [revealedFor, setRevealedFor] = useState<string | null>(null);
+    const revealButtonRef = useRef<HTMLButtonElement | null>(null);
     const [pending, setPending] = useState(false);
     const [lastRated, setLastRated] = useState<{
         rating: ReviewRating;
@@ -373,6 +379,8 @@ export default function ReviewDock({
             setReviewedWords((words) => [...words, card.word]);
             setRevealedFor(null);
             await mutate();
+            // 评分按钮会随 revealed 卸载；把焦点交给下一张的「显示答案」，键盘流不断档。
+            requestAnimationFrame(() => revealButtonRef.current?.focus());
         } catch (error) {
             toast.error(error instanceof Error ? error.message : t('reviewDock.rateFailed'));
         } finally {
@@ -389,7 +397,9 @@ export default function ReviewDock({
                     onClick={() => (popover.isOpen ? popover.hide() : openDock())}
                     {...popover.triggerProps}
                     data-testid="review-dock-trigger"
-                    aria-label={t('reviewDock.trigger')}
+                    aria-label={dueCount > 0
+                        ? t('reviewDock.triggerWithDue', { count: dueCount })
+                        : t('reviewDock.trigger')}
                     className={cn(
                         TOOLBAR_ICON_BUTTON,
                         'relative',
@@ -400,7 +410,7 @@ export default function ReviewDock({
                     {dueCount > 0 && (
                         <span
                             aria-hidden
-                            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+                            className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-background"
                         >
                             {dueCount > 99 ? '99+' : dueCount}
                         </span>
@@ -468,6 +478,7 @@ export default function ReviewDock({
                             pending={pending}
                             onReveal={() => setRevealedFor(card.word)}
                             onRate={(rating) => { void rate(rating); }}
+                            revealRef={revealButtonRef}
                             clipCount={clipStats?.data?.[card.word.toLowerCase()]?.count ?? 0}
                             onOpenClips={(word) => {
                                 popover.hide();

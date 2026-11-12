@@ -46,7 +46,7 @@ export default function MemoryMapGraph({
         <div className="mt-3 rounded-xl border border-border/50 bg-background/40 p-2">
             <svg
                 viewBox={`0 0 ${VIEW_BOX} ${VIEW_BOX}`}
-                role="img"
+                role="group"
                 aria-label={t('graphLabel')}
                 className="mx-auto block h-auto w-full max-w-[420px]"
             >
@@ -112,7 +112,7 @@ function GraphNode({
                     onSelectWord(node.word);
                 }
             }}
-            className="cursor-pointer focus:outline-none"
+            className="cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
             <title>{`${node.word} · ${node.topicLabel}`}</title>
             <circle

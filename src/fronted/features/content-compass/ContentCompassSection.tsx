@@ -215,7 +215,7 @@ function CompassCard({
                 type="button"
                 aria-label={t('open', { name: displayName })}
                 onClick={onOpen}
-                className="w-full text-left outline-none"
+                className="w-full text-left outline-none rounded-2xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
                 <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border/60 bg-card shadow-2xs transition-[border-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:border-border group-hover:shadow-md">
                     {thumbnail ? (

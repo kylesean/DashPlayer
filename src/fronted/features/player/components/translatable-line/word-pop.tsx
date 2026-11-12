@@ -34,6 +34,8 @@ export interface WordSubParam {
     wordStatus?: WordStatus | null;
     /** 用户点击的单词原文，供语境解读使用。 */
     contextWord?: string;
+    /** 浮层的可访问名称（通常为词头）。 */
+    dialogLabel?: string;
     /** 单词所在字幕句，供语境解读使用。 */
     contextSentence?: string;
     /** 你与这个词的历史；加载中或不可用时为 null。 */
@@ -78,6 +80,7 @@ const WordPop: React.FC<WordSubParam> = ({
     onMarkIgnored,
     isUpdatingStatus = false,
     contextWord,
+    dialogLabel,
     contextSentence,
     wordMemory = null,
     promptReasons,
@@ -95,7 +98,7 @@ const WordPop: React.FC<WordSubParam> = ({
         <FloatingPortal>
             {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- 浮层容器仅阻止冒泡避免关闭底层取词浮层，交互由内部按钮与文档点击处理 */}
             <div
-                {...getFloatingProps()}
+                {...getFloatingProps({ 'aria-label': dialogLabel ?? cardData?.word ?? undefined })}
                 ref={setFloatingRef}
                 style={floatingStyles}
                 className="z-[9999] outline-none select-none"

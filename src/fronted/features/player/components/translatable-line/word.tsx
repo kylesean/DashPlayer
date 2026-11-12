@@ -564,6 +564,7 @@ export default function Word({
                         wordStatus={wordStatus ?? null}
                         isUpdatingStatus={statusSaving}
                         contextWord={original}
+                        dialogLabel={original}
                         contextSentence={sentenceText}
                         wordMemory={wordMemory ?? null}
                         promptReasons={promptReasons}

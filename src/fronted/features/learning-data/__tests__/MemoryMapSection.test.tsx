@@ -137,7 +137,8 @@ describe('MemoryMapSection', () => {
         fireEvent.click(await screen.findByText('expand'));
         fireEvent.click(screen.getByText('viewGraph'));
 
-        expect(screen.getByRole('img', { name: 'graphLabel' })).toBeDefined();
+        // 关系图是交互容器：必须用 group 而非 img，否则内部按钮在无障碍树中被当作图像内容隐藏。
+        expect(screen.getByRole('group', { name: 'graphLabel' })).toBeDefined();
         expect(screen.getByText('graphHint')).toBeDefined();
         // 关系图里每条无向边只画一次。
         expect(document.querySelectorAll('svg line')).toHaveLength(1);

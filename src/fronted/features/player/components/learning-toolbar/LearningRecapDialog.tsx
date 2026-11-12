@@ -318,7 +318,7 @@ function RecapBody({
     refreshing: boolean;
     onRefresh: () => void;
 }) {
-    const { t } = useTranslation('recap');
+    const { t, i18n } = useTranslation('recap');
 
     if (recap.words.length === 0) {
         return (
@@ -425,7 +425,7 @@ function RecapBody({
                         >
                             {t('lastRetell', {
                                 level: t(levelKey('retell', lastRetell.level)),
-                                date: formatPracticeDate(lastRetell.createdAt),
+                                date: formatPracticeDate(lastRetell.createdAt, i18n?.language),
                             })}
                         </p>
                     )}
@@ -470,6 +470,8 @@ function RecapBody({
                         value={draft}
                         rows={3}
                         data-testid="learning-retell-input"
+                        aria-label={t('speakingPlaceholder')}
+                        aria-describedby={retellError ? 'learning-retell-error' : undefined}
                         placeholder={t('speakingPlaceholder')}
                         onChange={(event) => onDraftChange(event.currentTarget.value)}
                         onKeyDown={(event) => {
@@ -478,10 +480,14 @@ function RecapBody({
                                 onCheckRetell();
                             }
                         }}
-                        className="mt-2 min-h-20 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-accent-bg/50"
+                        className="mt-2 min-h-20 w-full resize-none rounded-lg border border-border/70 bg-background px-3 py-2 text-sm leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-accent-bg/50 focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <div className="mt-2 flex items-center justify-between gap-3">
-                        <span className="text-metadata text-muted-foreground/70">
+                        <span
+                            id="learning-retell-error"
+                            role={retellError ? 'alert' : undefined}
+                            className="text-metadata text-muted-foreground/70"
+                        >
                             {retellError ?? ''}
                         </span>
                         <button
@@ -514,7 +520,7 @@ function RecapBody({
                         >
                             {t('lastRolePlay', {
                                 level: t(levelKey('roleplay', lastRolePlay.level)),
-                                date: formatPracticeDate(lastRolePlay.createdAt),
+                                date: formatPracticeDate(lastRolePlay.createdAt, i18n?.language),
                             })}
                         </p>
                     )}
@@ -541,10 +547,10 @@ function levelKey(mode: ProductionPracticeMode, level: RetellLevel): string {
 /**
  * 兼容 SQLite 默认的 `YYYY-MM-DD HH:MM:SS`（UTC）与 ISO 字符串。
  */
-function formatPracticeDate(value: string): string {
+function formatPracticeDate(value: string, locale?: string): string {
     const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`;
     const date = new Date(normalized);
-    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(locale || undefined);
 }
 
 /**

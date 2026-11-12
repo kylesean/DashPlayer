@@ -130,6 +130,7 @@ export default function SubtitleList({
                         onTogglePlay?.();
                       }}
                       className="p-1 rounded hover:bg-muted transition-colors"
+                      aria-label={playing ? t('subtitleList.pause') : t('subtitleList.play')}
                       title={playing ? t('subtitleList.pause') : t('subtitleList.play')}
                     >
                       {playing ? (
@@ -150,6 +151,8 @@ export default function SubtitleList({
                           ? 'bg-accent-bg/10'
                           : 'hover:bg-muted'
                       }`}
+                      aria-pressed={autoPause}
+                      aria-label={autoPause ? t('subtitleList.autoPauseOn') : t('subtitleList.autoPauseOff')}
                       title={autoPause ? t('subtitleList.autoPauseOn') : t('subtitleList.autoPauseOff')}
                     >
                       <CirclePause className={`w-3 h-3 ${
@@ -170,6 +173,8 @@ export default function SubtitleList({
                           ? 'bg-success-muted'
                           : 'hover:bg-muted'
                       }`}
+                      aria-pressed={singleRepeat}
+                      aria-label={singleRepeat ? t('subtitleList.singleRepeatOn') : t('subtitleList.singleRepeatOff')}
                       title={singleRepeat ? t('subtitleList.singleRepeatOn') : t('subtitleList.singleRepeatOff')}
                     >
                       <Repeat className={`w-3 h-3 ${
@@ -180,17 +185,17 @@ export default function SubtitleList({
                     </button>
                   </>
                 ) : (
-                  // 非当前行：隐藏的按钮保持布局稳定
-                  <div className="flex items-center gap-1 opacity-0">
-                    <button className="p-1 w-6 h-6">
+                  // 非当前行：纯占位，保持布局稳定；用不可聚焦的 span，避免进入 Tab 顺序
+                  <div className="flex items-center gap-1 opacity-0" aria-hidden="true">
+                    <span className="p-1 w-6 h-6 inline-flex items-center justify-center">
                       <Play className="w-3 h-3" />
-                    </button>
-                    <button className="p-1 w-6 h-6">
+                    </span>
+                    <span className="p-1 w-6 h-6 inline-flex items-center justify-center">
                       <CirclePause className="w-3 h-3" />
-                    </button>
-                    <button className="p-1 w-6 h-6">
+                    </span>
+                    <span className="p-1 w-6 h-6 inline-flex items-center justify-center">
                       <Repeat className="w-3 h-3" />
-                    </button>
+                    </span>
                   </div>
                 )}
               </div>
