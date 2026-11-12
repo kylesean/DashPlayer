@@ -10,13 +10,13 @@
         "orLocal": "or start from a local video"
     },
     "dialog": {
-        "title": "Download & import a YouTube video",
-        "description": "Saves the full video and English subtitles to your local media library for offline study. Open the player from the task row when it's done. YouTube only.",
-        "urlLabel": "YouTube video link",
-        "urlHelp": "YouTube links only. Downloads the best available MP4 quality.",
+        "title": "Import YouTube Video",
+        "description": "Save video and English subtitles to local library",
+        "urlLabel": "Video Link",
+        "urlHelp": "Supports YouTube video or short links",
         "placeholder": "https://www.youtube.com/watch?v=...",
         "invalidUrl": "Enter a valid YouTube link (youtube.com or youtu.be).",
-        "start": "Download & import",
+        "start": "Import",
         "close": "Close",
         "pending": "Waiting to start…",
         "processing": "Processing…",

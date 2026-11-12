@@ -1,10 +1,8 @@
-import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Download, X } from 'lucide-react';
-import { Dialog } from '@astryxdesign/core/Dialog';
+import { Download } from 'lucide-react';
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
 import { Button } from '@astryxdesign/core/Button';
 import { TextInput } from '@astryxdesign/core/TextInput';
-import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
@@ -34,40 +32,25 @@ const YoutubeImportDialog = ({ open, onOpenChange }: YoutubeImportDialogProps) =
     const videoId = parseYoutubeVideoId(url);
     const isInvalid = url.trim().length > 0 && !videoId;
     const canSubmit = Boolean(videoId) && !submitting;
-    const titleId = useId();
 
     return (
         <Dialog
             isOpen={open}
             onOpenChange={onOpenChange}
             purpose="form"
-            width={520}
+            width={480}
             padding={4}
-            aria-labelledby={titleId}
         >
             <VStack gap={4} width="100%">
-                <VStack gap={1} width="100%">
-                    <HStack hAlign="between" vAlign="start" gap={2} width="100%">
-                        <Text as="h2" id={titleId} type="large" size="2xl" weight="bold">
-                            {t('dialog.title')}
-                        </Text>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            isIconOnly
-                            label={t('dialog.close')}
-                            icon={<Icon icon={X as unknown as IconType} size="sm" />}
-                            onClick={() => onOpenChange(false)}
-                        />
-                    </HStack>
-                    <Text type="supporting" color="secondary">
-                        {t('dialog.description')}
-                    </Text>
-                </VStack>
-                <VStack gap={2} width="100%">
+                <DialogHeader
+                    title={t('dialog.title')}
+                    subtitle={t('dialog.description')}
+                    onOpenChange={onOpenChange}
+                    hasDivider={false}
+                />
+                <VStack gap={3} width="100%">
                     <TextInput
                         label={t('dialog.urlLabel')}
-                        description={t('dialog.urlHelp')}
                         value={url}
                         onChange={(val) => setUrl(val)}
                         placeholder={t('dialog.placeholder')}

@@ -10,13 +10,13 @@
         "orLocal": "或从本地视频开始"
     },
     "dialog": {
-        "title": "下载并导入 YouTube 视频",
-        "description": "将完整视频与英文字幕保存到本地媒体库，可离线精听；完成后可在任务行打开播放页。仅支持 YouTube。",
-        "urlLabel": "YouTube 视频链接",
-        "urlHelp": "仅支持 YouTube 链接，默认下载最高画质的 MP4。",
+        "title": "导入 YouTube 视频",
+        "description": "保存视频与英文字幕至本地媒体库",
+        "urlLabel": "视频链接",
+        "urlHelp": "支持 YouTube 视频或短链",
         "placeholder": "https://www.youtube.com/watch?v=...",
         "invalidUrl": "请输入有效的 YouTube 视频链接（youtube.com 或 youtu.be）。",
-        "start": "下载并导入",
+        "start": "导入",
         "close": "关闭",
         "pending": "等待开始…",
         "processing": "处理中…",
