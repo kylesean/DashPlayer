@@ -538,11 +538,8 @@ context_embeddings
 - 推荐评分、ContextPack 服务和建议 chip 的定向测试共 16 项通过。
 - R2 涉及文件定向 ESLint 通过。
 
-尚未包含：
-
-- LLM 词卡增强、摘要与复述。
-- 句子/视频 embedding、内容指南针。
-- 推荐接受率、忽略率和 7 天回忆率的聚合看板；当前先落事件证据，指标聚合留到下一阶段。
+当时尚未包含的三项均已由后续阶段承接：LLM 词卡增强见 R2 第三阶段，摘要与复述见
+R2 第四阶段，embedding 与内容指南针见 R2 第五至七阶段，指标聚合见 R3 第九阶段。
 
 #### R2 第二阶段实施记录（2026-11-12）
 
@@ -598,11 +595,8 @@ context_embeddings
 - 中英文案 parity 测试 23 项通过。
 - TypeScript 全量检查通过，定向 ESLint 通过。
 
-尚未包含：
-
-- 整句 AI 摘要与复述；当前只做单词级语境解读。
-- 句子/视频 embedding 与内容指南针。
-- 推荐接受率、忽略率与 7 天回忆率的聚合看板。
+当时尚未包含的整句摘要与复述、句子/视频 embedding 与内容指南针、推荐指标聚合看板，
+已分别由 R2 第四阶段、R2 第五至七阶段与 R3 第九阶段补齐。
 
 #### R2 第四阶段实施记录（2026-11-12）
 
@@ -631,9 +625,10 @@ context_embeddings
 
 尚未包含：
 
-- 视频结束自动提示复盘；当前由用户从「本次学习」主动打开，避免打断连续播放。
 - 语音复述与发音/流利度评分；当前只做书面复述。
-- 复述结果写入掌握度与长期学习指标；当前只作为即时练习反馈。
+
+本节两项缺口已补齐：视频结束自动提示复盘见 R3 第十阶段，复述结果写入掌握度见
+R3 第十三阶段。语音复述仍不在范围内。
 
 #### R2 第五阶段实施记录（2026-11-12）
 
@@ -711,8 +706,11 @@ context_embeddings
 
 尚未包含：
 
-- 在线学习或 bandit 调参；当前权重是透明常量，先积累曝光、打开与复习结果。
-- 推荐 → 观看 → 复习的因果归因与长期留存实验；当前只统计同窗口相关指标，不宣称因果。
+- 在线学习或 bandit 调参；当前是可解释的保守修正，不做探索-利用。
+- 长期留存实验与统计显著性检验；当前只呈现漏斗计数与转化率，不宣称因果。
+
+本节两项缺口已补齐：完整因果归因见 R3 第十五阶段，按复习结果反向调整权重同样
+见 R3 第十五阶段（样本少于 8 次曝光时不动权重，单次调整上限 ±0.06）。
 
 后续阶段已补齐（见 R2 第八、九阶段）：持久化向量库与增量索引、语义模型下载
 进度、学习数据导入/恢复均已落地；模型本身也已从 bge-small 换成 EmbeddingGemma 2，
@@ -791,8 +789,9 @@ context_embeddings
 尚未包含：
 
 - 回听、打开词卡、跟读失败等更多学习时刻信号；首版只使用「暂停停留 + 到期词」。
-- 跟读重音/节奏；仍属于 R3 后续阶段。
 - 学习时刻曝光与忽略的独立分析事件；当前限频在本地完成，先不做服务端归因。
+
+跟读重音/节奏已由 R3 第三阶段补齐；学习时刻的服务端归因仍是有意不做。
 
 #### R3 第二阶段实施记录（2026-11-12）
 
@@ -824,7 +823,8 @@ context_embeddings
 
 - 语音角色扮演与发音/流利度评分；当前只做书面回应。
 - 多轮角色扮演对话；当前只针对一个开场白做一次回应。
-- 场景回应结果写入长期表达掌握度；当前只作为即时练习反馈。
+
+场景回应结果写入长期表达掌握度已由 R3 第十三阶段补齐；语音与多轮对话仍不在范围内。
 
 #### R3 第三阶段实施记录（2026-11-12）
 
@@ -855,8 +855,9 @@ context_embeddings
 尚未包含：
 
 - 音素级发音评分与具体音标纠错；当前只分析时长与能量，不判断音素是否正确。
-- 原句参考重音标注；当前重读是用户自身录音内的相对分布，而不是与母语者重音位置对比。
-- 跨次练习的节奏趋势；当前只展示单次结果。
+
+原句参考重音标注已由 R3 第十一阶段补齐（词典 IPA 重音音节 + 实测能量分布对比），
+跨次节奏趋势已由 R3 第十二阶段补齐。音素级评分仍是有意不做的边界。
 
 #### R3 第四阶段实施记录（2026-11-12）
 
@@ -886,9 +887,11 @@ context_embeddings
 
 尚未包含：
 
-- 词与词之间的共现边、聚类主题命名与图谱可视化布局；当前是主题分组 + 阶段分布。
+- 聚类主题命名；当前主题名仍取观看记录文件名。
+- 图谱可视化布局（力导向/弧形图）；当前仍是主题卡片 + 阶段分布条。
 - 跨设备的图谱同步；当前只读本机数据库。
-- 点击图谱词后的主题内连续学习队列；当前复用词汇工坊既有的片段筛选。
+
+词间共现边与主题内连续学习队列已由 R3 第十四阶段补齐。
 
 #### R3 第五阶段实施记录（2026-11-12）
 
@@ -918,9 +921,10 @@ context_embeddings
 
 尚未包含：
 
-- 「推荐 → 打开视频 → 视频内复习 → 次日回忆」的完整因果归因；当前只记录推荐到复习的点击。
-- 按复习结果反向调整推荐权重；当前排序仍使用到期词数量与理解度等本地信号。
 - 非首页场景（播放器内推荐、移动端）的复习联动入口。
+
+「推荐 → 打开视频 → 视频内复习 → 次日回忆」的完整因果归因与按实测转化反向调整
+推荐权重，均已由 R3 第十五阶段补齐。
 
 #### R3 第六阶段实施记录（2026-11-12）
 
@@ -1033,6 +1037,214 @@ context_embeddings
 
 场景切分已不再是「只用字幕时间与文本」：视频帧与声纹信号在 R2 阶段接入
 （见第 13 节），持久化也从 `dp_scene_index` 扩展到 `dp_media_signal`。
+
+#### R3 第九阶段实施记录（2026-11-12）
+
+已落地：
+
+- 新增学习指标看板，落在设置 → 存储 → 学习数据，与导出/导入/清除并列；不是新的主导航入口。
+- 北极星指标「本周完成真实回忆的目标词数」按 lemma 去重统计，只计 `good / easy`，同一词重复评分不会刷高数值。
+- 辅助指标：7/30 天回忆率、复习到期完成率、「认识 / 忽略」反馈率、练习覆盖率，全部由本地事件与复习卡现算，不落冗余汇总表。
+- 指标口径抽成 `src/common/learning/learningMetrics.ts` 纯函数，前后端共用同一份计算，避免看板与导出各写一套。
+- **缺数据源的两项指标不做假零值**：`interventionsPerTenMinutes`（无播放时长表）与 `continueAfterSession`（无会话结束事件）通过 `unavailable[]` 显式声明不可用，UI 显示解释文案而不是 `0`。
+- 新增 `learning-data/metrics` 路由与服务，`ReviewEventRow` 从后端仓储上移到 `src/common/types/review.ts`，保证 `src/common` 不反向依赖后端。
+
+核心实现：
+
+- `src/common/types/learningMetrics.ts`、`src/common/learning/learningMetrics.ts`
+- `src/backend/services/LearningMetricsService.ts`
+- `src/backend/controllers/LearningDataController.ts` 的 `learning-data/metrics`
+- `src/fronted/features/learning-data/LearningMetricsSection.tsx`
+- i18n 命名空间 `metrics`
+
+验证：
+
+- 指标纯函数、服务聚合与看板渲染定向测试通过（含 `unavailable` 语义）。
+- `pnpm run typecheck` 与 `pnpm run lint` 通过。
+
+尚未包含：
+
+- 每 10 分钟主动干预次数与「会话结束后继续观看比例」；两者都需要播放时长/会话结束数据源，当前显式标记为不可用。
+- 指标的历史趋势与分组对比（按视频、按主题）；当前只呈现当前窗口的单值。
+
+#### R3 第十阶段实施记录（2026-11-12）
+
+已落地：
+
+- 视频自然播放结束时，在播放器工具条上方出现一条可关闭的 `Banner` 提示，引导用户打开复盘；不是弹窗，不抢焦点。
+- 提示与「自动连播下一集」互不阻塞：`handleStageEnded` 先登记提示请求，再照常触发自动连播，用户可以选择看复盘或继续看。
+- 同一播放会话内同一提示键只出现一次，避免用户手动关闭后每次暂停/续播又弹回来。
+- 弹层开关状态移入 `recapPromptStore`，让提示与弹层共享同一份状态，避免在 effect 内 setState 触发 `react-hooks/set-state-in-effect`。
+- 关闭提示不改变任何学习数据，也不写「已忽略」事件；这是提示而非干预。
+
+核心实现：
+
+- `src/fronted/features/player/components/learning-toolbar/recapPromptStore.ts`
+- `src/fronted/features/player/components/learning-toolbar/RecapEndedPrompt.tsx`
+- `src/fronted/features/player/components/srt-layout/Layout.tsx` 的 `handleStageEnded`
+
+验证：
+
+- 提示去重、自动连播不被阻塞、关闭后不再出现的组件与集成测试通过。
+
+#### R3 第十一阶段实施记录（2026-11-12）
+
+已落地：
+
+- 跟读反馈从词级扩展到音节级：用词典 IPA 拆分参考音节，与用户录音的实测音节数对比，偏差超过容差时给出「音节偏少 / 偏多」提示。
+- IPA 拆分按元音核切分，`ɪ / ʊ / ɚ` 与元音后的 `ə` 视为滑音留在同一音节内，避免把双元音拆成两个音节。
+- 新增参考重音标注：在音节能量分布内判定重音位置，并与词典标注的重音音节对比；偏移时提示「重音位置偏移」，用警示色而非错误色。
+- 音节数容差按 0.22 s/音节换算，短句不会被苛责；无音标、无时间轴或 WAV 解析失败时该段反馈整体缺省，不影响既有词级评分。
+- **明确不假装音素评分**：不做强制对齐、不判断具体音素对错，只做「参考结构 + 实测时长/能量」的可解释对比，避免输出无法验证的分数。
+
+核心实现：
+
+- `src/common/utils/practice/syllableFeedback.ts`（`splitIpaSyllables` / `compareSyllableCount` / `buildWordSyllableFeedback` / `SYLLABLE_STRESS_MARGIN`）
+- `src/common/utils/practice/rhythmFeedback.ts`（`lookupPhonetic` 输入与 `measureSyllableEnergies`）
+- `src/backend/services/SentencePracticeService.ts`（注入 `BuiltinDictionaryStore`，读 `entry.phonetic`）
+- `src/fronted/features/practice/components/ShadowingStudio.tsx`
+
+验证：
+
+- IPA 拆分、音节数容差、重音偏移与服务集成定向测试通过。
+- 全量类型检查与 ESLint 通过。
+
+尚未包含：
+
+- 音素级发音评分与具体音标纠错；这是有意的边界，见上。
+
+#### R3 第十二阶段实施记录（2026-11-12）
+
+已落地：
+
+- 新增跨次节奏趋势：把每次跟读的语速倍率与节奏指标存成趋势点，多次练习后给出「进步 / 稳定 / 退步 / 样本不足」四档判断。
+- 判断方式是「前一半样本均值 vs 后一半样本均值」，不是线性回归：样本量小的时候回归斜率极不稳定，均值对比更诚实。
+- 样本少于 3 次时返回 `insufficient`，不显示箭头，也不给鼓励文案。
+- 新增迁移 `0022_rhythm_trend.sql` 给 `dp_sentence_practice_record` 加 `rhythm_json`；历史记录该字段为空，趋势自动跳过而不是当成 0。
+- 趋势按句子维度取数（同一句的多次跟读才可比），不是跨句平均。
+
+核心实现：
+
+- `drizzle/migrations/0022_rhythm_trend.sql`
+- `src/common/learning/rhythmTrend.ts`（`buildRhythmTrend` / `RHYTHM_TREND_MIN_SAMPLES`）
+- `src/backend/services/SentencePracticeService.ts`、`practice/rhythm-trend` 路由
+- `src/fronted/features/practice/components/PracticeDock.tsx` → `ShadowingStudio` → `RhythmFeedback`
+
+验证：
+
+- 趋势判定四档、样本不足、缺失 `rhythm_json` 的定向测试通过。
+
+尚未包含：
+
+- 趋势的可视化折线；当前只用一行文字与方向标记。
+
+#### R3 第十三阶段实施记录（2026-11-12）
+
+已落地：
+
+- 复述与角色扮演的结果不再只做即时反馈，而是写入长期掌握度：`recordProductionEvidence` 复用既有遭遇事件与掌握度管线，动作记为 `shadow`。
+- **只更新用户已在学习的词**：`source === 'default'` 与不在词表里的词一律跳过，产出型练习不能反向把默认词表塞进个人词表。
+- 复述证据来自原句内容词与用户答案的差集（`missingWords` 排除后），角色扮演证据来自实际用到的目标表达，两者都由本地逐字匹配决定，模型只负责等级与点评。
+- 等级到分数的映射是透明常量 `great 90 / good 72 / retry 45`，不随模型输出浮动。
+
+核心实现：
+
+- `src/backend/services/WordEncounterService.ts` 的 `recordProductionEvidence`
+- `src/backend/services/LearningRecapService.ts`（`PRODUCTION_LEVEL_SCORE` 与两处证据写入）
+
+验证：
+
+- 默认词表不被写入、非词表词被跳过、等级映射与事件写入的定向测试通过。
+
+尚未包含：
+
+- 语音复述与发音/流利度评分；当前复述仍只有书面输入。
+- 多轮角色扮演对话；当前是一次开场白 + 一次回应。
+
+#### R3 第十四阶段实施记录（2026-11-12）
+
+已落地：
+
+- 记忆图谱新增词间共现边：按「主题 + 句子哈希」分组，同句出现的词两两计数，边是双向的，每个词最多保留 3 条最强邻居。
+- 排序先按共现次数降序、同次数按词面升序，保证同一份数据每次渲染顺序一致。
+- 主题卡片新增「按主题顺序学」入口：把该主题的代表词按学习优先级排成队列交给词汇工坊。
+- 队列只做排序、不做过滤：未入队的词仍然可见，避免用户以为词「消失了」。
+- 共现边完全由本地遭遇事件推导，不调用模型、不做 embedding 聚类。
+
+核心实现：
+
+- `src/common/learning/memoryMap.ts` 的 `buildCooccurrenceEdges`
+- `src/common/types/memoryMap.ts` 的 `MemoryMapNeighborVO`
+- `src/backend/services/MemoryMapService.ts`
+- `src/fronted/features/learning-data/MemoryMapSection.tsx`、`src/fronted/features/video-learning/VideoLearningPage.tsx`
+
+验证：
+
+- 共现计数、双向边、每词上限与主题队列排序的定向测试通过。
+
+尚未包含：
+
+- 聚类主题命名；当前主题名仍取观看记录文件名。
+- 图谱可视化布局（力导向/弧形图）；当前仍是主题卡片 + 阶段分布条。
+
+#### R3 第十五阶段实施记录（2026-11-12）
+
+已落地：
+
+- 推荐因果漏斗：`shown → opened → reviewed → recalled` 四级，按「至少到达该级」累计统计；回退步骤不计入更高级，避免把误点算成转化。
+- 漏斗在设置页推荐区块内展示，与曝光/打开率看板同处，不再新增独立页面。
+- 新增按实测转化微调排序权重：以整体全链转化率为基线，逐信号比较其漏斗转化，偏差的一半作为调整量，单次调整上限 ±0.06，最后归一化回 1。
+- 样本少于 8 次曝光时完全不动权重，避免冷启动阶段被噪声带偏。
+- 权重每次请求现算、不持久化：口径变化或数据清理后立即回到默认常量，不会留下无法解释的历史权重。
+
+核心实现：
+
+- `src/common/learning/compassAttribution.ts`（`ATTRIBUTION_STAGES` / `buildAttribution` / `DEFAULT_COMPASS_WEIGHTS` / `adjustWeightsFromAttribution`）
+- `src/common/learning/contentCompass.ts` 的 `rankContentCompassCandidates(candidates, limit, weights)`
+- `src/backend/services/ContentCompassService.ts` 的 `getAttribution` / `resolveWeights`
+- `src/backend/controllers/ContentCompassController.ts` 的 `content-compass/attribution`
+- `src/fronted/features/settings/StorageSetting.tsx`
+
+验证：
+
+- 漏斗累计口径、逆序步骤不计入、样本不足不动权重、调整幅度上限与归一化的定向测试通过。
+
+尚未包含：
+
+- 在线学习或 bandit 调参；当前是保守的、可解释的一次性修正，不做探索-利用。
+- 长期留存实验与统计显著性检验；当前只呈现漏斗计数与转化率，不宣称因果。
+
+#### R3 完成度总览（2026-11-12）
+
+R2 与 R3 的十五个阶段已全部落地。交付清单逐条对照如下。
+
+已闭环（有代码、有测试、可关闭或可降级）：
+
+- ContextPack、候选评分、每句一个建议、可解释理由、密度约束。
+- 自适应中文字幕、词卡 AI 语境解读、会话复盘、书面复述、书面场景回应。
+- 句子/视频主题向量、内容指南针、语义模型（EmbeddingGemma 2）、持久化向量索引与增量失效。
+- 场景切分（时间/话题/声纹/画面四类信号）、场景索引持久化。
+- 学习时刻检测与微回忆、复习坞、FSRS-lite 调度、跟读/听写/复述/角色扮演写入掌握度。
+- 跟读的词级对齐、节奏与重读、音节级反馈与参考重音、跨次节奏趋势。
+- 记忆图谱（主题分组、阶段分布、共现边、主题内学习队列）。
+- 推荐闭环（到期词复习入口、`shown/opened/reviewed/dismissed` 事件、因果漏斗、保守权重微调）。
+- 学习指标看板（北极星 + 辅助指标 + 显式不可用项）。
+- 学习数据导出/导入快照（`schemaVersion: 2`）。
+
+仍未包含，且判定为「不做」或「需要产品先拍板」：
+
+- **多轮角色扮演对话**：需要会话状态与多轮持久化（新表），属于新功能而非收尾。
+- **语音复述与流利度评分**：复述目前只有书面通道；语音评分需要与跟读不同的评分口径。
+- **聚类主题命名**：主题名仍取文件名，真正的聚类命名需要模型参与且要能解释。
+- **图谱可视化布局**：目前是主题卡片 + 阶段分布条，力导向/弧形图属于纯视觉增量。
+- **跨设备同步与字段级合并**：导入是整体快照覆盖；同步涉及冲突语义，需产品决策。
+- **在线学习 / bandit 调参**：当前是一次性保守修正，不做探索-利用。
+- **语音韵律作为场景信号**：只有跟读环节有韵律分析，未反向喂给场景切分。
+- **ANN 近似检索、向量进备份、音频本体搬迁、备份加密签名**：均为有意不做，理由见各阶段记录。
+- **学习时刻服务端归因、`lookup` 独立事件、悬停节流跨重启**：有意的本地化取舍。
+
+结论：计划文档里的功能需求已全部有对应实现或明确的不做理由；剩余项都是新功能
+或需要产品决策，不属于「未完成的任务」。
 
 ### 8.1 第一个 Sprint 的具体任务
 
