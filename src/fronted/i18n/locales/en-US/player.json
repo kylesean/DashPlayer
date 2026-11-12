@@ -374,5 +374,18 @@
     },
     "layout": {
         "resetSplitHint": "Double-click either divider to reset the default split"
+    },
+    "transcriptVocabulary": {
+        "filterLabel": "Filter",
+        "filterTooltip": "Filter the transcript by vocabulary status",
+        "filterTitle": "Show only",
+        "filterAll": "All sentences",
+        "filterLearning": "With words to learn",
+        "filterFamiliar": "With familiar words",
+        "filteringHint": "Showing {{shown}} of {{total}} sentences",
+        "clearFilter": "Show all",
+        "emptyTitle": "No sentences match this filter",
+        "learningDot": "{{count}} word(s) to learn in this sentence",
+        "familiarDot": "{{count}} familiar word(s) in this sentence"
     }
 }

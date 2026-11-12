@@ -1,6 +1,7 @@
 import React, { forwardRef, useMemo, useState } from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { useShallow } from 'zustand/react/shallow';
 import { Play, Repeat1 } from 'lucide-react';
 
@@ -14,6 +15,10 @@ import TimeUtil from '@/common/utils/TimeUtil';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { renderSentenceTokens } from './sentence-token-renderer';
 import { highlightSlice } from './transcript-highlight';
+import {
+    EMPTY_SENTENCE_VOCABULARY_COUNT,
+    type SentenceVocabularyCount,
+} from '@/fronted/features/player/transcriptVocabulary';
 
 /**
  * 侧栏单句剧本行入参定义。
@@ -41,6 +46,8 @@ export interface SideSentenceProps {
     isActiveSearchMatch?: boolean;
     /** 切换单句循环回调。 */
     onToggleSingleRepeat?: (sentence: Sentence) => void;
+    /** 本句可见的词汇标记数量；缺省时不显示状态点。 */
+    vocabularyCount?: SentenceVocabularyCount;
 }
 
 /**
@@ -80,6 +87,60 @@ const RepeatAudioWave = () => (
 );
 
 /**
+ * 本句的词汇状态点：圆点 + 可见数量。
+ *
+ * Astryx 的 StatusDot 明确要求「不要只靠颜色传达状态」，所以数量作为可见文本
+ * 一并渲染，圆点只承担「这一句有东西可看」的第一眼信号。两类标记同时存在时
+ * 各自成组，避免把两种语义塞进同一个点里。
+ */
+const VocabularyDots = ({ count }: { count: SentenceVocabularyCount }) => {
+    const { t } = useI18nTranslation('player');
+    if (count.learning === 0 && count.familiar === 0) {
+        return null;
+    }
+    return (
+        <div className="flex items-center gap-1.5 shrink-0" data-testid="sentence-vocabulary-dots">
+            {count.learning > 0 && (
+                <span className="inline-flex items-center gap-1">
+                    <StatusDot
+                        variant="accent"
+                        label={t('transcriptVocabulary.learningDot', {
+                            count: count.learning,
+                            defaultValue: '本句有 {{count}} 个待学词',
+                        })}
+                        tooltip={t('transcriptVocabulary.learningDot', {
+                            count: count.learning,
+                            defaultValue: '本句有 {{count}} 个待学词',
+                        })}
+                    />
+                    <span className="text-metadata font-mono tabular-nums text-accent/80">
+                        {count.learning}
+                    </span>
+                </span>
+            )}
+            {count.familiar > 0 && (
+                <span className="inline-flex items-center gap-1">
+                    <StatusDot
+                        variant="neutral"
+                        label={t('transcriptVocabulary.familiarDot', {
+                            count: count.familiar,
+                            defaultValue: '本句有 {{count}} 个有印象的词',
+                        })}
+                        tooltip={t('transcriptVocabulary.familiarDot', {
+                            count: count.familiar,
+                            defaultValue: '本句有 {{count}} 个有印象的词',
+                        })}
+                    />
+                    <span className="text-metadata font-mono tabular-nums text-muted-foreground/70">
+                        {count.familiar}
+                    </span>
+                </span>
+            )}
+        </div>
+    );
+};
+
+/**
  * 伴读剧本流单句行组件（Synchronized Script Row）。
  *
  * 遵循「影院级专注，书卷式流淌」设计哲学：
@@ -100,6 +161,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
             searchQuery = '',
             isActiveSearchMatch = false,
             onToggleSingleRepeat,
+            vocabularyCount = EMPTY_SENTENCE_VOCABULARY_COUNT,
         }: SideSentenceProps,
         ref
     ) => {
@@ -215,6 +277,7 @@ const SideSentence = forwardRef<HTMLDivElement, SideSentenceProps>(
                                 {timeStr}
                             </span>
                         )}
+                        <VocabularyDots count={vocabularyCount} />
                     </div>
 
                     {/* 悬停微动作栏：单句精听循环 / 重播单句 */}

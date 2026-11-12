@@ -374,5 +374,18 @@
     },
     "layout": {
         "resetSplitHint": "双击任一分隔条，恢复默认分栏比例"
+    },
+    "transcriptVocabulary": {
+        "filterLabel": "筛选",
+        "filterTooltip": "按词汇状态筛选文稿",
+        "filterTitle": "只看",
+        "filterAll": "全部句子",
+        "filterLearning": "含待学词",
+        "filterFamiliar": "含有印象的词",
+        "filteringHint": "只显示 {{shown}} / {{total}} 句",
+        "clearFilter": "显示全部",
+        "emptyTitle": "这段里没有符合筛选的句子",
+        "learningDot": "本句有 {{count}} 个待学词",
+        "familiarDot": "本句有 {{count}} 个有印象的词"
     }
 }

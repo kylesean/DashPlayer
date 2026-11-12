@@ -1523,6 +1523,44 @@ R3 第十八阶段。
   learning 两层都在」。
 - `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1295 passed / 9 skipped。
 
+#### R0 补记五：文稿侧的状态点与按词汇状态筛选（2026-11-12）
+
+§6.1 表格里右侧文稿还有两项主字幕不该有的能力：`learning` 的「下划线 + 状态点」，
+以及 `familiar` 的「弱提示，可筛选」。此前文稿只有下划线，句子上看不出「这一句有东西」，
+也无法把几百行文稿收敛到自己在学的那几句。
+
+已落地：
+
+- 新增 `src/fronted/features/player/transcriptVocabulary.ts`：
+  `countSentenceVocabulary` 复用 `resolveVocabularyAnnotation(..., 'transcript')`
+  统计一句里两类可见标记，口径与正文真正画出来的标记完全一致；
+  `filterTranscriptSentences` 按状态筛选，且无条件保留当前播放句
+  （把正在播的那句筛掉会让人以为播放器坏了）。
+- `SideSentence` 增加 `vocabularyCount`：用 Astryx `StatusDot` 渲染圆点，
+  并按 StatusDot 文档要求把数量作为可见文本一起给出——状态不能只靠颜色传达。
+- 文稿头部新增筛选菜单（Astryx `DropdownMenu`），三个选项都带句子计数；
+  筛选生效时出现一条可撤销的状态条，写明「只显示 N / M 句」并保留「显示全部」，
+  避免用户误判字幕丢失。
+- 筛选后 `displaySentences` 成为唯一数据源：滚动定位、搜索匹配下标、拖拽选区
+  全部基于它，否则筛选会让下标错位到别的句子上。
+- 统计一次算完整份列表再按句查表，而不是每行各订阅一次词表：长文稿几百行，
+  逐行订阅会在每次状态变更时触发几百次重渲染。
+
+核心实现：
+
+- `src/fronted/features/player/transcriptVocabulary.ts`
+- `src/fronted/features/player/components/srt-layout/SideSentence.tsx`
+- `src/fronted/features/player/components/srt-layout/components/Subtitle.tsx`
+- i18n `player.transcriptVocabulary.*`（中英对齐）
+
+验证：
+
+- 新增 9 项统计/筛选测试（按出现次数而非去重词数、lemma 与变体回退、
+  `known/ignored` 不计数、`calm` 下不计 `familiar`、始终保留当前句）。
+- 新增 2 项渲染测试（状态点带可见数量、无标记时不渲染）。
+- `pnpm run typecheck` 与 `pnpm run lint` 通过；全量单测 1306 passed / 9 skipped；
+  renderer 构建通过。
+
 #### R3 完成度总览（2026-11-12）
 
 R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
@@ -1533,6 +1571,7 @@ R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
 - 自适应中文字幕、词卡 AI 语境解读、会话复盘、书面与口头复述、多轮场景对话（对方台词严格取自真实字幕）。
 - 四级提示强度（关闭 / 安静 / 教练 / 强化），强度只改提示密度不改标注语义。
 - 注释语法分层：`familiar` 只在右侧文稿弱提示，主字幕默认不标记，`learning` 两层可见。
+- 文稿侧状态点与筛选：句子级两类标记计数、按状态收敛文稿、筛选时保留当前播放句。
 - 词卡的「你与这个词的历史」：上次遇见、上次复习、到期与复习次数，纯只读投影。
 - 复习坞的「回到刚才的播放位置」：打开时记录，复习完一键跳回。
 - 句子/视频主题向量、内容指南针、语义模型（EmbeddingGemma 2）、持久化向量索引与增量失效。

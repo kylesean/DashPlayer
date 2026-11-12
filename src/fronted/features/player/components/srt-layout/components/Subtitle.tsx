@@ -5,7 +5,8 @@ import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { ArrowLeftRight, BookOpen, ChevronDown, ChevronUp, FileText, Languages, List, LocateFixed, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
+import { DropdownMenu } from '@astryxdesign/core/DropdownMenu';
+import { ArrowLeftRight, BookOpen, ChevronDown, ChevronUp, FileText, Filter, Languages, List, LocateFixed, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import ArticleBlock from './ArticleBlock';
 import { groupSentencesIntoBlocks, type SentenceBlock } from '@/fronted/features/player/lib/sentence-grouping';
@@ -31,6 +32,13 @@ import { splitWords, isWordToken, cleanWord } from '@/common/utils/subtitle';
 import { isContentLemma } from '@/common/learning/contentWords';
 import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
+import {
+    EMPTY_SENTENCE_VOCABULARY_COUNT,
+    filterTranscriptSentences,
+    sentenceVocabularyKey,
+    useTranscriptVocabularyCounts,
+    type TranscriptVocabularyFilter,
+} from '@/fronted/features/player/transcriptVocabulary';
 
 const VIRTUOSO_COMPONENTS = {
     Footer: () => <div className="h-28" />,
@@ -115,33 +123,11 @@ export default function Subtitle() {
         })),
     );
 
-    const currentListPosition = useMemo(() => {
-        if (!currentSentence || subtitle.length === 0) {
-            return -1;
-        }
-        return subtitle.findIndex(
-            (item) => item.index === currentSentence.index && item.fileHash === currentSentence.fileHash
-        );
-    }, [currentSentence, subtitle]);
-
-    useEffect(() => {
-        if (transcriptViewMode !== 'sentence' || currentListPosition < 0) {
-            return;
-        }
-        syncIntoView(currentListPosition);
-    }, [transcriptViewMode, currentListPosition, syncIntoView]);
-
     // 模式切换时重置同步记忆并恢复正常跟读状态
     useEffect(() => {
         useSubtitleScroll.getState().resetSyncDedupe();
         delaySetNormal();
     }, [transcriptViewMode, delaySetNormal]);
-
-    // 字幕列表整体换掉（换视频/重新加载）时清掉「上次同步下标」的去重记忆：
-    // 新列表里同一下标代表的是另一句，必须允许重新同步一次。
-    useEffect(() => {
-        useSubtitleScroll.getState().resetSyncDedupe();
-    }, [subtitle]);
 
     // 「侧栏译文」切换后保持阅读位置：行高变化会让整个列表位移，这里把用户正在读的那一行钉回原处。
     // 具体策略（等布局稳定 → 逐轮逼近 → 收敛/放弃）在 useSideTranslationHold 里，
@@ -162,6 +148,74 @@ export default function Subtitle() {
     const searchInputRef = useRef<HTMLInputElement>(null);
     const virtuosoHandleRef = useRef<VirtuosoHandle | null>(null);
     const activeBlockRef = useRef<HTMLDivElement | null>(null);
+    /**
+     * 文稿词汇筛选。默认 `all`：筛选是用户主动进入的阅读模式，
+     * 不能因为词表为空就把整篇文稿藏起来。
+     */
+    const [vocabularyFilter, setVocabularyFilter] = useState<TranscriptVocabularyFilter>('all');
+
+    /** 整份文稿的词汇标记统计，一次算完供筛选与状态点共用。 */
+    const vocabularyCounts = useTranscriptVocabularyCounts(subtitle);
+
+    const countOf = useCallback(
+        (sentence: Sentence) =>
+            vocabularyCounts.get(sentenceVocabularyKey(sentence)) ?? EMPTY_SENTENCE_VOCABULARY_COUNT,
+        [vocabularyCounts],
+    );
+
+    /**
+     * 实际渲染的句子列表。
+     *
+     * 筛选时永远保留当前播放句：把正在播的那一句筛掉，用户会以为播放器坏了。
+     * 其余所有「位置」概念（滚动定位、搜索匹配、拖拽选区）都必须基于这份列表，
+     * 否则筛选后下标会错位到别的句子上。
+     */
+    const displaySentences = useMemo(
+        () =>
+            filterTranscriptSentences(
+                subtitle,
+                vocabularyFilter,
+                countOf,
+                (sentence) =>
+                    !!currentSentence
+                    && sentence.index === currentSentence.index
+                    && sentence.fileHash === currentSentence.fileHash,
+            ),
+        [subtitle, vocabularyFilter, countOf, currentSentence],
+    );
+
+    const filterCounts = useMemo(() => {
+        let learning = 0;
+        let familiar = 0;
+        for (const sentence of subtitle) {
+            const count = countOf(sentence);
+            if (count.learning > 0) learning += 1;
+            if (count.familiar > 0) familiar += 1;
+        }
+        return { all: subtitle.length, learning, familiar };
+    }, [subtitle, countOf]);
+
+    const currentListPosition = useMemo(() => {
+        if (!currentSentence || displaySentences.length === 0) {
+            return -1;
+        }
+        return displaySentences.findIndex(
+            (item) => item.index === currentSentence.index && item.fileHash === currentSentence.fileHash
+        );
+    }, [currentSentence, displaySentences]);
+
+    // 字幕列表整体换掉（换视频/重新加载）时清掉「上次同步下标」的去重记忆：
+    // 新列表里同一下标代表的是另一句，必须允许重新同步一次。
+    useEffect(() => {
+        useSubtitleScroll.getState().resetSyncDedupe();
+    }, [displaySentences]);
+
+    useEffect(() => {
+        if (transcriptViewMode !== 'sentence' || currentListPosition < 0) {
+            return;
+        }
+        syncIntoView(currentListPosition);
+    }, [transcriptViewMode, currentListPosition, syncIntoView]);
 
     // 搜索进行中才订阅整张译文表（全文匹配需要）；未搜索时退化为稳定空引用，
     // 避免流式翻译的每一批译文到达都触发本组件与全部可见行重渲染。
@@ -170,14 +224,14 @@ export default function Subtitle() {
         searchActive ? state.translations : EMPTY_TRANSLATIONS,
     );
 
-    const blocks = useMemo(() => groupSentencesIntoBlocks(subtitle), [subtitle]);
+    const blocks = useMemo(() => groupSentencesIntoBlocks(displaySentences), [displaySentences]);
 
     const matchedSentenceIndices = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
         if (!q) return [];
         const res: number[] = [];
-        for (let i = 0; i < subtitle.length; i++) {
-            const s = subtitle[i];
+        for (let i = 0; i < displaySentences.length; i++) {
+            const s = displaySentences[i];
             const textMatch = s.text && s.text.toLowerCase().includes(q);
             const zhMatch = s.textZH && s.textZH.toLowerCase().includes(q);
             const dynamicZh = s.translationKey ? translations.get(s.translationKey) : '';
@@ -187,7 +241,7 @@ export default function Subtitle() {
             }
         }
         return res;
-    }, [subtitle, searchQuery, translations]);
+    }, [displaySentences, searchQuery, translations]);
 
     /** 未被显式导航时，默认选中距离当前播放位置最近的匹配项。 */
     const autoMatchIndex = useMemo(() => {
@@ -207,10 +261,10 @@ export default function Subtitle() {
 
     const activeMatchedSentenceIndex = useMemo(() => {
         if (safeMatchIndex >= 0 && safeMatchIndex < matchedSentenceIndices.length) {
-            return subtitle[matchedSentenceIndices[safeMatchIndex]]?.index ?? -1;
+            return displaySentences[matchedSentenceIndices[safeMatchIndex]]?.index ?? -1;
         }
         return -1;
-    }, [safeMatchIndex, matchedSentenceIndices, subtitle]);
+    }, [safeMatchIndex, matchedSentenceIndices, displaySentences]);
 
     const currentBlockIndex = useMemo(() => {
         if (!currentSentence || blocks.length === 0) return -1;
@@ -276,8 +330,8 @@ export default function Subtitle() {
     }, []);
 
     const scrollToMatch = useCallback((targetListIndex: number, shouldSeek = false) => {
-        if (targetListIndex < 0 || targetListIndex >= subtitle.length) return;
-        const targetSentence = subtitle[targetListIndex];
+        if (targetListIndex < 0 || targetListIndex >= displaySentences.length) return;
+        const targetSentence = displaySentences[targetListIndex];
         if (!targetSentence) return;
         if (shouldSeek) {
             playerActions.gotoSentence(targetSentence);
@@ -296,7 +350,7 @@ export default function Subtitle() {
                 behavior: 'smooth',
             });
         }
-    }, [subtitle, transcriptViewMode, blocks, scrollArticleTo]);
+    }, [displaySentences, transcriptViewMode, blocks, scrollArticleTo]);
 
     const handleSearchChange = (val: string) => {
         setSearchQuery(val);
@@ -434,13 +488,13 @@ export default function Subtitle() {
 
         if (normalizedEnd !== normalizedStart) {
             selectionRangeRef.current = { startPos: normalizedStart, endPos: normalizedEnd };
-            const selectedSentences = subtitle.slice(normalizedStart, normalizedEnd + 1);
+            const selectedSentences = displaySentences.slice(normalizedStart, normalizedEnd + 1);
             playerActions.setVirtualGroupBySentences(selectedSentences);
         } else {
             selectionRangeRef.current = null;
             playerActions.clearVirtualGroup();
         }
-    }, [subtitle]);
+    }, [displaySentences]);
 
     const finalizeSelection = useCallback(() => {
         const state = dragStateRef.current;
@@ -580,6 +634,7 @@ export default function Subtitle() {
             >
                 <SideSentence
                     sentence={item}
+                    vocabularyCount={countOf(item)}
                     onClick={(targetSentence) => {
                         playerActions.clearVirtualGroup();
                         if (useChatPanel.getState().learningVisible) {
@@ -644,6 +699,7 @@ export default function Subtitle() {
         scrollState,
         delaySetNormal,
         recordReplay,
+        countOf,
     ]);
 
     return (
@@ -674,6 +730,50 @@ export default function Subtitle() {
                     )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                    {/*
+                      词汇筛选：只在文稿提供。主字幕是观看层，多一个筛选器就多一层噪音；
+                      文稿是阅读层，用户需要「只看我还在学的词出现在哪些句子」。
+                    */}
+                    <DropdownMenu
+                        button={{
+                            label: t('transcriptVocabulary.filterLabel', { defaultValue: '筛选' }),
+                            icon: <Filter className="w-3.5 h-3.5" />,
+                            size: 'sm',
+                            variant: 'ghost',
+                            isIconOnly: true,
+                            tooltip: t('transcriptVocabulary.filterTooltip', { defaultValue: '按词汇状态筛选文稿' }),
+                        }}
+                        hasChevron={false}
+                        placement="below"
+                        alignment="end"
+                        items={[
+                            {
+                                type: 'section',
+                                title: t('transcriptVocabulary.filterTitle', { defaultValue: '只看' }),
+                                items: [
+                                    {
+                                        label: t('transcriptVocabulary.filterAll', { defaultValue: '全部句子' }),
+                                        endContent: filterCounts.all,
+                                        icon: vocabularyFilter === 'all' ? 'check' : undefined,
+                                        onClick: () => setVocabularyFilter('all'),
+                                    },
+                                    {
+                                        label: t('transcriptVocabulary.filterLearning', { defaultValue: '含待学词' }),
+                                        endContent: filterCounts.learning,
+                                        icon: vocabularyFilter === 'learning' ? 'check' : undefined,
+                                        onClick: () => setVocabularyFilter('learning'),
+                                    },
+                                    {
+                                        label: t('transcriptVocabulary.filterFamiliar', { defaultValue: '含有印象的词' }),
+                                        endContent: filterCounts.familiar,
+                                        icon: vocabularyFilter === 'familiar' ? 'check' : undefined,
+                                        onClick: () => setVocabularyFilter('familiar'),
+                                    },
+                                ],
+                            },
+                        ]}
+                    />
+
                     {/* 搜索开关 */}
                     <Tooltip content={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })} placement="below">
                         <button
@@ -880,8 +980,47 @@ export default function Subtitle() {
                 </div>
             )}
 
+            {/*
+              筛选生效时给出可撤销的状态条：文稿突然变短却没有解释，用户会以为
+              字幕丢了。条上直接写明筛掉了多少句，并保留一键回到全部。
+            */}
+            {vocabularyFilter !== 'all' && (
+                <div
+                    className="shrink-0 px-3 py-1.5 border-b border-border/40 bg-accent-muted/10 flex items-center justify-between gap-2 text-metadata"
+                    data-testid="transcript-vocabulary-filter-active"
+                >
+                    <span className="text-muted-foreground truncate">
+                        {t('transcriptVocabulary.filteringHint', {
+                            shown: displaySentences.length,
+                            total: subtitle.length,
+                            defaultValue: '只显示 {{shown}} / {{total}} 句',
+                        })}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={() => setVocabularyFilter('all')}
+                        className="shrink-0 rounded px-1.5 py-0.5 text-accent hover:bg-accent-muted/20 transition-colors cursor-pointer"
+                    >
+                        {t('transcriptVocabulary.clearFilter', { defaultValue: '显示全部' })}
+                    </button>
+                </div>
+            )}
+
             <div className="flex-1 min-h-0 relative">
-                {transcriptViewMode === 'article' ? (
+                {displaySentences.length === 0 && vocabularyFilter !== 'all' ? (
+                    <div className="h-full w-full flex flex-col items-center justify-center gap-2 px-6 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            {t('transcriptVocabulary.emptyTitle', { defaultValue: '这段里没有符合筛选的句子' })}
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setVocabularyFilter('all')}
+                            className="text-sm text-accent hover:underline cursor-pointer"
+                        >
+                            {t('transcriptVocabulary.clearFilter', { defaultValue: '显示全部' })}
+                        </button>
+                    </div>
+                ) : transcriptViewMode === 'article' ? (
                     <Virtuoso<SentenceBlock>
                         onScroll={handleArticleScroll}
                         scrollerRef={handleScrollerRef}
@@ -958,7 +1097,7 @@ export default function Subtitle() {
                             'scrollbar-thumb-border hover:scrollbar-thumb-border-emphasized',
                             showSideBar && 'scrollbar-none',
                         )}
-                        data={subtitle}
+                        data={displaySentences}
                         rangeChanged={handleRangeChanged}
                         itemContent={renderItem}
                         components={VIRTUOSO_COMPONENTS}
