@@ -53,7 +53,7 @@ class FakeMediaRecorder {
 describe('跟读录音在面板卸载时的全局状态', () => {
     beforeEach(() => {
         FakeMediaRecorder.instances = [];
-        usePracticePanel.setState({ recording: false, visible: true });
+        usePracticePanel.setState({ visible: true });
         vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
         Object.defineProperty(navigator, 'mediaDevices', {
             configurable: true,
@@ -94,13 +94,13 @@ describe('跟读录音在面板卸载时的全局状态', () => {
             await result.current.start();
         });
         expect(result.current.phase).toBe('recording');
-        expect(usePracticePanel.getState().recording).toBe(true);
+        expect(usePracticePanel.getState().recorderPhase).toBe('recording');
 
         // 面板条件卸载：等价于用户录音时点了关闭按钮
         unmount();
 
         // 全局标志若残留，播放类快捷键会被永久禁用
-        expect(usePracticePanel.getState().recording).toBe(false);
+        expect(usePracticePanel.getState().recorderPhase).toBe('idle');
     });
 
     it('录音中切到听写模式时，麦克风应停止且 recording 归位', async () => {
@@ -121,14 +121,14 @@ describe('跟读录音在面板卸载时的全局状态', () => {
             await result.current!.start();
         });
         expect(result.current!.phase).toBe('recording');
-        expect(usePracticePanel.getState().recording).toBe(true);
+        expect(usePracticePanel.getState().recorderPhase).toBe('recording');
 
         // 用户切到「听写」页签：录音按钮整块从 DOM 消失
         rerender({ active: false });
 
         await waitFor(() => {
             expect(FakeMediaRecorder.instances[0].state).toBe('inactive');
-            expect(usePracticePanel.getState().recording).toBe(false);
+            expect(usePracticePanel.getState().recorderPhase).toBe('idle');
         });
     });
 
@@ -159,7 +159,7 @@ describe('跟读录音在面板卸载时的全局状态', () => {
 
             await waitFor(() => expect(onRecordingComplete).toHaveBeenCalledTimes(1));
             expect(result.current.phase).toBe('idle');
-            expect(usePracticePanel.getState().recording).toBe(false);
+            expect(usePracticePanel.getState().recorderPhase).toBe('idle');
         } finally {
             nowSpy.mockRestore();
         }
@@ -190,7 +190,7 @@ describe('跟读录音在面板卸载时的全局状态', () => {
 
             expect(onRecordingComplete).not.toHaveBeenCalled();
             expect(result.current.phase).toBe('idle');
-            expect(usePracticePanel.getState().recording).toBe(false);
+            expect(usePracticePanel.getState().recorderPhase).toBe('idle');
         } finally {
             nowSpy.mockRestore();
         }
@@ -273,14 +273,14 @@ describe('跟读录音在面板卸载时的全局状态', () => {
 
             // 评分尚未返回时面板被卸载（例如切视频）
             unmount();
-            expect(usePracticePanel.getState().recording).toBe(false);
+            expect(usePracticePanel.getState().recorderPhase).toBe('idle');
 
             // 评分稍后返回：已卸载组件上的 setState 不应抛错
             await act(async () => {
                 releaseScore();
                 await scorePending;
             });
-            expect(usePracticePanel.getState().recording).toBe(false);
+            expect(usePracticePanel.getState().recorderPhase).toBe('idle');
             expect(usePracticePanel.getState().recorderPhase).toBe('idle');
         } finally {
             nowSpy.mockRestore();
@@ -327,7 +327,7 @@ describe('跟读录音在面板卸载时的全局状态', () => {
 
         expect(stopTrack).toHaveBeenCalledTimes(1);
         expect(FakeMediaRecorder.instances).toHaveLength(0);
-        expect(usePracticePanel.getState().recording).toBe(false);
+        expect(usePracticePanel.getState().recorderPhase).toBe('idle');
         expect(usePracticePanel.getState().recorderPhase).toBe('idle');
 
         // 再次进入 requesting 后直接卸载

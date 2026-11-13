@@ -84,7 +84,7 @@ export default function PlayerShortCut() {
     const practiceVisible = usePracticePanel((s) => s.visible);
     // 跟读录音进行中（含学习页内的复述录音）全部播放类快捷键停用：
     // 开播/切句会改变播放状态或重挂录音视图，导致评分挂错句与原声混录。
-    const practiceRecording = usePracticePanel((s) => s.recording);
+    const practiceRecording = usePracticePanel((s) => s.recorderPhase === 'recording');
     const playbackKeysEnabled = !learningVisible && !practiceVisible && !practiceRecording;
     const showSideBar = useLayout((s) => s.showSideBar);
     const changeSideBar = useLayout((s) => s.changeSideBar);

@@ -39,8 +39,8 @@ export type PracticeRecorderEvent =
  *   否则会出现「没在录音却能触发评分收尾」的错位。
  *
  * 组件卸载不在这张表里：卸载后不会再有任何事件，`phase` 也就没有下一次读取者。
- * 卸载必须保证的是全局 `practiceStore.recording` 归位，那由 hook 的卸载清理直接处理
- * （见 `usePracticeRecorder` 的卸载 effect），用 `phase` 表达反而会掩盖它。
+ * 卸载必须保证的是全局 `practiceStore.recorderPhase` 归位（回 idle），那由 hook 的
+ * 卸载清理直接处理（见 `usePracticeRecorder` 的卸载 effect），用 `phase` 表达反而会掩盖它。
  *
  * @param phase 当前阶段。
  * @param event 事件。

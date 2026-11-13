@@ -72,9 +72,7 @@ interface PracticePanelState {
     dictationRevealed: boolean;
     /** 用户按住偷看键临时揭开右侧字幕防剧透与提示。 */
     peekingSpoiler: boolean;
-    /** 跟读录音是否进行中。 */
-    recording: boolean;
-    /** 跟读录音机精确阶段（含 requesting / recording / processing）。 */
+    /** 跟读录音机精确阶段（含 requesting / recording / processing）；录音是否进行中由 `recorderPhase === 'recording'` 派生。 */
     recorderPhase: PracticeRecorderPhase;
     /** 从「整句学习」工作台跳来练习时为 true，方便练习顶栏直接一键退回精读页。 */
     openedFromLearning: boolean;
@@ -88,7 +86,6 @@ interface PracticePanelState {
     setSentenceFilter: (filter: PracticeSentenceFilter) => void;
     setDictationRevealed: (revealed: boolean) => void;
     setPeekingSpoiler: (peeking: boolean) => void;
-    setRecording: (recording: boolean) => void;
     setRecorderPhase: (phase: PracticeRecorderPhase) => void;
     setOpenedFromLearning: (fromLearning: boolean) => void;
     toggle: () => void;
@@ -110,7 +107,6 @@ const usePracticePanel = create<PracticePanelState>((set) => ({
     sentenceFilter: 'all',
     dictationRevealed: false,
     peekingSpoiler: false,
-    recording: false,
     recorderPhase: 'idle',
     openedFromLearning: false,
     setVisible: (visible) => set((state) => ({
@@ -139,14 +135,7 @@ const usePracticePanel = create<PracticePanelState>((set) => ({
     setSentenceFilter: (sentenceFilter) => set({ sentenceFilter }),
     setDictationRevealed: (dictationRevealed) => set({ dictationRevealed }),
     setPeekingSpoiler: (peekingSpoiler) => set({ peekingSpoiler }),
-    setRecording: (recording) => set({
-        recording,
-        recorderPhase: recording ? 'recording' : 'idle',
-    }),
-    setRecorderPhase: (recorderPhase) => set({
-        recorderPhase,
-        recording: recorderPhase === 'recording',
-    }),
+    setRecorderPhase: (recorderPhase) => set({ recorderPhase }),
     setOpenedFromLearning: (openedFromLearning) => set({ openedFromLearning }),
     toggle: () => set((state) => ({ visible: !state.visible })),
 }));

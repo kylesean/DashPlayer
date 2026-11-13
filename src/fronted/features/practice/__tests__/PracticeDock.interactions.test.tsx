@@ -158,7 +158,6 @@ describe('PracticeDock 重构工坊核心交互', () => {
             sentenceFilter: 'all',
             dictationRevealed: false,
             peekingSpoiler: false,
-            recording: false,
         });
     });
 

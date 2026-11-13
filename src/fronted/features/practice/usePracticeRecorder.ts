@@ -78,7 +78,7 @@ interface UsePracticeRecorderOptions {
      * 录音 UI 是否仍处于「可用」状态；默认 true。
      *
      * 面板切到听写页签、隐藏或当前句消失时传 false。此时若正在录音，hook 会主动丢弃当前录音，
-     * 避免麦克风继续采集、`practiceStore.recording` 卡在 true 把播放快捷键永久禁用。
+     * 避免麦克风继续采集、`practiceStore.recorderPhase` 卡在 recording 把播放快捷键永久禁用。
      */
     active?: boolean;
     /** 是否启用静音自动结束收麦（VAD）：检测到说话开口后若连续静音达到阈值自动调用 stop。 */

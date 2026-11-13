@@ -112,13 +112,13 @@ describe('PracticePanel 录音与页签切换（真实调用路径）', () => {
             configurable: true,
             value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }) },
         });
-        usePracticePanel.setState({ visible: true, mode: 'shadowing', recording: false });
+        usePracticePanel.setState({ visible: true, mode: 'shadowing' });
         usePlayer.setState({ currentSentence: buildSentence() as never });
     });
 
     afterEach(() => {
         vi.unstubAllGlobals();
-        usePracticePanel.setState({ visible: false, mode: 'shadowing', recording: false });
+        usePracticePanel.setState({ visible: false, mode: 'shadowing' });
     });
 
     it('录音中点「听写」页签后，麦克风停止且 recording 归位', async () => {
@@ -129,7 +129,7 @@ describe('PracticePanel 录音与页签切换（真实调用路径）', () => {
         await act(async () => {
             startButton.closest('button')!.click();
         });
-        await waitFor(() => expect(usePracticePanel.getState().recording).toBe(true));
+        await waitFor(() => expect(usePracticePanel.getState().recorderPhase).toBe('recording'));
         expect(FakeMediaRecorder.instances[0].state).toBe('recording');
 
         // 切到听写页签：走面板真实的 setMode 调用路径
@@ -140,7 +140,7 @@ describe('PracticePanel 录音与页签切换（真实调用路径）', () => {
 
         await waitFor(() => {
             expect(FakeMediaRecorder.instances[0].state).toBe('inactive');
-            expect(usePracticePanel.getState().recording).toBe(false);
+            expect(usePracticePanel.getState().recorderPhase).toBe('idle');
         });
     });
 });
