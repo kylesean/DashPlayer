@@ -133,4 +133,30 @@ describe('subtitleGenerationStore 跨视频隔离与重连恢复', () => {
         });
         expect(toastSuccess).toHaveBeenCalledWith('done');
     });
+
+    it('取消成功后立即清除取消中标记，不依赖任务 FINISH 广播', async () => {
+        mockCancelSubtitleGeneration.mockResolvedValue(undefined);
+        useSubtitleGenerationStore.setState({
+            taskIdsByVideo: { 'video-a': 503 },
+            cancellingVideos: {},
+        });
+
+        await useSubtitleGenerationStore.getState().cancel('video-a', (m) => m);
+
+        expect(mockCancelSubtitleGeneration).toHaveBeenCalledWith(503);
+        expect(useSubtitleGenerationStore.getState().cancellingVideos['video-a']).toBeUndefined();
+    });
+
+    it('取消请求失败时标记同样收口，并提示错误', async () => {
+        mockCancelSubtitleGeneration.mockRejectedValue(new Error('ipc down'));
+        useSubtitleGenerationStore.setState({
+            taskIdsByVideo: { 'video-a': 504 },
+            cancellingVideos: {},
+        });
+
+        await useSubtitleGenerationStore.getState().cancel('video-a', (m) => m);
+
+        expect(toastError).toHaveBeenCalledWith('ipc down');
+        expect(useSubtitleGenerationStore.getState().cancellingVideos['video-a']).toBeUndefined();
+    });
 });

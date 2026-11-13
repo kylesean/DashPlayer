@@ -130,14 +130,20 @@ export const useSubtitleGenerationStore = create<SubtitleGenerationState>((set, 
         try {
             await playerApi.cancelSubtitleGeneration(taskId);
         } catch (error) {
+            toast.error(formatFailed(
+                error instanceof Error ? error.message : String(error),
+            ));
+        } finally {
+            // 取消请求已收尾（无论成败）即清掉取消中标记。成功路径此前依赖任务随后的
+            // FINISH 广播收尾，终态通知一旦丢失，取消按钮会永久停留在"取消中"。
             set((state) => {
+                if (!(videoId in state.cancellingVideos)) {
+                    return state;
+                }
                 const next = { ...state.cancellingVideos };
                 delete next[videoId];
                 return { cancellingVideos: next };
             });
-            toast.error(formatFailed(
-                error instanceof Error ? error.message : String(error),
-            ));
         }
     },
 }));
