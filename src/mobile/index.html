@@ -26,7 +26,7 @@
         // 首屏先套用已保存的主题，避免浅色用户看到一帧深色。键名与 src/mobile/theme.ts 一致。
         (function () {
             try {
-                var theme = localStorage.getItem('dashplayer.mobile.theme');
+                var theme = localStorage.getItem('refrain.mobile.theme');
                 if (theme === 'light' || theme === 'dark') {
                     document.documentElement.dataset.theme = theme;
                     var meta = document.querySelector('meta[name="theme-color"]');

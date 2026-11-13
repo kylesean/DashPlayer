@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 const STORAGE_KEYS = {
-    ttsVolume: 'dashplayer.audio.tts_volume',
-    recordingGain: 'dashplayer.audio.recording_gain',
+    ttsVolume: 'refrain.audio.tts_volume',
+    recordingGain: 'refrain.audio.recording_gain',
 } as const;
 
 function readClampedStorage(key: string, fallback: number, min: number, max: number): number {

@@ -23,7 +23,7 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { useReviewDockStore } from '@/fronted/features/player/components/learning-toolbar/reviewDockStore';
 
 const logger = getRendererLogger('ContentCompassSection');
-const IMPRESSION_STORAGE_PREFIX = 'dashplayer:content-compass:shown';
+const IMPRESSION_STORAGE_PREFIX = 'refrain:content-compass:shown';
 
 export interface ContentCompassSectionProps {
     excludeVideoIds?: string[];

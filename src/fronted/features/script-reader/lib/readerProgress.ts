@@ -16,7 +16,7 @@ export interface ScriptVocabPreviewItem {
     firstSentenceIndex: number;
 }
 
-const PROGRESS_STORAGE_KEY = 'dashplayer:script-reader-progress';
+const PROGRESS_STORAGE_KEY = 'refrain:script-reader-progress';
 const MAX_STORED_PROGRESS = 120;
 
 const readProgressMap = (): Record<string, number> => {

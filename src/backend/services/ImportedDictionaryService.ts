@@ -240,7 +240,7 @@ const parseStardict = async (ifoPath: string): Promise<{ name: string; entries: 
         if (fs.existsSync(dictPath)) {
             dictHandle = await fs.promises.open(dictPath, 'r');
         } else if (fs.existsSync(dictDzPath)) {
-            tempDecompressedPath = path.join(os.tmpdir(), `dashplayer-stardict-${randomUUID()}.dict`);
+            tempDecompressedPath = path.join(os.tmpdir(), `refrain-stardict-${randomUUID()}.dict`);
             await pipeline(
                 fs.createReadStream(dictDzPath),
                 zlib.createGunzip({ maxOutputLength: MAX_DECOMPRESSED_DICT_BYTES }),

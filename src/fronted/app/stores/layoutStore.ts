@@ -58,9 +58,9 @@ export type UseLayoutActions = {
     toggleSidebarCollapsed: () => void;
 };
 
-const SIDEBAR_COLLAPSED_STORAGE_KEY = 'dashplayer.sidebar_collapsed';
-const TRANSCRIPT_VISIBLE_STORAGE_KEY = 'dashplayer.transcript_visible';
-const TRANSCRIPT_VIEW_MODE_STORAGE_KEY = 'dashplayer.transcript_view_mode';
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'refrain.sidebar_collapsed';
+const TRANSCRIPT_VISIBLE_STORAGE_KEY = 'refrain.transcript_visible';
+const TRANSCRIPT_VIEW_MODE_STORAGE_KEY = 'refrain.transcript_view_mode';
 
 const readInitialSidebarCollapsed = (): boolean => {
     if (typeof window === 'undefined') return false;

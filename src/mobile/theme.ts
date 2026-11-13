@@ -2,7 +2,7 @@
 export type AppTheme = 'light' | 'dark';
 
 /** localStorage 主题键；index.html 里的首屏脚本也硬编码了这个值，必须保持一致。 */
-export const THEME_STORAGE_KEY = 'dashplayer.mobile.theme';
+export const THEME_STORAGE_KEY = 'refrain.mobile.theme';
 
 /** 浏览器地址栏 / 状态栏颜色。 */
 const THEME_COLORS: Record<AppTheme, string> = {

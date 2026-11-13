@@ -47,7 +47,7 @@ export const useTrainingModeStore = create(
       setRewindOnResume: (v) => set({ rewindOnResume: v }),
     })),
     {
-      name: 'dash-player-training-config',
+      name: 'refrain-training-config',
     }
   )
 );

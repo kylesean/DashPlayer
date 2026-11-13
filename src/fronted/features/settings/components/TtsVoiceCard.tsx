@@ -26,7 +26,7 @@ import type { TtsVoiceVO } from '@/common/contracts/tts-voice';
 
 const TTS_VOICE_DOWNLOAD_ID = 'settings-tts-voice';
 const RECOMMENDED_KOKORO_VOICE_ID = 'kokoro-en-US-bella';
-const TTS_PREVIEW_SAMPLE = 'Serendipity. Hello, welcome to DashPlayer.';
+const TTS_PREVIEW_SAMPLE = 'Hello, welcome to Refrain.';
 
 interface TtsVoiceCardProps {
     /** 音色切换或安装完成后的回调，用于同步刷新上方资源包卡片。 */

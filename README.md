@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="LICENSE" target="_blank">
-    <img alt="AGPL-3.0 license" src="https://img.shields.io/github/license/kylesean/DashPlayer.svg" />
+    <img alt="AGPL-3.0 license" src="https://img.shields.io/github/license/kylesean/Refrain.svg" />
   </a>
 
   <img alt="React" src="https://img.shields.io/badge/React-rgb(8%2C126%2C164)?logo=react&logoColor=white" />
@@ -15,20 +15,20 @@
   <!-- TypeScript Badge -->
   <img alt="TypeScript" src="https://img.shields.io/badge/-TypeScript-blue?logo=typescript&logoColor=white" />
 
-  <a href="https://github.com/kylesean/DashPlayer/releases" target="_blank">
+  <a href="https://github.com/kylesean/Refrain/releases" target="_blank">
     <img alt="macOS" src="https://img.shields.io/badge/-macOS-black?logo=apple&logoColor=white" />
   </a>
 
-  <a href="https://github.com/kylesean/DashPlayer/releases" target="_blank">
+  <a href="https://github.com/kylesean/Refrain/releases" target="_blank">
     <img alt="Windows" src="https://img.shields.io/badge/-Windows-blue?logo=windows&logoColor=white" />
   </a>
 
-  <a href="https://github.com/kylesean/DashPlayer/releases" target="_blank">
+  <a href="https://github.com/kylesean/Refrain/releases" target="_blank">
     <img alt="Linux" src="https://img.shields.io/badge/-Linux-yellow?logo=linux&logoColor=white" />
   </a>
 </p>
 
-> 安装与使用指南详见 [文档](https://kylesean.github.io/DashPlayer/home.html)
+> 安装与使用指南详见 [文档](https://kylesean.github.io/Refrain/home.html)
 
 # Refrain
 
@@ -122,7 +122,7 @@ Windows 提供两种安装包格式，请根据需求选择其一：
 | `.exe`（推荐） | 双击即装，无需管理员权限 |
 | `.msi` | 有安装向导，**可以自定义安装路径**，需要管理员权限 |
 
-1. 在 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载所需格式的安装包
+1. 在 [Latest Release](https://github.com/kylesean/Refrain/releases/latest) 页面下载所需格式的安装包
 2. 下载完成后双击安装包进行安装
 3. 如果提示不安全，可以点击 `更多信息` -> `仍要运行` 进行安装
 4. 开始使用吧！
@@ -131,7 +131,7 @@ Windows 提供两种安装包格式，请根据需求选择其一：
 
 ### 手动安装
 
-1.  去 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载对应芯片以 `.dmg` 的安装包：Apple Silicon（M 系列芯片）选择 `arm64` 版本，Intel 芯片选择 `x64` 版本
+1.  去 [Latest Release](https://github.com/kylesean/Refrain/releases/latest) 页面下载对应芯片以 `.dmg` 的安装包：Apple Silicon（M 系列芯片）选择 `arm64` 版本，Intel 芯片选择 `x64` 版本
 2.  下载完成后双击安装包进行安装，然后将 `Refrain` 拖动到 `Applications` 文件夹。
 3.  开始使用吧！
 
@@ -143,7 +143,7 @@ Windows 提供两种安装包格式，请根据需求选择其一：
   <img width="300" alt="image" src="https://user-images.githubusercontent.com/39454841/226151784-b6ed3e65-2c0a-4ad0-93eb-57d45108e1ba.png">
 </p>
 
-点击 `Cancel` 按钮，然后去 `设置` -> `隐私与安全性` 页面，点击 `仍要打开` 按钮，然后在弹出窗口里点击 `打开` 按钮即可，以后打开 `DashPlayer` 就再也不会有任何弹窗告警了 🎉
+点击 `Cancel` 按钮，然后去 `设置` -> `隐私与安全性` 页面，点击 `仍要打开` 按钮，然后在弹出窗口里点击 `打开` 按钮即可，以后打开 `Refrain` 就再也不会有任何弹窗告警了 🎉
 
 <p align="center">
   <img width="500" alt="image" src="https://user-images.githubusercontent.com/39454841/226151875-03f79da9-45fc-4c0d-9d12-8cc9666ff904.png">
@@ -163,14 +163,14 @@ xattr -c <path/to/application.app>
 示例：
 
 ```bash
-xattr -c /Applications/DashPlayer.app
+xattr -c /Applications/Refrain.app
 ```
 
 ## Linux
 
 ### AppImage（免安装，推荐）
 
-1. 在 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载以 `.AppImage` 结尾的安装包
+1. 在 [Latest Release](https://github.com/kylesean/Refrain/releases/latest) 页面下载以 `.AppImage` 结尾的安装包
 2. 添加可执行权限后直接运行：
 
 ```bash
@@ -184,51 +184,41 @@ chmod +x Refrain-*.AppImage
 
 ### deb / rpm
 
-1. 在 [Latest Release](https://github.com/kylesean/DashPlayer/releases/latest) 页面下载 `.deb`（Debian/Ubuntu 系）或 `.rpm`（Fedora/RHEL/openSUSE 系）安装包
+1. 在 [Latest Release](https://github.com/kylesean/Refrain/releases/latest) 页面下载 `.deb`（Debian/Ubuntu 系）或 `.rpm`（Fedora/RHEL/openSUSE 系）安装包
 2. 使用系统包管理器安装：
 
 ```bash
 # Debian/Ubuntu 系
-sudo dpkg -i dashplayer_*.deb
+sudo dpkg -i refrain_*.deb
 
 # Fedora/RHEL 系
-sudo rpm -i dashplayer-*.rpm
+sudo rpm -i refrain-*.rpm
 ```
-
-> Linux 包名已由 `dash-player` 统一为 `dashplayer`（与桌面窗口身份一致）。安装过旧版本（6.12.x 及更早）的用户请先卸载旧包再安装，否则新旧两个版本会同时存在：
->
-> ```bash
-> # Debian/Ubuntu 系
-> sudo apt remove dash-player
->
-> # Fedora/RHEL 系
-> sudo rpm -e dash-player
-> ```
 
 3. 开始使用吧！
 
 ---
 # 使用指南
 
-> 字幕生成为内置本地模型，开箱即用；AI 功能（字幕翻译、查单词、整句学习）需配置 OpenAI 接口，具体方法及详细指南请看[Wiki](https://kylesean.github.io/DashPlayer/home.html)
+> 字幕生成为内置本地模型，开箱即用；AI 功能（字幕翻译、查单词、整句学习）需配置 OpenAI 接口，具体方法及详细指南请看[Wiki](https://kylesean.github.io/Refrain/home.html)
 
 ## 如何播放视频
 
-DashPlayer 支持常见的视频格式、音频格式以及 srt、vtt、ass 字幕格式。
+Refrain 支持常见的视频格式、音频格式以及 srt、vtt、ass 字幕格式。
 
 - 使用 `打开文件` 可选择视频和字幕文件
 - 使用 `打开文件夹` 可选择视频所在文件夹
 
 ### 想播放在线视频？
 
-DashPlayer 专注本地视频播放，您可以用下载工具将视频保存到本地后打开：
+Refrain 专注本地视频播放，您可以用下载工具将视频保存到本地后打开：
 
 - Windows 平台：[Internet Download Manager (IDM)](https://www.internetdownloadmanager.com/)
 - macOS 平台：[Downie](https://software.charliemonroe.net/downie/)
 
 ### 没有字幕文件怎么办?
 
-DashPlayer 内置了本地语音识别模型（Parakeet v3），在设置中心下载模型后，即可一键为视频生成字幕，无需配置任何 API，也不产生费用。
+Refrain 内置了本地语音识别模型（Parakeet v3），在设置中心下载模型后，即可一键为视频生成字幕，无需配置任何 API，也不产生费用。
 
 下面推荐几个第三方生成字幕的软件，您也可以使用：
 
@@ -239,7 +229,7 @@ DashPlayer 内置了本地语音识别模型（Parakeet v3），在设置中心�
 ## 如何控制播放
 ### 通过鼠标/键盘快捷键控制播放
 
-DashPlayer 默认快捷键如下
+Refrain 默认快捷键如下
 
 - 上一句：“←” 或 “a”
 - 下一句：“→” 或 “d”
@@ -260,7 +250,7 @@ DashPlayer 默认快捷键如下
 - 打开控制面板：“Shift + P”
 - 打开 AI 对话（整句学习）：“?” 或 “/”
 
-具体快捷键可在设置中心自定义，详见[文档](https://kylesean.github.io/DashPlayer/config-shortcut.html)
+具体快捷键可在设置中心自定义，详见[文档](https://kylesean.github.io/Refrain/config-shortcut.html)
 
 <img width="912" alt="image" src="https://github.com/solidSpoon/DashPlayer/assets/39454841/2b869c73-000d-45cb-9914-2bf2e7147e8f">
 
@@ -268,10 +258,10 @@ DashPlayer 默认快捷键如下
 
 #### 蓝牙手柄控制的原理
 
-八位堂家的 [Micro](https://www.8bitdo.cn/micro/) 和 [Zero2](https://www.8bitdo.cn/zero2/) 蓝牙手柄可当做蓝牙键盘使用。它们非常小巧, 单手握持很舒服, 所以可以用它来操控 DashPlayer。
+八位堂家的 [Micro](https://www.8bitdo.cn/micro/) 和 [Zero2](https://www.8bitdo.cn/zero2/) 蓝牙手柄可当做蓝牙键盘使用。它们非常小巧, 单手握持很舒服, 所以可以用它来操控 Refrain。
 
 - 将手柄通过键盘模式链接到电脑
-- 打开 DashPlayer 设置界面，进入快捷键设置，设置手柄对应按键为快捷键
+- 打开 Refrain 设置界面，进入快捷键设置，设置手柄对应按键为快捷键
 
 <table>
     <thead>
@@ -294,9 +284,9 @@ DashPlayer 默认快捷键如下
 
 ## AI 功能配置
 
-DashPlayer 的 AI 功能——字幕翻译、查单词、整句学习——只需配置 OpenAI 接口即可全部使用，首次使用前按文档配置好 API 密钥即可。
+Refrain 的 AI 功能——字幕翻译、查单词、整句学习——只需配置 OpenAI 接口即可全部使用，首次使用前按文档配置好 API 密钥即可。
 
-实际使用下来价格比较便宜；字幕生成本地即可完成，无需配置。具体配置详见[文档](https://kylesean.github.io/DashPlayer/home.html)。
+实际使用下来价格比较便宜；字幕生成本地即可完成，无需配置。具体配置详见[文档](https://kylesean.github.io/Refrain/home.html)。
 
 ## 致谢
 

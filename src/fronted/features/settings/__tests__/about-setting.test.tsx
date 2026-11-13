@@ -51,7 +51,7 @@ describe('AboutSetting', () => {
                 {
                     version: 'v0.16.0',
                     content: 'Added new features and bug fixes',
-                    url: 'https://github.com/kylesean/DashPlayer/releases/tag/v0.16.0',
+                    url: 'https://github.com/kylesean/Refrain/releases/tag/v0.16.0',
                 },
             ],
         });

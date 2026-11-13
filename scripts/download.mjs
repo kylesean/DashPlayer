@@ -66,7 +66,7 @@ const extractZip = async (zipPath, destDir) => {
         }
         // NOTE: `pwsh -Command <string>` consumes the remainder of the command line, so extra args are not reliably
         // available in `$args` on CI shells. Use `-File` to pass zip/dest as proper script arguments.
-        const psTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dashplayer-ps-'));
+        const psTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'refrain-ps-'));
         const psFile = path.join(psTmpDir, 'expand-archive.ps1');
         fs.writeFileSync(
             psFile,
@@ -154,7 +154,7 @@ const findFirstFile = (dir, predicate, maxDepth = 6, depth = 0) => {
  * @returns {Promise<void>}
  */
 const downloadAndExtractBinaryFromZip = async ({url, outputPath, binaryNameCandidates, sha, algo = 'sha256'}) => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dashplayer-download-'));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'refrain-download-'));
     try {
         const archivePath = path.join(tmpRoot, 'asset.zip');
         await download({url, dir: tmpRoot, file: 'asset.zip', sha, algo});
@@ -192,7 +192,7 @@ const _getLatestReleaseAssetUrl = async ({owner, repo, nameRegex}) => {
     const data = await withNetworkRetry(() => fetchJson(apiUrl, {
         headers: {
             'Accept': 'application/vnd.github+json',
-            'User-Agent': 'DashPlayer-downloader',
+            'User-Agent': 'Refrain-downloader',
             ...getGithubAuthHeaders(apiUrl),
         }
     }), {label: `查询 ${owner}/${repo} 最新发布`});
@@ -206,7 +206,7 @@ const _getLatestReleaseAssetUrlIncludingPrerelease = async ({owner, repo, nameRe
     const releases = await withNetworkRetry(() => fetchJson(apiUrl, {
         headers: {
             'Accept': 'application/vnd.github+json',
-            'User-Agent': 'DashPlayer-downloader',
+            'User-Agent': 'Refrain-downloader',
             ...getGithubAuthHeaders(apiUrl),
         }
     }), {label: `查询 ${owner}/${repo} 发布列表`});
@@ -318,7 +318,7 @@ const downloadAndExtractBinaryFromArchive = async ({
     sha,
     algo = 'sha256',
 }) => {
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dashplayer-download-'));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'refrain-download-'));
     try {
         const nameFromUrl = String(url).split('/').pop() || 'asset';
         const archivePath = path.join(tmpRoot, nameFromUrl);
@@ -790,7 +790,7 @@ const readSha256FromChecksums = (checksumsPath, assetName) => {
  */
 async function installWhisperRuntimeFromRelease({basePath, exePath, markerPath, expectedMarker}) {
     const assetName = whisperRuntimeAssetName(platform, arch);
-    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dashplayer-whisper-'));
+    const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'refrain-whisper-'));
     try {
         const missingHint = `运行时 Release ${WHISPER_RUNTIME_RELEASE_TAG} 不存在或缺资产：先跑 .github/workflows/whisper-runtime.yml 发布该配方（tag 由 scripts/whisper-runtime-meta.mjs 决定）`;
         console.info(chalk.blue(`=> whisper.cpp 运行时来源：${WHISPER_RUNTIME_RELEASE_TAG}（由 whisper-runtime.yml 发布）`));

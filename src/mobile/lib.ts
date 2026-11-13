@@ -1,8 +1,8 @@
 /** 手机页偏好存储键；按浏览器 origin 隔离，换端口后需要重新设置。 */
 export const PREF_KEYS = {
-    showEnglish: 'dashplayer.mobile.showEnglish',
-    showTranslation: 'dashplayer.mobile.showTranslation',
-    speed: 'dashplayer.mobile.speed',
+    showEnglish: 'refrain.mobile.showEnglish',
+    showTranslation: 'refrain.mobile.showTranslation',
+    speed: 'refrain.mobile.speed',
 } as const;
 
 /** 播放页 hash；列表页是 `#/`。 */

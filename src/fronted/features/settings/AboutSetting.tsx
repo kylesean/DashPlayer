@@ -130,7 +130,7 @@ const AboutSetting: React.FC = () => {
                                 variant="ghost"
                                 icon={<Icon icon={Tag as unknown as IconType} size="sm" />}
                                 endContent={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
-                                onClick={() => openUrl('https://github.com/kylesean/DashPlayer/releases/latest')}
+                                onClick={() => openUrl('https://github.com/kylesean/Refrain/releases/latest')}
                             />
                         </HStack>
                     </HStack>
@@ -173,7 +173,7 @@ const AboutSetting: React.FC = () => {
                                 size="sm"
                                 variant="primary"
                                 endContent={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
-                                onClick={() => openUrl(updateResult?.releases[0]?.url || 'https://github.com/kylesean/DashPlayer/releases/latest')}
+                                onClick={() => openUrl(updateResult?.releases[0]?.url || 'https://github.com/kylesean/Refrain/releases/latest')}
                             />
                         </HStack>
 
@@ -213,7 +213,7 @@ const AboutSetting: React.FC = () => {
                         variant="secondary"
                         size="sm"
                         endContent={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
-                        onClick={() => openUrl('https://kylesean.github.io/DashPlayer/home.html')}
+                        onClick={() => openUrl('https://kylesean.github.io/Refrain/home.html')}
                     />
                 </SettingField>
 
@@ -228,7 +228,7 @@ const AboutSetting: React.FC = () => {
                         variant="secondary"
                         size="sm"
                         endContent={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
-                        onClick={() => openUrl('https://github.com/kylesean/DashPlayer')}
+                        onClick={() => openUrl('https://github.com/kylesean/Refrain')}
                     />
                 </SettingField>
 
@@ -243,14 +243,14 @@ const AboutSetting: React.FC = () => {
                         variant="secondary"
                         size="sm"
                         endContent={<Icon icon={ExternalLink as unknown as IconType} size="xsm" />}
-                        onClick={() => openUrl('https://github.com/kylesean/DashPlayer/blob/main/LICENSE')}
+                        onClick={() => openUrl('https://github.com/kylesean/Refrain/blob/main/LICENSE')}
                     />
                 </SettingField>
             </SettingSection>
 
             <HStack justify="center" paddingBlock={2}>
                 <Text size="2xs" color="secondary" justify="center">
-                    {t('about.footer', { defaultValue: '源自 solidSpoon/DashPlayer，现以 Refrain 独立维护' })} · GNU AGPLv3
+                    {t('about.footer', { defaultValue: 'Refrain · 沉浸式英语视频学习桌面应用' })} · GNU AGPLv3
                 </Text>
             </HStack>
         </SettingsPageShell>

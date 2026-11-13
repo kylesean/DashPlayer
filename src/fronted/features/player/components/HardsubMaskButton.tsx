@@ -14,7 +14,7 @@ import {
 } from '@/fronted/features/player/components/PlaybackGlobalControls';
 
 /** 首次开启遮挡时只提示一次。 */
-const HARDSUB_HINT_SEEN_KEY = 'dashplayer.hardsub_mask_hint_seen';
+const HARDSUB_HINT_SEEN_KEY = 'refrain.hardsub_mask_hint_seen';
 
 /**
  * 硬字幕遮挡开关：视频控制条上的一键开关。

@@ -1,10 +1,10 @@
 {
-  "name": "dash-player",
+  "name": "refrain",
   "productName": "Refrain",
   "version": "0.1.0",
   "description": "Curated YouTube English, immersive and AI-native",
   "main": ".vite/build/main.cjs",
-  "desktopName": "dashplayer.desktop",
+  "desktopName": "refrain.desktop",
   "scripts": {
     "download": "zx ./scripts/download.mjs",
     "build:dictionary": "node scripts/build-dictionary.mjs",

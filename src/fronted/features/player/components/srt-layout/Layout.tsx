@@ -72,7 +72,7 @@ const PlaybackLayout = () => {
     const [sizeOb, setSizeOb] = useLocalStorage<number>('split-size-ob', DEFAULT_OUTER_TRANSCRIPT_SIZE);
     const [sizeIa, setSizeIa] = useLocalStorage<number>('split-size-ia', DEFAULT_INNER_STAGE_SIZE);
     const [sizeIb, setSizeIb] = useLocalStorage<number>('split-size-ib', DEFAULT_INNER_SUBTITLE_SIZE);
-    const [toolbarPinned, setToolbarPinned] = useLocalStorage<boolean>('dashplayer.learning_toolbar_pinned', true);
+    const [toolbarPinned, setToolbarPinned] = useLocalStorage<boolean>('refrain.learning_toolbar_pinned', true);
     const outerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const innerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const prePracticeSplitRef = useRef<[number, number] | null>(null);

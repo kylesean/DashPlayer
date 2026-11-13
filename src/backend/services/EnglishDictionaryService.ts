@@ -271,7 +271,7 @@ export default class EnglishDictionaryService {
                     reject(new Error('下载重定向次数过多'));
                     return;
                 }
-                const req = https.get(url, { headers: { 'User-Agent': 'DashPlayer-dictionary-enhancement' } }, (res) => {
+                const req = https.get(url, { headers: { 'User-Agent': 'Refrain-dictionary-enhancement' } }, (res) => {
                     if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                         res.resume();
                         request(new URL(res.headers.location, url).toString(), redirects + 1);

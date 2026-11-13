@@ -136,7 +136,7 @@ const download = (url, dest) =>
  */
 const httpsGet = (url, callback, onError) => {
     import('node:https').then(({ default: https }) => {
-        https.get(url, { headers: { 'User-Agent': 'DashPlayer-dictionary-build' } }, callback)
+        https.get(url, { headers: { 'User-Agent': 'Refrain-dictionary-build' } }, callback)
             .on('error', onError);
     });
 };
@@ -168,7 +168,7 @@ const normalizeTags = (tag) => {
 };
 
 console.info('== 1/4 准备 ECDICT 源数据 ==');
-const cacheDir = path.join(os.tmpdir(), 'dashplayer-dictionary-build');
+const cacheDir = path.join(os.tmpdir(), 'refrain-dictionary-build');
 fs.mkdirSync(cacheDir, { recursive: true });
 const zipPath = path.join(cacheDir, path.basename(ECDICT_SOURCE.url));
 if (fs.existsSync(zipPath) && (await hashFile(zipPath)) === ECDICT_SOURCE.sha256) {

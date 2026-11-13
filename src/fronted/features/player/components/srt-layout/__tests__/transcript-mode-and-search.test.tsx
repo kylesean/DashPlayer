@@ -21,7 +21,7 @@ describe('Layout store - transcriptViewMode', () => {
     it('updates mode and saves to localStorage via setTranscriptViewMode', () => {
         useLayout.getState().setTranscriptViewMode('article');
         expect(useLayout.getState().transcriptViewMode).toBe('article');
-        expect(localStorage.getItem('dashplayer.transcript_view_mode')).toBe('article');
+        expect(localStorage.getItem('refrain.transcript_view_mode')).toBe('article');
     });
 
     it('toggles between sentence and article mode via toggleTranscriptViewMode', () => {

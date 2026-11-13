@@ -118,7 +118,7 @@ export default class LearningDataController implements Controller {
         const date = new Date().toISOString().slice(0, 10);
         const result = await dialog.showSaveDialog({
             title: '导出学习数据',
-            defaultPath: path.join(app.getPath('documents'), `dashplayer-learning-data-${date}.json`),
+            defaultPath: path.join(app.getPath('documents'), `refrain-learning-data-${date}.json`),
             filters: [{ name: 'JSON', extensions: ['json'] }],
         });
         if (result.canceled || !result.filePath) {

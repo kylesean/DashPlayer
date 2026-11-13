@@ -12,7 +12,7 @@
  */
 
 /** 本仓库（运行时 Release 也发在这里）：owner/repo 形式，下载 URL 与 CI 共用。 */
-export const DASHPLAYER_REPOSITORY = 'kylesean/DashPlayer';
+export const REFRAIN_REPOSITORY = 'kylesean/Refrain';
 
 /** whisper.cpp 源码仓库：运行时由该仓库的 parakeet-cli 目标构建。 */
 export const WHISPER_CPP_REPOSITORY = 'ggml-org/whisper.cpp';
@@ -66,4 +66,4 @@ export const whisperRuntimeAssetName = (platform, arch) =>
  * @returns {string} 可直接 GET 的下载地址。
  */
 export const whisperRuntimeReleaseAssetUrl = (assetName) =>
-    `https://github.com/${DASHPLAYER_REPOSITORY}/releases/download/${WHISPER_RUNTIME_RELEASE_TAG}/${assetName}`;
+    `https://github.com/${REFRAIN_REPOSITORY}/releases/download/${WHISPER_RUNTIME_RELEASE_TAG}/${assetName}`;

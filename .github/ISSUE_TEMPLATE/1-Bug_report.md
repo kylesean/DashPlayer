@@ -26,7 +26,7 @@ labels: ['bug']
 
 ## 日志
 
-<!-- 日志目录在应用数据目录下的 logs 文件夹：Windows %APPDATA%\Refrain\logs；macOS ~/Library/Application Support/Refrain/logs；Linux ~/.config/Refrain/logs。从 DashPlayer 升级来的安装会沿用旧目录（名字仍是 DashPlayer），见 src/backend/startup/userDataCompat.ts -->
+<!-- 日志目录在应用数据目录下的 logs 文件夹：Windows %APPDATA%\Refrain\logs；macOS ~/Library/Application Support/Refrain/logs；Linux ~/.config/Refrain/logs -->
 
 <details><summary>日志内容（可折叠长日志）</summary>
 
@@ -40,4 +40,4 @@ labels: ['bug']
 
 截图、视频或其他有助于定位问题的材料。
 
-> 安装遇到问题？请先阅读[安装指南（含常见安装失败排查）](https://kylesean.github.io/DashPlayer/installation.html)。
+> 安装遇到问题？请先阅读[安装指南（含常见安装失败排查）](https://kylesean.github.io/Refrain/installation.html)。

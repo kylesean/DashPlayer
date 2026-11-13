@@ -64,7 +64,7 @@ describe('应用启动门槛', () => {
 
         render(<App />);
 
-        expect(await screen.findByAltText('appTitle')).toBeDefined();
+        expect(await screen.findByLabelText('appTitle')).toBeDefined();
         expect(screen.queryByText('steps.storage.heroTitle')).toBeNull();
     });
 

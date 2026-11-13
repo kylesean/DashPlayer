@@ -78,7 +78,7 @@ describe('MobileWebServer 访问令牌鉴权', () => {
         const response = await fetch(`${baseUrl}/api/recent?t=${TEST_TOKEN}`);
         expect(response.status).toBe(200);
         const setCookie = response.headers.get('set-cookie') ?? '';
-        expect(setCookie).toContain('dp_mobile_token=');
+        expect(setCookie).toContain('refrain_mobile_token=');
         expect(setCookie).toContain('HttpOnly');
         expect(setCookie).toContain('SameSite=Strict');
         // 会话 Cookie 在浏览器重启/主屏 Web App 被回收后会丢，必须带明确有效期。
@@ -87,29 +87,29 @@ describe('MobileWebServer 访问令牌鉴权', () => {
 
     it('有效 Cookie 优先于地址里残留的过期令牌', async () => {
         const response = await fetch(`${baseUrl}/api/recent?t=stale-token-from-old-bookmark`, {
-            headers: { Cookie: `dp_mobile_token=${TEST_TOKEN}` },
+            headers: { Cookie: `refrain_mobile_token=${TEST_TOKEN}` },
         });
         expect(response.status).toBe(200);
     });
 
     it('Cookie 已失效但地址里是新令牌时放行并刷新 Cookie', async () => {
         const response = await fetch(`${baseUrl}/api/recent?t=${TEST_TOKEN}`, {
-            headers: { Cookie: 'dp_mobile_token=stale-token' },
+            headers: { Cookie: 'refrain_mobile_token=stale-token' },
         });
         expect(response.status).toBe(200);
-        expect(response.headers.get('set-cookie') ?? '').toContain(`dp_mobile_token=${TEST_TOKEN}`);
+        expect(response.headers.get('set-cookie') ?? '').toContain(`refrain_mobile_token=${TEST_TOKEN}`);
     });
 
     it('请求头携带令牌可以访问', async () => {
         const response = await fetch(`${baseUrl}/api/recent`, {
-            headers: { 'X-DashPlayer-Token': TEST_TOKEN },
+            headers: { 'X-Refrain-Token': TEST_TOKEN },
         });
         expect(response.status).toBe(200);
     });
 
     it('Cookie 里的令牌可以访问后续请求', async () => {
         const response = await fetch(`${baseUrl}/api/recent`, {
-            headers: { Cookie: `dp_mobile_token=${TEST_TOKEN}` },
+            headers: { Cookie: `refrain_mobile_token=${TEST_TOKEN}` },
         });
         expect(response.status).toBe(200);
     });
@@ -179,7 +179,7 @@ describe('手机页的浏览器访问链路', () => {
         await expect(page.text()).resolves.toContain('id="root"');
 
         const setCookie = page.headers.get('set-cookie') ?? '';
-        expect(setCookie).toContain('dp_mobile_token=');
+        expect(setCookie).toContain('refrain_mobile_token=');
         const cookie = setCookie.split(';')[0];
         expect(cookie).toContain(TEST_TOKEN);
 
@@ -199,7 +199,7 @@ describe('手机页的浏览器访问链路', () => {
 
     it('伪造的 Cookie 不会被当成有效令牌', async () => {
         const response = await fetch(`${baseUrl}/api/recent`, {
-            headers: { Cookie: 'dp_mobile_token=forged-token' },
+            headers: { Cookie: 'refrain_mobile_token=forged-token' },
         });
         expect(response.status).toBe(401);
     });
@@ -219,7 +219,7 @@ describe('手机页的浏览器访问链路', () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-DashPlayer-Token': TEST_TOKEN,
+                'X-Refrain-Token': TEST_TOKEN,
             },
             body: JSON.stringify({ position }),
         });
@@ -236,7 +236,7 @@ describe('手机页的浏览器访问链路', () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-DashPlayer-Token': TEST_TOKEN,
+                'X-Refrain-Token': TEST_TOKEN,
             },
             body: JSON.stringify({ texts: ['a'] }),
         });

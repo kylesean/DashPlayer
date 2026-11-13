@@ -72,7 +72,7 @@ if (!result?.packagedPath) {
     throw new Error('Forge package 没有返回 packagedPath');
 }
 
-const executableName = qaConfig.packagerConfig?.executableName ?? 'dashplayer';
+const executableName = qaConfig.packagerConfig?.executableName ?? 'refrain';
 const executablePath = findExecutable(result.packagedPath, result.platform, executableName);
 const manifest = {
     schemaVersion: 1,

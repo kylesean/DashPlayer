@@ -52,8 +52,8 @@ export interface MobileWebServerOptions {
 
 /**
  * 访问令牌的传递方式，按校验优先级排列：
- * 1. Cookie `dp_mobile_token`：浏览器拿到令牌后自动携带，代表「当前浏览器仍然有效」；
- * 2. 请求头 `X-DashPlayer-Token`：用于原生客户端（iOS）逐次携带；
+ * 1. Cookie `refrain_mobile_token`：浏览器拿到令牌后自动携带，代表「当前浏览器仍然有效」；
+ * 2. 请求头 `X-Refrain-Token`：用于原生客户端（iOS）逐次携带；
  * 3. 查询参数 `?t=`：用于「把带令牌的地址粘贴到手机浏览器」这一首次访问。
  *
  * Cookie 优先于查询参数：地址里的令牌可能来自轮换前的旧书签或旧主屏快捷方式，
@@ -61,8 +61,8 @@ export interface MobileWebServerOptions {
  * 三者中任意一个有效即放行，不会因为前一个失效而拒绝后面的有效值。
  */
 const TOKEN_QUERY_KEY = 't';
-const TOKEN_HEADER_NAME = 'x-dashplayer-token';
-const TOKEN_COOKIE_NAME = 'dp_mobile_token';
+const TOKEN_HEADER_NAME = 'x-refrain-token';
+const TOKEN_COOKIE_NAME = 'refrain_mobile_token';
 
 /**
  * 访问令牌 Cookie 的有效期（秒）。
@@ -476,8 +476,8 @@ export default class MobileWebServer {
      *
      * 服务监听在局域网可达的地址上，缺令牌等于把用户的媒体库、字幕和付费额度
      * 暴露给同一网络里的任何人。令牌可以三种方式携带：
-     * - `dp_mobile_token` Cookie：浏览器首次访问后由服务端下发，后续请求自动带上；
-     * - `X-DashPlayer-Token` 请求头：原生客户端逐次携带；
+     * - `refrain_mobile_token` Cookie：浏览器首次访问后由服务端下发，后续请求自动带上；
+     * - `X-Refrain-Token` 请求头：原生客户端逐次携带；
      * - `?t=` 查询参数：用户把设置页展示的完整地址粘到手机浏览器时用。
      *
      * 依次尝试三种来源，任意一个与当前令牌一致即放行。Cookie 排在最前，避免

@@ -122,6 +122,6 @@ describe('ReviewDock 片段入口', () => {
         expect(entry.textContent).toContain('reviewDock.openClips:3');
 
         fireEvent.click(entry);
-        expect(navigate).toHaveBeenCalledWith('/vocabulary?word=journey');
+        expect(navigate).toHaveBeenCalledWith('/context-studio?word=journey');
     });
 });

@@ -176,10 +176,10 @@ const config: ForgeConfig = {
         // **构建期**读仓库里的 whisper-runtime-meta.mjs，CI 从源码仓库跑，不读安装包）。
         // 继续打包只会徒增安装包体积，并把构建期工具暴露在用户的安装目录里。
         extraResource: ['./drizzle', './lib', './resources'],
-        // Linux 命名统一为不带横杠的 dashplayer：此处 executableName、各 Linux maker 的
+        // Linux 命名统一为 refrain：此处 executableName、各 Linux maker 的
         // name/bin 与 package.json 的 desktopName 必须一致，桌面环境才能把窗口（Wayland
-        // app_id / X11 WM_CLASS）匹配到安装包里的 dashplayer.desktop，否则 Dock 只显示通用占位图标。
-        executableName: 'dashplayer',
+        // app_id / X11 WM_CLASS）匹配到安装包里的 refrain.desktop，否则 Dock 只显示通用占位图标。
+        executableName: 'refrain',
         name: 'Refrain',
     },
     rebuildConfig: {},
@@ -191,7 +191,7 @@ const config: ForgeConfig = {
             // install.gif 由 assets/brand/refrain/tools/export_app_icons.py 生成：单帧、325×339、墨色圆角底板。
             loadingGif: './assets/icons/install.gif',
             setupIcon: './assets/icons/icon.ico',
-            iconUrl: 'https://raw.githubusercontent.com/kylesean/DashPlayer/main/assets/icons/icon.ico',
+            iconUrl: 'https://raw.githubusercontent.com/kylesean/Refrain/main/assets/icons/icon.ico',
         }),
         // DMG 窗口尺寸由 1x 背景图的像素尺寸决定（appdmg 读 background.png 的宽高当窗口大小，
         // background@2x.png 仅用于 retina 渲染），因此下面两个图标坐标用的就是背景图那套 640x500 坐标，
@@ -208,16 +208,16 @@ const config: ForgeConfig = {
         }),
         new MakerRpm({
             options: {
-                name: 'dashplayer',
-                bin: 'dashplayer',
+                name: 'refrain',
+                bin: 'refrain',
                 productName: 'Refrain',
                 icon: './assets/icons/icon.png',
             },
         }),
         new MakerDeb({
             options: {
-                name: 'dashplayer',
-                bin: 'dashplayer',
+                name: 'refrain',
+                bin: 'refrain',
                 productName: 'Refrain',
                 icon: './assets/icons/icon.png',
             },
@@ -227,8 +227,8 @@ const config: ForgeConfig = {
         // icon 给出 hicolor 多尺寸集合，maker 自动把最大尺寸作为 .DirIcon 默认图标。
         new MakerAppImage({
             options: {
-                name: 'dashplayer',
-                bin: 'dashplayer',
+                name: 'refrain',
+                bin: 'refrain',
                 productName: 'Refrain',
                 icon: {
                     '16x16': './assets/icons/16x16.png',
@@ -248,7 +248,7 @@ const config: ForgeConfig = {
             manufacturer: 'kylesean',
             version: packageJson.version,
             icon: './assets/icons/icon.ico',
-            exe: 'dashplayer.exe',
+            exe: 'refrain.exe',
             ui: {
                 chooseDirectory: true,
             },
@@ -288,7 +288,7 @@ const config: ForgeConfig = {
         {
             name: '@electron-forge/publisher-github',
             config: {
-                repository: { owner: 'kylesean', name: 'DashPlayer' },
+                repository: { owner: 'kylesean', name: 'Refrain' },
             },
         },
     ],
