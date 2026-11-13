@@ -167,32 +167,42 @@ export default function ContextStudioPage() {
         };
     }, []);
 
-    const loadAllAssets = useCallback(async () => {
+    // 快照应用此前在初始 effect 里复制了一份，收敛到 applySnapshot；
+    // 失败提示与 loading 复位随调用方语境各自收尾。
+    const applySnapshot = useCallback((snapshot: StudioAssetsSnapshot) => {
+        if (snapshot.words) setWords(snapshot.words);
+        if (snapshot.sentences) setSentences(snapshot.sentences);
+        if (snapshot.dueWords) setDueWords(snapshot.dueWords);
+        if (snapshot.dueCards) setDueCards(snapshot.dueCards);
+        if (snapshot.dueCount !== undefined) setDueTotalCount(snapshot.dueCount);
+    }, []);
+
+    // isCancelled 由调用方提供，防卸载后的迟到 setState/toast。
+    const loadAllAssets = useCallback(async (isCancelled?: () => boolean) => {
         setLoading(true);
         try {
             const snapshot = await fetchStudioAssetsSnapshot();
-            if (snapshot.words) setWords(snapshot.words);
-            if (snapshot.sentences) setSentences(snapshot.sentences);
-            if (snapshot.dueWords) setDueWords(snapshot.dueWords);
-            if (snapshot.dueCards) setDueCards(snapshot.dueCards);
-            if (snapshot.dueCount !== undefined) setDueTotalCount(snapshot.dueCount);
+            if (isCancelled?.()) return;
+            applySnapshot(snapshot);
         } catch {
-            toast.error(i18nT('pages:contextStudio.loadFailed', { defaultValue: '加载语境资产失败' }));
+            if (!isCancelled?.()) {
+                toast.error(i18nT('pages:contextStudio.loadFailed', { defaultValue: '加载语境资产失败' }));
+            }
         } finally {
-            setLoading(false);
+            if (!isCancelled?.()) {
+                setLoading(false);
+            }
         }
-    }, []);
+    }, [applySnapshot]);
 
     useEffect(() => {
         let cancelled = false;
+        // 挂载路径不走 loadAllAssets：其同步前缀 setLoading 会触发
+        // react-hooks/set-state-in-effect（loading 初值本就是 true）；async 续体内
+        // setState 是允许的，与原实现形态一致。
         void fetchStudioAssetsSnapshot()
             .then((snapshot) => {
-                if (cancelled) return;
-                if (snapshot.words) setWords(snapshot.words);
-                if (snapshot.sentences) setSentences(snapshot.sentences);
-                if (snapshot.dueWords) setDueWords(snapshot.dueWords);
-                if (snapshot.dueCards) setDueCards(snapshot.dueCards);
-                if (snapshot.dueCount !== undefined) setDueTotalCount(snapshot.dueCount);
+                if (!cancelled) applySnapshot(snapshot);
             })
             .catch(() => {
                 if (!cancelled) {
@@ -207,7 +217,7 @@ export default function ContextStudioPage() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [applySnapshot]);
 
     // 统计各分类数量
     const counts = useMemo(() => {
@@ -290,18 +300,16 @@ export default function ContextStudioPage() {
         return [...sentenceEntries, ...wordEntries];
     }, [activeFilter, activeSentenceTag, words, sentences, dueWords, searchTerm]);
 
-    // 根据深链 ?word=、显式选中或当前筛选队列首项派生右侧画布聚焦资产
+    // 根据深链 ?word=、显式选中或当前筛选队列首项派生右侧画布聚焦资产。
+    // 显式选中与筛选模式不匹配时回落到深链/首项（筛选切换入口已统一清空
+    // explicitSelection，这里的守卫只是类型层面的兜底）。
     const selection = useMemo<StudioSelection>(() => {
         if (explicitSelection) {
-            if (activeFilter === 'sentences' && explicitSelection.kind !== 'sentence') {
-                // 切到金句模式时不再保留上一个生词详情
-            } else if (
-                activeFilter !== 'all' &&
-                activeFilter !== 'sentences' &&
-                explicitSelection.kind !== 'word'
-            ) {
-                // 切到生词子分类时不再保留上一个金句详情
-            } else {
+            const kindMatchesFilter = activeFilter === 'all'
+                || (activeFilter === 'sentences'
+                    ? explicitSelection.kind === 'sentence'
+                    : explicitSelection.kind === 'word');
+            if (kindMatchesFilter) {
                 return explicitSelection;
             }
         }
