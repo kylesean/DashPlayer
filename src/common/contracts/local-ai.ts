@@ -7,6 +7,45 @@
  */
 export const LLAMA_RUNTIME_VERSION = 'b12292';
 
+/** 本地模型性能档位。 */
+export type LocalAiTier = 'light' | 'standard' | 'pro';
+
+/** 语义向量模型安装与下载状态。 */
+export interface LocalEmbeddingStatus {
+    /** 基础文本语义模型是否就绪。 */
+    ready: boolean;
+    /** 展示名。 */
+    name: string;
+    /** 展示用大小标签。 */
+    sizeLabel: string;
+    /** 基础模型精确字节数。 */
+    bytes: number;
+    /** 多模态投影是否就绪；未安装时图像/音频向量不可用。 */
+    multimodalReady: boolean;
+    /** 多模态投影体积（字节）。 */
+    multimodalBytes: number;
+    /** 任一项是否正在下载。 */
+    downloading?: boolean;
+    /** 当前正在下载的对象。 */
+    activeTarget?: 'base' | 'multimodal' | null;
+    /** 当前阶段。 */
+    phase?: 'idle' | 'downloading' | 'verifying';
+    /** 当前已下载字节数。 */
+    downloaded?: number;
+    /** 当前下载目标总字节数。 */
+    total?: number;
+    /** 最近一次下载错误信息；无记录为 null。 */
+    error?: string | null;
+    /** 基础模型候选下载地址（含镜像）。 */
+    downloadUrls?: string[];
+    /** 基础模型本地安装路径。 */
+    modelPath?: string;
+    /** 多模态投影候选下载地址（含镜像）。 */
+    multimodalDownloadUrls?: string[];
+    /** 多模态投影本地安装路径。 */
+    multimodalModelPath?: string;
+}
+
 /** 本地模型目录项；id 同时作为设置值、安装目录名与缓存隔离键的一部分。 */
 export interface LocalAiModelDefinition {
     /** 稳定模型标识，目录内唯一。 */
@@ -28,10 +67,30 @@ export interface LocalAiModelDefinition {
     sha256: string;
     /** 模型来源：catalog 由应用目录预置，custom 为用户手动放入模型目录的文件。 */
     source: 'catalog' | 'custom';
+    /** 硬件分级档位；自定义模型缺省。 */
+    tier?: LocalAiTier;
+    /** 推荐最低内存（GB）；低于此值时提示可能卡顿或建议使用更轻量档/云端。 */
+    recommendedMinMemoryGb?: number;
 }
 
-/** 可下载的本地模型目录；同一家族保证提示词与推理参数行为一致。 */
+/** 可下载的本地模型目录；同一 Qwen3.5 家族保证提示词、GBNF 填槽格式与结构化 JSON 输出行为一致。 */
 export const LOCAL_AI_MODELS: readonly LocalAiModelDefinition[] = [
+    {
+        id: 'qwen3.5-0.8b-q4_k_m',
+        name: 'Qwen3.5 0.8B Q4_K_M',
+        file: 'Qwen3.5-0.8B-Q4_K_M.gguf',
+        bytes: 532517120,
+        sizeLabel: '508 MB',
+        urls: [
+            'https://www.modelscope.cn/models/unsloth/Qwen3.5-0.8B-GGUF/resolve/master/Qwen3.5-0.8B-Q4_K_M.gguf',
+            'https://hf-mirror.com/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf',
+            'https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf',
+        ],
+        sha256: 'bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517',
+        source: 'catalog',
+        tier: 'light',
+        recommendedMinMemoryGb: 6,
+    },
     {
         id: 'qwen3.5-2b-q4_k_m',
         name: 'Qwen3.5 2B Q4_K_M',
@@ -40,20 +99,34 @@ export const LOCAL_AI_MODELS: readonly LocalAiModelDefinition[] = [
         sizeLabel: '1.28 GB',
         urls: [
             'https://www.modelscope.cn/models/unsloth/Qwen3.5-2B-GGUF/resolve/master/Qwen3.5-2B-Q4_K_M.gguf',
+            'https://hf-mirror.com/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
             'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
         ],
         sha256: 'aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223',
         source: 'catalog',
+        tier: 'standard',
+        recommendedMinMemoryGb: 8,
+    },
+    {
+        id: 'qwen3.5-4b-q4_k_m',
+        name: 'Qwen3.5 4B Q4_K_M',
+        file: 'Qwen3.5-4B-Q4_K_M.gguf',
+        bytes: 2740937888,
+        sizeLabel: '2.74 GB',
+        urls: [
+            'https://www.modelscope.cn/models/unsloth/Qwen3.5-4B-GGUF/resolve/master/Qwen3.5-4B-Q4_K_M.gguf',
+            'https://hf-mirror.com/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
+            'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
+        ],
+        sha256: '00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4',
+        source: 'catalog',
+        tier: 'pro',
+        recommendedMinMemoryGb: 16,
     },
 ] as const;
 
 /**
- * 本地模型设置键的默认取值。
- *
- * 本地只保留一个「通用指令模型」作为单一事实来源：词典语境解释、字幕翻译、
- * 整句学习与聊天兜底全部复用它，场景差异由提示词承担。专用翻译模型不进入
- * 默认路径——它们不擅长结构化输出与讲解类生成。硬件更强的用户可通过
- * 「自定义模型」放入自己的 GGUF，而不是在目录里堆多套模型。
+ * 本地模型设置键的默认取值：同家族均衡档（1.28 GB），兼顾词典、翻译与整句学习质量。
  */
 export const LOCAL_AI_DEFAULT_MODEL_ID = 'qwen3.5-2b-q4_k_m';
 
@@ -61,15 +134,7 @@ export const LOCAL_AI_DEFAULT_MODEL_ID = 'qwen3.5-2b-q4_k_m';
  * 可选的本地语义向量模型。
  *
  * 与对话模型分开管理：它只服务于内容推荐的语义相似度，不能切换到聊天/翻译路径，
- * 也不会出现在「使用中模型」里。未安装时推荐自动降级为词面相似度。
- *
- * 选择 EmbeddingGemma 2 而不是 bge-small 的原因：
- * - 多语言（bge-small-en 只支持英文，中英混合字幕会退化）；
- * - 768 维、24 层，语义区分度明显更好；
- * - 官方多模态权重可复用同一 llama-server 进程做图像/音频向量。
- *
- * 代价是必须搭配 llama.cpp b11500+ 运行时（`gemma-embedding2` 架构），
- * 因此下载脚本与两个运行时都固定在 b12292。
+ * 也不会出现在「使用中模型」里。未安装时推荐自动降级为云端向量或词面相似度。
  */
 export const LOCAL_EMBEDDING_MODEL: LocalAiModelDefinition = {
     id: 'embeddinggemma-2-q4_k_xl',
@@ -78,6 +143,8 @@ export const LOCAL_EMBEDDING_MODEL: LocalAiModelDefinition = {
     bytes: 175673856,
     sizeLabel: '168 MB',
     urls: [
+        'https://www.modelscope.cn/models/unsloth/embeddinggemma-2-GGUF/resolve/master/embeddinggemma-2-UD-Q4_K_XL.gguf',
+        'https://hf-mirror.com/unsloth/embeddinggemma-2-GGUF/resolve/main/embeddinggemma-2-UD-Q4_K_XL.gguf',
         'https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/main/embeddinggemma-2-UD-Q4_K_XL.gguf',
     ],
     sha256: 'ea905fd08e8061db77a0031cbb5096d459d7cfd2bdd0ad2ba66e483f16719493',
@@ -97,6 +164,8 @@ export const LOCAL_EMBEDDING_MMPROJ: LocalAiModelDefinition = {
     bytes: 554821120,
     sizeLabel: '529 MB',
     urls: [
+        'https://www.modelscope.cn/models/unsloth/embeddinggemma-2-GGUF/resolve/master/mmproj-Q8_0.gguf',
+        'https://hf-mirror.com/unsloth/embeddinggemma-2-GGUF/resolve/main/mmproj-Q8_0.gguf',
         'https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/main/mmproj-Q8_0.gguf',
     ],
     sha256: '90e7b0238009e2954f856f2081dcf7f35af026b64c765e98f4777053e1754460',
@@ -158,6 +227,10 @@ export interface LocalAiModelStatus {
     error: string | null;
     /** 是否为用户手动放入模型目录的自定义模型。 */
     custom: boolean;
+    /** 性能档位；自定义模型缺省。 */
+    tier?: LocalAiTier;
+    /** 推荐最低内存（GB）；自定义模型缺省。 */
+    recommendedMinMemoryGb?: number;
 }
 
 /** 本地模型稳态速度测试结果；时长单位毫秒，token 数据由推理端提供，缺失时为 null。 */

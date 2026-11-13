@@ -29,6 +29,8 @@ export interface ResourceStatusSnapshot {
         segmentationUrls: string[];
         /** 声纹嵌入模型下载地址。 */
         embeddingUrls: string[];
+        /** 声纹分离模型存放目录。 */
+        targetPath?: string;
     };
     /** 本地增强资源包状态。 */
     localAi: LocalAiStatus;

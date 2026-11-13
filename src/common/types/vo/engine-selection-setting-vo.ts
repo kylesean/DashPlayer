@@ -23,13 +23,18 @@ export type EngineSelectionSettingVO = {
         subtitleTranslationEngine: 'openai' | 'local' | 'local-mt' | 'tencent' | 'none' | 'invalid';
         /** 词典引擎；`'invalid'` 表示存储值非法（含已移除的 youdao 旧值），等待用户重新选择。 */
         dictionaryEngine: 'openai' | 'local' | 'none' | 'invalid';
+        /** 语义向量路由策略；缺省按 `'auto'` 处理。 */
+        embeddingEngine?: 'auto' | 'local' | 'openai' | 'none' | 'invalid';
     };
     /**
      * 存储值不在当前合法枚举内的设置项。
      * 键为设置仓库键，值为存储的原始值；用户重新保存合法值后该项消失。
      */
     invalidValues: Partial<Record<
-        'providers.subtitleTranslation' | 'providers.dictionary' | 'features.openai.subtitleTranslationMode',
+        | 'providers.subtitleTranslation'
+        | 'providers.dictionary'
+        | 'providers.embedding'
+        | 'features.openai.subtitleTranslationMode',
         string
     >>;
 };

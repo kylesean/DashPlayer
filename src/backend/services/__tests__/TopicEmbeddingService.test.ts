@@ -14,7 +14,13 @@ import { TopicEmbeddingServiceImpl } from '@/backend/services/TopicEmbeddingServ
 import type TopicVectorRepository from '@/backend/services/repositories/TopicVectorRepository';
 import type { TopicVectorRow } from '@/backend/infrastructure/db/tables/topicVector';
 
-const runtime = (embed: (texts: readonly string[]) => Promise<number[][] | null>) => ({ embed });
+const runtime = (
+    embed: (texts: readonly string[]) => Promise<number[][] | null>,
+    ready = true,
+) => ({
+    embed,
+    isReady: vi.fn(async () => ready),
+});
 
 /**
  * 内存版向量仓储桩：只保留 upsert 与按视频读取，用于验证持久化路径。

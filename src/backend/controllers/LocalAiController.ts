@@ -37,6 +37,7 @@ export class LocalAiController implements Controller {
         registerRoute('local-ai/embedding-status', () => this.embedding.getStatus());
         registerRoute('local-ai/embedding-download', () => this.embedding.download());
         registerRoute('local-ai/embedding-multimodal-download', () => this.embedding.downloadMultimodal());
+        registerRoute('local-ai/embedding-cancel-download', async () => this.embedding.cancelDownload());
         registerRoute('local-ai/embedding-remove', () => this.embedding.remove());
     }
 }

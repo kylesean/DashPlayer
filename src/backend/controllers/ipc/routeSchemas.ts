@@ -80,6 +80,17 @@ export const runtimeSettingSaveSchema: z.ZodType<RuntimeSettingSaveRequest> = z.
     value: z.string(),
 });
 
+const providerProfileSaveSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    apiFormat: aiApiFormatSchema,
+    endpoint: z.string(),
+    key: z.string().optional(),
+    clearKey: z.boolean().optional(),
+    models: z.array(z.string()),
+    disabledModels: z.array(z.string()).optional(),
+});
+
 /** 云端服务凭据保存请求校验架构。 */
 export const serviceCredentialSaveSchema: z.ZodType<ServiceCredentialSettingSaveVO> = z.object({
     openai: z.object({
@@ -89,6 +100,10 @@ export const serviceCredentialSaveSchema: z.ZodType<ServiceCredentialSettingSave
         endpoint: z.string(),
         apiFormat: aiApiFormatSchema,
         models: z.array(z.string()),
+        disabledModels: z.array(z.string()).optional(),
+        embeddingModel: z.string().optional(),
+        activeProviderId: z.string().optional(),
+        providers: z.array(providerProfileSaveSchema).optional(),
     }),
     tencent: z.object({
         secretId: z.string().optional(),

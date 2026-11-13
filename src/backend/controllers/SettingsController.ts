@@ -250,9 +250,9 @@ export default class SettingsController implements Controller {
      *
      * @param request 待测试的模型标识。
      */
-    public async testOpenAi(request: { model: string }): Promise<{ success: boolean, message: string }> {
-        this.logger.info('testing openai connection', { model: request.model });
-        return this.settingService.testOpenAi(request.model);
+    public async testOpenAi(request: { model: string; providerId?: string }): Promise<{ success: boolean, message: string }> {
+        this.logger.info('testing openai connection', { model: request.model, providerId: request.providerId });
+        return this.settingService.testOpenAi(request.model, request.providerId);
     }
 
     public async testTencent(): Promise<{ success: boolean, message: string }> {
@@ -270,7 +270,7 @@ export default class SettingsController implements Controller {
             schema: serviceCredentialSaveSchema,
         });
         registerRoute('settings/service-credentials/test-openai', (p) => this.testOpenAi(p), {
-            schema: z.object({ model: z.string() }),
+            schema: z.object({ model: z.string(), providerId: z.string().optional() }),
         });
         registerRoute('settings/service-credentials/test-tencent', () => this.testTencent());
         registerRoute('settings/engine-selection/detail', () => this.getEngineSelectionDetail());

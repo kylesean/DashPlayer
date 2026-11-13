@@ -1,7 +1,14 @@
 import { storeGet } from '@/backend/infrastructure/settings/store';
+import { isLocalLlmEndpoint } from '@/common/constants/cloud-ai-provider-presets';
 import { AI_API_FORMATS, type AiApiFormat } from '@/common/utils/cloud-ai-api-format';
+import {
+    findProviderForModel,
+    parseStoredProviderKeys,
+    parseStoredProviderProfiles,
+} from '@/common/utils/cloud-ai-providers';
 import StrUtil from '@/common/utils/str-util';
 import { inject, injectable } from 'inversify';
+import { createOpenAI } from '@ai-sdk/openai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -20,11 +27,10 @@ export default interface AiProviderService {
     /**
      * 按模型 ID 创建语言模型实例（不校验功能开关，供连接测试等跨场景用途）。
      *
-     * 按用户配置的 API 格式（openai/anthropic/gemini）创建对应 provider，
-     * 三种格式都走各自 SDK 的通用文本生成路径，结构化输出统一由 AI SDK
-     * 在客户端按 schema 校验。
+     * 按用户配置的 API 格式（openai / openai-responses / anthropic / gemini）
+     * 创建对应 provider，结构化输出统一由 AI SDK 在客户端按 schema 校验。
      */
-    createModelById(modelId: string): LanguageModel;
+    createModelById(modelId: string, providerId?: string): LanguageModel;
 }
 
 
@@ -42,19 +48,60 @@ export class AiProviderServiceImpl implements AiProviderService {
         @inject(TYPES.ModelRoutingService) private readonly modelRoutingService: ModelRoutingService,
     ) {}
 
+    private resolveEffectiveApiKey(apiKey: string, endpoint: string): string {
+        if (!StrUtil.isBlank(apiKey)) {
+            return apiKey;
+        }
+        return isLocalLlmEndpoint(endpoint) ? 'local' : '';
+    }
+
+    private resolveProviderConfig(modelId: string, providerId?: string): {
+        endpoint: string;
+        apiKey: string;
+        apiFormat: AiApiFormat;
+    } {
+        const profiles = parseStoredProviderProfiles(storeGet('models.openai.providers'));
+        if (profiles && profiles.length > 0) {
+            const matched = findProviderForModel(profiles, modelId, providerId);
+            if (matched) {
+                const keyMap = parseStoredProviderKeys(storeGet('apiKeys.openAi.providerKeys'));
+                const rawKey = keyMap[matched.id] ?? '';
+                return {
+                    endpoint: matched.endpoint,
+                    apiKey: this.resolveEffectiveApiKey(rawKey, matched.endpoint),
+                    apiFormat: matched.apiFormat,
+                };
+            }
+        }
+        const endpoint = storeGet('apiKeys.openAi.endpoint');
+        const apiFormat = storeGet('apiKeys.openAi.apiFormat');
+        if (!AI_API_FORMATS.includes(apiFormat as AiApiFormat)) {
+            throw new Error(`设置项 apiKeys.openAi.apiFormat 非法: ${apiFormat}`);
+        }
+        return {
+            endpoint,
+            apiKey: this.resolveEffectiveApiKey(storeGet('apiKeys.openAi.key'), endpoint),
+            apiFormat: apiFormat as AiApiFormat,
+        };
+    }
+
     /**
      * 获取指定场景当前配置的模型，并校验整句学习功能是否启用。
      * @param scene AI 使用场景。
      * @returns 可调用的语言模型；仅凭据不完整时返回 null，配置异常直接抛错。
      */
     public getModel(scene: AiModelScene): LanguageModel | null {
-        const apiKey = storeGet('apiKeys.openAi.key');
-        const endpoint = storeGet('apiKeys.openAi.endpoint');
-        if (scene === 'sentenceLearning' && storeGet('features.openai.enableSentenceLearning') !== 'true') {
-            throw new Error('整句学习功能未启用，请先在功能设置中启用');
+        if (scene === 'sentenceLearning') {
+            if (storeGet('features.openai.enableSentenceLearning') !== 'true') {
+                throw new Error('整句学习功能未启用，请先在功能设置中启用');
+            }
+            if (storeGet('models.openai.sentenceLearning') === 'local') {
+                return null;
+            }
         }
         const routedModel = this.modelRoutingService.resolveOpenAiModel(scene);
-        if (StrUtil.hasBlank(apiKey, endpoint)) {
+        const config = this.resolveProviderConfig(routedModel.modelId);
+        if (StrUtil.hasBlank(config.apiKey, config.endpoint)) {
             return null;
         }
         return this.createModelById(routedModel.modelId);
@@ -85,12 +132,10 @@ export class AiProviderServiceImpl implements AiProviderService {
      * @param modelId 模型 ID（来自模型路由配置）。
      * @returns 可直接传给 generateText/streamText 的语言模型。
      */
-    public createModelById(modelId: string): LanguageModel {
-        const apiKey = storeGet('apiKeys.openAi.key');
-        const endpoint = storeGet('apiKeys.openAi.endpoint');
-        const apiFormat = storeGet('apiKeys.openAi.apiFormat');
-        if (!AI_API_FORMATS.includes(apiFormat as AiApiFormat)) {
-            throw new Error(`设置项 apiKeys.openAi.apiFormat 非法: ${apiFormat}`);
+    public createModelById(modelId: string, providerId?: string): LanguageModel {
+        const { endpoint, apiKey, apiFormat } = this.resolveProviderConfig(modelId, providerId);
+        if (apiFormat === 'openai-responses') {
+            return createOpenAI({ baseURL: endpoint, apiKey }).responses(modelId);
         }
         if (apiFormat === 'anthropic') {
             return createAnthropic({ baseURL: endpoint, apiKey })(modelId);
@@ -101,7 +146,7 @@ export class AiProviderServiceImpl implements AiProviderService {
         const provider = createOpenAICompatible({
             name: 'openai',
             baseURL: endpoint,
-            apiKey: apiKey,
+            apiKey,
         });
         return provider.chatModel(modelId);
     }

@@ -190,10 +190,14 @@ export class LocalAiRuntime implements LocalAiService {
         return models.filter((model): model is LocalAiModelDefinition => model !== null);
     }
 
-    /** 字幕翻译或词典任一引擎配置为本地模型即视为引擎启用；读设置即时生效，无需事件通知。 */
+    /** 字幕翻译、词典或整句学习任一引擎配置为本地模型即视为引擎启用；读设置即时生效，无需事件通知。 */
     private isLocalEngineEnabled(): boolean {
         return this.settingsStore.get('providers.subtitleTranslation') === 'local'
-            || this.settingsStore.get('providers.dictionary') === 'local';
+            || this.settingsStore.get('providers.dictionary') === 'local'
+            || (
+                this.settingsStore.get('features.openai.enableSentenceLearning') === 'true'
+                && this.settingsStore.get('models.openai.sentenceLearning') === 'local'
+            );
     }
 
     /** 返回完整的安装和下载快照，页面重新进入时可以恢复进度。 */
@@ -209,6 +213,8 @@ export class LocalAiRuntime implements LocalAiService {
                 bytes: model.bytes,
                 sizeLabel: model.sizeLabel,
                 memoryEstimateGb: this.memoryEstimateGb(model.bytes),
+                tier: model.tier,
+                recommendedMinMemoryGb: model.recommendedMinMemoryGb,
                 // 就绪状态只做体积判断：完整性需要整文件哈希，成本高且不适合在状态轮询里做，
                 // 真正的完整性关卡在安装与加载时的 SHA256 校验。
                 ready: await this.installer.fileSize(modelPath) === model.bytes,

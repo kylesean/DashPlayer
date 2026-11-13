@@ -12,4 +12,10 @@ export interface SystemInfo {
     cpuCount: number;
     /** 可用的 GPU 加速后端；`none` 表示只能走 CPU。 */
     gpuAcceleration: GpuAcceleration;
+    /** 运行平台（如 darwin / win32 / linux）；旧版或测试桩可缺省。 */
+    platform?: NodeJS.Platform;
+    /** CPU 架构（如 arm64 / x64）；旧版或测试桩可缺省。 */
+    arch?: string;
+    /** 当前平台是否自带并支持 whisper.cpp 识别运行时。 */
+    whisperCppSupported?: boolean;
 }

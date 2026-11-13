@@ -43,7 +43,7 @@ export type CloudModelUsage = Record<OpenAiModelUsageFeature, string>;
  */
 export function computeCloudModelUsage(inputs: CloudModelUsageInputs): CloudModelUsage {
     const usesCloud = {
-        sentenceLearning: inputs.sentenceLearningEnabled,
+        sentenceLearning: inputs.sentenceLearningEnabled && inputs.modelSlots.sentenceLearning !== 'local',
         subtitleTranslation: inputs.subtitleTranslationEngine === 'openai',
         dictionary: inputs.dictionaryEngine === 'openai',
     };

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { inject, injectable } from 'inversify';
 
 import TYPES from '@/backend/ioc/types';
@@ -41,6 +42,8 @@ export interface DiarizationModelStatus {
     phase?: ModelInstallationStatusVO['phase'];
     /** 当前进度（0-100）。 */
     percent?: number;
+    /** 手动放置模型文件的目标目录（Models/diarization）。 */
+    targetPath?: string;
 }
 
 /**
@@ -141,6 +144,7 @@ export class SpeakerDiarizationModelServiceImpl implements SpeakerDiarizationMod
             downloading,
             phase: activePart?.phase ?? (this.activeDownload ? 'downloading' : null),
             percent: activePart?.percent ?? 0,
+            targetPath: segmentation.modelPath ? path.dirname(segmentation.modelPath) : '',
         };
     }
 
@@ -203,7 +207,7 @@ export class SpeakerDiarizationModelServiceImpl implements SpeakerDiarizationMod
  */
 export function toInstallationStatus(status: DiarizationModelStatus): ModelInstallationStatusVO {
     return {
-        modelPath: '',
+        modelPath: status.targetPath ?? '',
         ready: status.ready,
         missingFiles: status.ready ? [] : ['segmentation', 'embedding'],
         downloading: status.downloading ?? false,

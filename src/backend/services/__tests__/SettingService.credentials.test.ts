@@ -48,7 +48,13 @@ const createService = (store: ReturnType<typeof createStore>): SettingServiceImp
         { get: vi.fn() } as never,
         store as unknown as SettingsStore,
         { getDirectory: vi.fn() } as never,
-        { status: vi.fn(), download: vi.fn(), cancelDownload: vi.fn(), deleteModel: vi.fn() } as never,
+        {
+            status: vi.fn(),
+            download: vi.fn(),
+            cancelDownload: vi.fn(),
+            deleteModel: vi.fn(),
+            syncEngineResidency: vi.fn(),
+        } as never,
     );
 };
 
@@ -126,5 +132,39 @@ describe('服务凭据：不把明文送进渲染进程', () => {
         });
 
         expect(store.values.get('apiKeys.openAi.key')).toBe('');
+    });
+
+    it('支持保存和回读云端向量模型及本地整句讲解路由', async () => {
+        await service.saveServiceCredentials({
+            ...baseSave,
+            openai: { ...baseSave.openai, embeddingModel: '  text-embedding-3-small  ' },
+        });
+        const creds = await service.getServiceCredentialsDetail();
+        expect(creds.openai.embeddingModel).toBe('text-embedding-3-small');
+
+        await service.saveEngineSelection({
+            openai: {
+                enableSentenceLearning: true,
+                subtitleTranslationMode: 'zh',
+                subtitleCustomStyle: '',
+                featureModels: {
+                    sentenceLearning: 'local',
+                    subtitleTranslation: 'gpt-4o-mini',
+                    dictionary: 'gpt-4o-mini',
+                },
+            },
+            providers: {
+                subtitleTranslationEngine: 'local',
+                dictionaryEngine: 'local',
+                embeddingEngine: 'openai',
+            },
+            invalidValues: {},
+        });
+
+        const selection = await service.getEngineSelectionDetail();
+        expect(selection.providers.subtitleTranslationEngine).toBe('local');
+        expect(selection.providers.dictionaryEngine).toBe('local');
+        expect(selection.providers.embeddingEngine).toBe('openai');
+        expect(selection.openai.featureModels.sentenceLearning).toBe('local');
     });
 });

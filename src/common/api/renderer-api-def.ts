@@ -32,6 +32,10 @@ interface UIRendererDef {
         params: { modelId: string; percent: number; downloaded: number; total: number; phase: 'idle' | 'downloading' | 'verifying' },
         return: void
     };
+    'settings/embedding-model-download-progress': {
+        params: { target: 'base' | 'multimodal'; percent: number; downloaded: number; total: number; phase: 'idle' | 'downloading' | 'verifying' },
+        return: void
+    };
 }
 
 // 翻译相关的前端API定义

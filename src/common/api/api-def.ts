@@ -1,6 +1,6 @@
 import type {DpTask} from '@/common/contracts/dp-task';
 import type { YoutubeImportSettingDetailVO, YoutubeImportSettingSaveVO, YoutubeImportStartResult } from '@/common/contracts/youtube-import';
-import type { LocalAiSpeedTestResult, LocalAiStatus } from '@/common/contracts/local-ai';
+import type { LocalAiSpeedTestResult, LocalAiStatus, LocalEmbeddingStatus } from '@/common/contracts/local-ai';
 import type { ResourceFallbackSnapshot } from '@/common/contracts/resource-fallback';
 import type { ResourceStatusSnapshot } from '@/common/contracts/resource-status';
 import type { MigrationFailureDetail } from '@/common/contracts/migration-failure';
@@ -138,18 +138,11 @@ interface ApiDefinition {
     'local-ai/speed-test': { params: { modelId: string }, return: LocalAiSpeedTestResult };
     'local-ai/embedding-status': {
         params: void;
-        return: {
-            ready: boolean;
-            name: string;
-            sizeLabel: string;
-            bytes: number;
-            /** 多模态投影是否就绪；未安装时图像/音频向量不可用。 */
-            multimodalReady: boolean;
-            /** 多模态投影体积。 */
-            multimodalBytes: number;
-        };
+        return: LocalEmbeddingStatus;
     };
     'local-ai/embedding-download': { params: void; return: void };
+    /** 取消正在进行的语义模型或多模态投影下载。 */
+    'local-ai/embedding-cancel-download': { params: void; return: { cancelled: boolean } };
     /** 下载多模态投影（图像/音频向量）；文本推荐不依赖它。 */
     'local-ai/embedding-multimodal-download': { params: void; return: void };
     /** 删除已安装的语义模型与多模态投影。 */
@@ -419,7 +412,7 @@ interface SettingsDef {
     'settings/runtime/save': { params: RuntimeSettingSaveRequest, return: void };
     'settings/service-credentials/detail': { params: void, return: ServiceCredentialSettingDetailVO };
     'settings/service-credentials/save': { params: ServiceCredentialSettingSaveVO, return: void };
-    'settings/service-credentials/test-openai': { params: { model: string }, return: { success: boolean, message: string } };
+    'settings/service-credentials/test-openai': { params: { model: string; providerId?: string }, return: { success: boolean, message: string } };
     'settings/service-credentials/test-tencent': { params: void, return: { success: boolean, message: string } };
     'settings/engine-selection/detail': { params: void, return: EngineSelectionSettingVO };
     'settings/resource-fallback/detail': { params: void, return: ResourceFallbackSnapshot };
@@ -845,6 +838,7 @@ export const API_ROUTE_KEYS = [
     'local-ai/cancel-download',
     'local-ai/delete',
     'local-ai/download',
+    'local-ai/embedding-cancel-download',
     'local-ai/embedding-download',
     'local-ai/embedding-multimodal-download',
     'local-ai/embedding-remove',

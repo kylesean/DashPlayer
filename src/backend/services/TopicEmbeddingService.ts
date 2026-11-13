@@ -88,7 +88,14 @@ export class TopicEmbeddingServiceImpl implements TopicEmbeddingService {
         if (items.length === 0) {
             return [];
         }
-        const model = LOCAL_EMBEDDING_MODEL.id;
+        return this.embedWithModel(LOCAL_EMBEDDING_MODEL.id, items, (texts) => this.runtime.embed(texts));
+    }
+
+    private async embedWithModel(
+        model: string,
+        items: ReadonlyArray<{ id: string; text: string }>,
+        computeVectors: (texts: readonly string[]) => Promise<number[][] | null>,
+    ): Promise<TopicEmbedding[] | null> {
         const results: TopicEmbedding[] = [];
         const missing: Array<{ id: string; text: string; index: number }> = [];
         const pendingWrites: Array<{ id: string; text: string; vector: number[] }> = [];
@@ -97,7 +104,7 @@ export class TopicEmbeddingServiceImpl implements TopicEmbeddingService {
         // 顺序不能反：持久化索引跨重启有效，是避免重复推理的主要来源。
         const uncached: Array<{ id: string; text: string; index: number }> = [];
         items.forEach((item, index) => {
-            const cached = this.cache.get(item.text);
+            const cached = this.cache.get(this.cacheKey(model, item.text));
             if (cached) {
                 results[index] = { id: item.id, vector: cached };
             } else {
@@ -109,7 +116,7 @@ export class TopicEmbeddingServiceImpl implements TopicEmbeddingService {
             for (const item of uncached) {
                 const vector = persisted.get(item.id);
                 if (vector) {
-                    this.remember(item.text, vector);
+                    this.remember(model, item.text, vector);
                     results[item.index] = { id: item.id, vector };
                 } else {
                     missing.push(item);
@@ -117,7 +124,7 @@ export class TopicEmbeddingServiceImpl implements TopicEmbeddingService {
             }
         }
         if (missing.length > 0) {
-            const vectors = await this.runtime.embed(missing.map((item) => item.text));
+            const vectors = await computeVectors(missing.map((item) => item.text));
             if (!vectors) {
                 return null;
             }
@@ -126,7 +133,7 @@ export class TopicEmbeddingServiceImpl implements TopicEmbeddingService {
                 if (!vector) {
                     return;
                 }
-                this.remember(item.text, vector);
+                this.remember(model, item.text, vector);
                 results[item.index] = { id: item.id, vector };
                 pendingWrites.push({ id: item.id, text: item.text, vector });
             });
@@ -159,9 +166,9 @@ export class TopicEmbeddingServiceImpl implements TopicEmbeddingService {
                 return 0;
             }
             const active = new Set(activeVideoIds);
-            const stale = rows
+            const stale = Array.from(new Set(rows
                 .map((row) => row.video_id)
-                .filter((videoId) => !active.has(videoId));
+                .filter((videoId) => !active.has(videoId))));
             if (stale.length === 0) {
                 return 0;
             }
@@ -234,8 +241,12 @@ export class TopicEmbeddingServiceImpl implements TopicEmbeddingService {
         }
     }
 
-    private remember(text: string, vector: number[]): void {
-        this.cache.set(text, vector);
+    private cacheKey(model: string, text: string): string {
+        return `${model}\0${text}`;
+    }
+
+    private remember(model: string, text: string, vector: number[]): void {
+        this.cache.set(this.cacheKey(model, text), vector);
         while (this.cache.size > MAX_CACHE_ENTRIES) {
             const oldest = this.cache.keys().next();
             if (oldest.done) {

@@ -2,6 +2,7 @@ import { injectable } from 'inversify';
 import { storeGet } from '@/backend/infrastructure/settings/store';
 import type { AiModelScene } from '@/backend/services/AiProviderService';
 import type { SettingKey } from '@/common/types/store_schema';
+import { parseStoredProviderProfiles } from '@/common/utils/cloud-ai-providers';
 
 export type RoutedModel = {
     providerId: 'openai';
@@ -51,9 +52,19 @@ export class ModelRoutingServiceImpl implements ModelRoutingService {
      * @returns 已校验的模型路由；配置缺失或失效时直接抛错。
      */
     public resolveOpenAiModel(scene: AiModelScene): RoutedModel {
-        const availableModels = this.parseModels(storeGet('models.openai.available'));
+        const profiles = parseStoredProviderProfiles(storeGet('models.openai.providers'));
+        const availableModels = profiles && profiles.length > 0
+            ? Array.from(new Set(profiles.flatMap((profile) => {
+                const disabled = new Set(profile.disabledModels);
+                return profile.models.filter((model) => !disabled.has(model));
+            })))
+            : (() => {
+                const disabledModels = new Set(this.parseModels(storeGet('models.openai.disabled')));
+                return this.parseModels(storeGet('models.openai.available'))
+                    .filter((model) => !disabledModels.has(model));
+            })();
         if (availableModels.length === 0) {
-            throw new Error('OpenAI 可用模型列表为空，请先在服务配置中添加模型');
+            throw new Error('OpenAI 可用模型列表为空，请先在服务配置中添加或启用模型');
         }
         const modelKey = this.resolveFeatureKey(scene) as SettingKey;
         const selectedModel = storeGet(modelKey);

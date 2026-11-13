@@ -6,20 +6,27 @@ import { generateText } from 'ai';
 import type AiProviderService from '@/backend/services/AiProviderService';
 import StrUtil from '@/common/utils/str-util';
 import { maskSecret } from '@/common/utils/secret-mask';
+import { isLocalLlmEndpoint } from '@/common/constants/cloud-ai-provider-presets';
 import type ClientProviderService from '@/backend/services/ClientProviderService';
 import type { TencentTranslateClient } from '@/backend/services/gateways/translate/TencentTranslateClient';
 import { getMainLogger } from '@/backend/infrastructure/logger';
 import type RendererEvents from '@/backend/services/gateways/renderer/RendererEvents';
 import type { SettingsStore } from '@/backend/services/gateways/SettingsStore';
 import type {
+    CloudAiProviderProfileDetailVO,
     ServiceCredentialSettingDetailVO,
     ServiceCredentialSettingSaveVO,
 } from '@/common/types/vo/service-credentials-setting-vo';
 import {
+    findProviderForModel,
+    inferProviderProfileFromLegacy,
+    parseStoredProviderKeys,
+    parseStoredProviderProfiles,
+    type PersistedCloudAiProvider,
+} from '@/common/utils/cloud-ai-providers';
+import {
     type CloudModelUsage,
     computeCloudModelUsage,
-    type OpenAiModelUsageFeature,
-    OPEN_AI_MODEL_USAGE_FEATURES,
 } from '@/common/utils/cloud-model-usage';
 import type { EngineSelectionSettingVO } from '@/common/types/vo/engine-selection-setting-vo';
 import type { ShortcutSettingDetailVO, ShortcutSettingSaveVO } from '@/common/types/vo/shortcut-setting-vo';
@@ -48,13 +55,8 @@ import { SHERPA_TTS_VOICES, resolveSherpaTtsVoice } from '@/backend/services/mod
 const SUBTITLE_TRANSLATION_ENGINES = ['openai', 'local', 'local-mt', 'tencent', 'none'] as const;
 /** 词典引擎的合法取值。 */
 const DICTIONARY_ENGINES = ['openai', 'local', 'none'] as const;
-
-/** 功能占用提示与报错文案共用的功能中文名。 */
-const OPEN_AI_FEATURE_LABELS: Record<OpenAiModelUsageFeature, string> = {
-    sentenceLearning: '整句讲解',
-    subtitleTranslation: '字幕翻译',
-    dictionary: '词典查词',
-};
+/** 主题语义向量引擎的合法取值。 */
+const EMBEDDING_ENGINES = ['auto', 'local', 'openai', 'none'] as const;
 
 /** 功能引擎取值（含 'invalid' 占位）。 */
 type FeatureEngine =
@@ -113,7 +115,7 @@ export default interface SettingService {
      * @param voiceId 音色 id；未知值会被拒绝。
      */
     saveSherpaTtsVoice(voiceId: string): Promise<void>;
-    testOpenAi(modelId: string): Promise<{ success: boolean, message: string }>;
+    testOpenAi(modelId: string, providerId?: string): Promise<{ success: boolean, message: string }>;
     testTencent(): Promise<{ success: boolean, message: string }>;
 }
 
@@ -310,6 +312,7 @@ export class SettingServiceImpl implements SettingService {
             'providers.subtitleTranslation',
         );
         this.warnInvalidEnum(values['providers.dictionary'], DICTIONARY_ENGINES, 'providers.dictionary');
+        this.warnInvalidEnum(values['providers.embedding'], EMBEDDING_ENGINES, 'providers.embedding');
         this.warnInvalidEnum(
             values['features.openai.subtitleTranslationMode'],
             ['zh', 'simple_en', 'custom'] as const,
@@ -351,6 +354,9 @@ export class SettingServiceImpl implements SettingService {
                 break;
             case 'features.openai.autoGenerateStudyCard':
                 value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
+                break;
+            case 'providers.embedding':
+                value = this.requireEnumValue(value, EMBEDDING_ENGINES, request.key);
                 break;
             case 'learning.activePromptPresetId':
                 if (!value || value.trim().length === 0) {
@@ -438,20 +444,55 @@ export class SettingServiceImpl implements SettingService {
      */
     public async getServiceCredentialsDetail(): Promise<ServiceCredentialSettingDetailVO> {
         const availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
+        const disabledModels = this.parseOpenAiModels(this.getValue('models.openai.disabled'))
+            .filter((model) => availableModels.includes(model));
         const openAiKey = this.getValue('apiKeys.openAi.key');
+        const endpoint = this.getValue('apiKeys.openAi.endpoint');
+        const apiFormat = this.requireEnumValue(
+            this.getValue('apiKeys.openAi.apiFormat'),
+            AI_API_FORMATS,
+            'apiKeys.openAi.apiFormat',
+        );
+        const storedProfiles = parseStoredProviderProfiles(this.getValue('models.openai.providers'));
+        const storedKeyMap = parseStoredProviderKeys(this.getValue('apiKeys.openAi.providerKeys'));
+        const profiles: PersistedCloudAiProvider[] = storedProfiles ?? [
+            inferProviderProfileFromLegacy({
+                endpoint,
+                apiFormat,
+                models: availableModels,
+                disabledModels,
+            }),
+        ];
+        const rawActiveId = this.getValue('models.openai.activeProviderId').trim();
+        const activeProvider = profiles.find((item) => item.id === rawActiveId) ?? profiles[0];
+        const providers: CloudAiProviderProfileDetailVO[] = profiles.map((profile) => {
+            const rawKey = storedProfiles
+                ? (storedKeyMap[profile.id] ?? '')
+                : openAiKey;
+            return {
+                id: profile.id,
+                name: profile.name,
+                apiFormat: profile.apiFormat,
+                endpoint: profile.endpoint,
+                hasKey: !StrUtil.isBlank(rawKey),
+                keyHint: maskSecret(rawKey),
+                models: profile.models,
+                disabledModels: profile.disabledModels,
+            };
+        });
         const tencentSecretId = this.getValue('apiKeys.tencent.secretId');
         const tencentSecretKey = this.getValue('apiKeys.tencent.secretKey');
         return {
             openai: {
                 hasKey: !StrUtil.isBlank(openAiKey),
                 keyHint: maskSecret(openAiKey),
-                endpoint: this.getValue('apiKeys.openAi.endpoint'),
-                apiFormat: this.requireEnumValue(
-                    this.getValue('apiKeys.openAi.apiFormat'),
-                    AI_API_FORMATS,
-                    'apiKeys.openAi.apiFormat',
-                ),
+                endpoint,
+                apiFormat,
                 models: availableModels,
+                disabledModels,
+                embeddingModel: this.getValue('models.openai.embedding'),
+                activeProviderId: activeProvider?.id,
+                providers,
             },
             tencent: {
                 hasCredentials: !StrUtil.isBlank(tencentSecretId) && !StrUtil.isBlank(tencentSecretKey),
@@ -464,12 +505,10 @@ export class SettingServiceImpl implements SettingService {
      * 更新服务凭据设置。
      *
      * 行为说明：
-     * - `openai.models` 使用结构化数组保存为标准换行文本；
-     * - 被云端功能实际占用的模型禁止删除，占用按引擎配置与功能开关现算
-     *   （见 getOpenAiFeatureModelUsage）。
+     * - 支持多厂商配置并存（`openai.providers`），每家独立密钥、协议、URL 与模型清单；
+     * - 同步镜像当前活跃厂商与全量启用模型到传统 `apiKeys.openAi.*` / `models.openai.*` 键以保持兼容。
      */
     public async saveServiceCredentials(settings: ServiceCredentialSettingSaveVO): Promise<void> {
-        const currentAvailableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
         const apiFormat = this.requireEnumValue(settings.openai.apiFormat, AI_API_FORMATS, 'openai.apiFormat');
         const parsedModels = settings.openai.models.map((item) => item.trim());
         if (parsedModels.some((item) => item.length === 0)) {
@@ -480,26 +519,83 @@ export class SettingServiceImpl implements SettingService {
             throw new Error('openai.models 包含重复模型标识');
         }
 
-        const usageByFeature = this.getOpenAiFeatureModelUsage();
-        const removedModels = currentAvailableModels.filter((model) => !dedupedModels.includes(model));
-        for (const removedModel of removedModels) {
-            for (const feature of OPEN_AI_MODEL_USAGE_FEATURES) {
-                if (usageByFeature[feature] === removedModel) {
-                    throw new Error(`「${removedModel}」正被「${OPEN_AI_FEATURE_LABELS[feature]}」使用，请先在功能设置中更换模型或切换引擎`);
-                }
-            }
-        }
+        const rawDisabled = settings.openai.disabledModels !== undefined
+            ? settings.openai.disabledModels.map((item) => item.trim()).filter((item) => item.length > 0)
+            : this.parseOpenAiModels(this.getValue('models.openai.disabled'));
+        const nextDisabled = Array.from(new Set(rawDisabled)).filter((item) => dedupedModels.includes(item));
 
-        // 密钥字段缺省/留空 = 保持原值：设置页自动保存，改接口地址时表单里的密钥
-        // 本来就是空的（详情不再下发明文），把「没填」当成「清空」会静默抹掉凭据。
-        if (settings.openai.clearKey) {
-            await this.setValue('apiKeys.openAi.key', '');
-        } else if (!StrUtil.isBlank(settings.openai.key)) {
-            await this.setValue('apiKeys.openAi.key', settings.openai.key as string);
+        if (settings.openai.providers !== undefined) {
+            const existingKeys = parseStoredProviderKeys(this.getValue('apiKeys.openAi.providerKeys'));
+            const legacyKey = this.getValue('apiKeys.openAi.key');
+            const nextKeys: Record<string, string> = {};
+            const nextProfiles: PersistedCloudAiProvider[] = [];
+
+            for (const item of settings.openai.providers) {
+                const id = item.id.trim();
+                if (!id) {
+                    throw new Error('服务商标识不能为空');
+                }
+                const itemFormat = this.requireEnumValue(item.apiFormat, AI_API_FORMATS, `openai.providers.${id}.apiFormat`);
+                const itemModels = Array.from(new Set(item.models.map((m) => m.trim()).filter(Boolean)));
+                const modelSet = new Set(itemModels);
+                const itemDisabled = Array.from(new Set(
+                    (item.disabledModels ?? []).map((m) => m.trim()).filter((m) => modelSet.has(m)),
+                ));
+
+                const fallbackExistingKey = existingKeys[id] ?? (nextProfiles.length === 0 ? legacyKey : '');
+                if (item.clearKey) {
+                    nextKeys[id] = '';
+                } else if (!StrUtil.isBlank(item.key)) {
+                    nextKeys[id] = item.key as string;
+                } else if (fallbackExistingKey) {
+                    nextKeys[id] = fallbackExistingKey;
+                }
+
+                nextProfiles.push({
+                    id,
+                    name: item.name.trim() || id,
+                    apiFormat: itemFormat,
+                    endpoint: item.endpoint.trim(),
+                    models: itemModels,
+                    disabledModels: itemDisabled,
+                });
+            }
+
+            const activeId = settings.openai.activeProviderId?.trim();
+            const activeProfile = nextProfiles.find((p) => p.id === activeId) ?? nextProfiles[0];
+            const allModels = Array.from(new Set(nextProfiles.flatMap((p) => p.models)));
+            const allEnabledModels = new Set(
+                nextProfiles.flatMap((p) => {
+                    const disabled = new Set(p.disabledModels);
+                    return p.models.filter((m) => !disabled.has(m));
+                }),
+            );
+            const allDisabledModels = allModels.filter((m) => !allEnabledModels.has(m));
+
+            await this.setValue('models.openai.providers', JSON.stringify(nextProfiles));
+            await this.setValue('apiKeys.openAi.providerKeys', JSON.stringify(nextKeys));
+            await this.setValue('models.openai.activeProviderId', activeProfile?.id ?? '');
+            await this.setValue('apiKeys.openAi.key', activeProfile ? (nextKeys[activeProfile.id] ?? '') : '');
+            await this.setValue('apiKeys.openAi.endpoint', activeProfile?.endpoint ?? '');
+            await this.setValue('apiKeys.openAi.apiFormat', activeProfile?.apiFormat ?? apiFormat);
+            await this.setValue('models.openai.available', allModels.join('\n'));
+            await this.setValue('models.openai.disabled', allDisabledModels.join('\n'));
+        } else {
+            // 密钥字段缺省/留空 = 保持原值：设置页自动保存，改接口地址时表单里的密钥
+            // 本来就是空的（详情不再下发明文），把「没填」当成「清空」会静默抹掉凭据。
+            if (settings.openai.clearKey) {
+                await this.setValue('apiKeys.openAi.key', '');
+            } else if (!StrUtil.isBlank(settings.openai.key)) {
+                await this.setValue('apiKeys.openAi.key', settings.openai.key as string);
+            }
+            await this.setValue('apiKeys.openAi.endpoint', settings.openai.endpoint);
+            await this.setValue('apiKeys.openAi.apiFormat', apiFormat);
+            await this.setValue('models.openai.available', dedupedModels.join('\n'));
+            await this.setValue('models.openai.disabled', nextDisabled.join('\n'));
         }
-        await this.setValue('apiKeys.openAi.endpoint', settings.openai.endpoint);
-        await this.setValue('apiKeys.openAi.apiFormat', apiFormat);
-        await this.setValue('models.openai.available', dedupedModels.join('\n'));
+        if (settings.openai.embeddingModel !== undefined) {
+            await this.setValue('models.openai.embedding', settings.openai.embeddingModel.trim());
+        }
 
         if (settings.tencent.clearTencent) {
             await this.setValue('apiKeys.tencent.secretId', '');
@@ -536,6 +632,12 @@ export class SettingServiceImpl implements SettingService {
             'providers.dictionary',
             invalidValues,
         );
+        const embeddingEngine = this.readEnumOrInvalid(
+            this.getValue('providers.embedding'),
+            EMBEDDING_ENGINES,
+            'providers.embedding',
+            invalidValues,
+        );
         const subtitleMode = this.readEnumOrInvalid(
             this.getValue('features.openai.subtitleTranslationMode'),
             ['zh', 'simple_en', 'custom'] as const,
@@ -561,6 +663,7 @@ export class SettingServiceImpl implements SettingService {
             providers: {
                 subtitleTranslationEngine,
                 dictionaryEngine,
+                embeddingEngine,
             },
             invalidValues,
         };
@@ -599,6 +702,15 @@ export class SettingServiceImpl implements SettingService {
                 DICTIONARY_ENGINES,
                 'providers.dictionaryEngine',
             );
+        const embeddingEngine = settings.providers.embeddingEngine === undefined
+            ? undefined
+            : (settings.providers.embeddingEngine === 'invalid'
+                ? null
+                : this.requireEnumValue(
+                    settings.providers.embeddingEngine,
+                    EMBEDDING_ENGINES,
+                    'providers.embeddingEngine',
+                ));
         const subtitleTranslationMode = settings.openai.subtitleTranslationMode === 'invalid'
             ? null
             : this.requireEnumValue(
@@ -607,12 +719,16 @@ export class SettingServiceImpl implements SettingService {
                 'openai.subtitleTranslationMode',
             );
         const availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
-        const sentenceLearningSlot = this.resolveFeatureModelSlot(
-            settings.openai.featureModels.sentenceLearning,
-            availableModels,
-            settings.openai.enableSentenceLearning,
-            '整句讲解',
-        );
+        const sentenceLearningUsesLocal = settings.openai.enableSentenceLearning
+            && settings.openai.featureModels.sentenceLearning === 'local';
+        const sentenceLearningSlot = sentenceLearningUsesLocal
+            ? 'local'
+            : this.resolveFeatureModelSlot(
+                settings.openai.featureModels.sentenceLearning,
+                availableModels,
+                settings.openai.enableSentenceLearning,
+                '整句讲解',
+            );
         const subtitleTranslationSlot = this.resolveFeatureModelSlot(
             settings.openai.featureModels.subtitleTranslation,
             availableModels,
@@ -635,6 +751,11 @@ export class SettingServiceImpl implements SettingService {
             this.logger.warn('providers.dictionaryEngine 为非法占位值，跳过保存并保留原存储值');
         } else {
             await this.setValue('providers.dictionary', dictionaryEngine);
+        }
+        if (embeddingEngine === null) {
+            this.logger.warn('providers.embeddingEngine 为非法占位值，跳过保存并保留原存储值');
+        } else if (embeddingEngine !== undefined) {
+            await this.setValue('providers.embedding', embeddingEngine);
         }
         // 引擎切换即时反映到本地模型常驻策略：切到 local 后台预加载，切走后恢复空闲卸载。
         this.localAi.syncEngineResidency();
@@ -934,19 +1055,31 @@ export class SettingServiceImpl implements SettingService {
      * @param modelId 待测试的模型标识。
      * @returns 测试结果；密钥/地址缺失或调用失败时 success 为 false。
      */
-    public async testOpenAi(modelId: string): Promise<{ success: boolean, message: string }> {
+    public async testOpenAi(modelId: string, providerId?: string): Promise<{ success: boolean, message: string }> {
         try {
-            this.logger.info('testing openai connection', { model: modelId });
-            const apiKey = storeGet('apiKeys.openAi.key');
-            const endpoint = storeGet('apiKeys.openAi.endpoint');
-            if (StrUtil.hasBlank(apiKey, endpoint)) {
-                return { success: false, message: 'OpenAI 密钥或接口地址未配置' };
+            this.logger.info('testing openai connection', { model: modelId, providerId });
+            const storedProfiles = parseStoredProviderProfiles(this.getValue('models.openai.providers'));
+            let endpoint = storeGet('apiKeys.openAi.endpoint');
+            let apiKey = storeGet('apiKeys.openAi.key');
+            let availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
+
+            if (storedProfiles && storedProfiles.length > 0) {
+                const matched = findProviderForModel(storedProfiles, modelId, providerId);
+                if (matched) {
+                    const keyMap = parseStoredProviderKeys(this.getValue('apiKeys.openAi.providerKeys'));
+                    endpoint = matched.endpoint;
+                    apiKey = keyMap[matched.id] ?? '';
+                    availableModels = matched.models;
+                }
             }
-            const availableModels = this.parseOpenAiModels(this.getValue('models.openai.available'));
+
+            if (StrUtil.isBlank(endpoint) || (StrUtil.isBlank(apiKey) && !isLocalLlmEndpoint(endpoint))) {
+                return { success: false, message: 'API Key 或 API URL 未配置' };
+            }
             if (!availableModels.includes(modelId)) {
-                return { success: false, message: '模型未在服务配置中启用' };
+                return { success: false, message: '模型未在服务配置中添加' };
             }
-            const model = this.aiProviderService.createModelById(modelId);
+            const model = this.aiProviderService.createModelById(modelId, providerId);
             // 推理类模型（如 deepseek-flash）会先把额度花在 reasoning_content 上，
             // 5 个 token 时正文必为空且 finish_reason=length，连通性被误判为失败
             const result = await generateText({

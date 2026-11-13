@@ -39,6 +39,7 @@ export const SETTING_ROW_TESTIDS = {
     subtitleStyle: 'setting-row-subtitle-style',
     dictionary: 'setting-row-dictionary',
     sentenceLearning: 'setting-row-sentence-learning',
+    embedding: 'setting-row-embedding',
     transcription: 'setting-row-transcription',
     apiFormat: 'setting-row-api-format',
     language: 'setting-row-language',

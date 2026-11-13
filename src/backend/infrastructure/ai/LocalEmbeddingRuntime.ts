@@ -4,12 +4,13 @@ import net from 'node:net';
 import path from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createHash, randomBytes } from 'node:crypto';
-import { inject, injectable } from 'inversify';
+import { inject, injectable, optional } from 'inversify';
 import { Agent, fetch as undiciFetch } from 'undici';
 import { z } from 'zod';
 
 import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
+import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import type StorageDirectoryProvider from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { StorageDirectoryTarget } from '@/backend/services/gateways/storage/StorageDirectoryProvider';
 import { getRuntimeResourcePath } from '@/backend/utils/runtimeEnv';
@@ -18,6 +19,7 @@ import {
     LOCAL_EMBEDDING_MODEL,
     LOCAL_EMBEDDING_MMPROJ,
     LLAMA_RUNTIME_VERSION,
+    type LocalEmbeddingStatus,
 } from '@/common/contracts/local-ai';
 import { LOCAL_AI_INTEGRITY_MARKER_SUFFIX } from './LocalModelInstaller';
 import { probeReachableDownloadUrl } from '@/backend/utils/probeDownloadUrl';
@@ -64,11 +66,19 @@ export class LocalEmbeddingRuntime {
     private readonly apiKey = randomBytes(32).toString('hex');
     /** 进行中的下载任务；同一时间只允许一个，防止双写 .part 互相覆写。 */
     private downloadTask: Promise<void> | null = null;
-    /** 当前下载任务的取消控制器；remove() 删除模型前可先中止在途写入。 */
+    /** 当前下载任务的取消控制器；remove() 或 cancelDownload() 可中止在途写入。 */
     private downloadController: AbortController | null = null;
+    private activeDownloadTarget: 'base' | 'multimodal' = 'base';
+    private downloadPhase: 'idle' | 'downloading' | 'verifying' = 'idle';
+    private downloadedBytes = 0;
+    private totalBytes = 0;
+    private lastError: string | null = null;
+    private downloadCancelled = false;
+    private lastProgressEmitAt = 0;
 
     public constructor(
         @inject(TYPES.StorageDirectoryProvider) private readonly directories: StorageDirectoryProvider,
+        @optional() @inject(TYPES.RendererGateway) private readonly rendererGateway?: RendererGateway,
     ) {}
 
     /** 旧模型清理是否已执行；每次进程生命周期只做一次。 */
@@ -135,27 +145,68 @@ export class LocalEmbeddingRuntime {
         }
     }
 
-    /** 语义模型状态：是否已安装、体积与模型名，供设置页展示。 */
-    public async getStatus(): Promise<{
-        ready: boolean;
-        name: string;
-        sizeLabel: string;
-        bytes: number;
-        /** 多模态投影是否就绪；未安装时图像/音频向量不可用。 */
-        multimodalReady: boolean;
-        /** 多模态投影体积，供设置页展示。 */
-        multimodalBytes: number;
-    }> {
+    /** 语义模型状态：是否已安装、体积、下载进度与下载源，供设置页与引导页展示。 */
+    public async getStatus(): Promise<LocalEmbeddingStatus> {
         // 顺带清理旧模型：用户打开设置页或推荐页时就完成迁移，不必等到下次安装。
         void this.cleanupLegacyModel();
+        const [ready, multimodalReady, modelFilePath] = await Promise.all([
+            this.isReady(),
+            this.isMultimodalReady(),
+            this.modelPath(),
+        ]);
         return {
-            ready: await this.isReady(),
+            ready,
             name: LOCAL_EMBEDDING_MODEL.name,
             sizeLabel: LOCAL_EMBEDDING_MODEL.sizeLabel,
             bytes: LOCAL_EMBEDDING_MODEL.bytes,
-            multimodalReady: await this.isMultimodalReady(),
+            multimodalReady,
             multimodalBytes: LOCAL_EMBEDDING_MMPROJ.bytes,
+            downloading: this.downloadTask !== null,
+            phase: this.downloadTask !== null ? this.downloadPhase : 'idle',
+            downloaded: this.downloadTask !== null ? this.downloadedBytes : 0,
+            total: this.downloadTask !== null ? this.totalBytes : LOCAL_EMBEDDING_MODEL.bytes,
+            error: this.lastError,
+            modelPath: modelFilePath,
+            downloadUrls: [...LOCAL_EMBEDDING_MODEL.urls],
+            multimodalDownloadUrls: [...LOCAL_EMBEDDING_MMPROJ.urls],
         };
+    }
+
+    /** 主动取消当前进行中的语义模型下载，并立即清理状态快照。 */
+    public cancelDownload(): { cancelled: boolean } {
+        const hasActive = this.downloadTask !== null || this.downloadController !== null;
+        this.downloadCancelled = true;
+        this.downloadController?.abort();
+        if (hasActive) {
+            this.downloadPhase = 'idle';
+            this.downloadedBytes = 0;
+            this.totalBytes = LOCAL_EMBEDDING_MODEL.bytes;
+            this.lastError = null;
+            this.emitDownloadProgress(true);
+        }
+        return { cancelled: hasActive };
+    }
+
+    private emitDownloadProgress(force = false): void {
+        if (!this.rendererGateway) {
+            return;
+        }
+        const now = Date.now();
+        if (!force && now - this.lastProgressEmitAt < 150) {
+            return;
+        }
+        this.lastProgressEmitAt = now;
+        const total = this.totalBytes > 0 ? this.totalBytes : LOCAL_EMBEDDING_MODEL.bytes;
+        const percent = total > 0
+            ? Math.min(100, Math.round((this.downloadedBytes / total) * 100))
+            : 0;
+        this.rendererGateway.fireAndForget('settings/embedding-model-download-progress', {
+            target: this.activeDownloadTarget,
+            percent,
+            downloaded: this.downloadedBytes,
+            total,
+            phase: this.downloadPhase,
+        });
     }
 
     /** 计算文件的 SHA256 摘要；按流读取，避免整块载入内存。 */
@@ -220,9 +271,10 @@ export class LocalEmbeddingRuntime {
      * @returns 下载完成时为 true；失败抛错。
      */
     public async download(onProgress?: (downloaded: number) => void): Promise<void> {
-        await this.runExclusiveDownload(async (signal) => this.downloadOne(
+        const modelFilePath = await this.modelPath();
+        await this.runExclusiveDownload('base', LOCAL_EMBEDDING_MODEL.bytes, async (signal) => this.downloadOne(
             LOCAL_EMBEDDING_MODEL,
-            await this.modelPath(),
+            modelFilePath,
             signal,
             onProgress,
         ));
@@ -236,7 +288,7 @@ export class LocalEmbeddingRuntime {
      * @param onProgress 可选进度回调，参数为已下载字节数。
      */
     public async downloadMultimodal(onProgress?: (downloaded: number) => void): Promise<void> {
-        await this.runExclusiveDownload(async (signal) => this.downloadOne(
+        await this.runExclusiveDownload('multimodal', LOCAL_EMBEDDING_MMPROJ.bytes, async (signal) => this.downloadOne(
             LOCAL_EMBEDDING_MMPROJ,
             await this.mmprojPath(),
             signal,
@@ -245,16 +297,41 @@ export class LocalEmbeddingRuntime {
     }
 
     /** 串行执行下载任务；进行中再发起直接拒绝。 */
-    private async runExclusiveDownload(task: (signal: AbortSignal) => Promise<void>): Promise<void> {
+    private async runExclusiveDownload(
+        target: 'base' | 'multimodal',
+        expectedBytes: number,
+        task: (signal: AbortSignal) => Promise<void>,
+    ): Promise<void> {
         if (this.downloadTask) {
             throw new Error('语义模型正在下载，请等待完成后再试');
         }
         const controller = new AbortController();
         this.downloadController = controller;
+        this.downloadCancelled = false;
+        this.activeDownloadTarget = target;
+        this.downloadPhase = 'downloading';
+        this.downloadedBytes = 0;
+        this.totalBytes = expectedBytes;
+        this.lastError = null;
+        this.emitDownloadProgress(true);
         const running = task(controller.signal);
         this.downloadTask = running;
         try {
             await running;
+            this.downloadPhase = 'idle';
+            this.downloadedBytes = expectedBytes;
+            this.emitDownloadProgress(true);
+        } catch (error) {
+            const cancelled = this.downloadCancelled || controller.signal.aborted;
+            this.downloadPhase = 'idle';
+            this.downloadedBytes = 0;
+            this.lastError = cancelled
+                ? null
+                : (error instanceof Error ? error.message : String(error));
+            this.emitDownloadProgress(true);
+            if (!cancelled) {
+                throw error;
+            }
         } finally {
             if (this.downloadTask === running) {
                 this.downloadTask = null;
@@ -308,9 +385,18 @@ export class LocalEmbeddingRuntime {
         const source = Readable.fromWeb(response.body as unknown as import('node:stream/web').ReadableStream<Uint8Array>);
         source.on('data', (chunk: Buffer) => {
             downloaded += chunk.length;
+            this.downloadedBytes = downloaded;
+            this.emitDownloadProgress();
             onProgress?.(downloaded);
         });
-        await pipeline(source, sink, { signal });
+        try {
+            await pipeline(source, sink, { signal });
+        } catch (error) {
+            await fs.promises.rm(partialPath, { force: true }).catch(() => undefined);
+            throw error;
+        }
+        this.downloadPhase = 'verifying';
+        this.emitDownloadProgress(true);
         // 校验必须重读落盘文件而不是在下载流上顺手累积：并发写入器写过同一
         // `.part` 时，流哈希对应的是自己流过的字节，磁盘上可能是另一个写入器的
         // 数据。体积也以落盘为准。

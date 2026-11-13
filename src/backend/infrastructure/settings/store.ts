@@ -90,7 +90,12 @@ const decryptSecret = (value: string): string => {
  * 快捷键清空表示取消绑定；云端模型清单清空表示用户不再使用任何云端模型
  * （设置页按「无模型可用」渲染）。其余键沿用历史行为：空值回落到 schema 默认值。
  */
-const EMPTIABLE_SETTING_KEYS: ReadonlySet<string> = new Set(['models.openai.available']);
+const EMPTIABLE_SETTING_KEYS: ReadonlySet<string> = new Set([
+    'models.openai.available',
+    'models.openai.disabled',
+    'models.openai.providers',
+    'apiKeys.openAi.providerKeys',
+]);
 
 /**
  * 判断设置项是否可以显式写入空值（而不是回落到默认值）。

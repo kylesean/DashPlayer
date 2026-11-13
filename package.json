@@ -105,6 +105,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.102",
     "@ai-sdk/google": "^2.0.97",
+    "@ai-sdk/openai": "^2.0.0",
     "@ai-sdk/openai-compatible": "^2.0.62",
     "@ai-sdk/react": "^4.0.76",
     "@astryxdesign/core": "^0.7.11",
