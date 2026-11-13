@@ -143,7 +143,7 @@ const StorageSetting: React.FC = () => {
         }
     }, []);
 
-    const { status: autoSaveStatus, error: autoSaveError, initialize, flush } =
+    const { saving: autoSaveSaving, error: autoSaveError, initialize, flush } =
         useAutoSaveSettingsForm<StorageFormValues>({
             form,
             detailKey: 'settings/storage/detail',
@@ -293,7 +293,7 @@ const StorageSetting: React.FC = () => {
     }, [detail, loadStorageStatus]);
 
     const libraryAvailable = storageStatus?.available ?? false;
-    const canSyncCollections = libraryAvailable && !formState.isDirty && autoSaveStatus !== 'saving';
+    const canSyncCollections = libraryAvailable && !formState.isDirty && !autoSaveSaving;
     const canOpenLibrary = libraryAvailable;
 
     if (!detail) {
@@ -347,7 +347,7 @@ const StorageSetting: React.FC = () => {
                     onAction={() => handleImportLearningData()}
                 />
 
-                {autoSaveStatus === 'error' && autoSaveError && (
+                {autoSaveError && (
                     <Banner
                         role="alert"
                         status="error"

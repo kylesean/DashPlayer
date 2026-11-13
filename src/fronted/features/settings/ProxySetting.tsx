@@ -75,7 +75,6 @@ const ProxySetting: React.FC = () => {
 
     const {
         ready,
-        status: autoSaveStatus,
         error: autoSaveError,
         initialize,
         flush,
@@ -129,7 +128,7 @@ const ProxySetting: React.FC = () => {
                 title={t('proxy.title')}
                 description={t('proxy.description')}
             >
-                {autoSaveStatus === 'error' && autoSaveError && (
+                {autoSaveError && (
                     <Banner
                         role="alert"
                         status="error"

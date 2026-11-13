@@ -107,7 +107,7 @@ const ServiceResourceSetting: React.FC = () => {
 
     const {
         ready: credentialReady,
-        status: credentialSaveStatus,
+        saving: credentialSaving,
         error: credentialSaveError,
         initialize: initializeCredentials,
         flush: flushCredentials,
@@ -151,7 +151,6 @@ const ServiceResourceSetting: React.FC = () => {
 
     const {
         ready: preferenceReady,
-        status: preferenceSaveStatus,
         error: preferenceSaveError,
         initialize: initializePreferences,
     } = useAutoSaveSettingsForm<EngineSelectionSettingVO>({
@@ -395,10 +394,10 @@ const ServiceResourceSetting: React.FC = () => {
             </TabList>
 
             <VStack gap={6} width="100%">
-                {credentialSaveStatus === 'error' && credentialSaveError && (
+                {credentialSaveError && (
                     <Banner status="error" title={credentialSaveError} />
                 )}
-                {preferenceSaveStatus === 'error' && preferenceSaveError && (
+                {preferenceSaveError && (
                     <Banner status="error" title={preferenceSaveError} />
                 )}
 
@@ -617,7 +616,7 @@ const ServiceResourceSetting: React.FC = () => {
                                 onModelRemoved={forgetOpenAiTestResult}
                                 onCopy={(text) => copyText(text).catch(() => null)}
                                 onOpenUrl={(url) => openUrl(url).catch(() => null)}
-                                disabled={credentialSaveStatus === 'saving'}
+                                disabled={credentialSaving}
                             />
                         </SettingSection>
                     </VStack>

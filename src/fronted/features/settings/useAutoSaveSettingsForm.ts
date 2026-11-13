@@ -13,11 +13,6 @@ import {
 } from '@/fronted/features/settings/lib/auto-save-machine';
 
 /**
- * 自动保存状态。
- */
-export type AutoSaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-
-/**
  * 自动保存 Hook 的入参。
  */
 export interface UseAutoSaveSettingsFormOptions<TFormValues extends FieldValues> {
@@ -35,9 +30,9 @@ export interface UseAutoSaveSettingsFormOptions<TFormValues extends FieldValues>
  * 自动保存 Hook 的返回值。
  */
 export interface UseAutoSaveSettingsFormResult<TFormValues extends FieldValues> {
-    /** 当前自动保存状态。 */
-    status: AutoSaveStatus;
-    /** 最近一次错误消息。 */
+    /** 是否有保存请求在途（供禁用按钮等 UI 用；「上次保存失败」看 error 是否非空）。 */
+    saving: boolean;
+    /** 最近一次错误消息；非空即表示上次保存失败。 */
     error: string | null;
     /** 是否已完成服务端数据初始化。 */
     ready: boolean;
@@ -71,7 +66,7 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
     const { mutate } = useSWRConfig();
 
     const [ready, setReady] = React.useState(false);
-    const [status, setStatus] = React.useState<AutoSaveStatus>('idle');
+    const [saving, setSaving] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
 
     const baselineSnapshotRef = React.useRef<string | null>(null);
@@ -80,25 +75,11 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
     const saveQueuedRef = React.useRef(false);
     const lastCommitAttemptedRef = React.useRef(false);
     const commitRef = React.useRef<() => Promise<void>>(async () => undefined);
-    const idleTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const tRef = React.useRef(t);
 
     React.useEffect(() => {
         tRef.current = t;
     }, [t]);
-
-    /**
-     * 将状态从 saved 回落到 idle，避免 UI 一直停留在“已保存”。
-     */
-    const scheduleIdleStatus = React.useCallback(() => {
-        if (idleTimerRef.current) {
-            clearTimeout(idleTimerRef.current);
-            idleTimerRef.current = null;
-        }
-        idleTimerRef.current = setTimeout(() => {
-            setStatus((previous) => (previous === 'saved' ? 'idle' : previous));
-        }, 1500);
-    }, []);
 
     /**
      * 实际执行一次保存；若存在并发请求则排队下一轮。
@@ -119,13 +100,9 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
             return;
         }
 
-        if (idleTimerRef.current) {
-            clearTimeout(idleTimerRef.current);
-            idleTimerRef.current = null;
-        }
         lastCommitAttemptedRef.current = true;
         saveInFlightRef.current = true;
-        setStatus('saving');
+        setSaving(true);
         setError(null);
         let thrownError: unknown = null;
         let shouldCommitAgain = false;
@@ -138,13 +115,11 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
                 void mutate(detailKey).catch(() => undefined);
             }
             baselineSnapshotRef.current = latestSnapshot;
-            setStatus('saved');
-            scheduleIdleStatus();
         } catch (saveError) {
-            setStatus('error');
             setError(saveError instanceof Error ? saveError.message : String(saveError));
             thrownError = saveError;
         } finally {
+            setSaving(false);
             const phase = deriveAutoSavePhase({
                 dirty: saveQueuedRef.current,
                 inFlight: true,
@@ -165,7 +140,7 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
         if (thrownError) {
             throw thrownError;
         }
-    }, [detailKey, getValues, mutate, onSave, ready, scheduleIdleStatus]);
+    }, [detailKey, getValues, mutate, onSave, ready]);
 
     React.useEffect(() => {
         commitRef.current = commit;
@@ -196,7 +171,6 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
         baselineSnapshotRef.current = nextSnapshot;
         reset(values, { keepFieldsRef: true });
         setReady(true);
-        setStatus('idle');
         setError(null);
     }, [getValues, ready, reset]);
 
@@ -239,10 +213,6 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
                 clearTimeout(debounceTimerRef.current);
                 debounceTimerRef.current = null;
             }
-            if (idleTimerRef.current) {
-                clearTimeout(idleTimerRef.current);
-                idleTimerRef.current = null;
-            }
             // 用户在防抖窗口内切走（换设置栏目、离开设置中心）时，上面只是清掉了定时器，
             // 挂起的改动会就此丢失——所以这里补一次提交。commit 在无改动时提前返回，
             // 正常导航没有额外开销；此时页面已卸载、内联横幅无从展示，失败改用全局提示露出。
@@ -257,7 +227,7 @@ export function useAutoSaveSettingsForm<TFormValues extends FieldValues>(
     }, []);
 
     return {
-        status,
+        saving,
         error,
         ready,
         initialize,

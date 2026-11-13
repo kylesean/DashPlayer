@@ -431,7 +431,7 @@ const ShortcutSetting: React.FC = () => {
 
     const form = useForm<ShortcutFormValues>();
     const { control } = form;
-    const { ready, status: autoSaveStatus, error: autoSaveError, initialize, flush } = useAutoSaveSettingsForm<ShortcutFormValues>({
+    const { ready, error: autoSaveError, initialize, flush } = useAutoSaveSettingsForm<ShortcutFormValues>({
         form,
         detailKey: 'settings/shortcuts/detail',
         onSave: async (values) => {
@@ -541,7 +541,7 @@ const ShortcutSetting: React.FC = () => {
             description={t('shortcut.description')}
         >
             <VStack gap={6} width="100%">
-                {autoSaveStatus === 'error' && autoSaveError && (
+                {autoSaveError && (
                     <Banner
                         status="error"
                         title={autoSaveError}
