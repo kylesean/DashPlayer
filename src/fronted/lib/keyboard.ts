@@ -26,3 +26,15 @@ export function isInteractiveTarget(target: EventTarget | null): boolean {
         ),
     );
 }
+
+/**
+ * 判断当前运行平台是否为 Apple（macOS / iPadOS / iOS），用于快捷键提示符号适配。
+ */
+export function isApplePlatform(): boolean {
+    if (typeof navigator === 'undefined') return false;
+    const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+    const platform = uaData?.platform && uaData.platform !== 'Unknown'
+        ? uaData.platform
+        : (navigator.platform ?? '');
+    return /Mac|iPhone|iPad|iPod/i.test(platform);
+}

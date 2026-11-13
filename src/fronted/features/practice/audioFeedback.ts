@@ -70,12 +70,12 @@ export function playWordMissCue(): void {
 
 /** 整句完成/达标时的柔和双音。 */
 export function playSentencePassCue(): void {
-    playTone(523.25, 0.11, 0.045, 'triangle', 659.25);
+    playTone(523.25, 0.11, 0.065, 'triangle', 659.25);
 }
 
-/** 自动流水线进入录音前“滴”一声提示开麦。 */
+/** 准备开始录音时“滴”一声提示开麦。 */
 export function playMicReadyCue(): void {
-    playTone(880, 0.075, 0.04, 'sine');
+    playTone(880, 0.075, 0.06, 'sine');
 }
 
 /** 从已解码音频缓冲抽取归一化柱状包络（范围 0.08 ~ 1）。 */

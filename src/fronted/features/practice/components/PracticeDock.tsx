@@ -31,12 +31,13 @@ import type {
 import UrlUtil from '@/common/utils/UrlUtil';
 import { cn } from '@/fronted/lib/utils';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
-import { isInteractiveTarget, isTextEntryTarget } from '@/fronted/lib/keyboard';
+import { isApplePlatform, isInteractiveTarget, isTextEntryTarget } from '@/fronted/lib/keyboard';
 import { usePopover } from '@astryxdesign/core/Popover';
 import { CONTROL_POPOVER_PANEL } from '@/fronted/features/player/components/ControlPopover';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { usePlayerState } from '@/fronted/features/player/playerState';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import useTranslationStore from '@/fronted/features/player/translationStore';
 import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
@@ -61,6 +62,42 @@ import { describeAsrFailure } from '@/common/utils/practice/asr-error';
 import WordSlotDictation from './WordSlotDictation';
 
 const logger = getRendererLogger('PracticeDock');
+
+/**
+ * 平台自适应快捷键胶囊：Apple 平台交由 Kbd 渲染 ⌥/⇧ 符号，Linux/Windows 显示清晰的 Alt/Shift 文字。
+ */
+function PracticeKbd({ keys, isApple }: { keys: string; isApple: boolean }) {
+    if (isApple) {
+        return <Kbd keys={keys} />;
+    }
+    const parts = keys.split('+').map((part) => part.trim());
+    const hasPlatformModifier = parts.some((p) => {
+        const lower = p.toLowerCase();
+        return lower === 'alt' || lower === 'shift' || lower === 'ctrl';
+    });
+    if (!hasPlatformModifier) {
+        return <Kbd keys={keys} />;
+    }
+    return (
+        <span className="inline-flex items-center gap-0.5">
+            {parts.map((part, idx) => {
+                const lower = part.toLowerCase();
+                if (lower === 'alt' || lower === 'shift' || lower === 'ctrl') {
+                    const label = lower === 'alt' ? 'Alt' : lower === 'shift' ? 'Shift' : 'Ctrl';
+                    return (
+                        <kbd
+                            key={`${lower}:${idx}`}
+                            className="inline-flex items-center justify-center rounded border border-border/70 bg-surface/80 px-1 py-0.5 font-mono text-metadata leading-none text-secondary select-none"
+                        >
+                            {label}
+                        </kbd>
+                    );
+                }
+                return <Kbd key={`${lower}:${idx}`} keys={part} />;
+            })}
+        </span>
+    );
+}
 
 interface SubStylePillOption<T extends string> {
     value: T;
@@ -166,6 +203,7 @@ export default function PracticeDock() {
     );
 
     const [result, setResult] = useState<SentencePracticeResultVO | null>(null);
+    const [hasMineRecording, setHasMineRecording] = useState(false);
     const [attemptNonce, setAttemptNonce] = useState(0);
     const filterPopover = usePopover({
         className: cn('w-48 p-1.5', CONTROL_POPOVER_PANEL),
@@ -181,6 +219,7 @@ export default function PracticeDock() {
     });
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const dockRef = useRef<HTMLDivElement | null>(null);
 
     const { data: resourceStatus } = useSWR(
         'settings/resource-status/detail',
@@ -360,12 +399,15 @@ export default function PracticeDock() {
     const handleScoreShadowing = useCallback(async (audio: Uint8Array): Promise<SentencePracticeResultVO | null> => {
         if (!activeUnit) return null;
         const targetKey = activeUnit.key;
+        const mediaPath = usePlaybackSession.getState().videoPath;
         const vo = await practiceApi.scoreShadowing({
             fileHash: activeUnit.fileHash,
             sentenceIndex: activeUnit.index,
             audio,
             expectedText: activeUnit.text,
             referenceDurationSec: activeUnit.range.end - activeUnit.range.start,
+            mediaPath,
+            clipRange: activeUnit.range,
         });
         if (latestUnitKeyRef.current !== targetKey) {
             return null;
@@ -440,12 +482,29 @@ export default function PracticeDock() {
                 exitOverlayView();
                 return;
             }
-            if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey && !isEditable) {
+            if (
+                (e.key === 'r' || e.key === 'R')
+                && !e.ctrlKey
+                && !e.metaKey
+                && !e.shiftKey
+                && (mode === 'dictation' ? e.altKey : !e.altKey && !isEditable && !isInteractive)
+            ) {
                 // 非空闲态（请求授权/录音/评分）禁止试听：外放原声会被正在采集的麦克风录进评分音频
                 if (recorderBusy) return;
                 e.preventDefault();
-                if (e.shiftKey) handleSlowReplay();
-                else handleReplay();
+                handleReplay();
+                return;
+            }
+            if (
+                (e.key === 's' || e.key === 'S')
+                && !e.ctrlKey
+                && !e.metaKey
+                && !e.shiftKey
+                && (mode === 'dictation' ? e.altKey : !e.altKey && !isEditable && !isInteractive)
+            ) {
+                if (recorderBusy) return;
+                e.preventDefault();
+                handleSlowReplay();
                 return;
             }
             if (e.key === 'ArrowUp' && !isEditable && !isInteractive) {
@@ -499,6 +558,21 @@ export default function PracticeDock() {
         visible,
     ]);
 
+    useEffect(() => {
+        if (!visible || !activeUnit) return undefined;
+        const dock = dockRef.current;
+        if (!dock) return undefined;
+        // 鼠标点击按钮后主动释放焦点，防止后续按 Space / V / ↑ / ↓ 时被焦点按钮拦截
+        const onMouseUp = (e: MouseEvent) => {
+            const btn = (e.target as HTMLElement | null)?.closest('button');
+            if (btn instanceof HTMLElement) {
+                btn.blur();
+            }
+        };
+        dock.addEventListener('mouseup', onMouseUp);
+        return () => dock.removeEventListener('mouseup', onMouseUp);
+    }, [activeUnit, visible]);
+
     if (!visible || !activeUnit) return null;
 
     const summary = summaryByIndex.get(activeUnit.index);
@@ -509,38 +583,50 @@ export default function PracticeDock() {
         vocab: t('filter.vocab', { defaultValue: '生词' }),
     };
 
-    const shortcutLegend = mode === 'dictation'
+    const applePlatform = isApplePlatform();
+    const hasMineAudio = Boolean(result?.audioPath || hasMineRecording);
+    const shortcutLegend: Array<{ keys: string; text: string; disabled?: boolean }> = mode === 'dictation'
         ? dictationStyle === 'slots'
             ? [
                 { keys: 'alt+r', text: t('shortcut.replay', { defaultValue: '原音' }) },
-                { keys: 'alt+shift+r', text: '0.75×' },
+                { keys: 'alt+s', text: '0.75×' },
                 { keys: '/', text: t('shortcut.hintChar', { defaultValue: '字母提示' }) },
                 { keys: '\\', text: t('shortcut.peek', { defaultValue: '按住偷看' }) },
                 { keys: 'space', text: t('shortcut.verifyWord', { defaultValue: '校验词' }) },
                 { keys: 'enter', text: t('shortcut.submitNext', { defaultValue: '提交/下一句' }) },
+                { keys: '↑/↓', text: t('shortcut.prevNext', { defaultValue: '上/下一句' }) },
+                { keys: 'esc', text: t('shortcut.exit', { defaultValue: '退出' }) },
             ]
             : [
                 { keys: 'alt+r', text: t('shortcut.replay', { defaultValue: '原音' }) },
-                { keys: 'alt+shift+r', text: '0.75×' },
+                { keys: 'alt+s', text: '0.75×' },
                 { keys: '\\', text: t('shortcut.peek', { defaultValue: '按住偷看' }) },
                 { keys: 'enter', text: t('shortcut.submitNext', { defaultValue: '提交/下一句' }) },
+                { keys: '↑/↓', text: t('shortcut.prevNext', { defaultValue: '上/下一句' }) },
+                { keys: 'esc', text: t('shortcut.exit', { defaultValue: '退出' }) },
             ]
         : shadowingStyle === 'record'
             ? [
-                { keys: 'alt+r', text: t('shortcut.replay', { defaultValue: '原音' }) },
-                { keys: 'alt+shift+r', text: '0.75×' },
-                { keys: 'space', text: t('shortcut.ptt', { defaultValue: '对讲/启停' }) },
-                { keys: 'v', text: t('shortcut.abCompare', { defaultValue: 'A/B 对比' }) },
+                { keys: 'r', text: t('shortcut.replay', { defaultValue: '原音' }) },
+                { keys: 's', text: '0.75×' },
+                { keys: 'space', text: t('shortcut.ptt', { defaultValue: '对讲(点按/长按)' }) },
+                { keys: 'v', text: t('shortcut.abCompare', { defaultValue: 'A/B 对比' }), disabled: !hasMineAudio },
+                { keys: 'p', text: t('shortcut.playMine', { defaultValue: '听我的' }), disabled: !hasMineAudio },
+                { keys: '↑/↓', text: t('shortcut.prevNext', { defaultValue: '上/下一句' }) },
                 { keys: 'enter', text: t('shortcut.next', { defaultValue: '下一句' }) },
+                { keys: 'f', text: t('shortcut.focus', { defaultValue: '专注' }) },
+                { keys: 'esc', text: t('shortcut.exit', { defaultValue: '退出' }) },
             ]
             : [
                 { keys: '↑', text: t('shortcut.prev', { defaultValue: '上一句' }) },
                 { keys: '↓', text: t('shortcut.next', { defaultValue: '下一句' }) },
+                { keys: 'f', text: t('shortcut.focus', { defaultValue: '专注' }) },
                 { keys: 'esc', text: t('shortcut.exit', { defaultValue: '退出' }) },
             ];
 
     return (
         <div
+            ref={dockRef}
             data-practice-dock="true"
             data-recorder-phase={recorderPhase}
             className="flex h-full w-full flex-col bg-surface/85 backdrop-blur-xl text-primary [--text-label-size:var(--text-supporting-size)] [--text-label-leading:var(--text-supporting-leading)]"
@@ -842,6 +928,7 @@ export default function PracticeDock() {
                         onReplay={handleReplay}
                         onSlowReplay={handleSlowReplay}
                         onNextSentence={() => navigateOffset(1, shadowingStyle !== 'beat')}
+                        onHasRecordingChange={setHasMineRecording}
                     />
                 ) : dictationStyle === 'slots' ? (
                     <WordSlotDictation
@@ -888,8 +975,14 @@ export default function PracticeDock() {
             <div className="flex h-8 shrink-0 items-center justify-between gap-3 border-t border-border/40 bg-muted/20 px-4 text-metadata text-secondary overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex items-center gap-3 shrink-0">
                     {shortcutLegend.map((item) => (
-                        <span key={item.keys + item.text} className="inline-flex items-center gap-1">
-                            <Kbd keys={item.keys} />
+                        <span
+                            key={item.keys + item.text}
+                            className={cn(
+                                'inline-flex items-center gap-1 transition-opacity',
+                                item.disabled && 'opacity-40',
+                            )}
+                        >
+                            <PracticeKbd keys={item.keys} isApple={applePlatform} />
                             <span>{item.text}</span>
                         </span>
                     ))}

@@ -43,6 +43,7 @@ import { LocalAiController } from '../LocalAiController';
 import MediaController from '../MediaController';
 import MigrationFailureController from '../MigrationFailureController';
 import { ParakeetModelController } from '../ParakeetModelController';
+import PhonemeGopModelController from '../PhonemeGopModelController';
 import SentencePracticeController from '../SentencePracticeController';
 import SettingsController from '../SettingsController';
 import { SherpaTtsModelController } from '../SherpaTtsModelController';
@@ -79,6 +80,7 @@ function registerAllControllers(): void {
     new MediaController(stub()).registerRoutes();
     new MigrationFailureController().registerRoutes();
     new ParakeetModelController(stub()).registerRoutes();
+    new PhonemeGopModelController(stub()).registerRoutes();
     new SentencePracticeController(stub()).registerRoutes();
     new SettingsController(stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub()).registerRoutes();
     new SherpaTtsModelController(stub(), stub(), stub(), stub()).registerRoutes();

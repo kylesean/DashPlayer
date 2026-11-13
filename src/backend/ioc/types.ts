@@ -26,6 +26,8 @@ const TYPES = {
     FfmpegGateway: Symbol('FfmpegGateway'),
     FfmpegService: Symbol('FfmpegService'),
     SentencePracticeService: Symbol('SentencePracticeService'),
+    PhonemeGopService: Symbol('PhonemeGopService'),
+    PhonemeGopModelService: Symbol('PhonemeGopModelService'),
     MediaService: Symbol('MediaService'),
     TranslateService: Symbol('TranslateService'),
     SubtitleTranslationService: Symbol('SubtitleTranslationService'),

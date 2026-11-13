@@ -181,6 +181,11 @@ export const settingsApi = {
      */
     deleteParakeetModel: () => backendClient.call('parakeet/models/delete'),
 
+    getPhonemeGopModelStatus: () => backendClient.call('phoneme-gop/models/status'),
+    downloadPhonemeGopModel: () => backendClient.call('phoneme-gop/models/download'),
+    cancelPhonemeGopModelDownload: () => backendClient.call('phoneme-gop/models/cancel-download'),
+    deletePhonemeGopModel: () => backendClient.call('phoneme-gop/models/delete'),
+
     /**
      * 查询说话人分离模型（分割 + 声纹嵌入）的安装状态。
      *

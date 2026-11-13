@@ -1,6 +1,7 @@
 import type { Sentence } from '@/common/types/SentenceC';
 import type { SentencePracticeSummaryVO } from '@/common/contracts/sentence-practice';
 import { cleanWord, isWordToken, splitWords } from '@/common/utils/subtitle/tokenize';
+import { stripNonSpeechAnnotations } from '@/common/utils/practice/practiceTextClean';
 import {
     groupSentencesIntoBlocks,
     type SentenceBlock,
@@ -46,10 +47,12 @@ function buildUnitFromBlock(block: SentenceBlock, srtTender: SrtTender<Sentence>
 
     const safeStart = Number.isFinite(range.start) ? range.start : 0;
     const safeEnd = Math.max(safeStart + 0.15, range.end);
-    const text = block.sentences
-        .map((s) => s.text.trim())
-        .filter((s) => s.length > 0)
-        .join(' ');
+    const text = stripNonSpeechAnnotations(
+        block.sentences
+            .map((s) => s.text.trim())
+            .filter((s) => s.length > 0)
+            .join(' '),
+    );
     const textZH = block.sentences
         .map((s) => s.textZH?.trim() ?? '')
         .filter((s) => s.length > 0)
@@ -78,7 +81,7 @@ function buildUnitFromSentence(sentence: Sentence, srtTender: SrtTender<Sentence
         anchor: sentence,
         fileHash: sentence.fileHash,
         index: sentence.index,
-        text: sentence.text,
+        text: stripNonSpeechAnnotations(sentence.text),
         textZH: sentence.textZH ?? '',
         range: { start: safeStart, end: safeEnd },
         sentences: [sentence],
@@ -101,10 +104,10 @@ export function buildPracticeUnits(
     }
     const ordered = [...sentences].sort((a, b) => a.index - b.index);
     const blocks = groupSentencesIntoBlocks(ordered);
-    if (blocks.length > 0) {
-        return blocks.map((block) => buildUnitFromBlock(block, srtTender));
-    }
-    return ordered.map((sentence) => buildUnitFromSentence(sentence, srtTender));
+    const units = blocks.length > 0
+        ? blocks.map((block) => buildUnitFromBlock(block, srtTender))
+        : ordered.map((sentence) => buildUnitFromSentence(sentence, srtTender));
+    return units.filter((unit) => unit.text.length > 0);
 }
 
 /** 判断一个练习单元是否包含当前激活生词表中的词（优先使用后端 NLP blocks 的 lemma，回退词形查找）。 */

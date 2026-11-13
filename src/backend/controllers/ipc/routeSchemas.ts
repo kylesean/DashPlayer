@@ -310,6 +310,11 @@ export const shadowingParamsSchema: z.ZodType<SentencePracticeShadowingParams> =
     audio: z.instanceof(Uint8Array),
     expectedText: z.string(),
     referenceDurationSec: z.number().positive().max(600).optional(),
+    mediaPath: z.string().nullable().optional(),
+    clipRange: z.object({
+        start: z.number().nonnegative(),
+        end: z.number().nonnegative(),
+    }).optional(),
 });
 
 /** 听写文本评分请求校验架构。 */

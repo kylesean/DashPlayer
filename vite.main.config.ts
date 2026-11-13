@@ -11,6 +11,7 @@ export default defineConfig({
             external: [
                 // 原生模块与不可直接打包的运行时依赖（通过 Forge 打包进 node_modules 目录）
                 'better-sqlite3',
+                'onnxruntime-node',
                 // 网络代理基础设施（运行时从 node_modules 加载）
                 'undici',
                 'fetch-socks',

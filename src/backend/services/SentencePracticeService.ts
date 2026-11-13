@@ -1,10 +1,13 @@
 import path from 'path';
 import { randomUUID } from 'crypto';
-import { inject, injectable } from 'inversify';
+import { inject, injectable, optional } from 'inversify';
 import TYPES from '@/backend/ioc/types';
 import { getMainLogger } from '@/backend/infrastructure/logger';
-import { alignPracticeTokens } from '@/common/utils/practice/pronunciationScoring';
-import { buildRhythmFeedback, decodePcm16Wav, type RhythmToken } from '@/common/utils/practice/rhythmFeedback';
+import { alignPracticeTokens, normalizePracticeTokens } from '@/common/utils/practice/pronunciationScoring';
+import { buildRhythmFeedback, decodePcm16Wav, type PcmAudio, type RhythmToken } from '@/common/utils/practice/rhythmFeedback';
+import { compareProsodyDtw } from '@/common/utils/practice/dtwProsody';
+import { parsePcm16WavHeader } from '@/common/utils/audio/wav';
+import type PhonemeGopService from '@/backend/services/PhonemeGopService';
 import {
     buildRhythmTrend,
     toRhythmTrendPoint,
@@ -13,6 +16,7 @@ import {
 import type {
     SentencePracticeDictationParams,
     SentencePracticeMode,
+    SentencePracticeProsodyFeedback,
     SentencePracticeRecordVO,
     SentencePracticeResultVO,
     SentencePracticeRhythmFeedback,
@@ -119,35 +123,83 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         @inject(TYPES.FileSystemGateway) private readonly fileSystemGateway: FileSystemGateway,
         @inject(TYPES.TranscriptionEngineSelector) private readonly transcriptionEngineSelector: TranscriptionEngineSelector,
         @inject(TYPES.BuiltinDictionaryStore) private readonly builtinDictionaryStore: BuiltinDictionaryStore,
+        @optional() @inject(TYPES.PhonemeGopService) private readonly phonemeGopService?: PhonemeGopService,
     ) {}
 
     public async scoreShadowing(params: SentencePracticeShadowingParams): Promise<SentencePracticeResultVO> {
-        const { fileHash, sentenceIndex, audio, expectedText, referenceDurationSec } = params;
+        const { fileHash, sentenceIndex, audio, expectedText, referenceDurationSec, mediaPath, clipRange } = params;
         this.validateKeys(fileHash, sentenceIndex);
-        const { transcript, audioFile, rhythm } = await this.transcribeRecording(
+        const {
+            transcript,
+            audioFile,
+            rhythm,
+            userPcm,
+            prosody,
+        } = await this.transcribeRecording(
             fileHash,
             sentenceIndex,
             audio,
             expectedText,
             referenceDurationSec,
+            mediaPath,
+            clipRange,
         );
         const alignment = alignPracticeTokens(expectedText, transcript);
+
+        let finalScore = alignment.score;
+        let scoringEngine: 'asr' | 'asr+gop' = 'asr';
+        const phonemeGopAvailable = this.phonemeGopService ? await this.phonemeGopService.isReady() : false;
+
+        if (userPcm && phonemeGopAvailable && this.phonemeGopService) {
+            const expectedWords = normalizePracticeTokens(expectedText);
+            const gopOutputs = await this.phonemeGopService.scoreWords({
+                pcm: userPcm,
+                words: expectedWords,
+                lookupPhonetic: (word) => this.lookupPhonetic(word),
+            });
+            if (gopOutputs && gopOutputs.length > 0) {
+                scoringEngine = 'asr+gop';
+                const byWordIdx = new Map(gopOutputs.map((g) => [g.wordIndex, g]));
+                let expIdx = 0;
+                const wordScores: number[] = [];
+                for (const wordResult of alignment.words) {
+                    if (wordResult.status === 'extra') continue;
+                    const gop = byWordIdx.get(expIdx);
+                    expIdx += 1;
+                    if (gop) {
+                        wordResult.phonemeScore = gop.phonemeScore;
+                        wordResult.phonemes = gop.phonemes;
+                        if (wordResult.status !== 'missing') {
+                            wordScores.push(gop.phonemeScore);
+                        }
+                    }
+                }
+                if (wordScores.length > 0) {
+                    const avgPhonemeScore = wordScores.reduce((a, b) => a + b, 0) / wordScores.length;
+                    finalScore = Math.max(0, Math.min(100, Math.round(alignment.score * 0.6 + avgPhonemeScore * 0.4)));
+                }
+            }
+        }
+
         await this.persistRecord(
             fileHash,
             sentenceIndex,
             'shadowing',
-            alignment.score,
+            finalScore,
             transcript,
             alignment.words,
             audioFile,
             rhythm,
         );
         return {
-            score: alignment.score,
+            score: finalScore,
             transcript,
             words: alignment.words,
             audioPath: await this.resolveAudioPath(audioFile),
             rhythm,
+            prosody,
+            scoringEngine,
+            phonemeGopAvailable,
         };
     }
 
@@ -280,12 +332,16 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         }
     }
 
+    private isReady16kMonoWav(audio: Uint8Array): boolean {
+        const header = parsePcm16WavHeader(audio);
+        return Boolean(header && header.sampleRate === 16000 && header.dataLength > 0);
+    }
+
     /**
-     * 转写录音:webm 直接落盘到 practice 持久目录(评分成功即随记录留存供回放)
-     * → 同目录派生 16kHz 单声道 WAV → 本地 ASR。评分链路任何一步失败都清掉落盘文件;
-     * 成功则只保留原始 webm(派生 wav 用完即删)。
+     * 转写录音：若前端已直出 16kHz 单声道 PCM WAV 则直接落盘使用，跳过 ffmpeg 转码；
+     * 否则落盘 webm 并调用 ffmpeg 派生 16kHz WAV。评分失败时清理落盘文件。
      *
-     * @returns 转写文本与录音在 practice 目录下的相对路径。
+     * @returns 转写文本、录音相对路径、节奏信号、PCM 样本与 DTW 韵律对比。
      */
     private async transcribeRecording(
         fileHash: string,
@@ -293,15 +349,26 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         audio: Uint8Array,
         expectedText: string,
         referenceDurationSec?: number,
-    ): Promise<{ transcript: string; audioFile: string; rhythm: SentencePracticeRhythmFeedback | null }> {
+        mediaPath?: string | null,
+        clipRange?: { start: number; end: number },
+    ): Promise<{
+        transcript: string;
+        audioFile: string;
+        rhythm: SentencePracticeRhythmFeedback | null;
+        userPcm: PcmAudio | null;
+        prosody: SentencePracticeProsodyFeedback | null;
+    }> {
         const practiceRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.PRACTICE);
-        const audioFile = `${fileHash}/${randomUUID()}.webm`;
+        const directWav = this.isReady16kMonoWav(audio);
+        const audioFile = `${fileHash}/${randomUUID()}.${directWav ? 'wav' : 'webm'}`;
         const audioAbs = path.join(practiceRoot, audioFile);
-        const wavPath = `${audioAbs}.wav`;
+        const wavPath = directWav ? audioAbs : `${audioAbs}.wav`;
         try {
             await this.fileSystemGateway.ensureDirectory(path.dirname(audioAbs));
             await this.fileSystemGateway.writeBinaryFile(audioAbs, audio);
-            await this.ffmpegService.convertToWav(audioAbs, wavPath);
+            if (!directWav) {
+                await this.ffmpegService.convertToWav(audioAbs, wavPath);
+            }
             const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
             const gateway = this.transcriptionEngineSelector.select();
             const result = await gateway.transcribe({
@@ -309,20 +376,80 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
                 modelsRoot,
                 job: `practice:${fileHash}:${sentenceIndex}:${randomUUID()}`,
             });
-            const rhythm = await this.analyzeRhythm(
-                wavPath,
-                expectedText,
-                result.text.trim(),
-                result.tokens,
-                referenceDurationSec,
-            );
-            return { transcript: result.text.trim(), audioFile, rhythm };
+            const userWavBuffer = directWav ? audio : await this.fileSystemGateway.readBinaryFile(wavPath);
+            const userPcm = decodePcm16Wav(userWavBuffer);
+            const rhythm = userPcm
+                ? this.analyzeRhythmFromPcm(userPcm, expectedText, result.text.trim(), result.tokens, referenceDurationSec)
+                : await this.analyzeRhythm(wavPath, expectedText, result.text.trim(), result.tokens, referenceDurationSec);
+            const prosody = userPcm
+                ? await this.analyzeProsody(practiceRoot, mediaPath, clipRange, userPcm)
+                : null;
+            return { transcript: result.text.trim(), audioFile, rhythm, userPcm, prosody };
         } catch (error) {
             // 没有练习记录承载的录音没有留存价值,评分失败即清理
             await this.fileSystemGateway.removeFileIfExists(audioAbs).catch(() => undefined);
             throw error;
         } finally {
-            await this.fileSystemGateway.removeFileIfExists(wavPath).catch(() => undefined);
+            if (!directWav) {
+                await this.fileSystemGateway.removeFileIfExists(wavPath).catch(() => undefined);
+            }
+        }
+    }
+
+    private analyzeRhythmFromPcm(
+        pcm: PcmAudio,
+        expectedText: string,
+        transcript: string,
+        tokens: RhythmToken[],
+        referenceDurationSec?: number,
+    ): SentencePracticeRhythmFeedback | null {
+        try {
+            return buildRhythmFeedback({
+                expectedText,
+                transcript,
+                tokens,
+                pcm,
+                referenceDurationSec,
+                lookupPhonetic: (word) => this.lookupPhonetic(word),
+            });
+        } catch (error) {
+            this.logger.warn('跟读节奏分析失败，跳过附加信号', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+            return null;
+        }
+    }
+
+    /**
+     * 从原视频截取当前句人声做 DTW 韵律对比（可选增强信号，失败静默返回 null）。
+     */
+    private async analyzeProsody(
+        practiceRoot: string,
+        mediaPath: string | null | undefined,
+        clipRange: { start: number; end: number } | undefined,
+        userPcm: PcmAudio,
+    ): Promise<SentencePracticeProsodyFeedback | null> {
+        if (!mediaPath || !clipRange || clipRange.end <= clipRange.start) {
+            return null;
+        }
+        if (!(await this.fileSystemGateway.fileExists(mediaPath))) {
+            return null;
+        }
+        const refSlicePath = path.join(practiceRoot, 'transient', `ref-${randomUUID()}.m4a`);
+        const refWavPath = path.join(practiceRoot, 'transient', `ref-${randomUUID()}.wav`);
+        try {
+            await this.fileSystemGateway.ensureDirectory(path.dirname(refWavPath));
+            await this.ffmpegService.trimVideo(mediaPath, clipRange.start, clipRange.end, refSlicePath);
+            await this.ffmpegService.convertToWav(refSlicePath, refWavPath);
+            const refBuffer = await this.fileSystemGateway.readBinaryFile(refWavPath);
+            const refPcm = decodePcm16Wav(refBuffer);
+            if (!refPcm) return null;
+            return compareProsodyDtw(refPcm, userPcm);
+        } catch {
+            return null;
+        } finally {
+            await this.fileSystemGateway.removeFileIfExists(refSlicePath).catch(() => undefined);
+            await this.fileSystemGateway.removeFileIfExists(refWavPath).catch(() => undefined);
         }
     }
 

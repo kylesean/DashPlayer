@@ -1,4 +1,5 @@
 import React from 'react';
+import useSWR from 'swr';
 import { useTranslation } from 'react-i18next';
 import {
     Download,
@@ -41,7 +42,7 @@ import type { TranscriptionEngine } from '@/common/contracts/transcription-engin
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 
 /** 资源包内的资源标识。 */
-type PackItemKey = 'tts' | 'transcription' | 'diarization';
+type PackItemKey = 'tts' | 'transcription' | 'diarization' | 'phonemeGop';
 
 /** 持久化下载队列的包标识：切走设置标签页或离开设置页后再回来仍可续接进度展示。 */
 const SETTINGS_RESOURCE_PACK_ID = 'settings-resource-pack';
@@ -115,6 +116,11 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
     onChangeEngine,
 }) => {
     const { t } = useTranslation('settings');
+    const { data: phonemeGopStatus, mutate: mutatePhonemeGop } = useSWR(
+        'phoneme-gop/models/status',
+        () => settingsApi.getPhonemeGopModelStatus(),
+        { revalidateOnFocus: false },
+    );
 
     const [deleting, setDeleting] = React.useState(false);
     const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
@@ -226,6 +232,27 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             download: async () => { await settingsApi.downloadSpeakerDiarizationModel(); },
             cancel: async () => { await settingsApi.cancelSpeakerDiarizationModelDownload(); },
             remove: async () => { await settingsApi.deleteSpeakerDiarizationModel(); },
+        },
+        {
+            key: 'phonemeGop',
+            title: t('resources.pack.itemPhonemeGop'),
+            description: t('resources.pack.itemPhonemeGopDesc'),
+            ready: phonemeGopStatus?.ready ?? false,
+            modelLabel: t('resources.pack.itemPhonemeGopModelFile'),
+            urls: [
+                'https://hf-mirror.com/onnx-community/wav2vec2-lv-60-espeak-cv-ft-ONNX/resolve/main/onnx/model_q4.onnx',
+                'https://huggingface.co/onnx-community/wav2vec2-lv-60-espeak-cv-ft-ONNX/resolve/main/onnx/model_q4.onnx',
+            ],
+            targetPath: phonemeGopStatus?.modelPath ?? '',
+            download: async () => {
+                await settingsApi.downloadPhonemeGopModel();
+                await mutatePhonemeGop();
+            },
+            cancel: async () => { await settingsApi.cancelPhonemeGopModelDownload(); },
+            remove: async () => {
+                await settingsApi.deletePhonemeGopModel();
+                await mutatePhonemeGop();
+            },
         },
     ];
 

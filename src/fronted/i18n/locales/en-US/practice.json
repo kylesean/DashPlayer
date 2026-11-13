@@ -12,7 +12,7 @@
         "nextSentenceEnter": "Next ↵",
         "reachedFirst": "Already at the first sentence in this queue",
         "reachedLast": "Already at the last sentence in this queue",
-        "soundOn": "Tactile feedback chimes enabled",
+        "soundOn": "Feedback chimes enabled (mic / pass / word cues)",
         "soundOff": "Tactile feedback chimes muted",
         "soundToggle": "Toggle tactile chimes",
         "enterFocus": "Focus drill mode: collapse transcript to prevent spoilers (F)",
@@ -37,8 +37,11 @@
         "peek": "Hold to peek",
         "verifyWord": "Check word",
         "submitNext": "Submit / Next",
-        "ptt": "Talk / Toggle",
+        "ptt": "Talk (tap/hold)",
         "abCompare": "A/B compare",
+        "playMine": "My voice",
+        "focus": "Focus",
+        "prevNext": "Prev/Next",
         "next": "Next",
         "prev": "Prev",
         "exit": "Exit"
@@ -48,6 +51,7 @@
         "stop": "Stop",
         "processing": "Scoring…",
         "empty": "No sound captured",
+        "tooShort": "Recording is too short — speak the sentence before stopping",
         "denied": "Microphone unavailable or not authorized",
         "unsupported": "Recording is not supported in this environment",
         "playbackFailed": "Failed to play recording"
@@ -73,7 +77,11 @@
         "asrOptionalHint": "No ASR model (waveform & A/B only) · Install",
         "asrDegradedNote": "No speech model installed: record & A/B compare remain available",
         "installAsrAction": "Get model →",
-        "autoFlow": "Auto-mic after play"
+        "autoFlow": "Auto-mic after play",
+        "prosodyTitle": "Original DTW prosody match",
+        "prosodyMetrics": "Match {{prosody}}% · Pauses {{pause}}% · Stress {{energy}}%",
+        "phonemeIssuesTitle": "Phoneme focus",
+        "phonemeGopMissingNote": "Word-level scoring active; download the phoneme model for phoneme-level feedback"
     },
     "rhythm": {
         "title": "Rhythm & stress",
@@ -106,7 +114,7 @@
         "styleBlind": "Blind Challenge",
         "hintLetter": "Reveal letter (/)",
         "hintUsedCount": "{{count}} letter hint(s)",
-        "blindPlaceholder": "Blind dictation: type the whole sentence (Enter to submit, Alt+R to replay)…",
+        "blindPlaceholder": "Blind dictation: type the whole sentence (Enter to submit, Alt+R replay, Alt+S slow)…",
         "blindHint": "No word count hints · Shift+Enter for newline",
         "spoilerVeilHint": "Anti-spoiler protection · Hover or hold \\ to peek"
     },

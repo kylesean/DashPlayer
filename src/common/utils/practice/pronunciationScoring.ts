@@ -1,5 +1,6 @@
 import type { SentencePracticeWordResult } from '@/common/contracts/sentence-practice';
 import { cleanWord, isWordToken, splitWords } from '@/common/utils/subtitle/tokenize';
+import { stripNonSpeechAnnotations } from '@/common/utils/practice/practiceTextClean';
 
 /**
  * 词级对齐评分:把用户产出(跟读的 ASR 转写、或听写输入)与原句做加权编辑距离
@@ -59,7 +60,7 @@ const charSimilarity = (a: string, b: string): number => {
  * 不可能产出它,留在期望序列里只会虚增分母造成固定扣分。
  */
 export const normalizePracticeTokens = (text: string): string[] =>
-    splitWords(text)
+    splitWords(stripNonSpeechAnnotations(text))
         .filter(isWordToken)
         .map(cleanWord)
         .filter((word) => word.length > 0)

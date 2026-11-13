@@ -15,6 +15,20 @@ import type {
 export type SentencePracticeMode = 'shadowing' | 'dictation';
 
 /**
+ * 单个音素的离线 GOP（Goodness of Pronunciation）评分结果。
+ */
+export interface SentencePracticePhonemeResult {
+    /** 期望的 IPA 音素（如 "θ"、"æ"、"iː"）。 */
+    ipa: string;
+    /** 声学模型在该时间窗内识别到的最可能音素；一致或未知时与 ipa 相同或为 null。 */
+    heardIpa: string | null;
+    /** 0-100 音素清晰度/发音准确度得分。 */
+    score: number;
+    /** ok（>=70）/ weak（45-69 偏弱/模糊）/ error（<45 明显偏音或漏读）。 */
+    status: 'ok' | 'weak' | 'error';
+}
+
+/**
  * 单词级对齐结果,驱动逐词反馈 chips。
  */
 export interface SentencePracticeWordResult {
@@ -32,6 +46,10 @@ export interface SentencePracticeWordResult {
     status: 'match' | 'sub' | 'missing' | 'extra';
     /** sub 状态下 0-1 的字符相似度,越接近 1 越接近正确。 */
     similarity?: number;
+    /** 音素级 GOP 聚合得分（0-100）；未启用音素模型时省略。 */
+    phonemeScore?: number;
+    /** 逐音素 GOP 拆解；未启用音素模型或词无音标映射时省略。 */
+    phonemes?: SentencePracticePhonemeResult[];
 }
 
 /**
@@ -85,10 +103,26 @@ export interface SentencePracticeRhythmFeedback {
 }
 
 /**
+ * 与原句人声音频做 DTW（动态时间规整）后的韵律与重音贴合度反馈。
+ */
+export interface SentencePracticeProsodyFeedback {
+    /** 综合韵律贴合度（0-100）。 */
+    prosodyScore: number;
+    /** 停顿与节奏分布匹配度（0-100）。 */
+    pauseMatchScore: number;
+    /** 重音/能量包络相关性（0-100）。 */
+    energyCorrelation: number;
+    /** 原句归一化能量包络（固定 24 采样点，0-1），用于可视化对比。 */
+    referenceEnvelope: number[];
+    /** DTW 对齐后的用户录音能量包络（固定 24 采样点，0-1）。 */
+    userEnvelope: number[];
+}
+
+/**
  * 一次练习的评分结果(实时返回,同时落库)。
  */
 export interface SentencePracticeResultVO {
-    /** 0-100 整数分:(match + 0.5×sub) / 期望词数 × 100。 */
+    /** 0-100 整数分。 */
     score: number;
     /** 用户语音的转写文本;听写模式为 null(打字内容即比对源)。 */
     transcript: string | null;
@@ -98,6 +132,12 @@ export interface SentencePracticeResultVO {
     audioPath: string | null;
     /** 跟读节奏与重读分布;听写、无录音或分析失败时为 null。 */
     rhythm?: SentencePracticeRhythmFeedback | null;
+    /** 与原句人声的 DTW 韵律对比；未拿到原句音频或听写模式时为 null。 */
+    prosody?: SentencePracticeProsodyFeedback | null;
+    /** 评分引擎来源：仅词级 ASR 或 ASR + 离线音素 GOP。 */
+    scoringEngine?: 'asr' | 'asr+gop';
+    /** 音素级 GOP 模型是否就绪（未下载时前端可给出温和提示）。 */
+    phonemeGopAvailable?: boolean;
 }
 
 /**
@@ -139,12 +179,16 @@ export interface SentencePracticeSummaryVO {
 export interface SentencePracticeShadowingParams {
     fileHash: string;
     sentenceIndex: number;
-    /** MediaRecorder 采集的 webm/opus 音频字节。 */
+    /** MediaRecorder 采集的 webm/opus 或前端直出的 16kHz PCM WAV 音频字节。 */
     audio: Uint8Array;
     /** 用于对齐评分的原句文本(前端当前意群原文)。 */
     expectedText: string;
     /** 原句音频参考时长（秒），用于语速对比；未知时省略。 */
     referenceDurationSec?: number;
+    /** 当前本地媒体文件路径，供后端截取原句人声做 DTW 韵律对比；可选。 */
+    mediaPath?: string | null;
+    /** 当前句在原媒体中的起止时间（秒），供后端截取参考人声；可选。 */
+    clipRange?: { start: number; end: number };
 }
 
 /**

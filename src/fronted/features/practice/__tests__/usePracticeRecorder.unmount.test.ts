@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
-import { usePracticeRecorder } from '@/fronted/features/practice/usePracticeRecorder';
+import { resolveVadLimits, usePracticeRecorder } from '@/fronted/features/practice/usePracticeRecorder';
 
 vi.mock('@/fronted/log/simple-logger', () => ({
     getRendererLogger: () => ({ info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() }),
@@ -134,104 +134,157 @@ describe('跟读录音在面板卸载时的全局状态', () => {
 
     it('正常停止录音仍会提交评分，不被 cancel 逻辑误伤', async () => {
         installBlobArrayBuffer();
-        const onRecordingComplete = vi.fn().mockResolvedValue(undefined);
-        const { result } = renderHook(() =>
-            usePracticeRecorder({ onRecordingComplete, active: true }),
-        );
+        let now = 10_000;
+        const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+        try {
+            const onRecordingComplete = vi.fn().mockResolvedValue(undefined);
+            const { result } = renderHook(() =>
+                usePracticeRecorder({ onRecordingComplete, active: true }),
+            );
 
-        await act(async () => {
-            await result.current.start();
-        });
+            await act(async () => {
+                await result.current.start();
+            });
 
-        // 模拟 MediaRecorder 在停止前吐出数据
-        const recorder = FakeMediaRecorder.instances[0];
-        const chunk = new Blob(['audio'], { type: 'audio/webm' });
-        recorder.ondataavailable?.({ data: chunk });
+            now += 1000;
 
-        await act(async () => {
-            result.current.stop();
-        });
+            // 模拟 MediaRecorder 在停止前吐出数据
+            const recorder = FakeMediaRecorder.instances[0];
+            const chunk = new Blob(['audio'], { type: 'audio/webm' });
+            recorder.ondataavailable?.({ data: chunk });
 
-        await waitFor(() => expect(onRecordingComplete).toHaveBeenCalledTimes(1));
-        expect(result.current.phase).toBe('idle');
-        expect(usePracticePanel.getState().recording).toBe(false);
+            await act(async () => {
+                result.current.stop();
+            });
+
+            await waitFor(() => expect(onRecordingComplete).toHaveBeenCalledTimes(1));
+            expect(result.current.phase).toBe('idle');
+            expect(usePracticePanel.getState().recording).toBe(false);
+        } finally {
+            nowSpy.mockRestore();
+        }
+    });
+
+    it('录音过短（<350ms）时直接回到 idle 且不提交评分', async () => {
+        installBlobArrayBuffer();
+        let now = 20_000;
+        const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+        try {
+            const onRecordingComplete = vi.fn().mockResolvedValue(undefined);
+            const { result } = renderHook(() =>
+                usePracticeRecorder({ onRecordingComplete, active: true }),
+            );
+
+            await act(async () => {
+                await result.current.start();
+            });
+
+            now += 120;
+
+            const recorder = FakeMediaRecorder.instances[0];
+            recorder.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) });
+
+            await act(async () => {
+                result.current.stop();
+            });
+
+            expect(onRecordingComplete).not.toHaveBeenCalled();
+            expect(result.current.phase).toBe('idle');
+            expect(usePracticePanel.getState().recording).toBe(false);
+        } finally {
+            nowSpy.mockRestore();
+        }
     });
 
     it('评分进行中（processing）切走不应把阶段打回 idle，否则可并发开启新录音', async () => {
         installBlobArrayBuffer();
-        // 评分 Promise 由测试控制何时完成，用来观察 processing 窗口内的状态。
-        let releaseScore!: () => void;
-        const scorePending = new Promise<void>((resolve) => {
-            releaseScore = resolve;
-        });
-        const onRecordingComplete = vi.fn().mockReturnValue(scorePending);
+        let now = 30_000;
+        const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+        try {
+            // 评分 Promise 由测试控制何时完成，用来观察 processing 窗口内的状态。
+            let releaseScore!: () => void;
+            const scorePending = new Promise<void>((resolve) => {
+                releaseScore = resolve;
+            });
+            const onRecordingComplete = vi.fn().mockReturnValue(scorePending);
 
-        const { result, rerender } = renderHook(
-            ({ active }) => usePracticeRecorder({ onRecordingComplete, active }),
-            { initialProps: { active: true } },
-        );
+            const { result, rerender } = renderHook(
+                ({ active }) => usePracticeRecorder({ onRecordingComplete, active }),
+                { initialProps: { active: true } },
+            );
 
-        await act(async () => {
-            await result.current.start();
-        });
-        const recorder = FakeMediaRecorder.instances[0];
-        recorder.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) });
+            await act(async () => {
+                await result.current.start();
+            });
+            now += 1000;
+            const recorder = FakeMediaRecorder.instances[0];
+            recorder.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) });
 
-        await act(async () => {
-            result.current.stop();
-        });
-        await waitFor(() => expect(result.current.phase).toBe('processing'));
+            await act(async () => {
+                result.current.stop();
+            });
+            await waitFor(() => expect(result.current.phase).toBe('processing'));
 
-        // 评分尚未返回时用户切到听写页签
-        rerender({ active: false });
-        await act(async () => {
-            await Promise.resolve();
-        });
+            // 评分尚未返回时用户切到听写页签
+            rerender({ active: false });
+            await act(async () => {
+                await Promise.resolve();
+            });
 
-        // 阶段必须仍是 processing：若被打回 idle，用户能立刻再点录音，
-        // 与仍在进行的评分并发，结果会挂到错误的句子上。
-        expect(result.current.phase).toBe('processing');
+            // 阶段必须仍是 processing：若被打回 idle，用户能立刻再点录音，
+            // 与仍在进行的评分并发，结果会挂到错误的句子上。
+            expect(result.current.phase).toBe('processing');
 
-        await act(async () => {
-            releaseScore();
-            await scorePending;
-        });
-        await waitFor(() => expect(result.current.phase).toBe('idle'));
+            await act(async () => {
+                releaseScore();
+                await scorePending;
+            });
+            await waitFor(() => expect(result.current.phase).toBe('idle'));
+        } finally {
+            nowSpy.mockRestore();
+        }
     });
 
     it('评分进行中卸载组件不应抛错或泄漏 recording 标志', async () => {
         installBlobArrayBuffer();
-        let releaseScore!: () => void;
-        const scorePending = new Promise<void>((resolve) => {
-            releaseScore = resolve;
-        });
-        const onRecordingComplete = vi.fn().mockReturnValue(scorePending);
+        let now = 40_000;
+        const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+        try {
+            let releaseScore!: () => void;
+            const scorePending = new Promise<void>((resolve) => {
+                releaseScore = resolve;
+            });
+            const onRecordingComplete = vi.fn().mockReturnValue(scorePending);
 
-        const { result, unmount } = renderHook(() =>
-            usePracticeRecorder({ onRecordingComplete }),
-        );
+            const { result, unmount } = renderHook(() =>
+                usePracticeRecorder({ onRecordingComplete }),
+            );
 
-        await act(async () => {
-            await result.current.start();
-        });
-        const recorder = FakeMediaRecorder.instances[0];
-        recorder.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) });
-        await act(async () => {
-            result.current.stop();
-        });
-        await waitFor(() => expect(result.current.phase).toBe('processing'));
+            await act(async () => {
+                await result.current.start();
+            });
+            now += 1000;
+            const recorder = FakeMediaRecorder.instances[0];
+            recorder.ondataavailable?.({ data: new Blob(['audio'], { type: 'audio/webm' }) });
+            await act(async () => {
+                result.current.stop();
+            });
+            await waitFor(() => expect(result.current.phase).toBe('processing'));
 
-        // 评分尚未返回时面板被卸载（例如切视频）
-        unmount();
-        expect(usePracticePanel.getState().recording).toBe(false);
+            // 评分尚未返回时面板被卸载（例如切视频）
+            unmount();
+            expect(usePracticePanel.getState().recording).toBe(false);
 
-        // 评分稍后返回：已卸载组件上的 setState 不应抛错
-        await act(async () => {
-            releaseScore();
-            await scorePending;
-        });
-        expect(usePracticePanel.getState().recording).toBe(false);
-        expect(usePracticePanel.getState().recorderPhase).toBe('idle');
+            // 评分稍后返回：已卸载组件上的 setState 不应抛错
+            await act(async () => {
+                releaseScore();
+                await scorePending;
+            });
+            expect(usePracticePanel.getState().recording).toBe(false);
+            expect(usePracticePanel.getState().recorderPhase).toBe('idle');
+        } finally {
+            nowSpy.mockRestore();
+        }
     });
 
     it('requesting 期间取消或卸载时应立即停止后续返回的音轨并回到 idle', async () => {
@@ -308,5 +361,16 @@ describe('跟读录音在面板卸载时的全局状态', () => {
         });
         expect(stopUnmountTrack).toHaveBeenCalledTimes(1);
         expect(FakeMediaRecorder.instances).toHaveLength(0);
+    });
+
+    it('长句跟读前半段换气时放宽 VAD 停顿与最大时长上限', () => {
+        // 19.4s 长句在 8.3s 处仍处于句中（<75%），使用更宽容的 3.8s 停顿阈值且上限放宽至 >39s
+        const mid = resolveVadLimits(8300, 19400);
+        expect(mid.trailingSilenceMs).toBe(3800);
+        expect(mid.maxRecordingMs).toBeGreaterThan(39000);
+
+        // 超过参考时长 75% 后收敛为正常句末停顿阈值 2.2s
+        const tail = resolveVadLimits(16000, 19400);
+        expect(tail.trailingSilenceMs).toBe(2200);
     });
 });

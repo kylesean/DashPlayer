@@ -84,10 +84,14 @@ export default function BlindDictation({
             ref={containerRef}
             className="flex flex-col gap-2.5"
             onKeyDown={(e) => {
-                if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey) {
+                if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
                     e.preventDefault();
-                    if (e.shiftKey) onSlowReplay();
-                    else onReplay();
+                    onReplay();
+                    return;
+                }
+                if ((e.key === 's' || e.key === 'S') && e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                    e.preventDefault();
+                    onSlowReplay();
                     return;
                 }
                 if (e.key === '\\') {

@@ -172,6 +172,13 @@ interface SherpaTtsModelDef {
     'sherpa-tts/voices/select': { params: { voiceId: string }, return: { success: boolean; message: string } };
 }
 
+interface PhonemeGopModelDef {
+    'phoneme-gop/models/status': { params: void, return: ModelInstallationStatusVO };
+    'phoneme-gop/models/download': { params: void, return: { success: boolean; message: string } };
+    'phoneme-gop/models/cancel-download': { params: void, return: { cancelled: boolean } };
+    'phoneme-gop/models/delete': { params: void, return: { success: boolean; message: string } };
+}
+
 interface DpTaskDef {
     'dp-task/detail': { params: number, return: DpTask | null };
     'dp-task/cancel': { params: number, return: void };
@@ -741,6 +748,7 @@ export type ApiDefinitions = ApiDefinition
     & WatchHistoryDef
     & SubtitleControllerDef
     & SherpaTtsModelDef
+    & PhonemeGopModelDef
     & MediaDef
     & SubtitleTimestampAdjustmentControllerDef
     & SubtitleGenerationDef
@@ -854,6 +862,10 @@ export const API_ROUTE_KEYS = [
     'parakeet/models/delete',
     'parakeet/models/download',
     'parakeet/models/status',
+    'phoneme-gop/models/cancel-download',
+    'phoneme-gop/models/delete',
+    'phoneme-gop/models/download',
+    'phoneme-gop/models/status',
     'practice/list-by-file',
     'practice/list-by-sentence',
     'practice/rhythm-trend',

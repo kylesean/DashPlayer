@@ -11,6 +11,7 @@ import {
     type PracticeRecorderEvent,
     type PracticeRecorderPhase,
 } from './lib/recorder-phase';
+import { encodeResampledPcm16Wav } from './lib/pcmWavEncoder';
 
 const logger = getRendererLogger('usePracticeRecorder');
 
@@ -23,12 +24,31 @@ export interface RecordedAudioArtifact {
     durationMs: number;
 }
 
-const VAD_SPEECH_RMS = 0.032;
-const VAD_SILENCE_RMS = 0.02;
+const VAD_SPEECH_RMS = 0.022;
+const VAD_SILENCE_RMS = 0.012;
 const VAD_SPEECH_MIN_MS = 180;
-const VAD_TRAILING_SILENCE_MS = 1200;
-/** VAD 模式下的单段录音上限；UI 秒数展示也以此为准，两处必须共用同一常量。 */
+const VAD_TRAILING_SILENCE_MS = 2200;
+const VAD_MID_SENTENCE_SILENCE_MS = 3800;
+/** VAD 模式下的单段默认录音上限；长句会按原句时长等比放宽。 */
 export const VAD_MAX_RECORDING_MS = 20000;
+
+/**
+ * 计算当前时刻的 VAD 静音停麦阈值与最长录音上限。
+ *
+ * 长句跟读到一半时换气/停顿很常见：若已录时长尚未达到参考原句时长的 75%，
+ * 使用更宽容的句中停顿阈值（3.8s），避免长句读到一半被误判结束。
+ */
+export function resolveVadLimits(elapsedMs: number, expectedDurationMs = 0): {
+    trailingSilenceMs: number;
+    maxRecordingMs: number;
+} {
+    const midSentence = expectedDurationMs > 0 && elapsedMs < expectedDurationMs * 0.75;
+    const trailingSilenceMs = midSentence ? VAD_MID_SENTENCE_SILENCE_MS : VAD_TRAILING_SILENCE_MS;
+    const maxRecordingMs = expectedDurationMs > 0
+        ? Math.max(VAD_MAX_RECORDING_MS, Math.ceil(expectedDurationMs * 1.8) + 5000)
+        : VAD_MAX_RECORDING_MS;
+    return { trailingSilenceMs, maxRecordingMs };
+}
 
 function pickMimeType(): string | undefined {
     if (typeof MediaRecorder === 'undefined') {
@@ -61,8 +81,10 @@ interface UsePracticeRecorderOptions {
      * 避免麦克风继续采集、`practiceStore.recording` 卡在 true 把播放快捷键永久禁用。
      */
     active?: boolean;
-    /** 是否启用静音自动结束收麦（VAD）：检测到说话开口后若连续 1.2s 静音自动调用 stop。 */
+    /** 是否启用静音自动结束收麦（VAD）：检测到说话开口后若连续静音达到阈值自动调用 stop。 */
     vadAutoStop?: boolean;
+    /** 参考原句时长（毫秒），用于放宽长句句中换气停顿阈值与最大录音时长。 */
+    expectedDurationMs?: number;
     /** 实时麦克风归一化音量回调（0..1），用于绘制声纹跳动；避免触发整面板重渲染。 */
     onLevelChange?: (level: number) => void;
 }
@@ -83,6 +105,7 @@ export function usePracticeRecorder({
     onRecordingComplete,
     active = true,
     vadAutoStop = false,
+    expectedDurationMs = 0,
     onLevelChange,
 }: UsePracticeRecorderOptions) {
     const { t } = useTranslation('practice');
@@ -102,6 +125,9 @@ export function usePracticeRecorder({
     const mediaStreamRef = useRef<MediaStream | null>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+    const pcmChunksRef = useRef<Float32Array[]>([]);
+    const pcmSampleRateRef = useRef<number>(16000);
+    const processorRef = useRef<ScriptProcessorNode | null>(null);
     const startedAtRef = useRef<number>(0);
     const analyserCtxRef = useRef<AudioContext | null>(null);
     const monitorRafRef = useRef<number | null>(null);
@@ -109,18 +135,30 @@ export function usePracticeRecorder({
 
     const onDoneRef = useRef(onRecordingComplete);
     const vadRef = useRef(vadAutoStop);
+    const expectedDurationRef = useRef(expectedDurationMs);
     const onLevelRef = useRef(onLevelChange);
 
     useEffect(() => {
         onDoneRef.current = onRecordingComplete;
         vadRef.current = vadAutoStop;
+        expectedDurationRef.current = expectedDurationMs;
         onLevelRef.current = onLevelChange;
-    }, [onRecordingComplete, vadAutoStop, onLevelChange]);
+    }, [expectedDurationMs, onRecordingComplete, vadAutoStop, onLevelChange]);
 
     const stopMonitor = useCallback((): void => {
         if (monitorRafRef.current !== null) {
             cancelAnimationFrame(monitorRafRef.current);
             monitorRafRef.current = null;
+        }
+        const processor = processorRef.current;
+        processorRef.current = null;
+        if (processor) {
+            processor.onaudioprocess = null;
+            try {
+                processor.disconnect();
+            } catch {
+                // 忽略已断开节点
+            }
         }
         const ctx = analyserCtxRef.current;
         analyserCtxRef.current = null;
@@ -145,6 +183,7 @@ export function usePracticeRecorder({
         releaseStream();
         mediaRecorderRef.current = null;
         chunksRef.current = [];
+        pcmChunksRef.current = [];
     }, [releaseStream]);
 
     const cancel = useCallback((): void => {
@@ -197,19 +236,40 @@ export function usePracticeRecorder({
 
     const handleRecordingDone = async (): Promise<void> => {
         const recorder = mediaRecorderRef.current;
-        const mimeType = recorder?.mimeType || 'audio/webm';
-        const blob = new Blob(chunksRef.current, { type: mimeType });
+        const capturedPcm = pcmChunksRef.current;
+        const capturedRate = pcmSampleRateRef.current;
+        const rawMimeType = recorder?.mimeType || 'audio/webm';
+        const rawBlob = new Blob(chunksRef.current, { type: rawMimeType });
         const durationMs = startedAtRef.current > 0 ? Math.max(0, Date.now() - startedAtRef.current) : 0;
+        const tooShort = durationMs > 0 && durationMs < 350;
+        const wavBytes = !tooShort && capturedPcm.length > 0
+            ? encodeResampledPcm16Wav(capturedPcm, capturedRate, 16000)
+            : null;
         finishFlow();
-        if (blob.size === 0) {
+        if (tooShort) {
+            showNotification({
+                message: t('recorder.tooShort', { defaultValue: '录音时间太短，请说完整句后再结束' }),
+                variant: 'error',
+            });
+            applyEvent('EMPTY');
+            return;
+        }
+        if (!wavBytes && rawBlob.size === 0) {
             showNotification({ message: t('recorder.empty'), variant: 'error' });
             applyEvent('EMPTY');
             return;
         }
         applyEvent('STOP');
         try {
-            const buffer = await blob.arrayBuffer();
-            await onDoneRef.current(new Uint8Array(buffer), { blob, mimeType, durationMs });
+            if (wavBytes) {
+                const wavCopy = new Uint8Array(wavBytes.byteLength);
+                wavCopy.set(wavBytes);
+                const wavBlob = new Blob([wavCopy.buffer], { type: 'audio/wav' });
+                await onDoneRef.current(wavBytes, { blob: wavBlob, mimeType: 'audio/wav', durationMs });
+            } else {
+                const buffer = await rawBlob.arrayBuffer();
+                await onDoneRef.current(new Uint8Array(buffer), { blob: rawBlob, mimeType: rawMimeType, durationMs });
+            }
         } catch (error) {
             logger.error('跟读评分失败', { error });
             // 直接透传会让 parakeet 的整段 C++ stderr 铺满屏幕；这里只给可操作提示。
@@ -237,6 +297,21 @@ export function usePracticeRecorder({
             const analyser = ctx.createAnalyser();
             analyser.fftSize = 512;
             source.connect(analyser);
+
+            // 同步采集原始 PCM，结束时直接输出 16kHz 单声道 WAV，后端即可跳过 ffmpeg 转码进程
+            if (typeof ctx.createScriptProcessor === 'function') {
+                pcmChunksRef.current = [];
+                pcmSampleRateRef.current = ctx.sampleRate || 16000;
+                const processor = ctx.createScriptProcessor(4096, 1, 1);
+                processorRef.current = processor;
+                processor.onaudioprocess = (event: AudioProcessingEvent) => {
+                    if (recorder.state !== 'recording') return;
+                    const channel = event.inputBuffer.getChannelData(0);
+                    pcmChunksRef.current.push(new Float32Array(channel));
+                };
+                source.connect(processor);
+                processor.connect(ctx.destination);
+            }
             const data = new Float32Array(analyser.fftSize);
 
             let speechActiveMs = 0;
@@ -259,6 +334,11 @@ export function usePracticeRecorder({
                 lastFrameTs = now;
 
                 if (vadRef.current) {
+                    const elapsedMs = startedAtRef.current > 0 ? Math.max(0, Date.now() - startedAtRef.current) : 0;
+                    const { trailingSilenceMs, maxRecordingMs } = resolveVadLimits(
+                        elapsedMs,
+                        expectedDurationRef.current,
+                    );
                     if (rms >= VAD_SPEECH_RMS) {
                         speechActiveMs += dt;
                         silenceSince = 0;
@@ -268,12 +348,12 @@ export function usePracticeRecorder({
                     } else if (hasSpoken && rms < VAD_SILENCE_RMS) {
                         if (silenceSince === 0) {
                             silenceSince = now;
-                        } else if (now - silenceSince >= VAD_TRAILING_SILENCE_MS) {
+                        } else if (now - silenceSince >= trailingSilenceMs) {
                             recorder.stop();
                             return;
                         }
                     }
-                    if (startedAtRef.current > 0 && Date.now() - startedAtRef.current >= VAD_MAX_RECORDING_MS) {
+                    if (startedAtRef.current > 0 && elapsedMs >= maxRecordingMs) {
                         recorder.stop();
                         return;
                     }
@@ -313,7 +393,7 @@ export function usePracticeRecorder({
                 audio: {
                     echoCancellation: false,
                     noiseSuppression: false,
-                    autoGainControl: false,
+                    autoGainControl: true,
                 },
             });
             if (!isRequestingActive()) {

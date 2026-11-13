@@ -124,6 +124,8 @@ const config: ForgeConfig = {
             const keptNodeModulePrefixes = [
                 '/node_modules/better-sqlite3',
                 '/node_modules/node-addon-api',
+                '/node_modules/onnxruntime-node',
+                '/node_modules/onnxruntime-common',
                 '/node_modules/undici',
                 '/node_modules/fetch-socks',
                 '/node_modules/socks',

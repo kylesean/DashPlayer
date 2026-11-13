@@ -27,10 +27,10 @@ import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { cn } from '@/fronted/lib/utils';
 import { isInteractiveTarget, isTextEntryTarget } from '@/fronted/lib/keyboard';
-import { decodeRecordedAudioSummary, playMicReadyCue } from '../audioFeedback';
+import { decodeRecordedAudioSummary, playMicReadyCue, playSentencePassCue } from '../audioFeedback';
 import type { PracticeUnit } from '../practiceUnit';
 import usePracticePanel, { type ShadowingStyle } from '../practiceStore';
-import { usePracticeRecorder, VAD_MAX_RECORDING_MS, type RecordedAudioArtifact } from '../usePracticeRecorder';
+import { resolveVadLimits, usePracticeRecorder, type RecordedAudioArtifact } from '../usePracticeRecorder';
 import PracticeDiffSentence from './PracticeDiffSentence';
 
 const logger = getRendererLogger('ShadowingStudio');
@@ -51,6 +51,7 @@ interface ShadowingStudioProps {
     onReplay: () => void;
     onSlowReplay: () => void;
     onNextSentence: () => void;
+    onHasRecordingChange?: (hasRecording: boolean) => void;
 }
 
 interface LocalRecordingSnapshot {
@@ -242,6 +243,7 @@ function RecordShadowingView({
     onReplay,
     onSlowReplay,
     onNextSentence,
+    onHasRecordingChange,
 }: Omit<ShadowingStudioProps, 'style'>) {
     const { t } = useTranslation('practice');
     const autoRecordFlow = usePracticePanel((s) => s.autoRecordFlow);
@@ -250,9 +252,11 @@ function RecordShadowingView({
     const [localRecording, setLocalRecording] = useState<LocalRecordingSnapshot | null>(null);
     const [recordingSeconds, setRecordingSeconds] = useState(0);
     const [abPhase, setAbPhase] = useState<AbContrastPhase>('idle');
+    const [minePlayProgress, setMinePlayProgress] = useState<number | null>(null);
 
     const liveBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
     const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
+    const minePlayRafRef = useRef<number | null>(null);
     const abRunIdRef = useRef(0);
     const clipOwnedRef = useRef(false);
     const mountedRef = useRef(true);
@@ -277,8 +281,13 @@ function RecordShadowingView({
             clipOwnedRef.current = false;
             playerActions.clearPracticeClip?.();
         }
+        if (minePlayRafRef.current !== null) {
+            cancelAnimationFrame(minePlayRafRef.current);
+            minePlayRafRef.current = null;
+        }
         playbackAudioRef.current?.pause();
         playbackAudioRef.current = null;
+        setMinePlayProgress(null);
         setAbPhase('idle');
     }, []);
 
@@ -287,6 +296,10 @@ function RecordShadowingView({
         mountedRef.current = true;
         return () => {
             mountedRef.current = false;
+            if (minePlayRafRef.current !== null) {
+                cancelAnimationFrame(minePlayRafRef.current);
+                minePlayRafRef.current = null;
+            }
             if (autoCueTimerRef.current !== null) {
                 clearTimeout(autoCueTimerRef.current);
                 autoCueTimerRef.current = null;
@@ -345,14 +358,21 @@ function RecordShadowingView({
             });
         }
         if (asrReady && mountedRef.current) {
-            await onScoreRecording(audio);
+            const scoreResult = await onScoreRecording(audio);
+            if (mountedRef.current && scoreResult && scoreResult.score >= 80) {
+                playSentencePassCue();
+            }
         }
     }, [asrReady, onScoreRecording]);
+
+    const expectedDurationMs = Math.max(0, (unit.range.end - unit.range.start) * 1000);
+    const { maxRecordingMs } = resolveVadLimits(0, expectedDurationMs);
 
     const { phase: recorderPhase, start: startRecording, stop: stopRecording, cancel: cancelRecording } = usePracticeRecorder({
         onRecordingComplete: handleRecordingComplete,
         active: true,
         vadAutoStop: autoRecordFlow,
+        expectedDurationMs,
         onLevelChange: handleLevelChange,
     });
 
@@ -366,14 +386,52 @@ function RecordShadowingView({
 
     const playableMineUrl = localRecording?.audioUrl ?? (result?.audioPath ? UrlUtil.toUrl(result.audioPath) : null);
 
+    useEffect(() => {
+        onHasRecordingChange?.(Boolean(playableMineUrl));
+    }, [onHasRecordingChange, playableMineUrl]);
+
     const playMineAudioOnly = useCallback((url: string, onEnd?: () => void) => {
+        if (minePlayRafRef.current !== null) {
+            cancelAnimationFrame(minePlayRafRef.current);
+            minePlayRafRef.current = null;
+        }
         playbackAudioRef.current?.pause();
         const audio = new Audio(url);
         playbackAudioRef.current = audio;
-        audio.onended = () => onEnd?.();
-        void audio.play().catch((error) => {
+        setMinePlayProgress(0);
+
+        const stopProgress = () => {
+            if (minePlayRafRef.current !== null) {
+                cancelAnimationFrame(minePlayRafRef.current);
+                minePlayRafRef.current = null;
+            }
+            if (mountedRef.current) {
+                setMinePlayProgress(null);
+            }
+        };
+
+        const tickProgress = () => {
+            if (!mountedRef.current || playbackAudioRef.current !== audio || audio.paused || audio.ended) {
+                return;
+            }
+            if (Number.isFinite(audio.duration) && audio.duration > 0) {
+                setMinePlayProgress(Math.min(1, Math.max(0, audio.currentTime / audio.duration)));
+            }
+            minePlayRafRef.current = requestAnimationFrame(tickProgress);
+        };
+
+        audio.onended = () => {
+            stopProgress();
+            onEnd?.();
+        };
+        void audio.play().then(() => {
+            if (mountedRef.current && playbackAudioRef.current === audio && !audio.paused) {
+                minePlayRafRef.current = requestAnimationFrame(tickProgress);
+            }
+        }).catch((error) => {
             logger.error('跟读录音回放失败', { error });
             toast.error(t('recorder.playbackFailed'));
+            stopProgress();
             onEnd?.();
         });
     }, [t]);
@@ -435,19 +493,24 @@ function RecordShadowingView({
 
     const recorderBusy = recorderPhase !== 'idle';
 
-    // 键盘交互：Space 对讲/启停、V 键 A/B 对比、Alt+R / Alt+Shift+R 重播、Enter 下一句
+    // 键盘交互：R 原音、S 0.75×、Space 对讲/启停、V 键 A/B 对比、P 听我的、Enter 下一句
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement | null;
             if (isTextEntryTarget(target) || isInteractiveTarget(target)) {
                 return;
             }
-            if ((e.key === 'r' || e.key === 'R') && e.altKey && !e.ctrlKey && !e.metaKey) {
+            if ((e.key === 'r' || e.key === 'R') && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
                 // 请求权限、录音、评分阶段均禁止试听，防止状态竞态或录进外放原声
                 if (recorderBusy) return;
                 e.preventDefault();
-                if (e.shiftKey) onSlowReplay();
-                else onReplay();
+                onReplay();
+                return;
+            }
+            if ((e.key === 's' || e.key === 'S') && !e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+                if (recorderBusy) return;
+                e.preventDefault();
+                onSlowReplay();
                 return;
             }
             if (e.key === ' ') {
@@ -457,6 +520,7 @@ function RecordShadowingView({
                     stopContrastAudio();
                     pttDownAtRef.current = Date.now();
                     setRecordingSeconds(0);
+                    playMicReadyCue();
                     void startRecording();
                 } else if (recorderPhase === 'recording') {
                     pttDownAtRef.current = null;
@@ -471,7 +535,15 @@ function RecordShadowingView({
                 }
                 return;
             }
-            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !recorderBusy && (result || localRecording)) {
+            if ((e.key === 'p' || e.key === 'P') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+                if (playableMineUrl && !recorderBusy) {
+                    e.preventDefault();
+                    stopContrastAudio();
+                    playMineAudioOnly(playableMineUrl);
+                }
+                return;
+            }
+            if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !recorderBusy) {
                 e.preventDefault();
                 onNextSentence();
             }
@@ -498,14 +570,13 @@ function RecordShadowingView({
         };
     }, [
         cancelRecording,
-        localRecording,
         onNextSentence,
         onReplay,
         onSlowReplay,
+        playMineAudioOnly,
         playableMineUrl,
         recorderBusy,
         recorderPhase,
-        result,
         startRecording,
         stopContrastAudio,
         stopRecording,
@@ -549,7 +620,7 @@ function RecordShadowingView({
                                     className={cn(
                                         'text-sm font-mono tabular-nums',
                                         // 临近 VAD 上限时提示录音即将自动结束
-                                        recordingSeconds >= Math.floor(VAD_MAX_RECORDING_MS / 1000) - 3
+                                        recordingSeconds >= Math.floor(maxRecordingMs / 1000) - 3
                                             ? 'text-amber-500'
                                             : 'text-error-text',
                                     )}
@@ -559,16 +630,34 @@ function RecordShadowingView({
                             </>
                         ) : localRecording ? (
                             <div className="flex items-center gap-[2px] h-6" aria-hidden>
-                                {localRecording.bins.map((bin, idx) => (
-                                    <span
-                                        key={idx}
-                                        className={cn(
-                                            'w-[2.5px] rounded-full transition-colors',
-                                            abPhase === 'playing-mine' ? 'bg-accent-bg' : 'bg-primary/45',
-                                        )}
-                                        style={{ height: `${Math.round(Math.max(4, bin * 22))}px` }}
-                                    />
-                                ))}
+                                {localRecording.bins.map((bin, idx) => {
+                                    const isPlayingMine = minePlayProgress !== null;
+                                    const playedIdx = isPlayingMine
+                                        ? Math.min(
+                                            localRecording.bins.length - 1,
+                                            Math.floor(minePlayProgress * localRecording.bins.length),
+                                        )
+                                        : -1;
+                                    const isPassed = isPlayingMine && idx <= playedIdx;
+                                    const isCurrent = isPlayingMine && idx === playedIdx;
+                                    return (
+                                        <span
+                                            key={idx}
+                                            className={cn(
+                                                'w-[2.5px] origin-center rounded-full transition-all duration-75',
+                                                isPassed
+                                                    ? 'bg-accent-bg'
+                                                    : isPlayingMine || abPhase === 'playing-mine'
+                                                        ? 'bg-accent-bg/35'
+                                                        : 'bg-primary/45',
+                                            )}
+                                            style={{
+                                                height: `${Math.round(Math.max(4, bin * 22))}px`,
+                                                transform: isCurrent ? 'scaleY(1.28)' : 'scaleY(1)',
+                                            }}
+                                        />
+                                    );
+                                })}
                             </div>
                         ) : null}
                     </div>
@@ -628,6 +717,90 @@ function RecordShadowingView({
                 />
             )}
 
+            {result?.prosody && (
+                <div
+                    data-testid="shadowing-prosody-feedback"
+                    className="rounded-lg border border-border/60 bg-surface/60 px-3 py-2 space-y-1.5"
+                >
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-metadata">
+                        <span className="font-medium text-primary">
+                            {t('shadowing.prosodyTitle', { defaultValue: '原声 DTW 韵律对比' })}
+                        </span>
+                        <span className="text-secondary tabular-nums">
+                            {t('shadowing.prosodyMetrics', {
+                                defaultValue: '贴合 {{prosody}}% · 停顿 {{pause}}% · 重音 {{energy}}%',
+                                prosody: result.prosody.prosodyScore,
+                                pause: result.prosody.pauseMatchScore,
+                                energy: result.prosody.energyCorrelation,
+                            })}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-24 gap-0.5 items-end h-5" aria-hidden="true">
+                        {result.prosody.referenceEnvelope.map((refVal, idx) => {
+                            const userVal = result.prosody?.userEnvelope[idx] ?? 0;
+                            return (
+                                <div key={idx} className="flex items-end gap-px h-full">
+                                    <span
+                                        className="w-1/2 rounded-t-xs bg-secondary/35"
+                                        style={{ height: `${Math.max(12, Math.round(refVal * 100))}%` }}
+                                    />
+                                    <span
+                                        className="w-1/2 rounded-t-xs bg-accent-bg/85"
+                                        style={{ height: `${Math.max(12, Math.round(userVal * 100))}%` }}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {result && (() => {
+                const weakWords = result.words.filter(
+                    (w) => w.phonemes && w.phonemes.some((p) => p.status !== 'ok'),
+                );
+                if (weakWords.length === 0) return null;
+                return (
+                    <div
+                        data-testid="shadowing-phoneme-feedback"
+                        className="rounded-lg border border-border/60 bg-surface/60 px-3 py-2 space-y-1"
+                    >
+                        <div className="text-metadata font-medium text-primary">
+                            {t('shadowing.phonemeIssuesTitle', { defaultValue: '音素定位建议' })}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                            {weakWords.slice(0, 6).map((w, idx) => {
+                                const issues = (w.phonemes ?? []).filter((p) => p.status !== 'ok');
+                                return (
+                                    <span
+                                        key={`${w.expected}-${idx}`}
+                                        className="inline-flex items-center gap-1 rounded-md bg-warning-muted/70 px-2 py-0.5 text-metadata text-warning-text"
+                                    >
+                                        <span className="font-medium">{w.expected}</span>
+                                        <span className="font-mono">
+                                            {issues.map((p) => (p.heardIpa && p.heardIpa !== p.ipa ? `/${p.ipa}/→/${p.heardIpa}/` : `/${p.ipa}/`)).join(' ')}
+                                        </span>
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {result && result.phonemeGopAvailable === false && (
+                <p className="text-metadata text-secondary flex items-center justify-between gap-2">
+                    <span>{t('shadowing.phonemeGopMissingNote', { defaultValue: '当前为词级评分；下载音素模型可开启音素级纠错' })}</span>
+                    <button
+                        type="button"
+                        onClick={() => { window.location.hash = '#/settings/resources'; }}
+                        className="text-accent hover:underline shrink-0 cursor-pointer"
+                    >
+                        {t('shadowing.installAsrAction', { defaultValue: '下载模型 →' })}
+                    </button>
+                </p>
+            )}
+
             {!asrReady && !localRecording && recorderPhase === 'idle' && (
                 <p className="text-metadata text-secondary flex items-center justify-between gap-2">
                     <span>{t('shadowing.asrDegradedNote', { defaultValue: '未安装语音识别模型：仍可直接录音并对比原音声纹' })}</span>
@@ -667,6 +840,7 @@ function RecordShadowingView({
                                     triggerAutoFlow();
                                 } else {
                                     setRecordingSeconds(0);
+                                    playMicReadyCue();
                                     void startRecording();
                                 }
                             }}

@@ -50,6 +50,10 @@ import type FfmpegService from '@/backend/services/FfmpegService';
 import { FfmpegServiceImpl } from '@/backend/services/FfmpegService';
 import type SentencePracticeService from '@/backend/services/SentencePracticeService';
 import { SentencePracticeServiceImpl } from '@/backend/services/SentencePracticeService';
+import type PhonemeGopService from '@/backend/services/PhonemeGopService';
+import { PhonemeGopServiceImpl } from '@/backend/services/PhonemeGopService';
+import { PhonemeGopModelServiceImpl } from '@/backend/services/PhonemeGopModelService';
+import PhonemeGopModelController from '@/backend/controllers/PhonemeGopModelController';
 import SentencePracticeController from '@/backend/controllers/SentencePracticeController';
 import type DpTaskService from '@/backend/services/DpTaskService';
 import { DpTaskServiceImpl } from '@/backend/services/DpTaskService';
@@ -275,6 +279,7 @@ container.bind<SpeakerDiarizationModelService>(TYPES.SpeakerDiarizationModelServ
 container.bind<Controller>(TYPES.Controller).to(SpeakerDiarizationModelController).inSingletonScope();
 container.bind<ResourceFallbackService>(TYPES.ResourceFallbackService).to(ResourceFallbackServiceImpl).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SherpaTtsModelController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(PhonemeGopModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VocabularyController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(ContextStudioController).inSingletonScope();
 container.bind<ContextStudioService>(TYPES.ContextStudioService).to(ContextStudioService).inSingletonScope();
@@ -301,6 +306,8 @@ container.bind<TranscriptionEngineSelector>(TYPES.TranscriptionEngineSelector).t
 container.bind<LocalModelService>(TYPES.WhisperCppModelService).to(WhisperCppModelServiceImpl).inSingletonScope();
 container.bind<SherpaOnnxTtsCli>(TYPES.SherpaOnnxTtsCli).to(SherpaOnnxTtsCli).inSingletonScope();
 container.bind<LocalModelService>(TYPES.SherpaTtsModelService).to(SherpaTtsModelServiceImpl).inSingletonScope();
+container.bind<LocalModelService>(TYPES.PhonemeGopModelService).to(PhonemeGopModelServiceImpl).inSingletonScope();
+container.bind<PhonemeGopService>(TYPES.PhonemeGopService).to(PhonemeGopServiceImpl).inSingletonScope();
 container.bind<LocalTtsService>(TYPES.LocalTtsService).to(LocalTtsServiceImpl).inSingletonScope();
 container.bind<WordsRepository>(TYPES.WordsRepository).to(WordsRepositoryImpl).inSingletonScope();
 container.bind<ReviewCardRepository>(TYPES.ReviewCardRepository).to(ReviewCardRepositoryImpl).inSingletonScope();
