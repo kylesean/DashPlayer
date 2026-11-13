@@ -14,6 +14,7 @@ describe('ChatPromptBuilder 双层提示词与上下文保护', () => {
         expect(withTools).toContain(customPersona);
         expect(withTools).toContain('[[tts:');
         expect(withTools).toContain('search_subtitles');
+        expect(withTools).toContain('禁止调用检索工具');
 
         const localCompact = composeChatSystemPrompt(customPersona, { enableSubtitleTools: false });
         expect(localCompact).toContain(customPersona);

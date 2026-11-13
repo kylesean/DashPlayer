@@ -70,6 +70,14 @@ const describeStreamError = (error: unknown): string => {
     return error instanceof Error ? error.message : String(error);
 };
 
+const isToolsUnsupportedError = (message: string): boolean => {
+    const normalized = message.toLowerCase();
+    return (
+        /(?:tools?|function[_\s-]?calling|tool[_\s-]?choice).{0,40}(?:not\s+supported|unsupported|not\s+allowed|disabled|unavailable)/.test(normalized)
+        || /(?:does\s+not\s+support|unrecognized|unknown|invalid|unsupported).{0,40}(?:tools?|function[_\s-]?calling|tool[_\s-]?choice)/.test(normalized)
+    );
+};
+
 export default interface ChatSessionService {
     create(params: ChatSessionCreateParams): ChatSessionCreateResult;
     close(sessionId: string): void;
@@ -269,7 +277,7 @@ export class ChatSessionServiceImpl implements ChatSessionService {
             return { messageId };
         }
 
-        this.startTextRun(sessionId, messageId, model, enrichedMessages);
+        this.startTextRun(sessionId, messageId, model, enrichedMessages, personaPrompt);
         return { messageId };
     }
 
@@ -358,9 +366,10 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         messageId: string,
         model: LanguageModel,
         messages: ModelMessage[],
+        personaPrompt?: string,
     ): void {
         const abortSignal = this.chatSessionStore.startRun(sessionId, messageId);
-        this.runStream(sessionId, messageId, model, messages, abortSignal)
+        this.runStream(sessionId, messageId, model, messages, abortSignal, personaPrompt)
             .catch((error) => this.handleTextError(sessionId, error))
             .finally(() => this.chatSessionStore.finishRun(sessionId, messageId));
     }
@@ -371,84 +380,137 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         model: LanguageModel,
         messages: ModelMessage[],
         abortSignal: AbortSignal,
+        personaPrompt?: string,
+        allowTools = true,
+        alreadyStarted = false,
     ): Promise<void> {
-        const { system, messages: promptMessages } = splitSystemMessages(messages);
+        const effectiveMessages = allowTools
+            ? messages
+            : ensureChatRoleMessage(messages, { personaPrompt, enableSubtitleTools: false });
+        const { system, messages: promptMessages } = splitSystemMessages(effectiveMessages);
         const startedAt = Date.now();
-        this.logger.info('chat stream start', { sessionId, messageId });
+        this.logger.info('chat stream start', { sessionId, messageId, allowTools });
         const result = streamText({
             model,
             system,
             messages: promptMessages,
-            tools: this.buildSubtitleTools(sessionId),
-            stopWhen: isStepCount(20),
+            ...(allowTools
+                ? {
+                    tools: this.buildSubtitleTools(sessionId),
+                    stopWhen: isStepCount(20),
+                }
+                : {}),
+            // 关闭 OpenAI Responses 的服务端状态引用（store: false），强制多轮工具调用回传完整 function_call
+            // 而非 item_reference，兼容无状态的三方 Open Responses / 代理网关。
+            providerOptions: {
+                openai: {
+                    store: false,
+                },
+            },
             abortSignal,
             timeout: { firstChunkMs: 30_000, chunkMs: 60_000 },
         });
         let chunkCount = 0;
         let content = '';
         let aborted = false;
+        let hasOutput = false;
+        let streamStarted = alreadyStarted;
+        let shouldFallbackWithoutTools = false;
         const blocks: LearningMessageBlock[] = [];
         const activeToolBlocks = new Map<string, LearningMessageBlock>();
 
         const uiStream = toUIMessageStream({
             stream: result.stream,
             generateMessageId: () => messageId,
-            onError: (error) => error instanceof Error ? error.message : String(error),
+            onError: (error) => describeStreamError(error),
         });
 
-        for await (const chunk of uiStream) {
-            chunkCount += 1;
-            if (chunk.type === 'text-delta') {
-                content += chunk.delta;
-                const last = blocks.at(-1);
-                if (last && last.kind === 'text') {
-                    last.text += chunk.delta;
-                } else if (chunk.delta.length > 0) {
-                    blocks.push({ kind: 'text', text: chunk.delta });
+        try {
+            for await (const chunk of uiStream) {
+                chunkCount += 1;
+                if (chunk.type === 'start') {
+                    if (streamStarted) continue;
+                    streamStarted = true;
+                } else if (chunk.type === 'error') {
+                    if (allowTools && !hasOutput && !abortSignal.aborted && isToolsUnsupportedError(chunk.errorText)) {
+                        shouldFallbackWithoutTools = true;
+                        this.logger.warn('chat stream tools unsupported, falling back without tools', {
+                            sessionId,
+                            messageId,
+                            reason: chunk.errorText,
+                        });
+                        break;
+                    }
+                } else if (chunk.type === 'text-delta') {
+                    hasOutput = true;
+                    content += chunk.delta;
+                    const last = blocks.at(-1);
+                    if (last && last.kind === 'text') {
+                        last.text += chunk.delta;
+                    } else if (chunk.delta.length > 0) {
+                        blocks.push({ kind: 'text', text: chunk.delta });
+                    }
+                } else if (chunk.type === 'tool-input-available') {
+                    hasOutput = true;
+                    if (chunk.toolName === 'search_subtitles') {
+                        const input = chunk.input as { queries?: string[] } | undefined;
+                        const block: LearningMessageBlock = {
+                            kind: 'search',
+                            queries: input?.queries ?? [],
+                            hits: [],
+                            total: 0,
+                            running: true,
+                        };
+                        activeToolBlocks.set(chunk.toolCallId, block);
+                        blocks.push(block);
+                    } else if (chunk.toolName === 'get_subtitle_context') {
+                        const block: LearningMessageBlock = {
+                            kind: 'context',
+                            range: null,
+                            running: true,
+                        };
+                        activeToolBlocks.set(chunk.toolCallId, block);
+                        blocks.push(block);
+                    }
+                } else if (chunk.type === 'tool-output-available') {
+                    hasOutput = true;
+                    const target = activeToolBlocks.get(chunk.toolCallId);
+                    if (target?.kind === 'search') {
+                        const output = chunk.output as SearchSubtitlesResult | undefined;
+                        const hits = output?.matches ?? [];
+                        target.hits = hits.map((hit) => ({ index: hit.index, text: hit.text }));
+                        target.total = output?.total ?? hits.length;
+                        target.running = false;
+                    } else if (target?.kind === 'context') {
+                        const output = chunk.output as GetSubtitleContextResult | undefined;
+                        target.range = output?.startIndex !== undefined && output?.endIndex !== undefined
+                            ? { start: output.startIndex, end: output.endIndex }
+                            : null;
+                        target.running = false;
+                    }
+                } else if (chunk.type === 'abort') {
+                    aborted = true;
                 }
-            } else if (chunk.type === 'tool-input-available') {
-                if (chunk.toolName === 'search_subtitles') {
-                    const input = chunk.input as { queries?: string[] } | undefined;
-                    const block: LearningMessageBlock = {
-                        kind: 'search',
-                        queries: input?.queries ?? [],
-                        hits: [],
-                        total: 0,
-                        running: true,
-                    };
-                    activeToolBlocks.set(chunk.toolCallId, block);
-                    blocks.push(block);
-                } else if (chunk.toolName === 'get_subtitle_context') {
-                    const block: LearningMessageBlock = {
-                        kind: 'context',
-                        range: null,
-                        running: true,
-                    };
-                    activeToolBlocks.set(chunk.toolCallId, block);
-                    blocks.push(block);
-                }
-            } else if (chunk.type === 'tool-output-available') {
-                const target = activeToolBlocks.get(chunk.toolCallId);
-                if (target?.kind === 'search') {
-                    const output = chunk.output as SearchSubtitlesResult | undefined;
-                    const hits = output?.matches ?? [];
-                    target.hits = hits.map((hit) => ({ index: hit.index, text: hit.text }));
-                    target.total = output?.total ?? hits.length;
-                    target.running = false;
-                } else if (target?.kind === 'context') {
-                    const output = chunk.output as GetSubtitleContextResult | undefined;
-                    target.range = output?.startIndex !== undefined && output?.endIndex !== undefined
-                        ? { start: output.startIndex, end: output.endIndex }
-                        : null;
-                    target.running = false;
-                }
-            } else if (chunk.type === 'abort') {
-                aborted = true;
+                this.rendererGateway.fireAndForget('chat/stream', {
+                    sessionId,
+                    chunk,
+                });
             }
-            this.rendererGateway.fireAndForget('chat/stream', {
-                sessionId,
-                chunk,
-            });
+        } catch (error) {
+            if (allowTools && !hasOutput && !abortSignal.aborted && isToolsUnsupportedError(describeStreamError(error))) {
+                shouldFallbackWithoutTools = true;
+                this.logger.warn('chat stream tools unsupported (thrown), falling back without tools', {
+                    sessionId,
+                    messageId,
+                    reason: describeStreamError(error),
+                });
+            } else {
+                throw error;
+            }
+        }
+
+        if (shouldFallbackWithoutTools) {
+            return this.runStream(sessionId, messageId, model, messages, abortSignal, personaPrompt, false, streamStarted);
         }
         if (!aborted) {
             this.chatSessionStore.appendMessage(sessionId, { role: 'assistant', content });
