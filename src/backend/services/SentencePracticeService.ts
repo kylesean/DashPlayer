@@ -8,6 +8,8 @@ import { buildRhythmFeedback, decodePcm16Wav, type PcmAudio, type RhythmToken } 
 import { compareProsodyDtw } from '@/common/utils/practice/dtwProsody';
 import { parsePcm16WavHeader } from '@/common/utils/audio/wav';
 import type PhonemeGopService from '@/backend/services/PhonemeGopService';
+import type LocalModelService from '@/backend/services/models/LocalModelService';
+import type SpeechRecognitionGateway from '@/backend/services/gateways/media/SpeechRecognitionGateway';
 import {
     buildRhythmTrend,
     toRhythmTrendPoint,
@@ -124,6 +126,8 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
         @inject(TYPES.TranscriptionEngineSelector) private readonly transcriptionEngineSelector: TranscriptionEngineSelector,
         @inject(TYPES.BuiltinDictionaryStore) private readonly builtinDictionaryStore: BuiltinDictionaryStore,
         @optional() @inject(TYPES.PhonemeGopService) private readonly phonemeGopService?: PhonemeGopService,
+        @optional() @inject(TYPES.SenseVoiceModelService) private readonly senseVoiceModelService?: LocalModelService,
+        @optional() @inject(TYPES.SenseVoiceGateway) private readonly senseVoiceGateway?: SpeechRecognitionGateway,
     ) {}
 
     public async scoreShadowing(params: SentencePracticeShadowingParams): Promise<SentencePracticeResultVO> {
@@ -295,13 +299,17 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             await this.fileSystemGateway.writeBinaryFile(audioAbs, audio);
             await this.ffmpegService.convertToWav(audioAbs, wavPath);
             const modelsRoot = await this.storageDirectoryProvider.provideDirectory(StorageDirectoryTarget.MODELS);
-            const gateway = this.transcriptionEngineSelector.select();
+            const { gateway, isMultilingual } = await this.selectOnceGateway(params.preferMultilingual);
             const result = await gateway.transcribe({
                 audioPath: wavPath,
                 modelsRoot,
                 job: `transcribe:${params.jobKey}:${randomUUID()}`,
             });
             const transcript = result.text.trim();
+            if (isMultilingual) {
+                // 多语种对话语音输入只返回转写文本，不运行英文词级节奏分析。
+                return { transcript, rhythm: null };
+            }
             const rhythm = await this.analyzeRhythm(
                 wavPath,
                 params.referenceText,
@@ -315,6 +323,27 @@ export class SentencePracticeServiceImpl implements SentencePracticeService {
             await this.fileSystemGateway.removeFileIfExists(wavPath).catch(() => undefined);
             await this.fileSystemGateway.removeFileIfExists(audioAbs).catch(() => undefined);
         }
+    }
+
+    /**
+     * 为一次性转写挑选最匹配的离线识别网关：
+     * 对话提问开启 `preferMultilingual` 且 SenseVoice 已就绪时优先走 SenseVoice（支持中文与中英混说），
+     * 否则回退到当前配置的英语识别引擎（Parakeet / whisper.cpp）。
+     */
+    private async selectOnceGateway(
+        preferMultilingual?: boolean,
+    ): Promise<{ gateway: SpeechRecognitionGateway; isMultilingual: boolean }> {
+        if (preferMultilingual && this.senseVoiceModelService && this.senseVoiceGateway) {
+            try {
+                const status = await this.senseVoiceModelService.getStatus();
+                if (status.ready) {
+                    return { gateway: this.senseVoiceGateway, isMultilingual: true };
+                }
+            } catch (error) {
+                this.logger.warn('查询 SenseVoice 模型状态失败，回退默认英语识别引擎', { error });
+            }
+        }
+        return { gateway: this.transcriptionEngineSelector.select(), isMultilingual: false };
     }
 
     /**

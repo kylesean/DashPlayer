@@ -40,7 +40,7 @@ import type { TranscriptionEngine } from '@/common/contracts/transcription-engin
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
 
 /** 资源包内的资源标识。 */
-type PackItemKey = 'tts' | 'transcription' | 'diarization' | 'phonemeGop';
+type PackItemKey = 'tts' | 'transcription' | 'diarization' | 'phonemeGop' | 'senseVoice';
 
 /** 持久化下载队列的包标识：切走设置标签页或离开设置页后再回来仍可续接进度展示。 */
 const SETTINGS_RESOURCE_PACK_ID = 'settings-resource-pack';
@@ -132,6 +132,11 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
     const { data: phonemeGopStatus, mutate: mutatePhonemeGop } = useSWR(
         mode === 'core' ? null : 'phoneme-gop/models/status',
         () => settingsApi.getPhonemeGopModelStatus(),
+        { revalidateOnFocus: false },
+    );
+    const { data: senseVoiceStatus, mutate: mutateSenseVoice } = useSWR(
+        mode === 'core' ? null : 'sense-voice/models/status',
+        () => settingsApi.getSenseVoiceModelStatus(),
         { revalidateOnFocus: false },
     );
 
@@ -239,6 +244,23 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                 await mutatePhonemeGop();
             },
         },
+        {
+            key: 'senseVoice',
+            title: t('resources.pack.itemSenseVoice'),
+            description: t('resources.pack.itemSenseVoiceDesc'),
+            ready: senseVoiceStatus?.ready ?? false,
+            targetPath: senseVoiceStatus?.modelPath ?? '',
+            download: async () => {
+                const res = await settingsApi.downloadSenseVoiceModel();
+                await mutateSenseVoice();
+                assertDownloadSucceeded(res);
+            },
+            cancel: async () => { await settingsApi.cancelSenseVoiceModelDownload(); },
+            remove: async () => {
+                await settingsApi.deleteSenseVoiceModel();
+                await mutateSenseVoice();
+            },
+        },
     ];
 
     const items = allItems.filter((item) => {
@@ -246,7 +268,7 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             return item.key === 'tts' || item.key === 'transcription';
         }
         if (mode === 'extensions') {
-            return item.key === 'diarization' || item.key === 'phonemeGop';
+            return item.key === 'diarization' || item.key === 'phonemeGop' || item.key === 'senseVoice';
         }
         return true;
     });

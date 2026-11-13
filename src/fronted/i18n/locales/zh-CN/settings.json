@@ -559,6 +559,8 @@
             "itemPhonemeGop": "音素级发音评分",
             "itemPhonemeGopDesc": "可选（约 230 MB）。离线定位跟读时具体偏弱或错读的 IPA 音素。",
             "itemPhonemeGopModelFile": "Wav2Vec2 英文音素 CTC 模型",
+            "itemSenseVoice": "中英双语对话语音输入",
+            "itemSenseVoiceDesc": "可选（约 230 MB）。基于 SenseVoiceSmall，在 AI 精读搭档支持中文与中英混说语音提问。",
             "itemReady": "已就绪",
             "itemMissing": "未下载",
             "engineLabel": "识别方式",

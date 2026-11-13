@@ -54,6 +54,29 @@ describe('ChatStreamController chat/transcribe-audio 语音听写容错', () => 
         );
     });
 
+    it('正常音频透传 preferMultilingual: true 并返回去空白文本', async () => {
+        const transcribeOnce = vi.fn().mockResolvedValue({
+            transcript: '  这句里的 break a leg 是什么意思？ ',
+            rhythm: null,
+        });
+        const controller = new ChatStreamController(
+            {} as never,
+            {} as never,
+            {} as never,
+            {} as never,
+            { transcribeOnce } as never,
+        );
+        controller.registerRoutes();
+
+        const handler = registeredHandlers.get('chat/transcribe-audio');
+        const result = await handler!(undefined, { audio: new Uint8Array(2048) });
+        expect(transcribeOnce).toHaveBeenCalledWith(expect.objectContaining({
+            jobKey: 'chat-dictation',
+            preferMultilingual: true,
+        }));
+        expect(result).toEqual({ text: '这句里的 break a leg 是什么意思？' });
+    });
+
     it('拒绝过短音频而不触发底层推理', async () => {
         const transcribeOnce = vi.fn();
         const controller = new ChatStreamController(

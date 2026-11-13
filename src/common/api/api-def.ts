@@ -172,6 +172,13 @@ interface PhonemeGopModelDef {
     'phoneme-gop/models/delete': { params: void, return: { success: boolean; message: string } };
 }
 
+interface SenseVoiceModelDef {
+    'sense-voice/models/status': { params: void, return: ModelInstallationStatusVO };
+    'sense-voice/models/download': { params: void, return: { success: boolean; message: string } };
+    'sense-voice/models/cancel-download': { params: void, return: { cancelled: boolean } };
+    'sense-voice/models/delete': { params: void, return: { success: boolean; message: string } };
+}
+
 interface DpTaskDef {
     'dp-task/detail': { params: number, return: DpTask | null };
     'dp-task/cancel': { params: number, return: void };
@@ -742,6 +749,7 @@ export type ApiDefinitions = ApiDefinition
     & SubtitleControllerDef
     & SherpaTtsModelDef
     & PhonemeGopModelDef
+    & SenseVoiceModelDef
     & MediaDef
     & SubtitleTimestampAdjustmentControllerDef
     & SubtitleGenerationDef
@@ -865,6 +873,10 @@ export const API_ROUTE_KEYS = [
     'practice/rhythm-trend',
     'practice/score-dictation',
     'practice/score-shadowing',
+    'sense-voice/models/cancel-download',
+    'sense-voice/models/delete',
+    'sense-voice/models/download',
+    'sense-voice/models/status',
     'settings/appearance/detail',
     'settings/appearance/save',
     'settings/engine-selection/detail',

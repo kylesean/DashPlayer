@@ -27,6 +27,7 @@ interface UIRendererDef {
     'settings/speaker-diarization-model-download-progress': { params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase }, return: void };
     'settings/sherpa-tts-model-download-progress': { params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase }, return: void };
     'settings/phoneme-gop-model-download-progress': { params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase }, return: void };
+    'settings/sense-voice-model-download-progress': { params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase }, return: void };
     'settings/whisper-cpp-model-download-progress': { params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase }, return: void };
     'settings/local-ai-model-download-progress': {
         params: { modelId: string; percent: number; downloaded: number; total: number; phase: 'idle' | 'downloading' | 'verifying' },

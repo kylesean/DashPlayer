@@ -44,6 +44,7 @@ import MediaController from '../MediaController';
 import MigrationFailureController from '../MigrationFailureController';
 import { ParakeetModelController } from '../ParakeetModelController';
 import PhonemeGopModelController from '../PhonemeGopModelController';
+import SenseVoiceModelController from '../SenseVoiceModelController';
 import SentencePracticeController from '../SentencePracticeController';
 import SettingsController from '../SettingsController';
 import { SherpaTtsModelController } from '../SherpaTtsModelController';
@@ -81,6 +82,7 @@ function registerAllControllers(): void {
     new MigrationFailureController().registerRoutes();
     new ParakeetModelController(stub()).registerRoutes();
     new PhonemeGopModelController(stub()).registerRoutes();
+    new SenseVoiceModelController(stub()).registerRoutes();
     new SentencePracticeController(stub()).registerRoutes();
     new SettingsController(stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub(), stub()).registerRoutes();
     new SherpaTtsModelController(stub(), stub(), stub(), stub()).registerRoutes();

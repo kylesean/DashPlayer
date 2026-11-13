@@ -218,6 +218,13 @@ export interface SpeechTranscriptionParams {
     jobKey: string;
     /** 参照音频时长（秒），用于语速对比；未知时省略。 */
     referenceDurationSec?: number;
+    /**
+     * 优先使用多语种/中英双语对话识别模型（如已安装 SenseVoice）。
+     *
+     * 英语跟读仍固定走 Parakeet/whisper.cpp 以便词级对齐与节奏分析；
+     * 聊天框语音提问（中英混说或纯中文提问）开启此项。
+     */
+    preferMultilingual?: boolean;
 }
 
 /**

@@ -9,14 +9,15 @@ const logger = getRendererLogger('WhisperDictation');
 
 const EMPTY_BANDS = [0, 0, 0, 0, 0];
 
-const sanitizeDictationError = (raw: string): string => {
+const sanitizeDictationError = (raw: string, hasSenseVoice: boolean): string => {
     const stripped = raw
         .replace(/^Error invoking remote method '[^']+':\s*(?:Error:\s*)?/i, '')
         .trim();
     if (/parakeet_model_load|Segments\s*\(0\)/i.test(stripped)) {
-        return /parakeet/i.test(stripped)
-            ? '未识别到清晰英语语音（Parakeet 模型仅支持英文输入）'
-            : '未识别到清晰语音，请靠近麦克风重试';
+        if (/parakeet/i.test(stripped) || !hasSenseVoice) {
+            return '当前仅安装了英文 Parakeet 模型，未识别到英语语音；如需中文/中英混说输入，请在「设置 → 资源与模型 → 扩展模型」下载「中英双语对话语音输入」。';
+        }
+        return '未识别到清晰语音，请靠近麦克风重试';
     }
     return stripped.split('\n')[0]?.slice(0, 160) || '语音识别失败';
 };
@@ -42,7 +43,7 @@ export interface WhisperDictationResult extends UseSpeechRecognitionReturn {
 }
 
 /**
- * 将本地麦克风录音 + Web Audio 实时频段采样 + 离线 Whisper/Parakeet ASR 转写
+ * 将本地麦克风录音 + Web Audio 实时频段采样 + 离线语音识别（优先 SenseVoice 中英双语，回退 Parakeet/Whisper）
  * 适配为 Astryx `ChatDictationButton` 所需的 `UseSpeechRecognitionReturn` 契约。
  */
 export function useWhisperDictation(options: {
@@ -54,7 +55,12 @@ export function useWhisperDictation(options: {
         'settings/resource-status/detail',
         () => settingsApi.getResourceStatus(),
     );
-    const asrReady = resourceStatus?.transcription?.ready ?? false;
+    const { data: senseVoiceStatus } = useSWR(
+        'sense-voice/models/status',
+        () => settingsApi.getSenseVoiceModelStatus(),
+    );
+    const senseVoiceReady = senseVoiceStatus?.ready ?? false;
+    const asrReady = senseVoiceReady || (resourceStatus?.transcription?.ready ?? false);
     const hasMediaRecorder = typeof navigator !== 'undefined'
         && Boolean(navigator.mediaDevices?.getUserMedia)
         && typeof MediaRecorder !== 'undefined';
@@ -185,7 +191,7 @@ export function useWhisperDictation(options: {
                                 return;
                             }
                             const rawMsg = err instanceof Error ? err.message : String(err);
-                            const cleanMsg = sanitizeDictationError(rawMsg);
+                            const cleanMsg = sanitizeDictationError(rawMsg, senseVoiceReady);
                             logger.error('voice dictation transcription failed', { error: cleanMsg });
                             setErrorText(cleanMsg);
                             setInterimTranscript('');
@@ -244,7 +250,7 @@ export function useWhisperDictation(options: {
                 setPhase('idle');
             }
         })();
-    }, [asrReady, cleanupAudio, hasMediaRecorder, onError, onTranscriptReady, setPhase]);
+    }, [asrReady, cleanupAudio, hasMediaRecorder, onError, onTranscriptReady, senseVoiceReady, setPhase]);
 
     const stop = useCallback(() => {
         if (recorderRef.current && recorderRef.current.state !== 'inactive') {

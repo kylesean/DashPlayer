@@ -137,6 +137,7 @@ export default class ChatStreamController implements Controller {
                     audio: params.audio,
                     referenceText: '',
                     jobKey: 'chat-dictation',
+                    preferMultilingual: true,
                 });
                 return { text: result.transcript.trim() };
             } catch (error) {

@@ -99,6 +99,10 @@ export function registerSettingsRendererApis(register: RegisterRendererApi): voi
         notifyArchive(params);
     });
 
+    register('settings/sense-voice-model-download-progress', async (params) => {
+        notifyArchive(params);
+    });
+
     register('settings/local-ai-model-download-progress', async (params) => {
         localAiListeners.forEach((listener) => {
             try {

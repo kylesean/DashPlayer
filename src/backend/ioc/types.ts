@@ -28,6 +28,8 @@ const TYPES = {
     SentencePracticeService: Symbol('SentencePracticeService'),
     PhonemeGopService: Symbol('PhonemeGopService'),
     PhonemeGopModelService: Symbol('PhonemeGopModelService'),
+    SenseVoiceModelService: Symbol('SenseVoiceModelService'),
+    SenseVoiceGateway: Symbol('SenseVoiceGateway'),
     MediaService: Symbol('MediaService'),
     TranslateService: Symbol('TranslateService'),
     SubtitleTranslationService: Symbol('SubtitleTranslationService'),

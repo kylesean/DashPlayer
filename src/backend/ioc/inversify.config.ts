@@ -54,6 +54,9 @@ import type PhonemeGopService from '@/backend/services/PhonemeGopService';
 import { PhonemeGopServiceImpl } from '@/backend/services/PhonemeGopService';
 import { PhonemeGopModelServiceImpl } from '@/backend/services/PhonemeGopModelService';
 import PhonemeGopModelController from '@/backend/controllers/PhonemeGopModelController';
+import { SenseVoiceModelServiceImpl } from '@/backend/services/SenseVoiceModelService';
+import SenseVoiceModelController from '@/backend/controllers/SenseVoiceModelController';
+import SenseVoiceGatewayImpl from '@/backend/infrastructure/media/sherpa/SenseVoiceGatewayImpl';
 import SentencePracticeController from '@/backend/controllers/SentencePracticeController';
 import type DpTaskService from '@/backend/services/DpTaskService';
 import { DpTaskServiceImpl } from '@/backend/services/DpTaskService';
@@ -280,6 +283,7 @@ container.bind<Controller>(TYPES.Controller).to(SpeakerDiarizationModelControlle
 container.bind<ResourceFallbackService>(TYPES.ResourceFallbackService).to(ResourceFallbackServiceImpl).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(SherpaTtsModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(PhonemeGopModelController).inSingletonScope();
+container.bind<Controller>(TYPES.Controller).to(SenseVoiceModelController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(VocabularyController).inSingletonScope();
 container.bind<Controller>(TYPES.Controller).to(ContextStudioController).inSingletonScope();
 container.bind<ContextStudioService>(TYPES.ContextStudioService).to(ContextStudioService).inSingletonScope();
@@ -308,6 +312,8 @@ container.bind<SherpaOnnxTtsCli>(TYPES.SherpaOnnxTtsCli).to(SherpaOnnxTtsCli).in
 container.bind<LocalModelService>(TYPES.SherpaTtsModelService).to(SherpaTtsModelServiceImpl).inSingletonScope();
 container.bind<LocalModelService>(TYPES.PhonemeGopModelService).to(PhonemeGopModelServiceImpl).inSingletonScope();
 container.bind<PhonemeGopService>(TYPES.PhonemeGopService).to(PhonemeGopServiceImpl).inSingletonScope();
+container.bind<LocalModelService>(TYPES.SenseVoiceModelService).to(SenseVoiceModelServiceImpl).inSingletonScope();
+container.bind<SenseVoiceGatewayImpl>(TYPES.SenseVoiceGateway).to(SenseVoiceGatewayImpl).inSingletonScope();
 container.bind<LocalTtsService>(TYPES.LocalTtsService).to(LocalTtsServiceImpl).inSingletonScope();
 container.bind<WordsRepository>(TYPES.WordsRepository).to(WordsRepositoryImpl).inSingletonScope();
 container.bind<ReviewCardRepository>(TYPES.ReviewCardRepository).to(ReviewCardRepositoryImpl).inSingletonScope();

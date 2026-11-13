@@ -186,6 +186,11 @@ export const settingsApi = {
     cancelPhonemeGopModelDownload: () => backendClient.call('phoneme-gop/models/cancel-download'),
     deletePhonemeGopModel: () => backendClient.call('phoneme-gop/models/delete'),
 
+    getSenseVoiceModelStatus: () => backendClient.call('sense-voice/models/status'),
+    downloadSenseVoiceModel: () => backendClient.call('sense-voice/models/download'),
+    cancelSenseVoiceModelDownload: () => backendClient.call('sense-voice/models/cancel-download'),
+    deleteSenseVoiceModel: () => backendClient.call('sense-voice/models/delete'),
+
     /**
      * 查询说话人分离模型（分割 + 声纹嵌入）的安装状态。
      *

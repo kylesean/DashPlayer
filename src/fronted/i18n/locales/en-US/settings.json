@@ -559,6 +559,8 @@
             "itemPhonemeGop": "Phoneme pronunciation scoring",
             "itemPhonemeGopDesc": "Optional (~230 MB). Offline IPA phoneme-level GOP alignment and error detection for shadowing.",
             "itemPhonemeGopModelFile": "Wav2Vec2 English phoneme CTC model",
+            "itemSenseVoice": "Chinese + English chat voice input",
+            "itemSenseVoiceDesc": "Optional (~230 MB). Powered by SenseVoiceSmall for Chinese and Zh-En code-switching dictation in AI chat.",
             "itemReady": "Ready",
             "itemMissing": "Not downloaded",
             "engineLabel": "Recognition mode",

@@ -19,7 +19,7 @@ export interface LocalModelManagementService {
 }
 
 /** 采用统一模型管理路由的引擎前缀。 */
-export type LocalModelRoutePrefix = 'whisper-cpp' | 'parakeet' | 'sherpa-tts' | 'phoneme-gop';
+export type LocalModelRoutePrefix = 'whisper-cpp' | 'parakeet' | 'sherpa-tts' | 'phoneme-gop' | 'sense-voice';
 
 /**
  * 注册一个本地模型的四条管理路由。

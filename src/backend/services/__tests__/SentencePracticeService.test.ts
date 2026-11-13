@@ -395,4 +395,75 @@ describe('句子练习服务', () => {
             })).rejects.toThrow('非法的 sentenceIndex');
         });
     });
+
+    describe('transcribeOnce 多语种路由', () => {
+        it('preferMultilingual 且 SenseVoice 就绪时优先走 SenseVoice 并跳过英文节奏分析', async () => {
+            const senseVoiceGateway = new FakeSpeechGateway();
+            senseVoiceGateway.transcriptText = '这句里的 break a leg 怎么理解？';
+            speechGateway.transcriptText = 'english only fallback';
+
+            const bilingualService = new SentencePracticeServiceImpl(
+                new SentencePracticeRecordRepositoryImpl(memoryDb.db),
+                {
+                    convertToWav: vi.fn().mockImplementation(async (_input: string, output: string) => {
+                        await fsGateway.writeBinaryFile(output, buildWav(1.2, 6000));
+                    }),
+                } as unknown as FfmpegService,
+                {
+                    provideDirectory: async (target: StorageDirectoryTarget) => path.join(STORAGE_ROOT, target),
+                    ensurePathAccessPermissionIfExists: async () => undefined,
+                } as unknown as StorageDirectoryProvider,
+                fsGateway,
+                new FakeTranscriptionEngineSelector(speechGateway),
+                { lookup: () => null } as never,
+                undefined,
+                { getStatus: async () => ({ ready: true } as never) } as never,
+                senseVoiceGateway,
+            );
+
+            const vo = await bilingualService.transcribeOnce({
+                audio: new Uint8Array([1, 2, 3, 4]),
+                referenceText: '',
+                jobKey: 'chat-dictation',
+                preferMultilingual: true,
+            });
+
+            expect(vo.transcript).toBe('这句里的 break a leg 怎么理解？');
+            expect(vo.rhythm).toBeNull();
+        });
+
+        it('SenseVoice 未安装时平滑回退到当前英文识别引擎', async () => {
+            const senseVoiceGateway = new FakeSpeechGateway();
+            senseVoiceGateway.transcriptText = 'should not run';
+            speechGateway.transcriptText = 'what does it mean';
+
+            const fallbackService = new SentencePracticeServiceImpl(
+                new SentencePracticeRecordRepositoryImpl(memoryDb.db),
+                {
+                    convertToWav: vi.fn().mockImplementation(async (_input: string, output: string) => {
+                        await fsGateway.writeBinaryFile(output, buildWav(1.2, 6000));
+                    }),
+                } as unknown as FfmpegService,
+                {
+                    provideDirectory: async (target: StorageDirectoryTarget) => path.join(STORAGE_ROOT, target),
+                    ensurePathAccessPermissionIfExists: async () => undefined,
+                } as unknown as StorageDirectoryProvider,
+                fsGateway,
+                new FakeTranscriptionEngineSelector(speechGateway),
+                { lookup: () => null } as never,
+                undefined,
+                { getStatus: async () => ({ ready: false } as never) } as never,
+                senseVoiceGateway,
+            );
+
+            const vo = await fallbackService.transcribeOnce({
+                audio: new Uint8Array([1, 2, 3, 4]),
+                referenceText: '',
+                jobKey: 'chat-dictation',
+                preferMultilingual: true,
+            });
+
+            expect(vo.transcript).toBe('what does it mean');
+        });
+    });
 });
