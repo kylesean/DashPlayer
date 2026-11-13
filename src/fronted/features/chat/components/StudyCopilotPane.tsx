@@ -26,11 +26,12 @@ import {
     BookmarkPlus,
     Bot,
     Copy,
-    Ear,
     Lightbulb,
     MessagesSquare,
     Play,
     Search,
+    SlidersHorizontal,
+    Sparkles,
     Trash2,
     X,
 } from 'lucide-react';
@@ -38,6 +39,7 @@ import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import Playable from '@/fronted/components/shared/common/Playable';
 import SwitchTopic from '@/fronted/components/shared/common/SwitchTopic';
+import { extractCleanTakeaway } from '@/fronted/features/chat/sentenceStudyHelpers';
 import {
     extractMarkdownNodeText,
     preprocessStudyMarkdown,
@@ -63,7 +65,7 @@ export interface StudyCopilotPaneProps {
     onAppendToNote: (text: string) => void;
     attachedFocusExpr: string | null;
     onClearFocusExpr: () => void;
-    activePresetName: string;
+    onOpenPresetDialog?: () => void;
     dictation: UseSpeechRecognitionReturn & {
         isTranscribing?: boolean;
         isRequesting?: boolean;
@@ -103,7 +105,7 @@ export default function StudyCopilotPane({
     onAppendToNote,
     attachedFocusExpr,
     onClearFocusExpr,
-    activePresetName,
+    onOpenPresetDialog,
     dictation,
 }: StudyCopilotPaneProps) {
     const { t } = useTranslation('common');
@@ -111,40 +113,45 @@ export default function StudyCopilotPane({
 
     const starters = useMemo(() => [
         {
+            id: 'subtext',
+            icon: Sparkles,
+            title: t('learning.starterSubtextTitle'),
+            hint: t('learning.starterSubtextHint'),
+            prompt: '结合前后语境，一句话点破说话人此时真正的态度、情绪温度和言外之意。',
+        },
+        {
             id: 'image',
             icon: Lightbulb,
             title: t('learning.starterImageTitle'),
             hint: t('learning.starterImageHint'),
-            prompt: '这句里最传神的表达在物理世界是什么画面？怎么引申出这里的意思？',
+            prompt: '简明讲透这句里最传神的核心表达、物理画面感以及日常使用边界。',
         },
         {
             id: 'roleplay',
             icon: MessagesSquare,
             title: t('learning.starterRoleplayTitle'),
             hint: t('learning.starterRoleplayHint'),
-            prompt: '针对这句核心表达出 1 个生活小情景，邀我用英文造句并帮我润色。',
-        },
-        {
-            id: 'listening',
-            icon: Ear,
-            title: t('learning.starterListeningTitle'),
-            hint: t('learning.starterListeningHint'),
-            prompt: '分析这句的吞音、连读、弱读与重音落点。',
+            prompt: '结合这句的核心表达，出 1 个贴近日常的小情景让我用英文造句并点评。',
         },
         {
             id: 'search',
             icon: Search,
             title: t('learning.starterSearchTitle'),
             hint: t('learning.starterSearchHint'),
-            prompt: '搜索前后台词，看看说话人为什么会说这句话？',
+            prompt: '检索全片前后台词，看看有没有铺垫或呼应这句对话的剧情线索？',
         },
     ], [t]);
 
     const slashCommands = useMemo<SlashCommandItem[]>(() => [
         {
+            id: 'subtext',
+            label: t('learning.slashSubtext'),
+            prompt: '结合当前情景点破说话人此刻的潜台词、口气分寸和真实态度。',
+        },
+        {
             id: 'image',
             label: t('learning.slashImage'),
-            prompt: '请用“物理原型画面 → 抽象共识隐喻 → 这句语气”拆解这句里的核心表达。',
+            prompt: '简明点破这句核心表达背后的物理画面与用法边界。',
         },
         {
             id: 'challenge',
@@ -152,19 +159,14 @@ export default function StudyCopilotPane({
             prompt: '围绕这句核心表达出 1 个贴近生活的微情景，让我用英文造句并帮我润色。',
         },
         {
-            id: 'listen',
-            label: t('learning.slashListen'),
-            prompt: '拆解这句真实口语里的连读、弱读、吞音和重音锚词。',
+            id: 'polish',
+            label: t('learning.slashPolish'),
+            prompt: '给出 2 种不同亲疏语气的母语级替换说法并说明差异。',
         },
         {
             id: 'prev',
             label: t('learning.slashPrev'),
-            prompt: '结合前文台词搜索一下，说话人为什么会在这里说出这句？',
-        },
-        {
-            id: 'polish',
-            label: t('learning.slashPolish'),
-            prompt: '给出 2 种不同亲疏语气的母语级替换说法并说明差异。',
+            prompt: '检索全片前后台词，还原说话人为什么会在这里说出这句。',
         },
     ], [t]);
 
@@ -226,15 +228,19 @@ export default function StudyCopilotPane({
     const emptyState = (
         <div className="mx-auto flex w-full max-w-lg flex-col justify-center px-6 py-10">
             <VStack gap={5}>
-                <VStack gap={1}>
+                <VStack gap={1.5}>
                     <HStack gap={2} vAlign="center">
                         <Bot className="h-4 w-4 text-accent" />
-                        <Text type="supporting" color="secondary">{activePresetName}</Text>
+                        <Text type="supporting" color="secondary">{t('learning.copilotName')}</Text>
                     </HStack>
-                    <Heading level={3}>{t('learning.copilotWelcomeShort')}</Heading>
-                    <Text type="supporting" color="secondary" className="line-clamp-1">
-                        {sentenceText}
-                    </Text>
+                    {sentenceText ? (
+                        <>
+                            <Heading level={3}>{sentenceText}</Heading>
+                            <Text type="body" color="secondary">{t('learning.copilotWelcomeShort')}</Text>
+                        </>
+                    ) : (
+                        <Heading level={3}>{t('learning.copilotWelcomeShort')}</Heading>
+                    )}
                 </VStack>
 
                 <Grid columns={2} gap={3}>
@@ -317,15 +323,29 @@ export default function StudyCopilotPane({
                     }
                 />
             )}
-            footerActions={messages.length > 0 && !isBusy ? (
-                <IconButton
-                    label={t('learning.clearChat')}
-                    tooltip={t('learning.clearChat')}
-                    icon={<Trash2 className="h-3.5 w-3.5" />}
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClearConversation}
-                />
+            footerActions={(onOpenPresetDialog || (messages.length > 0 && !isBusy)) ? (
+                <HStack gap={0.5} vAlign="center">
+                    {onOpenPresetDialog && (
+                        <IconButton
+                            label={t('learning.editPrompts')}
+                            tooltip={t('learning.editPrompts')}
+                            icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+                            variant="ghost"
+                            size="sm"
+                            onClick={onOpenPresetDialog}
+                        />
+                    )}
+                    {messages.length > 0 && !isBusy && (
+                        <IconButton
+                            label={t('learning.clearChat')}
+                            tooltip={t('learning.clearChat')}
+                            icon={<Trash2 className="h-3.5 w-3.5" />}
+                            variant="ghost"
+                            size="sm"
+                            onClick={onClearConversation}
+                        />
+                    )}
+                </HStack>
             ) : undefined}
             sendActions={(
                 <span
@@ -413,7 +433,7 @@ export default function StudyCopilotPane({
                                 <ChatMessage
                                     key={message.id}
                                     sender="assistant"
-                                    name={activePresetName}
+                                    name={t('learning.copilotName')}
                                 >
                                     {toolCalls.length > 0 && (
                                         <ChatMessageBubble variant="ghost" width="100%">
@@ -474,14 +494,17 @@ export default function StudyCopilotPane({
                                     {!isLastAssistantStreaming && combinedAssistantText.trim().length > 0 && (
                                         <HStack gap={0.5} vAlign="center" className="mt-0.5 px-1">
                                             <IconButton
-                                                label={t('learning.saveToNote')}
-                                                tooltip={t('learning.saveToNote')}
+                                                label={t('learning.saveAsTakeaway')}
+                                                tooltip={t('learning.saveAsTakeaway')}
                                                 icon={<BookmarkPlus className="h-3.5 w-3.5" />}
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => {
-                                                    onAppendToNote(combinedAssistantText.slice(0, 600));
-                                                    toast.success(t('learning.savedToNote'));
+                                                    const cleanTakeaway = extractCleanTakeaway(combinedAssistantText);
+                                                    if (cleanTakeaway) {
+                                                        onAppendToNote(cleanTakeaway);
+                                                        toast.success(t('learning.savedToTakeaway'));
+                                                    }
                                                 }}
                                             />
                                             <IconButton

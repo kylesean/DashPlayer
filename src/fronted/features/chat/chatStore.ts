@@ -146,14 +146,6 @@ const empty = (): ChatPanelState => ({
 
 const chatLogger = getRendererLogger('useChatPanel');
 
-const resolveAutoGenerateCard = (): boolean => {
-    try {
-        return useSetting.getState().setting('features.openai.autoGenerateStudyCard') !== 'false';
-    } catch {
-        return true;
-    }
-};
-
 const resolveDefaultPresetId = (): string => {
     try {
         const val = useSetting.getState().setting('learning.activePromptPresetId');
@@ -457,7 +449,7 @@ const useChatPanel = create(
                     || '';
                 const presetId = studyRecord?.presetId || resolveDefaultPresetId();
 
-                const sessionId = await startSessionForTopic(
+                await startSessionForTopic(
                     resolvedTopic,
                     sentence,
                     sentence.text,
@@ -473,17 +465,6 @@ const useChatPanel = create(
                         draftPrompt: options?.draftPrompt,
                     },
                 );
-
-                // 首屏无缓存 + 模型就绪 + 设置开启“自动精读”：零额外阻塞直接流式产出 4 模块首卡
-                if (
-                    sessionId
-                    && !cachedCard
-                    && cloudAvailable
-                    && resolveAutoGenerateCard()
-                    && requestEpoch === learningRequestEpoch
-                ) {
-                    void get().startAnalysis();
-                }
             } catch (error) {
                 if (requestEpoch === learningRequestEpoch) {
                     const message = error instanceof Error ? error.message : String(error);

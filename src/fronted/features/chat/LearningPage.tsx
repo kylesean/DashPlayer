@@ -13,11 +13,12 @@ import SentenceStudyCanvas, { type StudyContextNeighbor } from '@/fronted/featur
 import StudyCopilotPane from '@/fronted/features/chat/components/StudyCopilotPane';
 import PromptPresetDialog from '@/fronted/features/chat/components/PromptPresetDialog';
 import { usePlayerState } from '@/fronted/features/player/playerState';
+import { usePlaybackSession } from '@/fronted/features/player/playbackSessionStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { setPlayerViewMode } from '@/fronted/features/player/lib/player-view-controller';
 import usePracticePanel from '@/fronted/features/practice/practiceStore';
 import { useVocabularyState } from '@/fronted/features/player/vocabularyStore';
-import useSetting from '@/fronted/features/settings/settingsStore';
+import { useSavedSentences } from '@/fronted/features/context-studio/savedSentencesStore';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { getTtsUrl, playAudioUrl } from '@/fronted/infrastructure/audio/AudioPlayer';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
@@ -39,9 +40,6 @@ export default function LearningPage() {
     const learningVisible = useChatPanel((state) => state.learningVisible);
     const sentenceResolveError = useChatPanel((state) => state.sentenceResolveError);
     const cloudAvailable = useChatPanel((state) => state.cloudAvailable);
-    const analysis = useChatPanel((state) => state.analysis);
-    const analysisStatus = useChatPanel((state) => state.analysisStatus);
-    const analysisError = useChatPanel((state) => state.analysisError);
     const noteSummary = useChatPanel((state) => state.noteSummary);
     const noteSaving = useChatPanel((state) => state.noteSaving);
     const presets = useChatPanel((state) => state.presets);
@@ -49,11 +47,29 @@ export default function LearningPage() {
     const previewingEvidenceIndex = useChatPanel((state) => state.previewingEvidenceIndex);
     const miniVideoCollapsed = useChatPanel((state) => state.miniVideoCollapsed);
 
-    const autoGenerateRaw = useSetting((s) => s.values.get('features.openai.autoGenerateStudyCard'));
-    const autoGenerateStudyCard = autoGenerateRaw !== 'false';
-    const setSetting = useSetting((s) => s.setSetting);
-
+    const sessionScopeKey = `${anchorFileHash ?? ''}:${anchorIndex ?? ''}`;
     const [presetDialogOpen, setPresetDialogOpen] = useState(false);
+    const [loopScope, setLoopScope] = useState<string | null>(null);
+    const isLooping = learningVisible && loopScope === sessionScopeKey;
+    const isLoopingRef = useRef(false);
+    const playTokenRef = useRef(0);
+    const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const playClipRef = useRef<((target: typeof topicLine) => void) | null>(null);
+
+    const clearLoopTimerAndClip = useCallback(() => {
+        isLoopingRef.current = false;
+        if (loopTimerRef.current !== null) {
+            clearTimeout(loopTimerRef.current);
+            loopTimerRef.current = null;
+        }
+        playTokenRef.current += 1;
+        playerActions.clearPracticeClip?.();
+    }, []);
+
+    const stopLoopPlayback = useCallback(() => {
+        setLoopScope(null);
+        clearLoopTimerAndClip();
+    }, [clearLoopTimerAndClip]);
 
     const chat = useSentenceLearningChat();
     const sessionReady = chatSessionId !== '';
@@ -68,11 +84,21 @@ export default function LearningPage() {
         }, []),
     });
 
+    // 面板关闭时必须连带清掉 loopScope：只清 ref 不清 scope，重开同一句会让派生
+    // isLooping 回到 true，按钮显示"循环中"而实际未在循环。scope 属于渲染期派生状态，
+    // 在渲染中就地归零；定时器与播放片段这类外部副作用仍放在 effect 里清理。
+    if (!learningVisible && loopScope !== null) {
+        setLoopScope(null);
+    }
     useEffect(() => {
         if (!learningVisible) {
-            playerActions.clearPracticeClip?.();
+            clearLoopTimerAndClip();
         }
-    }, [learningVisible]);
+    }, [learningVisible, clearLoopTimerAndClip]);
+
+    useEffect(() => () => {
+        clearLoopTimerAndClip();
+    }, [clearLoopTimerAndClip]);
 
     useEffect(() => {
         if (sentenceResolveError) {
@@ -95,7 +121,14 @@ export default function LearningPage() {
         })),
     );
     const sentences = usePlayerState((state) => state.sentences);
+    const videoId = usePlaybackSession((state) => state.videoId);
     const trimmedTopic = topicText.trim();
+
+    useEffect(() => {
+        if (learningVisible && videoId) {
+            void useSavedSentences.getState().loadForVideo(videoId);
+        }
+    }, [learningVisible, videoId]);
 
     const [vocabularyState, setVocabularyState] = useState<{
         text: string;
@@ -113,6 +146,13 @@ export default function LearningPage() {
     }, [anchorFileHash, anchorIndex, sentences]);
 
     const topicLine = anchorPosition >= 0 ? sentences[anchorPosition] : undefined;
+    const sentenceKey = topicLine ? `${topicLine.fileHash}:${topicLine.index}` : '';
+    const isSentenceSaved = useSavedSentences((state) => (sentenceKey ? state.savedKeys.has(sentenceKey) : false));
+    const toggleSavedSentence = useSavedSentences((state) => state.toggleSentence);
+
+    useEffect(() => {
+        clearLoopTimerAndClip();
+    }, [anchorIndex, anchorFileHash, clearLoopTimerAndClip]);
 
     const neighbors = useMemo<StudyContextNeighbor[]>(() => {
         if (anchorPosition < 0) return [];
@@ -159,10 +199,12 @@ export default function LearningPage() {
         };
     }, [t, trimmedTopic]);
 
-    const vocabWords = useMemo(() => sentenceVocabulary?.picks ?? [], [sentenceVocabulary]);
-
     const resolveWordDetail = useCallback(
-        (word: string): SentenceWordEntry | null => sentenceVocabulary?.details[word] ?? null,
+        (word: string): SentenceWordEntry | null => (
+            sentenceVocabulary?.details[word]
+            ?? sentenceVocabulary?.details[word.toLowerCase()]
+            ?? null
+        ),
         [sentenceVocabulary],
     );
 
@@ -172,30 +214,87 @@ export default function LearningPage() {
             .then((url) => playAudioUrl(url))
             .catch((error) => {
                 logger.error('failed to speak text', { error: error instanceof Error ? error.message : error });
+                toast.error(t('ttsPlayFailed'));
             });
-    }, []);
+    }, [t]);
 
-    const playClipForSentence = useCallback((target: typeof topicLine, rate?: number) => {
+    const playClipForSentence = useCallback((target: typeof topicLine) => {
+        if (loopTimerRef.current !== null) {
+            clearTimeout(loopTimerRef.current);
+            loopTimerRef.current = null;
+        }
         if (!target) {
             speak(topicText);
             return;
         }
         const range = {
-            start: Math.max(0, target.start),
-            end: Math.max(target.start + 0.4, target.end),
+            start: Math.max(0, target.adjustedStart ?? target.start),
+            end: Math.max((target.adjustedStart ?? target.start) + 0.4, target.adjustedEnd ?? target.end),
         };
         if (playerActions.playPracticeClip) {
-            playerActions.playPracticeClip(range, target, rate !== undefined ? { rate } : undefined);
+            const token = playTokenRef.current + 1;
+            playTokenRef.current = token;
+            playerActions.playPracticeClip(range, target, {
+                onEnded: () => {
+                    if (!isLoopingRef.current || playTokenRef.current !== token) {
+                        return;
+                    }
+                    loopTimerRef.current = setTimeout(() => {
+                        if (isLoopingRef.current && playTokenRef.current === token) {
+                            playClipRef.current?.(target);
+                        }
+                    }, 220);
+                },
+                onAbort: () => {
+                    if (playTokenRef.current === token && isLoopingRef.current) {
+                        isLoopingRef.current = false;
+                        setLoopScope(null);
+                    }
+                },
+            });
             return;
         }
         playerActions.gotoSentence(target);
         playerActions.play();
     }, [speak, topicText]);
 
-    const handlePlayOriginal = useCallback((rate?: number) => {
+    useEffect(() => {
+        playClipRef.current = playClipForSentence;
+    }, [playClipForSentence]);
+
+    const handlePlayOriginal = useCallback(() => {
         useChatPanel.getState().setPreviewingEvidenceIndex(null);
-        playClipForSentence(topicLine, rate);
+        playClipForSentence(topicLine);
     }, [playClipForSentence, topicLine]);
+
+    const handleToggleLoop = useCallback(() => {
+        if (isLoopingRef.current) {
+            stopLoopPlayback();
+            return;
+        }
+        isLoopingRef.current = true;
+        setLoopScope(sessionScopeKey);
+        useChatPanel.getState().setPreviewingEvidenceIndex(null);
+        playClipForSentence(topicLine);
+    }, [playClipForSentence, sessionScopeKey, stopLoopPlayback, topicLine]);
+
+    const handleToggleSaveSentence = useCallback(() => {
+        if (!topicLine || !sentenceKey) return;
+        void toggleSavedSentence({
+            sentenceKey,
+            videoId: videoId || '',
+            fileHash: topicLine.fileHash,
+            sentenceIndex: topicLine.index,
+            startTime: topicLine.adjustedStart ?? topicLine.start,
+            endTime: topicLine.adjustedEnd ?? topicLine.end,
+            text: topicLine.text || topicText,
+            textZh: sentence.zh,
+        }).then((saved) => {
+            toast.success(saved ? t('learning.sentenceSavedToStudio') : t('wordUnfavorited'));
+        }).catch(() => {
+            toast.error(t('favoriteWordFailed'));
+        });
+    }, [sentence.zh, sentenceKey, t, toggleSavedSentence, topicLine, topicText, videoId]);
 
     const handlePreviewEvidenceLine = useCallback((targetIndex: number) => {
         const target = sentences.find((s) => s.index === targetIndex);
@@ -266,51 +365,34 @@ export default function LearningPage() {
 
     const isFavorite = useCallback((word: string) => isVocabularyWord(word), [isVocabularyWord]);
 
-    const requestAnalysis = useCallback(() => {
-        void useChatPanel.getState().startAnalysis();
-    }, []);
-
-    const stopAnalysis = useCallback(() => {
-        void useChatPanel.getState().stopAnalysis();
-    }, []);
-
     const handleDeepDiveExpression = useCallback((expression: string) => {
         const clean = expression.trim();
         if (!clean) return;
         const store = useChatPanel.getState();
         store.setAttachedFocusExpr(clean);
         if (!chat.isBusy && sessionReady && cloudAvailable) {
-            void chat.handleSubmit(`用“物理原型画面 → 抽象共识引申 → 这句里的语气”三步帮我讲透 "${clean}"。`);
+            void chat.handleSubmit(`讲讲 "${clean}" 在这句里的画面和地道用法。`);
         }
     }, [chat, cloudAvailable, sessionReady]);
 
     const handleBackToPlayer = useCallback(() => {
-        playerActions.clearPracticeClip?.();
+        stopLoopPlayback();
         useChatPanel.getState().hideLearning();
-    }, []);
+    }, [stopLoopPlayback]);
 
     const handleJumpToPractice = useCallback(() => {
-        playerActions.clearPracticeClip?.();
+        stopLoopPlayback();
         if (topicLine) {
             playerActions.gotoSentence(topicLine);
         }
         usePracticePanel.getState().setOpenedFromLearning(true);
         setPlayerViewMode('practice');
-    }, [topicLine]);
+    }, [stopLoopPlayback, topicLine]);
 
     const handleStepSentence = useCallback((delta: -1 | 1) => {
-        playerActions.clearPracticeClip?.();
+        stopLoopPlayback();
         void useChatPanel.getState().stepSentence(delta);
-    }, []);
-
-    const handleToggleAutoCard = useCallback((checked: boolean) => {
-        void setSetting('features.openai.autoGenerateStudyCard', checked ? 'true' : 'false');
-    }, [setSetting]);
-
-    const activePresetName = useMemo(() => {
-        const found = presets.find((p) => p.id === activePresetId);
-        return found?.name ?? t('learning.defaultPresetName', { defaultValue: '物理意象导师' });
-    }, [activePresetId, presets, t]);
+    }, [stopLoopPlayback]);
 
     return (
         <div className="h-full w-full select-text">
@@ -322,31 +404,21 @@ export default function LearningPage() {
                 onStepSentence={handleStepSentence}
                 onBackToPlayer={handleBackToPlayer}
                 onJumpToPractice={handleJumpToPractice}
-                presets={presets}
-                activePresetId={activePresetId}
-                onSelectPreset={(presetId) => void useChatPanel.getState().switchSessionPreset(presetId, true)}
-                onOpenPresetDialog={() => setPresetDialogOpen(true)}
-                autoGenerateStudyCard={autoGenerateStudyCard}
-                onToggleAutoGenerateStudyCard={handleToggleAutoCard}
-                cloudAvailable={cloudAvailable}
+                isSentenceSaved={isSentenceSaved}
+                onToggleSaveSentence={handleToggleSaveSentence}
                 leftCanvas={(
                     <SentenceStudyCanvas
                         sentence={sentence}
                         neighbors={neighbors}
-                        analysis={analysis}
-                        analysisStatus={analysisStatus}
-                        analysisError={analysisError}
-                        sessionReady={sessionReady}
-                        cloudAvailable={cloudAvailable}
-                        vocabWords={vocabWords}
                         resolveWordDetail={resolveWordDetail}
                         isFavorite={isFavorite}
                         onToggleFavorite={toggleFavorite}
                         onSpeak={speak}
                         onPlayOriginal={handlePlayOriginal}
-                        onRequestAnalysis={requestAnalysis}
-                        onStopAnalysis={stopAnalysis}
+                        isLooping={isLooping}
+                        onToggleLoop={handleToggleLoop}
                         onDeepDiveExpression={handleDeepDiveExpression}
+                        onPreviewSubtitleLine={handlePreviewEvidenceLine}
                         miniVideoCollapsed={miniVideoCollapsed}
                         onToggleMiniCollapsed={() => useChatPanel.getState().setMiniVideoCollapsed(!miniVideoCollapsed)}
                         previewingEvidenceIndex={previewingEvidenceIndex}
@@ -374,7 +446,7 @@ export default function LearningPage() {
                         onAppendToNote={(snippet) => void useChatPanel.getState().appendToNoteSummary(snippet)}
                         attachedFocusExpr={chat.attachedFocusExpr}
                         onClearFocusExpr={() => chat.setAttachedFocusExpr(null)}
-                        activePresetName={activePresetName}
+                        onOpenPresetDialog={() => setPresetDialogOpen(true)}
                         dictation={dictation}
                     />
                 )}

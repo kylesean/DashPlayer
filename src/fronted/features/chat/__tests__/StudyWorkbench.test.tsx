@@ -8,6 +8,7 @@ import StudyWorkbenchShell from '../components/StudyWorkbenchShell';
 import SentenceStudyCanvas from '../components/SentenceStudyCanvas';
 import StudyCopilotPane from '../components/StudyCopilotPane';
 import { preprocessStudyMarkdown } from '../studyMarkdown';
+import { extractCleanTakeaway, tokenizeSentenceWithHighlights } from '../sentenceStudyHelpers';
 
 const resolveZhKey = (key: string, opts?: { defaultValue?: string; index?: number; name?: string; expr?: string }): string => {
     const clean = key.replace(/^common:/, '');
@@ -72,9 +73,12 @@ const renderWithAstryx = (ui: React.ReactNode) => render(
 );
 
 describe('整句学习 AI-Native 工作台组件套件', () => {
-    it('渲染双栏工作台、Mini PiP 槽、4 模块物理意象首卡与可点击听感线索', () => {
+    it('渲染极简确定性左栏工作台：原声与循环、句内词典微卡、前后对话语境、折叠收获条与收藏跳转', () => {
         const onPlayOriginal = vi.fn();
+        const onToggleLoop = vi.fn();
+        const onToggleSaveSentence = vi.fn();
         const onDeepDive = vi.fn();
+        const onPreviewLine = vi.fn();
         const onStep = vi.fn();
         const onJumpPractice = vi.fn();
 
@@ -87,24 +91,8 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
                 onStepSentence={onStep}
                 onBackToPlayer={noop}
                 onJumpToPractice={onJumpPractice}
-                presets={[
-                    {
-                        id: 'image-schema-tutor',
-                        name: '物理意象导师',
-                        description: '画面映射',
-                        roleMode: 'study',
-                        systemPrompt: 'prompt',
-                        isBuiltin: true,
-                        isDefault: true,
-                        updatedAt: '',
-                    },
-                ]}
-                activePresetId="image-schema-tutor"
-                onSelectPreset={noop}
-                onOpenPresetDialog={noop}
-                autoGenerateStudyCard
-                onToggleAutoGenerateStudyCard={noop}
-                cloudAvailable
+                isSentenceSaved={false}
+                onToggleSaveSentence={onToggleSaveSentence}
                 leftCanvas={(
                     <SentenceStudyCanvas
                         sentence={{
@@ -112,50 +100,26 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
                             zh: '别两头摇摆。',
                             position: '00:12 · 第 5 / 20 句',
                         }}
-                        neighbors={[{ index: 4, text: 'Do not sit on the fence.', isCurrent: true }]}
-                        analysis={{
-                            sentence: {
-                                completeText: 'Do not sit on the fence.',
-                                contextualTranslation: '别两头摇摆。',
-                                chunks: ['Do not sit', 'on the fence.'],
-                            },
-                            focalPoints: [{
-                                expression: 'on the fence',
-                                kind: 'phrase',
-                                tag: '物理意象',
-                                coreImage: '坐在分隔两块草地的木栅栏正上方。',
-                                meaningInContext: '尚未站队、保持中立犹豫。',
-                            }],
-                            listeningLens: [{
-                                span: 'sit on the',
-                                phenomenon: '辅元连读',
-                                tip: 'sit 的 /t/ 闪音轻连到 on 上',
-                            }],
-                            sentenceLens: {
-                                structureInsight: '直接借用动作意象代替抽象说教',
-                                subtext: '带一点催促对方表态的意味',
-                            },
-                        }}
-                        analysisStatus="done"
-                        analysisError={null}
-                        sessionReady
-                        cloudAvailable
-                        vocabWords={[{
+                        neighbors={[
+                            { index: 3, text: 'You have to choose a side now.', isCurrent: false },
+                            { index: 4, text: 'Do not sit on the fence.', isCurrent: true },
+                        ]}
+                        resolveWordDetail={(word) => (word.toLowerCase() === 'fence' ? {
                             word: 'fence',
                             phonetic: 'fens',
                             meaning: 'n. 栅栏；围栏',
                             tags: ['cet4'],
                             surfaces: ['fence'],
                             memoryTag: 'due',
-                        }]}
-                        resolveWordDetail={() => null}
+                        } : null)}
                         isFavorite={() => false}
                         onToggleFavorite={noop}
                         onSpeak={noop}
                         onPlayOriginal={onPlayOriginal}
-                        onRequestAnalysis={noop}
-                        onStopAnalysis={noop}
+                        isLooping={false}
+                        onToggleLoop={onToggleLoop}
                         onDeepDiveExpression={onDeepDive}
+                        onPreviewSubtitleLine={onPreviewLine}
                         miniVideoCollapsed={false}
                         onToggleMiniCollapsed={noop}
                         previewingEvidenceIndex={null}
@@ -172,17 +136,42 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
 
         expect(screen.getByTestId('learning-workbench')).toBeDefined();
         expect(screen.getByTestId('mini-pip-slot')).toBeDefined();
-        expect(screen.getByText('坐在分隔两块草地的木栅栏正上方。')).toBeDefined();
-        expect(screen.getByText('[辅元连读] sit 的 /t/ 闪音轻连到 on 上')).toBeDefined();
-        expect(screen.getByText('待复习')).toBeDefined();
+        expect(screen.getByText('前后对话语境')).toBeDefined();
+        expect(screen.getByText('You have to choose a side now.')).toBeDefined();
+        // 左栏已完全撤除「自动解析」「盲听」「0.75x」及冗余卡片
+        expect(screen.queryByText('自动解析')).toBeNull();
+        expect(screen.queryByText('0.75x')).toBeNull();
+        expect(screen.queryByText('盲听')).toBeNull();
         // 严防任何未翻译的 i18n key 裸露到页面
         expect(document.body.textContent).not.toMatch(/learning\.[A-Za-z]+/);
 
-        fireEvent.click(screen.getByText('sit on the'));
-        expect(onPlayOriginal).toHaveBeenCalledWith(0.75);
+        // 点击句中单词「fence」展开本地词典微卡
+        fireEvent.click(screen.getByRole('button', { name: 'fence' }));
+        expect(screen.getByTestId('inline-expression-popover')).toBeDefined();
+        expect(screen.getByText('/fens/')).toBeDefined();
+        expect(screen.getByText('n. 栅栏；围栏')).toBeDefined();
+        expect(screen.getByText('待复习')).toBeDefined();
 
-        fireEvent.click(screen.getAllByRole('button', { name: 'AI 拆解画面' })[0]);
-        expect(onDeepDive).toHaveBeenCalledWith('on the fence');
+        fireEvent.click(screen.getByRole('button', { name: '问 AI 讲透' }));
+        expect(onDeepDive).toHaveBeenCalledWith('fence');
+
+        // 点击前一句台词触发试听
+        fireEvent.click(screen.getByText('You have to choose a side now.'));
+        expect(onPreviewLine).toHaveBeenCalledWith(3);
+
+        fireEvent.click(screen.getByRole('button', { name: '原声本句' }));
+        expect(onPlayOriginal).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(screen.getByRole('button', { name: '单句循环' }));
+        expect(onToggleLoop).toHaveBeenCalledTimes(1);
+
+        fireEvent.click(screen.getByRole('button', { name: '收入工坊' }));
+        expect(onToggleSaveSentence).toHaveBeenCalledTimes(1);
+
+        // 本句收获默认折叠，点击后展开输入框
+        expect(screen.queryByPlaceholderText('记下这句最值钱的一句表达或心得…')).toBeNull();
+        fireEvent.click(screen.getByTestId('takeaway-collapsed-bar'));
+        expect(screen.getByPlaceholderText('记下这句最值钱的一句表达或心得…')).toBeDefined();
 
         fireEvent.click(screen.getByText('跟读/听写'));
         expect(onJumpPractice).toHaveBeenCalledTimes(1);
@@ -231,7 +220,6 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
                 onAppendToNote={noop}
                 attachedFocusExpr="on the fence"
                 onClearFocusExpr={noop}
-                activePresetName="物理意象导师"
                 dictation={{
                     isSupported: false,
                     isListening: false,
@@ -253,7 +241,9 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
         expect(onPreviewLine).toHaveBeenCalledWith(1);
     });
 
-    it('右侧对话空态借鉴 ai-chat-landing 网格卡片且无任何未翻译 key 外泄', () => {
+    it('右侧对话空态呈现动作导向启动卡与次要 Prompt 设置入口且无未翻译 key 外泄', () => {
+        const onOpenPresetDialog = vi.fn();
+
         renderWithAstryx(
             <StudyCopilotPane
                 sentenceText="Do not sit on the fence."
@@ -271,7 +261,7 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
                 onAppendToNote={noop}
                 attachedFocusExpr={null}
                 onClearFocusExpr={noop}
-                activePresetName="物理意象导师"
+                onOpenPresetDialog={onOpenPresetDialog}
                 dictation={{
                     isSupported: false,
                     isListening: false,
@@ -288,11 +278,70 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
             />,
         );
 
-        expect(screen.getByText('物理画面')).toBeDefined();
-        expect(screen.getByText('情景造句')).toBeDefined();
-        expect(screen.getByText('连读拆解')).toBeDefined();
-        expect(screen.getByText('前文线索')).toBeDefined();
+        expect(screen.getByText('点破言外之意')).toBeDefined();
+        expect(screen.getByText('讲透核心表达')).toBeDefined();
+        expect(screen.getByText('情景造句实战')).toBeDefined();
+        expect(screen.getByText('查前后剧情')).toBeDefined();
+        expect(screen.queryByText('听感连读拆解')).toBeNull();
+        fireEvent.click(screen.getByRole('button', { name: '编辑 Prompt' }));
+        expect(onOpenPresetDialog).toHaveBeenCalledTimes(1);
         expect(document.body.textContent).not.toMatch(/learning\.[A-Za-z]+/);
+    });
+
+    it('收为收获时清理 [[tts:...]] 与 Markdown 语法，句内切词优先完整匹配多词焦点短语', () => {
+        const segments = tokenizeSentenceWithHighlights('Do not sit on the fence!', [
+            { expression: 'on the fence', kind: 'phrase', coreImage: '跨骑在栅栏上' },
+        ]);
+        const phraseSeg = segments.find((s) => s.text === 'on the fence');
+        expect(phraseSeg?.clickable).toBe(true);
+        expect(phraseSeg?.focalPoint?.coreImage).toBe('跨骑在栅栏上');
+        expect(segments.some((s) => s.text === 'sit' && s.clickable)).toBe(true);
+
+        const cleaned = extractCleanTakeaway('### 小结\n**[[tts:sit on the fence]]** 意思是 `犹豫不决`。\n[[switch:12|跳转]]');
+        expect(cleaned).toBe('小结 sit on the fence 意思是 犹豫不决。');
+
+        const onAppendToNote = vi.fn();
+        renderWithAstryx(
+            <StudyCopilotPane
+                sentenceText="Do not sit on the fence."
+                messages={[
+                    {
+                        id: 'a-takeaway',
+                        role: 'assistant',
+                        blocks: [{ kind: 'text', text: '### 要点\n**[[tts:on the fence]]** 表示**保持中立**。' }],
+                    },
+                ]}
+                isBusy={false}
+                sessionReady
+                cloudAvailable
+                chatErrorText={null}
+                input=""
+                onInputChange={noop}
+                onSubmit={noop}
+                onStop={noop}
+                onClearConversation={noop}
+                onPreviewSubtitleLine={noop}
+                onAppendToNote={onAppendToNote}
+                attachedFocusExpr={null}
+                onClearFocusExpr={noop}
+                dictation={{
+                    isSupported: false,
+                    isListening: false,
+                    isSpeaking: false,
+                    volume: 0,
+                    bands: [0, 0, 0, 0, 0],
+                    rawBands: [0, 0, 0, 0, 0],
+                    interimTranscript: '',
+                    start: noop,
+                    stop: noop,
+                    abort: noop,
+                    toggle: noop,
+                }}
+            />,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: '收为收获' }));
+        expect(onAppendToNote).toHaveBeenCalledWith('要点 on the fence 表示保持中立。');
     });
 
     it('助手消息中的中文标点加粗、反引号包裹的 [[tts:...]] 与缺空格标题均能正确渲染而非输出原始星号', () => {
@@ -330,7 +379,6 @@ describe('整句学习 AI-Native 工作台组件套件', () => {
                 onAppendToNote={noop}
                 attachedFocusExpr={null}
                 onClearFocusExpr={noop}
-                activePresetName="物理意象导师"
                 dictation={{
                     isSupported: false,
                     isListening: false,
