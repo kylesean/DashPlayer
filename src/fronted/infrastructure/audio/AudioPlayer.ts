@@ -4,6 +4,7 @@ import { backendClient } from '@/fronted/infrastructure/electron/backendClient';
 import type { Nullable } from '@/common/types/Types';
 import { TypeGuards } from '@/common/utils/TypeGuards';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
+import { useAudioVolume } from '@/fronted/infrastructure/audio/audioVolume';
 
 const api = backendClient;
 const cache = new Map<string, string>();
@@ -39,7 +40,7 @@ export const playAudioUrl = async (audioUrl: Nullable<string>) => {
     const epoch = playbackEpoch;
     getRendererLogger('AudioPlayer').debug('play audio url', { audioUrl });
     const nextPlayer = new Audio(audioUrl);
-    nextPlayer.volume = 0.5;
+    nextPlayer.volume = useAudioVolume.getState().ttsVolume;
     if (epoch !== playbackEpoch) {
         return;
     }
@@ -66,7 +67,7 @@ export const playMediaSegment = (
         const media = document.createElement('video');
         media.preload = 'auto';
         media.muted = false;
-        media.volume = 0.85;
+        media.volume = useAudioVolume.getState().ttsVolume;
         media.setAttribute('playsinline', 'true');
         media.src = url;
 

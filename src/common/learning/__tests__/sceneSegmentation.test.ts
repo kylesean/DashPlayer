@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { segmentScenes } from '@/common/learning/sceneSegmentation';
+import {
+    isHighConfidenceSpeakerShift,
+    segmentScenes,
+    selectSceneDividers,
+} from '@/common/learning/sceneSegmentation';
 import type { Sentence } from '@/common/types/SentenceC';
 
 const sentence = (index: number, text: string, start: number, end: number): Sentence => ({
@@ -125,5 +129,34 @@ describe('segmentScenes', () => {
 
         expect(boundaries).toHaveLength(1);
         expect(boundaries[0].kinds.filter((kind) => kind === 'prosody-shift')).toHaveLength(1);
+    });
+
+    it('isHighConfidenceSpeakerShift 过滤掉低置信度纯文本猜测', () => {
+        expect(isHighConfidenceSpeakerShift({
+            sentenceIndex: 1,
+            atSec: 2,
+            kinds: ['speaker-shift'],
+            confidence: 0.45,
+        })).toBe(false);
+        expect(isHighConfidenceSpeakerShift({
+            sentenceIndex: 2,
+            atSec: 4,
+            kinds: ['speaker-shift'],
+            confidence: 0.85,
+        })).toBe(true);
+    });
+
+    it('selectSceneDividers 过滤单独韵律/画面噪点并执行冷却间隔', () => {
+        const dividers = selectSceneDividers([
+            { sentenceIndex: 2, atSec: 5, kinds: ['prosody-shift'], confidence: 0.7 },
+            { sentenceIndex: 4, atSec: 10, kinds: ['visual-shift'], confidence: 0.6 },
+            { sentenceIndex: 6, atSec: 15, kinds: ['time-gap', 'topic-shift'], confidence: 0.75 },
+            // 距上一条不足 20s 或 4 句：应被冷却过滤
+            { sentenceIndex: 9, atSec: 25, kinds: ['time-gap'], confidence: 0.85 },
+            // 满足 20s 且 >= 4 句：应保留
+            { sentenceIndex: 12, atSec: 40, kinds: ['topic-shift', 'prosody-shift'], confidence: 0.8 },
+        ]);
+
+        expect(dividers.map((d) => d.sentenceIndex)).toEqual([6, 12]);
     });
 });

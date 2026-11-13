@@ -52,8 +52,9 @@ export type SceneBoundaryKind =
  *
  * v2：speaker-shift 可由真实声纹区间判定，置信度与文本启发式不同。
  * v3：新增 prosody-shift，语音韵律（语速/音量）可作为第五类边界信号。
+ * v4：多信号共振提升置信度，并导出前端使用的说话人提示与场景分割筛选器。
  */
-export const SCENE_SEGMENTATION_VERSION = 3;
+export const SCENE_SEGMENTATION_VERSION = 4;
 
 /** 一个本地推测的场景边界。 */
 export interface SceneBoundary {
@@ -281,6 +282,10 @@ export const segmentScenes = (
         if (kinds.length === 0) {
             continue;
         }
+        // 多路信号在同一句共振时（例如换场静默 + 话题转换/镜头切换），显著提升置信度。
+        if (kinds.length >= 2) {
+            confidence = Math.min(1, confidence + 0.15);
+        }
         boundaries.push({
             sentenceIndex: current.index,
             atSec: Number(current.start.toFixed(2)),
@@ -289,4 +294,66 @@ export const segmentScenes = (
         });
     }
     return boundaries;
+};
+
+const MIN_SPEAKER_CUE_CONFIDENCE = 0.7;
+const MIN_SCENE_DIVIDER_CONFIDENCE = 0.65;
+const DEFAULT_SCENE_COOLDOWN_SEC = 20;
+const DEFAULT_SCENE_COOLDOWN_SENTENCES = 4;
+
+/**
+ * 判断一条边界是否值得在主字幕上方提示「换人说话」。
+ *
+ * 仅保留高置信度换人信号（真实声纹分离，或文本推测叠加了其它边界信号），
+ * 避免无声纹时的纯文本短回应启发式在主字幕区产生误报。
+ */
+export const isHighConfidenceSpeakerShift = (boundary: SceneBoundary): boolean => (
+    boundary.kinds.includes('speaker-shift') && boundary.confidence >= MIN_SPEAKER_CUE_CONFIDENCE
+);
+
+/**
+ * 从原始边界中筛选出适合在右侧字幕栏展示的「场景 / 话题分割线」。
+ *
+ * 过滤原则：
+ * 1. 单纯的语速/音量波动（prosody-shift）或单次切镜（visual-shift）噪音过高，
+ *    只作为多信号共振的加权证据，不单独成章；
+ * 2. 需要达到较高置信度（>= 0.65，如长停顿或两路以上信号共振）；
+ * 3. 相邻分割线之间保持最小冷却间隔（默认 20s 且至少间隔 4 句），防止碎片化。
+ */
+export const selectSceneDividers = (
+    boundaries: readonly SceneBoundary[],
+    options: {
+        minConfidence?: number;
+        cooldownSec?: number;
+        cooldownSentences?: number;
+    } = {},
+): SceneBoundary[] => {
+    const minConfidence = options.minConfidence ?? MIN_SCENE_DIVIDER_CONFIDENCE;
+    const cooldownSec = options.cooldownSec ?? DEFAULT_SCENE_COOLDOWN_SEC;
+    const cooldownSentences = options.cooldownSentences ?? DEFAULT_SCENE_COOLDOWN_SENTENCES;
+
+    const dividers: SceneBoundary[] = [];
+    let lastDivider: SceneBoundary | null = null;
+
+    for (const boundary of boundaries) {
+        const hasStructuralSignal = boundary.kinds.includes('time-gap') || boundary.kinds.includes('topic-shift');
+        const hasMultiSignal = boundary.kinds.length >= 2;
+        if (!hasStructuralSignal && !hasMultiSignal) {
+            continue;
+        }
+        if (boundary.confidence < minConfidence) {
+            continue;
+        }
+        if (lastDivider) {
+            const elapsedSec = boundary.atSec - lastDivider.atSec;
+            const sentenceDelta = boundary.sentenceIndex - lastDivider.sentenceIndex;
+            if (elapsedSec < cooldownSec || sentenceDelta < cooldownSentences) {
+                continue;
+            }
+        }
+        dividers.push(boundary);
+        lastDivider = boundary;
+    }
+
+    return dividers;
 };

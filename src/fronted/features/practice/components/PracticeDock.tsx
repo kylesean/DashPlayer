@@ -12,6 +12,7 @@ import {
     History,
     Maximize2,
     Minimize2,
+    SlidersHorizontal,
     Volume2,
     VolumeX,
     X,
@@ -32,6 +33,7 @@ import UrlUtil from '@/common/utils/UrlUtil';
 import { cn } from '@/fronted/lib/utils';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { isApplePlatform, isInteractiveTarget, isTextEntryTarget } from '@/fronted/lib/keyboard';
+import { createBoostedAudio, useAudioVolume } from '@/fronted/infrastructure/audio/audioVolume';
 import { usePopover } from '@astryxdesign/core/Popover';
 import { CONTROL_POPOVER_PANEL } from '@/fronted/features/player/components/ControlPopover';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
@@ -217,8 +219,17 @@ export default function PracticeDock() {
         isModal: false,
         dialogLabel: t('result.history'),
     });
+    const volumePopover = usePopover({
+        className: cn('w-60 p-3', CONTROL_POPOVER_PANEL),
+        hasSurface: false,
+        isModal: false,
+        dialogLabel: t('panel.recordingGain', { defaultValue: '我的录音回放增益' }),
+    });
+    const recordingGain = useAudioVolume((s) => s.recordingGain);
+    const setRecordingGain = useAudioVolume((s) => s.setRecordingGain);
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
+    const audioDisposeRef = useRef<(() => void) | null>(null);
     const dockRef = useRef<HTMLDivElement | null>(null);
 
     const { data: resourceStatus } = useSWR(
@@ -459,11 +470,26 @@ export default function PracticeDock() {
 
     const handlePlayHistoryAudio = useCallback((audioPath: string) => {
         audioRef.current?.pause();
-        const audio = new Audio(UrlUtil.toUrl(audioPath));
+        audioDisposeRef.current?.();
+        const { audio, dispose } = createBoostedAudio(
+            UrlUtil.toUrl(audioPath),
+            useAudioVolume.getState().recordingGain,
+        );
         audioRef.current = audio;
+        audioDisposeRef.current = dispose;
+        audio.onended = () => {
+            if (audioDisposeRef.current === dispose) {
+                audioDisposeRef.current = null;
+            }
+            dispose();
+        };
         void audio.play().catch((error) => {
             logger.error('跟读录音回放失败', { error });
             toast.error(t('recorder.playbackFailed'));
+            if (audioDisposeRef.current === dispose) {
+                audioDisposeRef.current = null;
+            }
+            dispose();
         });
     }, [t]);
 
@@ -882,6 +908,37 @@ export default function PracticeDock() {
                             onClick={() => setSoundCues(!soundCues)}
                         />
                     </Tooltip>
+
+                    <Tooltip content={t('panel.recordingGain', { defaultValue: '我的录音回放增益' })} placement="below">
+                        <IconButton
+                            ref={volumePopover.triggerRef}
+                            {...volumePopover.triggerProps}
+                            label={t('panel.recordingGain', { defaultValue: '我的录音回放增益' })}
+                            icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+                            variant="ghost"
+                            size="sm"
+                            onClick={volumePopover.toggle}
+                        />
+                    </Tooltip>
+                    {volumePopover.render(
+                        <div className="space-y-1.5 text-metadata">
+                            <div className="flex items-center justify-between text-primary">
+                                <span>{t('panel.recordingGain', { defaultValue: '我的录音回放增益' })}</span>
+                                <span className="font-mono tabular-nums text-secondary">{recordingGain.toFixed(1)}×</span>
+                            </div>
+                            <input
+                                type="range"
+                                aria-label={t('panel.recordingGain', { defaultValue: '我的录音回放增益' })}
+                                min={0.5}
+                                max={2.5}
+                                step={0.1}
+                                value={recordingGain}
+                                onChange={(e) => setRecordingGain(Number(e.target.value))}
+                                className="w-full accent-accent-bg cursor-pointer"
+                            />
+                        </div>,
+                        { placement: 'below', alignment: 'end', offset: 6 },
+                    )}
 
                     <Tooltip
                         content={focusMode

@@ -13,10 +13,12 @@ import {
     DropdownMenuRadioItem,
 } from '@astryxdesign/core/DropdownMenu';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
-import { ArrowUpToLine, ChevronDown, ChevronUp, Filter, Languages, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose, Repeat, Search, X } from 'lucide-react';
+import { ArrowUpToLine, ChevronDown, ChevronUp, Filter, Languages, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose, Play, Repeat, Search, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import ArticleBlock from './ArticleBlock';
 import { groupSentencesIntoBlocks, type SentenceBlock } from '@/fronted/features/player/lib/sentence-grouping';
+import { selectSceneDividers, type SceneBoundary } from '@/common/learning/sceneSegmentation';
+import { useSceneBoundaries } from '@/fronted/features/player/hooks/useSceneBoundaries';
 import { usePlayerState } from '@/fronted/features/player/playerState';
 import { usePlayerUi } from '@/fronted/features/player/playerUiStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
@@ -79,6 +81,14 @@ export default function Subtitle() {
     );
     const { setBoundaryRef } = useBoundary();
     const activeVideoId = usePlaybackSession((s) => s.videoId);
+    const sceneBoundaries = useSceneBoundaries(subtitle);
+    const sceneDividersByIndex = useMemo(() => {
+        const map = new Map<number, SceneBoundary>();
+        for (const boundary of selectSceneDividers(sceneBoundaries)) {
+            map.set(boundary.sentenceIndex, boundary);
+        }
+        return map;
+    }, [sceneBoundaries]);
 
     useEffect(() => {
         if (activeVideoId) {
@@ -651,6 +661,16 @@ export default function Subtitle() {
             virtualGroupMeta.keyGroupSet.has(itemKey);
         const isGroupStart = isSelected && itemKey === virtualGroupMeta.firstKey;
         const isGroupEnd = isSelected && itemKey === virtualGroupMeta.lastKey;
+        const sceneDivider = sceneDividersByIndex.get(item.index);
+        const formatSceneTime = (sec: number): string => {
+            const total = Math.max(0, Math.floor(sec));
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = total % 60;
+            const mm = String(m).padStart(2, '0');
+            const ss = String(s).padStart(2, '0');
+            return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+        };
         return (
             // 拖拽选区容器：鼠标按下/进入/抬起用于区间选择，不承担点击交互
             // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -662,6 +682,41 @@ export default function Subtitle() {
                 data-index={item.index}
                 data-current={isCurrent ? 'true' : 'false'}
             >
+                {sceneDivider && (
+                    <div
+                        data-testid="scene-divider"
+                        className="my-1.5 flex items-center gap-2 px-2"
+                    >
+                        <div className="h-px flex-1 bg-border/50" />
+                        <button
+                            type="button"
+                            title={t('sceneCue.jumpToScene')}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                playerActions.clearVirtualGroup();
+                                if (useChatPanel.getState().learningVisible) {
+                                    exitOverlayView();
+                                }
+                                playerActions.gotoSentence(item);
+                                if (scrollState === 'USER_BROWSING') {
+                                    delaySetNormal();
+                                }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-metadata font-medium text-secondary transition-colors hover:bg-muted/70 hover:text-primary"
+                        >
+                            <Play className="h-3.5 w-3.5 shrink-0" />
+                            <span>
+                                {sceneDivider.kinds.includes('topic-shift')
+                                    ? t('sceneCue.topicShiftLabel')
+                                    : t('sceneCue.newScene')}
+                                {' · '}
+                                {formatSceneTime(item.start)}
+                            </span>
+                        </button>
+                        <div className="h-px flex-1 bg-border/50" />
+                    </div>
+                )}
                 <SideSentence
                     sentence={item}
                     isTimeAdjusted={srtTender?.adjusted(item) ?? false}
@@ -731,6 +786,8 @@ export default function Subtitle() {
         delaySetNormal,
         srtTender,
         recordReplay,
+        sceneDividersByIndex,
+        t,
     ]);
 
     return (

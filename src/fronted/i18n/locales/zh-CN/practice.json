@@ -15,6 +15,7 @@
         "soundOn": "反馈音效已开启（开麦/达标/拼词提示音）",
         "soundOff": "反馈音效已静音",
         "soundToggle": "切换反馈音效",
+        "recordingGain": "我的录音回放增益",
         "enterFocus": "专注精练模式：收起右侧文稿防剧透 (F)",
         "exitFocus": "退出专注模式 (F)",
         "focusToggle": "切换专注模式",

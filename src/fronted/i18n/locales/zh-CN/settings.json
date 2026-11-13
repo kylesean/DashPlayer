@@ -624,6 +624,10 @@
         },
         "ttsVoice": {
             "title": "朗读音色",
+            "volumeLabel": "TTS 朗读音量",
+            "previewAction": "试听",
+            "previewing": "合成中…",
+            "previewFailed": "试听失败：{{msg}}",
             "description": "离线朗读单词与例句时使用的声音（推荐高拟真 Kokoro 音色）。",
             "accentUS": "美音",
             "accentGB": "英音",

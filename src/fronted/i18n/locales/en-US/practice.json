@@ -15,6 +15,7 @@
         "soundOn": "Feedback chimes enabled (mic / pass / word cues)",
         "soundOff": "Tactile feedback chimes muted",
         "soundToggle": "Toggle tactile chimes",
+        "recordingGain": "My recording gain",
         "enterFocus": "Focus drill mode: collapse transcript to prevent spoilers (F)",
         "exitFocus": "Exit focus mode (F)",
         "focusToggle": "Toggle focus mode",

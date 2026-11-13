@@ -624,6 +624,10 @@
         },
         "ttsVoice": {
             "title": "Reading voice",
+            "volumeLabel": "TTS reading volume",
+            "previewAction": "Test voice",
+            "previewing": "Synthesizing…",
+            "previewFailed": "Preview failed: {{msg}}",
             "description": "Voice used for offline playback of words and examples (Kokoro natural voice recommended).",
             "accentUS": "US",
             "accentGB": "UK",

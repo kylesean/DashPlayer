@@ -27,6 +27,7 @@ import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { cn } from '@/fronted/lib/utils';
 import { isInteractiveTarget, isTextEntryTarget } from '@/fronted/lib/keyboard';
+import { createBoostedAudio, useAudioVolume } from '@/fronted/infrastructure/audio/audioVolume';
 import { decodeRecordedAudioSummary, playMicReadyCue, playSentencePassCue } from '../audioFeedback';
 import type { PracticeUnit } from '../practiceUnit';
 import usePracticePanel, { type ShadowingStyle } from '../practiceStore';
@@ -256,6 +257,7 @@ function RecordShadowingView({
 
     const liveBarRefs = useRef<Array<HTMLSpanElement | null>>([]);
     const playbackAudioRef = useRef<HTMLAudioElement | null>(null);
+    const playbackDisposeRef = useRef<(() => void) | null>(null);
     const minePlayRafRef = useRef<number | null>(null);
     const abRunIdRef = useRef(0);
     const clipOwnedRef = useRef(false);
@@ -287,6 +289,8 @@ function RecordShadowingView({
         }
         playbackAudioRef.current?.pause();
         playbackAudioRef.current = null;
+        playbackDisposeRef.current?.();
+        playbackDisposeRef.current = null;
         setMinePlayProgress(null);
         setAbPhase('idle');
     }, []);
@@ -315,6 +319,8 @@ function RecordShadowingView({
             }
             playbackAudioRef.current?.pause();
             playbackAudioRef.current = null;
+            playbackDisposeRef.current?.();
+            playbackDisposeRef.current = null;
             if (localUrlRef.current) {
                 URL.revokeObjectURL(localUrlRef.current);
                 localUrlRef.current = null;
@@ -396,8 +402,10 @@ function RecordShadowingView({
             minePlayRafRef.current = null;
         }
         playbackAudioRef.current?.pause();
-        const audio = new Audio(url);
+        playbackDisposeRef.current?.();
+        const { audio, dispose } = createBoostedAudio(url, useAudioVolume.getState().recordingGain);
         playbackAudioRef.current = audio;
+        playbackDisposeRef.current = dispose;
         setMinePlayProgress(0);
 
         const stopProgress = () => {
@@ -405,6 +413,10 @@ function RecordShadowingView({
                 cancelAnimationFrame(minePlayRafRef.current);
                 minePlayRafRef.current = null;
             }
+            if (playbackDisposeRef.current === dispose) {
+                playbackDisposeRef.current = null;
+            }
+            dispose();
             if (mountedRef.current) {
                 setMinePlayProgress(null);
             }

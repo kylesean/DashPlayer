@@ -108,7 +108,7 @@
         "adaptiveChinese": "自适应中文",
         "adaptiveChineseHint": "理解度高时弱化中文，悬停字幕可临时查看；关闭后中文始终完整显示。",
         "sceneCues": "场景提示",
-        "sceneCuesHint": "在字幕上方轻量提示可能的换场或说话人变化。在字幕上方轻量提示可能的换场或说话人变化。依据字幕时间与文本推测，可选叠加本机声纹、画面与语音韵律；默认关闭。",
+        "sceneCuesHint": "在主字幕上方轻量提示换人说话，并在右侧字幕栏标记高置信度的场景与话题分割线（支持点击跳转）；默认关闭。",
         "translationEngineMissing": "当前未启用字幕翻译引擎，请到 设置 → 服务与资源 中配置。",
         "displayModeLabel": "字幕排版",
         "subtitleFileLabel": "字幕文件",
@@ -150,9 +150,11 @@
     "sceneCue": {
         "newScene": "新场景",
         "topicShift": "新场景 · 话题切换",
-        "speakerShift": "可能换了说话人",
+        "topicShiftLabel": "新话题",
+        "speakerShift": "换人说话",
         "visualShift": "新场景 · 镜头切换",
-        "prosodyShift": "新场景 · 语速或音量变化"
+        "prosodyShift": "新场景 · 语速或音量变化",
+        "jumpToScene": "点击跳转到这一段开头"
     },
     "clearAdjust": {
         "button": "清除时间调整",

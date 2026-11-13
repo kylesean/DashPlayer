@@ -5,6 +5,7 @@ import SceneCue from '../SceneCue';
 import type { Sentence } from '@/common/types/SentenceC';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
+import { resetSceneBoundariesCache } from '@/fronted/features/player/hooks/useSceneBoundaries';
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -55,6 +56,7 @@ const setSceneCues = (value: 'true' | 'false') => {
 
 describe('SceneCue', () => {
     beforeEach(() => {
+        resetSceneBoundariesCache();
         setSceneCues('false');
         mockedBoundaries.mockReset();
         mockedBoundaries.mockResolvedValue([]);
@@ -67,13 +69,13 @@ describe('SceneCue', () => {
         expect(mockedBoundaries).not.toHaveBeenCalled();
     });
 
-    it('开关开启且当前句命中边界时展示提示', async () => {
+    it('开关开启且命中高置信度换人时展示提示', async () => {
         setSceneCues('true');
         mockedBoundaries.mockResolvedValue([{
             sentenceIndex: 2,
             atSec: 4,
             kinds: ['speaker-shift'],
-            confidence: 0.45,
+            confidence: 0.85,
         }]);
         render(<SceneCue sentences={withBoundary} currentSentence={withBoundary[2]} />);
 
@@ -83,22 +85,34 @@ describe('SceneCue', () => {
         expect(mockedBoundaries).toHaveBeenCalledTimes(1);
     });
 
-    it('韵律突变时展示语速或音量变化提示', async () => {
+    it('低置信度纯文本换人猜测与单纯韵律/画面变化不在主字幕上方弹窗', async () => {
         setSceneCues('true');
-        mockedBoundaries.mockResolvedValue([{
-            sentenceIndex: 2,
-            atSec: 4,
-            kinds: ['prosody-shift'],
-            confidence: 0.7,
-        }]);
-        render(<SceneCue sentences={withBoundary} currentSentence={withBoundary[2]} />);
+        mockedBoundaries.mockResolvedValue([
+            {
+                sentenceIndex: 1,
+                atSec: 2,
+                kinds: ['speaker-shift'],
+                confidence: 0.45,
+            },
+            {
+                sentenceIndex: 2,
+                atSec: 4,
+                kinds: ['prosody-shift'],
+                confidence: 0.7,
+            },
+        ]);
+        const { rerender } = render(<SceneCue sentences={withBoundary} currentSentence={withBoundary[1]} />);
 
         await waitFor(() => {
-            expect(screen.getByTestId('scene-cue').textContent).toBe('sceneCue.prosodyShift');
+            expect(mockedBoundaries).toHaveBeenCalledTimes(1);
         });
+        expect(screen.queryByTestId('scene-cue')).toBeNull();
+
+        rerender(<SceneCue sentences={withBoundary} currentSentence={withBoundary[2]} />);
+        expect(screen.queryByTestId('scene-cue')).toBeNull();
     });
 
-    it('声纹优先于画面与韵律，画面优先于韵律', async () => {
+    it('多信号包含高置信度换人时展示换人提示', async () => {
         setSceneCues('true');
         mockedBoundaries.mockResolvedValue([{
             sentenceIndex: 2,
