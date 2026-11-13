@@ -143,6 +143,6 @@ describe('SentenceStudyNoteRepository & LearningPromptPreset', () => {
         // 恢复默认内置预设
         const restored = await service.resetBuiltin({ id: DEFAULT_LEARNING_PROMPT_PRESET_ID });
         expect(restored.name).toBe('物理意象导师');
-        expect(restored.systemPrompt).toContain('物理原型画面');
+        expect(restored.systemPrompt).toContain('画面先行');
     });
 });
