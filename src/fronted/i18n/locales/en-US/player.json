@@ -376,15 +376,15 @@
         "ignored": "Hidden for this sentence",
         "ignoreFailed": "Couldn't dismiss this suggestion",
         "reasons": {
-            "due_now": "Due for review now",
-            "due_soon": "Approaching the forgetting zone",
-            "learning": "Already on your learning list",
-            "needs_reinforcement": "Memory still settling",
-            "previously_looked_up": "You looked it up before",
-            "saved_before": "You saved it before",
-            "exam_core": "High-value exam core word",
-            "stretch_word": "A useful stretch word",
-            "useful_new_word": "Useful word in this sentence"
+            "due_now": "Due now",
+            "due_soon": "Fading soon",
+            "learning": "Learning",
+            "needs_reinforcement": "Needs review",
+            "previously_looked_up": "Looked up",
+            "saved_before": "Saved",
+            "exam_core": "Exam core",
+            "stretch_word": "Stretch word",
+            "useful_new_word": "Useful here"
         }
     },
     "layout": {

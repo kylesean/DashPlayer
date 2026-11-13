@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ChevronRight, Info, Loader2, RotateCcw } from 'lucide-react';
+import { ChevronRight, GraduationCap, Info, Loader2, MessageSquareText, RotateCcw } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import useSWR from 'swr';
 
 import type { WordContextInsightResponse } from '@/common/types/wordInsight';
+import useChatPanel from '@/fronted/features/chat/chatStore';
 import { playerApi } from '@/fronted/features/player/playerApi';
 import useSetting from '@/fronted/features/settings/settingsStore';
 import { cn } from '@/fronted/lib/utils';
@@ -110,11 +112,12 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
                 title={t('aiContextInsightHint')}
                 onClick={() => setRequested(true)}
                 className={cn(
-                    'group flex w-full items-center gap-1.5 rounded-lg px-1 py-1 text-left text-metadata text-secondary transition-colors hover:text-primary',
+                    'group flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-metadata text-secondary/85 transition-colors hover:bg-muted/50 hover:text-primary cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
                     className,
                 )}
             >
-                <span className="font-medium">{t('aiContextInsight')}</span>
+                <MessageSquareText size={12} className="shrink-0 text-secondary/70" />
+                <span>{t('aiContextInsight')}</span>
                 <ChevronRight
                     size={12}
                     className="ml-auto shrink-0 text-secondary/50 transition-transform group-hover:translate-x-0.5"
@@ -199,6 +202,25 @@ const WordContextInsight: React.FC<WordContextInsightProps> = ({
             )}
             <div className="line-clamp-2 border-l-2 border-border/60 pl-2 text-metadata italic leading-relaxed text-secondary/80 select-text">
                 “{highlightWordInSentence(sentenceText, word)}”
+            </div>
+            <div className="pt-1 border-t border-border/40">
+                <button
+                    type="button"
+                    data-testid="word-context-insight-sentence-study"
+                    onClick={() => {
+                        void useChatPanel.getState().createFromCurrent().catch((err) => {
+                            toast.error(err instanceof Error ? err.message : String(err));
+                        });
+                    }}
+                    className="group inline-flex items-center gap-1.5 text-metadata font-medium text-secondary hover:text-primary transition-colors cursor-pointer"
+                >
+                    <GraduationCap size={13} className="shrink-0" />
+                    <span>{t('aiContextInsightOpenSentenceStudy')}</span>
+                    <ChevronRight
+                        size={12}
+                        className="shrink-0 text-secondary/50 transition-transform group-hover:translate-x-0.5"
+                    />
+                </button>
             </div>
         </div>
     );

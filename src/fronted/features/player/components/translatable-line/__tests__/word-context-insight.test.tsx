@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import WordContextInsight from '@/fronted/features/player/components/translatable-line/word-context-insight';
 import { playerApi } from '@/fronted/features/player/playerApi';
+import useChatPanel from '@/fronted/features/chat/chatStore';
 import useSetting from '@/fronted/features/settings/settingsStore';
 
 vi.mock('react-i18next', () => ({
@@ -134,5 +135,33 @@ describe('WordContextInsight', () => {
 
         expect(await screen.findByTestId('word-context-insight-error')).toBeDefined();
         expect(screen.getByText('aiContextInsightRetry')).toBeDefined();
+    });
+
+    it('语境释义卡片内提供整句学习入口，点击后进入整句学习', async () => {
+        const createFromCurrent = vi.fn().mockResolvedValue(undefined);
+        useChatPanel.setState({ createFromCurrent });
+        vi.mocked(playerApi.wordContextInsight).mockResolvedValue({
+            status: 'ok',
+            insight: {
+                meaning: '吸引人的地方',
+                nuance: '特质或事物',
+                source: 'local',
+                cached: false,
+            },
+        });
+
+        render(
+            <WordContextInsight
+                word="attraction"
+                sentence="That was the attraction of Google."
+                definitions={['n. 吸引']}
+            />,
+        );
+
+        fireEvent.click(screen.getByTestId('word-context-insight-trigger'));
+        const studyBtn = await screen.findByTestId('word-context-insight-sentence-study');
+        fireEvent.click(studyBtn);
+
+        expect(createFromCurrent).toHaveBeenCalledTimes(1);
     });
 });

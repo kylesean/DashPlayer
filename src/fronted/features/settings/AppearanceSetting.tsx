@@ -351,6 +351,11 @@ const AppearanceSetting: React.FC = () => {
                                     shouldDirty: true,
                                     shouldTouch: true,
                                 });
+                                queueMicrotask(() => {
+                                    flush().catch((error) => {
+                                        logger.error('flush transcriptPosition failed', { error });
+                                    });
+                                });
                             }}
                         >
                             <Grid columns={{ minWidth: 120, max: 2 }} gap={2} width={320}>

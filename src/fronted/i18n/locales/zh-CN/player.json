@@ -376,15 +376,15 @@
         "ignored": "本句不再提示",
         "ignoreFailed": "忽略建议失败",
         "reasons": {
-            "due_now": "现在到期，复习正合适",
-            "due_soon": "快要进入遗忘区",
-            "learning": "正在你的学习清单里",
-            "needs_reinforcement": "记忆还不够稳",
-            "previously_looked_up": "你之前查过它",
-            "saved_before": "你以前收藏过它",
-            "exam_core": "考纲里的高频核心词",
-            "stretch_word": "略有挑战，适合往上走一步",
-            "useful_new_word": "本句里的实用新词"
+            "due_now": "待复习",
+            "due_soon": "快遗忘",
+            "learning": "学习中",
+            "needs_reinforcement": "需巩固",
+            "previously_looked_up": "曾查过",
+            "saved_before": "已收藏",
+            "exam_core": "考纲核心",
+            "stretch_word": "进阶词",
+            "useful_new_word": "实用新词"
         }
     },
     "layout": {

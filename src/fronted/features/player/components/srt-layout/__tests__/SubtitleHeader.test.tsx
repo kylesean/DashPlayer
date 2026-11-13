@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Subtitle from '../components/Subtitle';
 import useLayout from '@/fronted/app/stores/layoutStore';
+import useSetting from '@/fronted/features/settings/settingsStore';
 
 vi.mock('react-virtuoso', () => ({
     Virtuoso: () => <div data-testid="mock-virtuoso" />,
@@ -16,6 +17,10 @@ describe('Subtitle Header - Clean Architecture & Refactored Toolbar', () => {
         useLayout.setState({
             showTranscript: true,
             transcriptViewMode: 'sentence',
+        });
+        useSetting.setState({
+            init: true,
+            values: new Map([['appearance.transcriptPosition', 'right']]),
         });
     });
 
@@ -42,16 +47,35 @@ describe('Subtitle Header - Clean Architecture & Refactored Toolbar', () => {
         expect(useLayout.getState().transcriptViewMode).toBe('sentence');
     });
 
-    it('removes ambiguous docking toggle icon and static book icon', () => {
+    it('renders docking toggle beside collapse control and toggles transcript side', () => {
+        const setSettingSpy = vi.fn().mockResolvedValue(undefined);
+        useSetting.setState({ setSetting: setSettingSpy });
+
         render(<Subtitle />);
 
-        // 不应存在左右停靠切换按钮
-        expect(screen.queryByLabelText(/将文稿切换至|dock to/i)).toBeNull();
-
-        // 保留核心操作：筛选、译文、搜索、收起文稿
+        // 保留核心操作：筛选、译文、搜索、停靠切换、收起文稿
         expect(screen.getByRole('button', { name: /筛选|filter/i })).toBeDefined();
         expect(screen.getByRole('button', { name: /搜索文稿|search transcript/i })).toBeDefined();
+        const dockBtn = screen.getByRole('button', { name: /将文稿切换至左侧|dock transcript to left/i });
+        expect(dockBtn).toBeDefined();
         expect(screen.getByRole('button', { name: /收起字幕文稿|hide transcript/i })).toBeDefined();
+
+        fireEvent.click(dockBtn);
+        expect(setSettingSpy).toHaveBeenCalledWith('appearance.transcriptPosition', 'left');
+    });
+
+    it('shows dock-to-right action when transcript is docked on the left', () => {
+        const setSettingSpy = vi.fn().mockResolvedValue(undefined);
+        useSetting.setState({
+            values: new Map([['appearance.transcriptPosition', 'left']]),
+            setSetting: setSettingSpy,
+        });
+
+        render(<Subtitle />);
+
+        const dockBtn = screen.getByRole('button', { name: /将文稿切换至右侧|dock transcript to right/i });
+        fireEvent.click(dockBtn);
+        expect(setSettingSpy).toHaveBeenCalledWith('appearance.transcriptPosition', 'right');
     });
 
     it('collapses transcript panel when close button is clicked', () => {

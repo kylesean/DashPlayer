@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import { useSWRConfig } from 'swr';
 import { useShallow } from 'zustand/react/shallow';
 import { twJoin } from 'tailwind-merge';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
@@ -12,7 +13,7 @@ import {
     DropdownMenuRadioItem,
 } from '@astryxdesign/core/DropdownMenu';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
-import { ArrowUpToLine, ChevronDown, ChevronUp, Filter, Languages, PanelLeftClose, PanelRightClose, Repeat, Search, X } from 'lucide-react';
+import { ArrowUpToLine, ChevronDown, ChevronUp, Filter, Languages, PanelLeft, PanelLeftClose, PanelRight, PanelRightClose, Repeat, Search, X } from 'lucide-react';
 import SideSentence from '../SideSentence';
 import ArticleBlock from './ArticleBlock';
 import { groupSentencesIntoBlocks, type SentenceBlock } from '@/fronted/features/player/lib/sentence-grouping';
@@ -58,7 +59,8 @@ export default function Subtitle() {
     const setTranscriptVisible = useLayout((state) => state.setTranscriptVisible);
     const transcriptViewMode = useLayout((state) => state.transcriptViewMode);
     const setTranscriptViewMode = useLayout((state) => state.setTranscriptViewMode);
-    const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
+    const { mutate: mutateSwr } = useSWRConfig();
+    const transcriptPosition = (useSetting((state) => state.values.get('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
     const fontSize = useSetting((state) => state.values.get('appearance.fontSize'));
     const showSideTranslation = usePlayerUi((state) => state.showSideTranslation);
     const changeShowSideTranslation = usePlayerUi((state) => state.changeShowSideTranslation);
@@ -774,6 +776,23 @@ export default function Subtitle() {
                     )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                    {/* 搜索开关 */}
+                    <Tooltip content={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })} placement="below">
+                        <button
+                            type="button"
+                            onClick={toggleSearch}
+                            className={cn(
+                                'p-1 rounded-md transition-colors cursor-pointer',
+                                isSearchOpen
+                                    ? 'text-accent bg-accent-muted/20'
+                                    : 'text-secondary hover:text-primary hover:bg-muted/80',
+                            )}
+                            aria-label={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })}
+                        >
+                            <Search className="w-3.5 h-3.5" />
+                        </button>
+                    </Tooltip>
+
                     {/*
                       词汇筛选：只在文稿提供。主字幕是观看层，多一个筛选器就多一层噪音；
                       文稿是阅读层，用户需要「只看我还在学的词出现在哪些句子」。
@@ -847,25 +866,32 @@ export default function Subtitle() {
                         </button>
                     </Tooltip>
 
-                    {/* 搜索开关 */}
-                    <Tooltip content={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })} placement="below">
-                        <button
-                            type="button"
-                            onClick={toggleSearch}
-                            className={cn(
-                                'p-1 rounded-md transition-colors cursor-pointer',
-                                isSearchOpen
-                                    ? 'text-accent bg-accent-muted/20'
-                                    : 'text-secondary hover:text-primary hover:bg-muted/80',
-                            )}
-                            aria-label={t('searchTranscript', { defaultValue: '搜索文稿 (Cmd/Ctrl+F)' })}
-                        >
-                            <Search className="w-3.5 h-3.5" />
-                        </button>
-                    </Tooltip>
-
                     {/* 语义分割线：区隔内容操作与窗口容器操作 */}
                     <div className="h-3.5 w-px bg-border/40 mx-0.5 shrink-0" aria-hidden="true" />
+
+                    {/* 切换文稿停靠方位（左 / 右） */}
+                    <Tooltip
+                        content={transcriptPosition === 'right' ? t('dockToLeft') : t('dockToRight')}
+                        placement="below"
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const next = transcriptPosition === 'right' ? 'left' : 'right';
+                                void useSetting.getState().setSetting('appearance.transcriptPosition', next).then(() => {
+                                    void mutateSwr('settings/appearance/detail');
+                                });
+                            }}
+                            className="p-1 rounded-md text-secondary hover:text-primary hover:bg-muted/80 transition-colors cursor-pointer"
+                            aria-label={transcriptPosition === 'right' ? t('dockToLeft') : t('dockToRight')}
+                        >
+                            {transcriptPosition === 'right' ? (
+                                <PanelLeft className="w-3.5 h-3.5" />
+                            ) : (
+                                <PanelRight className="w-3.5 h-3.5" />
+                            )}
+                        </button>
+                    </Tooltip>
 
                     {/* 收起字幕文稿 */}
                     <Tooltip content={t('controlButton.closeTranscript', { defaultValue: '收起字幕文稿' })} placement="below">

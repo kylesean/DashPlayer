@@ -4,6 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import OpenAIWordPop from '@/fronted/features/player/components/translatable-line/openai-word-pop';
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import type { WordMemoryVO } from '@/common/types/wordMemory';
+import useSetting from '@/fronted/features/settings/settingsStore';
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -134,6 +135,18 @@ describe('OpenAIWordPop 释义来源', () => {
             meaning.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING,
         ).toBeTruthy();
     });
+
+    it('AI 语境解析独立展示在释义之后，不藏在学习记录里', () => {
+        render(<OpenAIWordPop data={{ ...data, source: 'builtin' }} contextSentence="Enjoy the journey." />);
+
+        expect(screen.getByTestId('mock-insight')).toBeDefined();
+        expect(screen.queryByTestId('word-details-toggle')).toBeNull();
+        const meaning = screen.getByText('旅程');
+        const source = screen.getByTestId('word-source');
+        expect(
+            meaning.compareDocumentPosition(source) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+    });
 });
 
 describe('OpenAIWordPop 操作区', () => {
@@ -142,6 +155,7 @@ describe('OpenAIWordPop 操作区', () => {
      * 不能先展开菜单再选。四个按钮平铺，靠 title/aria-label 说明后果。
      */
     it('四个动作平铺直达，不需要先展开菜单', () => {
+        useSetting.setState({ values: new Map([['providers.dictionary', 'openai']]) });
         const onMarkKnown = vi.fn();
         render(
             <OpenAIWordPop
@@ -156,9 +170,21 @@ describe('OpenAIWordPop 操作区', () => {
         expect(screen.queryByTestId('word-actions-toggle')).toBeNull();
         expect(screen.getByRole('button', { name: 'favoriteWord' })).toBeDefined();
         expect(screen.getByRole('button', { name: 'markWordIgnored' })).toBeDefined();
-        expect(screen.getByRole('button', { name: 'forceRefresh' })).toBeDefined();
+        expect(screen.getByRole('button', { name: 'aiDictionary' })).toBeDefined();
 
         fireEvent.click(screen.getByRole('button', { name: 'markWordKnown' }));
         expect(onMarkKnown).toHaveBeenCalledTimes(1);
+    });
+
+    it('未启用 AI 词典时不显示 AI 词典切换按钮；已是 AI 释义时显示重新生成按钮', () => {
+        useSetting.setState({ values: new Map([['providers.dictionary', 'none']]) });
+        const { rerender } = render(
+            <OpenAIWordPop data={{ ...data, source: 'builtin' }} onRefresh={vi.fn()} />,
+        );
+        expect(screen.queryByRole('button', { name: 'aiDictionary' })).toBeNull();
+
+        useSetting.setState({ values: new Map([['providers.dictionary', 'openai']]) });
+        rerender(<OpenAIWordPop data={{ ...data, source: 'ai' }} onRefresh={vi.fn()} />);
+        expect(screen.getByRole('button', { name: 'regenerateAiDictionary' })).toBeDefined();
     });
 });

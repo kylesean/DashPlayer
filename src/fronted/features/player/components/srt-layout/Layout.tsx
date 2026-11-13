@@ -77,7 +77,7 @@ const PlaybackLayout = () => {
     const innerGroupRef = useRef<ImperativePanelGroupHandle>(null);
     const prePracticeSplitRef = useRef<[number, number] | null>(null);
     const prevPracticeVisibleRef = useRef(practiceVisible);
-    const transcriptPosition = (useSetting((s) => s.setting('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
+    const transcriptPosition = (useSetting((s) => s.values.get('appearance.transcriptPosition')) || 'right') as 'left' | 'right';
     const fontSize = useSetting((s) => s.values.get('appearance.fontSize'));
     const isLeftTranscript = transcriptPosition === 'left';
     const navigate = useNavigate();

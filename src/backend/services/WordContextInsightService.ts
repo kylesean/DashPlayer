@@ -17,7 +17,7 @@ import type {
 } from '@/common/types/wordInsight';
 
 /** 提示词或输出契约变化时递增，使旧缓存自然失效。 */
-const PROMPT_VERSION = 'word-context-insight-v1';
+const PROMPT_VERSION = 'word-context-insight-v2';
 const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const CLOUD_TIMEOUT_MS = 20_000;
 const LOCAL_TIMEOUT_MS = 60_000;
@@ -365,7 +365,7 @@ export const buildWordContextInsightPrompt = (
         `Sentence: "${sentence}"`,
         '',
         ...definitionBlock,
-        'Explain what the word means IN THIS SENTENCE. Ground every statement in the sentence and the dictionary card; never invent a new sense.',
+        'Explain what the word means IN THIS SENTENCE. Prefer aligning with the dictionary card when applicable, and only add a contextual sense for idioms, slang, or figurative usage when needed.',
         '',
         'Rules:',
         '1. meaning: the exact Chinese meaning in this sentence, at most 30 Chinese characters. No English, no quotes, no word repetition.',
