@@ -11,7 +11,7 @@ import type {
     SearchSubtitlesResult,
 } from '@/common/types/chat';
 
-const toMessageBlocks = (message: UIMessage): LearningMessageBlock[] => {
+export const toMessageBlocks = (message: UIMessage, streamActive: boolean): LearningMessageBlock[] => {
     const blocks: LearningMessageBlock[] = [];
     message.parts.forEach((part) => {
         if (part.type === 'text') {
@@ -28,7 +28,10 @@ const toMessageBlocks = (message: UIMessage): LearningMessageBlock[] => {
             return;
         }
 
-        const running = part.state === 'input-streaming' || part.state === 'input-available';
+        // running 必须钳制在流活跃窗口内：流被中断（error/abort/stop）后，AI SDK 不会
+        // 把停在 input-streaming/input-available 的 tool part 回写为终态，若只看 part
+        // 状态，卡片会永久转圈。流结束后一律按"已完成"呈现。
+        const running = streamActive && (part.state === 'input-streaming' || part.state === 'input-available');
         const toolName = getToolName(part);
         if (toolName === 'search_subtitles') {
             const input = part.input as { queries?: string[] } | undefined;
@@ -57,10 +60,10 @@ const toMessageBlocks = (message: UIMessage): LearningMessageBlock[] => {
     return blocks;
 };
 
-const toMessageView = (message: UIMessage): LearningMessageView => ({
+const toMessageView = (message: UIMessage, streamActive: boolean): LearningMessageView => ({
     id: message.id,
     role: message.role === 'user' ? 'user' : 'assistant',
-    blocks: toMessageBlocks(message),
+    blocks: toMessageBlocks(message, streamActive),
 });
 
 const persistedToUiMessages = (persisted: PersistedChatMessage[]): UIMessage[] => {
@@ -189,7 +192,10 @@ export const useSentenceLearningChat = () => {
         sendMessage({ text: content }).catch(() => undefined);
     }, [chatSessionId, consumeQueuedMessage, queuedMessage, sendMessage, status]);
 
-    const messageViews = useMemo(() => messages.map(toMessageView), [messages]);
+    const messageViews = useMemo(
+        () => messages.map((message) => toMessageView(message, isBusy)),
+        [messages, isBusy],
+    );
 
     const handleSubmit = async (text: string) => {
         const trimmedInput = text.trim();
