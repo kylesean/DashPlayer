@@ -2,15 +2,22 @@ import { useRef, useState } from 'react';
 import useSWR from 'swr';
 import { toast } from 'react-hot-toast';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
-import { Button } from '@astryxdesign/core/Button';
+import { Download, Globe, RefreshCw, Square, Trash2 } from 'lucide-react';
 import { AlertDialog } from '@astryxdesign/core/AlertDialog';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
 import { HStack } from '@astryxdesign/core/HStack';
+import { Icon, type IconType } from '@astryxdesign/core/Icon';
+import { IconButton } from '@astryxdesign/core/IconButton';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { Text } from '@astryxdesign/core/Text';
+import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
 import type { DpTask } from '@/common/contracts/dp-task';
 import type { EnglishDictionaryStatusVO } from '@/common/contracts/english-dictionary';
 import useDpTaskCenter from '@/fronted/app/stores/dpTaskStore';
 import { englishDictionaryApi } from '@/fronted/features/settings/englishDictionaryApi';
+import { SettingField } from '@/fronted/features/settings/components/form/SettingSection';
 
 /** SWR 缓存键。 */
 const STATUS_KEY = 'dictionary-enhancement/status';
@@ -18,14 +25,19 @@ const STATUS_KEY = 'dictionary-enhancement/status';
 /**
  * 英英释义增强包的安装/删除卡片。
  *
- * 数据源为 Princeton WordNet 3.1，仅在用户主动下载后构建；进度经全局
- * 后台任务中心推送。
+ * 与语音资源包卡片保持一致的交互规范：单行一键下载并配置、进度条展示、
+ * 就绪状态徽标 + 垃圾桶删除，以及失败时引导重试或配置网络代理。
  */
-export default function DictionaryEnhancementCard() {
+export default function DictionaryEnhancementCard({
+    onOpenProxySettings,
+}: {
+    onOpenProxySettings?: () => void;
+}) {
     const { t } = useI18nTranslation('settings');
     const { data: status, mutate } = useSWR<EnglishDictionaryStatusVO>(STATUS_KEY, englishDictionaryApi.status);
     const [taskId, setTaskId] = useState<number | null>(null);
     const [progress, setProgress] = useState<string | null>(null);
+    const [localError, setLocalError] = useState<string | null>(null);
     /** 删除增强包的确认弹窗是否打开。 */
     const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
     const [removing, setRemoving] = useState(false);
@@ -37,6 +49,7 @@ export default function DictionaryEnhancementCard() {
         if (actionInFlightRef.current) return;
         actionInFlightRef.current = true;
         setInstalling(true);
+        setLocalError(null);
         try {
             const id = await useDpTaskCenter.getState().register(
                 () => englishDictionaryApi.install(),
@@ -51,9 +64,9 @@ export default function DictionaryEnhancementCard() {
             );
             setTaskId(id);
         } catch (error) {
-            toast.error(t('resources.dictionaryEnhancement.installFailed', {
-                message: error instanceof Error ? error.message : String(error),
-            }));
+            const message = error instanceof Error ? error.message : String(error);
+            setLocalError(message);
+            toast.error(t('resources.dictionaryEnhancement.installFailed', { message }));
         } finally {
             actionInFlightRef.current = false;
             setInstalling(false);
@@ -90,50 +103,91 @@ export default function DictionaryEnhancementCard() {
     };
 
     const downloading = taskId !== null || Boolean(status?.downloading);
+    const displayError = !downloading ? (localError || status?.error || null) : null;
 
     return (
-        <VStack gap={2} width="100%">
-            <HStack gap={4} align="center" width="100%" justify="between">
-                <VStack gap={0.5}>
-                    <Text type="body" weight="medium">{t('resources.dictionaryEnhancement.title')}</Text>
-                    <Text type="supporting" color="secondary">
-                        {downloading
-                            ? (progress ?? t('resources.dictionaryEnhancement.downloading'))
-                            : status?.installed
-                                ? t('resources.dictionaryEnhancement.installed')
-                                : t('resources.dictionaryEnhancement.description')}
-                    </Text>
-                </VStack>
+        <VStack gap={3} width="100%">
+            <SettingField
+                title={t('resources.dictionaryEnhancement.title')}
+                description={status?.installed
+                    ? t('resources.dictionaryEnhancement.installed')
+                    : t('resources.dictionaryEnhancement.description')}
+            >
                 {downloading ? (
                     <Button
                         variant="secondary"
                         size="sm"
-                        label={t('resources.dictionaryEnhancement.cancel')}
+                        label={t('resources.pack.cancel')}
+                        icon={<Icon icon={Square as unknown as IconType} size="sm" />}
                         onClick={() => void cancel()}
                     />
                 ) : status?.installed ? (
+                    <>
+                        <Token label={t('resources.pack.itemReady')} size="sm" color="green" />
+                        <IconButton
+                            label={t('resources.pack.itemDelete')}
+                            tooltip={t('resources.pack.itemDelete')}
+                            size="sm"
+                            variant="ghost"
+                            isDisabled={removing}
+                            icon={<Icon icon={Trash2 as unknown as IconType} size="sm" />}
+                            onClick={() => setRemoveConfirmOpen(true)}
+                        />
+                    </>
+                ) : (
                     <Button
                         variant="secondary"
                         size="sm"
-                        label={t('resources.dictionaryEnhancement.remove')}
-                        onClick={() => setRemoveConfirmOpen(true)}
-                    />
-                ) : (
-                    <Button
-                        variant="primary"
-                        size="sm"
                         isLoading={installing}
                         isDisabled={removing}
-                        label={t('resources.dictionaryEnhancement.install')}
+                        label={t('resources.pack.itemDownload')}
+                        icon={<Icon icon={Download as unknown as IconType} size="sm" />}
                         onClick={() => void install()}
                     />
                 )}
-            </HStack>
-            {status?.error && !downloading && (
-                <Text type="supporting" color="secondary">
-                    {t('resources.dictionaryEnhancement.installFailed', { message: status.error })}
-                </Text>
+            </SettingField>
+
+            {downloading && (
+                <VStack gap={1.5} width="100%">
+                    <ProgressBar
+                        label={t('resources.dictionaryEnhancement.title')}
+                        isIndeterminate
+                        isLabelHidden
+                    />
+                    <Text type="supporting" color="secondary">
+                        {progress ?? t('resources.dictionaryEnhancement.downloading')}
+                    </Text>
+                </VStack>
             )}
+
+            {displayError && (
+                <VStack gap={2} width="100%">
+                    <Banner
+                        status="error"
+                        title={t('resources.dictionaryEnhancement.installFailed', { message: displayError })}
+                        description={t('resources.pack.proxyHint')}
+                    />
+                    <HStack gap={2} wrap="wrap">
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            label={t('resources.pack.retry')}
+                            icon={<Icon icon={RefreshCw as unknown as IconType} size="sm" />}
+                            onClick={() => void install()}
+                        />
+                        {onOpenProxySettings && (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                label={t('resources.pack.openProxySettings')}
+                                icon={<Icon icon={Globe as unknown as IconType} size="sm" />}
+                                onClick={onOpenProxySettings}
+                            />
+                        )}
+                    </HStack>
+                </VStack>
+            )}
+
             <AlertDialog
                 isOpen={removeConfirmOpen}
                 onOpenChange={setRemoveConfirmOpen}

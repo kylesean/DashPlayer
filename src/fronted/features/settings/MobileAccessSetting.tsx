@@ -295,10 +295,10 @@ const MobileAccessSetting: React.FC = () => {
                     )}
 
                     <VStack gap={1}>
-                        <Text size="2xs" color="secondary">
+                        <Text type="supporting" color="secondary">
                             • {t('mobile.remoteHint')}
                         </Text>
-                        <Text size="2xs" color="secondary">
+                        <Text type="supporting" color="secondary">
                             • {t('mobile.securityHint')}
                         </Text>
                     </VStack>

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import {
     Download,
     FolderOpen,
+    Globe,
+    RefreshCw,
     Square,
     Trash2,
 } from 'lucide-react';
@@ -24,11 +26,6 @@ import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
 
 import {
-    ManualDownloadGuide,
-    ManualDownloadPathRow,
-    ManualDownloadSourceRow,
-} from '@/fronted/components/shared/ManualDownloadGuide';
-import {
     cancelPackDownload,
     startPackDownload,
     updatePackCallbacks,
@@ -37,6 +34,7 @@ import {
 import { SETTING_ROW_TESTIDS } from '@/common/constants/qa-testids';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { SettingField } from '@/fronted/features/settings/components/form/SettingSection';
+import TtsVoiceCard from '@/fronted/features/settings/components/TtsVoiceCard';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 import type { TranscriptionEngine } from '@/common/contracts/transcription-engine';
 import type { ModelInstallationStatusVO } from '@/common/types/vo/model-installation-vo';
@@ -46,6 +44,7 @@ type PackItemKey = 'tts' | 'transcription' | 'diarization' | 'phonemeGop';
 
 /** 持久化下载队列的包标识：切走设置标签页或离开设置页后再回来仍可续接进度展示。 */
 const SETTINGS_RESOURCE_PACK_ID = 'settings-resource-pack';
+const SETTINGS_EXTENSIONS_PACK_ID = 'settings-extensions-pack';
 
 /** 收尾阶段的文案键；下载中的文案统一用 `resources.pack.downloading`。 */
 const PHASE_LABEL_KEYS: Partial<Record<ModelDownloadPhase, string>> = {
@@ -62,17 +61,20 @@ const formatSpeed = (bytesPerSecond: number): string => {
         : `${Math.max(1, Math.round(bytesPerSecond / 1024))} KB/s`;
 };
 
+/** 把后端返回 `{ success, message }` 的下载结果统一转换为异常，避免失败时误报成功。 */
+function assertDownloadSucceeded(result: { success?: boolean; message?: string } | void): void {
+    if (result && result.success === false) {
+        throw new Error(result.message || 'Download failed');
+    }
+}
+
 /** 资源包内单项资源的展示信息与动作。 */
 interface PackItem {
     key: PackItemKey;
     title: string;
     description: string;
     ready: boolean;
-    /** 手动下载教程里展示的模型文件名。 */
-    modelLabel: string;
-    /** 有序候选下载地址（首个为主源，其余为备用镜像）。 */
-    urls: readonly string[];
-    /** 手动下载后应保存到的路径。 */
+    /** 本地安装目录/文件路径。 */
     targetPath: string;
     download: () => Promise<void>;
     cancel: () => Promise<void>;
@@ -100,11 +102,18 @@ export interface ResourcePackCardProps {
         ready: boolean;
         segmentationUrls: string[];
         embeddingUrls: string[];
+        targetPath?: string;
     } | null;
+    /** 展示范围：`core`（核心发音与听写）、`extensions`（说话人分离与音素评分）、`all`（全部）。 */
+    mode?: 'core' | 'extensions' | 'all';
+    /** 是否把朗读音色选择器与试听面板内嵌到发音项下方。 */
+    includeTtsVoice?: boolean;
     /** 下载/删除结束后刷新外层聚合状态。 */
     onRefresh: () => void;
     /** 切换字幕识别方式。 */
     onChangeEngine: (engine: TranscriptionEngine) => void;
+    /** 打开网络代理设置页面（下载失败时引导用户配置代理）。 */
+    onOpenProxySettings?: () => void;
 }
 
 export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
@@ -112,56 +121,47 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
     ttsStatus,
     transcriptionStatus,
     diarizationStatus,
+    mode = 'all',
+    includeTtsVoice = false,
     onRefresh,
     onChangeEngine,
+    onOpenProxySettings,
 }) => {
     const { t } = useTranslation('settings');
+    const packId = mode === 'extensions' ? SETTINGS_EXTENSIONS_PACK_ID : SETTINGS_RESOURCE_PACK_ID;
     const { data: phonemeGopStatus, mutate: mutatePhonemeGop } = useSWR(
-        'phoneme-gop/models/status',
+        mode === 'core' ? null : 'phoneme-gop/models/status',
         () => settingsApi.getPhonemeGopModelStatus(),
         { revalidateOnFocus: false },
     );
 
     const [deleting, setDeleting] = React.useState(false);
+    const [deletingItemKey, setDeletingItemKey] = React.useState<PackItemKey | null>(null);
     const [deleteAlertOpen, setDeleteAlertOpen] = React.useState(false);
     const deletingRef = React.useRef(false);
     const {
         downloading,
+        activeItemKey,
         activePhase,
         packProgress,
         live,
         error,
-    } = usePackDownloadState(SETTINGS_RESOURCE_PACK_ID);
+    } = usePackDownloadState(packId);
 
     const notifyComplete = React.useCallback(() => {
-        toast.success(t('resources.pack.downloaded'));
-    }, [t]);
+        toast.success(
+            mode === 'extensions'
+                ? t('resources.pack.extensionsDownloaded')
+                : t('resources.pack.downloaded'),
+        );
+    }, [mode, t]);
 
     React.useEffect(() => {
-        updatePackCallbacks(SETTINGS_RESOURCE_PACK_ID, {
+        updatePackCallbacks(packId, {
             onRefresh,
             onComplete: notifyComplete,
         });
-    }, [onRefresh, notifyComplete]);
-
-    /** 复制文本到剪贴板。 */
-    const copyText = async (value: string) => {
-        try {
-            await navigator.clipboard.writeText(value);
-            toast.success(t('common.copied'));
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : String(err));
-        }
-    };
-
-    /** 在系统浏览器中打开下载地址。 */
-    const openUrl = async (url: string) => {
-        try {
-            await settingsApi.openUrl(url);
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : String(err));
-        }
-    };
+    }, [packId, onRefresh, notifyComplete]);
 
     /** 打开模型文件所在文件夹。 */
     const openFolder = async (path: string) => {
@@ -172,17 +172,15 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
         }
     };
 
-    /** 资源包内的各项资源；顺序即下载顺序。 */
-    const items: PackItem[] = [
+    /** 资源包内的各项资源；按 mode 过滤，顺序即下载顺序。 */
+    const allItems: PackItem[] = [
         {
             key: 'tts',
             title: t('resources.pack.itemTts'),
             description: t('resources.pack.itemTtsDesc'),
             ready: ttsStatus?.ready ?? false,
-            modelLabel: t('serviceCredentials.localTts.modelFile'),
-            urls: ttsStatus?.downloadUrls ?? [],
             targetPath: ttsStatus?.archivePath ?? '',
-            download: async () => { await settingsApi.downloadSherpaTtsModel(); },
+            download: async () => { assertDownloadSucceeded(await settingsApi.downloadSherpaTtsModel()); },
             cancel: async () => { await settingsApi.cancelSherpaTtsModelDownload(); },
             remove: async () => { await settingsApi.deleteSherpaTtsModel(); },
         },
@@ -191,16 +189,12 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             title: t('resources.pack.itemTranscription'),
             description: t('resources.pack.itemTranscriptionDesc'),
             ready: transcriptionStatus?.ready ?? false,
-            modelLabel: transcriptionEngine === 'whisper-cpp'
-                ? t('serviceCredentials.transcription.whisperCppModelFile')
-                : t('serviceCredentials.transcription.sherpaOnnxModelFile'),
-            urls: transcriptionStatus?.downloadUrls ?? [],
             targetPath: transcriptionStatus?.archivePath ?? '',
             download: async () => {
                 if (transcriptionEngine === 'whisper-cpp') {
-                    await settingsApi.downloadWhisperCppModel();
+                    assertDownloadSucceeded(await settingsApi.downloadWhisperCppModel());
                 } else {
-                    await settingsApi.downloadParakeetModel();
+                    assertDownloadSucceeded(await settingsApi.downloadParakeetModel());
                 }
             },
             cancel: async () => {
@@ -223,13 +217,8 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             title: t('resources.pack.itemDiarization'),
             description: t('resources.pack.itemDiarizationDesc'),
             ready: diarizationStatus?.ready ?? false,
-            modelLabel: t('resources.pack.itemDiarizationModelFile'),
-            urls: [
-                ...(diarizationStatus?.segmentationUrls ?? []),
-                ...(diarizationStatus?.embeddingUrls ?? []),
-            ],
-            targetPath: '',
-            download: async () => { await settingsApi.downloadSpeakerDiarizationModel(); },
+            targetPath: diarizationStatus?.targetPath ?? '',
+            download: async () => { assertDownloadSucceeded(await settingsApi.downloadSpeakerDiarizationModel()); },
             cancel: async () => { await settingsApi.cancelSpeakerDiarizationModelDownload(); },
             remove: async () => { await settingsApi.deleteSpeakerDiarizationModel(); },
         },
@@ -238,15 +227,11 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             title: t('resources.pack.itemPhonemeGop'),
             description: t('resources.pack.itemPhonemeGopDesc'),
             ready: phonemeGopStatus?.ready ?? false,
-            modelLabel: t('resources.pack.itemPhonemeGopModelFile'),
-            urls: [
-                'https://hf-mirror.com/onnx-community/wav2vec2-lv-60-espeak-cv-ft-ONNX/resolve/main/onnx/model_q4.onnx',
-                'https://huggingface.co/onnx-community/wav2vec2-lv-60-espeak-cv-ft-ONNX/resolve/main/onnx/model_q4.onnx',
-            ],
             targetPath: phonemeGopStatus?.modelPath ?? '',
             download: async () => {
-                await settingsApi.downloadPhonemeGopModel();
+                const res = await settingsApi.downloadPhonemeGopModel();
                 await mutatePhonemeGop();
+                assertDownloadSucceeded(res);
             },
             cancel: async () => { await settingsApi.cancelPhonemeGopModelDownload(); },
             remove: async () => {
@@ -255,6 +240,16 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
             },
         },
     ];
+
+    const items = allItems.filter((item) => {
+        if (mode === 'core') {
+            return item.key === 'tts' || item.key === 'transcription';
+        }
+        if (mode === 'extensions') {
+            return item.key === 'diarization' || item.key === 'phonemeGop';
+        }
+        return true;
+    });
 
     const pendingItems = items.filter((item) => !item.ready);
     const allReady = pendingItems.length === 0;
@@ -283,13 +278,11 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
         ? t(PHASE_LABEL_KEYS[activePhase] as string)
         : t('resources.pack.downloading');
 
-    /**
-     * 依次下载资源包里尚未完成的项。
-     */
+    /** 依次下载资源包里尚未完成的项。 */
     const downloadPack = async () => {
         if (downloading || deletingRef.current) return;
         await startPackDownload({
-            packId: SETTINGS_RESOURCE_PACK_ID,
+            packId,
             entries: pendingItems.map((item) => ({
                 key: item.key,
                 download: item.download,
@@ -300,10 +293,42 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
         });
     };
 
+    /** 一键下载并配置单个扩展或基础资源项。 */
+    const downloadSingleItem = async (item: PackItem) => {
+        if (downloading || deletingRef.current) return;
+        await startPackDownload({
+            packId,
+            entries: [{
+                key: item.key,
+                download: item.download,
+                cancel: item.cancel,
+            }],
+            onRefresh,
+            onComplete: notifyComplete,
+        });
+    };
+
+    /** 删除单个已下载资源项。 */
+    const deleteSingleItem = async (item: PackItem) => {
+        if (downloading || deletingRef.current) return;
+        deletingRef.current = true;
+        setDeletingItemKey(item.key);
+        try {
+            await item.remove();
+            toast.success(t('resources.pack.deleted'));
+        } catch (err) {
+            toast.error(err instanceof Error ? err.message : String(err));
+        } finally {
+            deletingRef.current = false;
+            setDeletingItemKey(null);
+            onRefresh();
+        }
+    };
+
     /** 取消当前项的下载并中断队列。 */
     const cancelDownload = async () => {
         try {
-            await cancelPackDownload(SETTINGS_RESOURCE_PACK_ID);
+            await cancelPackDownload(packId);
         } catch (err) {
             toast.error(err instanceof Error ? err.message : String(err));
         }
@@ -336,6 +361,10 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
         { value: 'sherpa-onnx', label: t('resources.pack.engineCompat') },
     ];
 
+    const packSizeHint = mode === 'extensions'
+        ? t('resources.pack.extensionsSizeHint')
+        : t('resources.pack.sizeHint');
+
     return (
         <VStack gap={4} width="100%">
             {/* 状态行：徽标 + 主操作 */}
@@ -348,11 +377,11 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                     <Text weight="medium" size="sm">
                         {allReady ? t('resources.pack.ready') : t('resources.pack.notReady')}
                     </Text>
-                    <Text size="xsm" color="secondary">
+                    <Text type="supporting" color="secondary">
                         {allReady
-                            ? t('resources.pack.sizeHint')
+                            ? packSizeHint
                             : t('resources.pack.progressHint', {
-                                size: t('resources.pack.sizeHint'),
+                                size: packSizeHint,
                                 done: readyCount,
                                 total: items.length,
                             })}
@@ -403,8 +432,8 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                         isLabelHidden
                     />
                     <HStack justify="between" vAlign="center">
-                        <Text size="xsm" color="secondary">{progressLabel}</Text>
-                        <Text size="xsm" color="secondary" hasTabularNumbers>
+                        <Text type="supporting" color="secondary">{progressLabel}</Text>
+                        <Text type="supporting" color="secondary" hasTabularNumbers>
                             {overallPercent}%
                             {live.speed > 0 ? ` · ${formatSpeed(live.speed)}` : ''}
                             {remainingLabel ? ` · ${remainingLabel}` : ''}
@@ -413,102 +442,117 @@ export const ResourcePackCard: React.FC<ResourcePackCardProps> = ({
                 </VStack>
             )}
 
-            {error && (
-                <Banner
-                    status="error"
-                    title={t('resources.pack.failed', { message: error })}
-                />
+            {error && !downloading && (
+                <VStack gap={2} width="100%">
+                    <Banner
+                        status="error"
+                        title={t('resources.pack.failed', { message: error })}
+                        description={t('resources.pack.proxyHint')}
+                    />
+                    <HStack gap={2} wrap="wrap">
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            label={t('resources.pack.retry')}
+                            icon={<Icon icon={RefreshCw as unknown as IconType} size="sm" />}
+                            onClick={() => { void downloadPack(); }}
+                        />
+                        {onOpenProxySettings && (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                label={t('resources.pack.openProxySettings')}
+                                icon={<Icon icon={Globe as unknown as IconType} size="sm" />}
+                                onClick={onOpenProxySettings}
+                            />
+                        )}
+                    </HStack>
+                </VStack>
             )}
 
             <Divider variant="subtle" />
 
-            {/* 两项资源固定展示：状态一眼可见，识别方式不再藏在详情里 */}
+            {/* 单项资源：每项均支持直接一键下载、进度查看或删除 */}
             <VStack gap={3} width="100%">
-                {items.map((item, index) => (
-                    <VStack key={item.key} gap={2} width="100%">
-                        {index > 0 && <Divider variant="subtle" />}
+                {items.map((item, index) => {
+                    const isItemDownloading = downloading && activeItemKey === item.key;
+                    const isItemDeleting = deletingItemKey === item.key;
+                    return (
+                        <VStack key={item.key} gap={2} width="100%">
+                            {index > 0 && <Divider variant="subtle" />}
 
-                        <SettingField
-                            title={item.title}
-                            description={item.description}
-                        >
-                            <Token
-                                label={item.ready
-                                    ? t('resources.pack.itemReady')
-                                    : t('resources.pack.itemMissing')}
-                                size="sm"
-                                color={item.ready ? 'green' : 'gray'}
-                            />
-                            {item.ready && (
-                                <IconButton
-                                    label={t('common.openFolder')}
-                                    tooltip={t('common.openFolder')}
-                                    size="sm"
-                                    variant="ghost"
-                                    icon={<Icon icon={FolderOpen as unknown as IconType} size="sm" />}
-                                    onClick={() => openFolder(item.targetPath).catch(() => null)}
-                                />
-                            )}
-                        </SettingField>
-
-                        {item.key === 'transcription' && (
                             <SettingField
-                                title={t('resources.pack.engineLabel')}
-                                testId={SETTING_ROW_TESTIDS.transcription}
+                                title={item.title}
+                                description={item.description}
                             >
-                                <Selector
-                                    label={t('resources.pack.engineLabel')}
-                                    isLabelHidden
-                                    value={transcriptionEngine}
-                                    onChange={(val) => onChangeEngine(val as TranscriptionEngine)}
-                                    options={engineOptions}
-                                    size="sm"
-                                    width={200}
-                                />
-                            </SettingField>
-                        )}
-
-                        {!item.ready && item.urls.length > 0 && (
-                            <ManualDownloadGuide title={t('resources.pack.manualTitle')}>
-                                <VStack gap={1} width="100%">
-                                    <Text type="label">{t('resources.pack.step1Title')}</Text>
-                                    <Text type="supporting" color="secondary">
-                                        {t('resources.pack.manualModel', { model: item.modelLabel })}
-                                    </Text>
-                                    <VStack gap={1.5} width="100%">
-                                        {item.urls.map((url, urlIndex) => (
-                                            <ManualDownloadSourceRow
-                                                key={url}
-                                                url={url}
-                                                isBackup={urlIndex > 0}
-                                                backupLabel={t('resources.pack.backupSource')}
-                                                copyLabel={t('resources.pack.copyUrl')}
-                                                openLabel={t('resources.pack.openInBrowser')}
-                                                onCopy={() => { copyText(url).catch(() => null); }}
-                                                onOpen={() => { openUrl(url).catch(() => null); }}
-                                            />
-                                        ))}
-                                    </VStack>
-                                </VStack>
-
-                                <VStack gap={1} width="100%">
-                                    <Text type="label">{t('resources.pack.step2Title')}</Text>
-                                    <ManualDownloadPathRow
-                                        path={item.targetPath}
-                                        copyLabel={t('resources.pack.copyPath')}
-                                        openLabel={t('common.openFolder')}
-                                        onCopy={() => { copyText(item.targetPath).catch(() => null); }}
-                                        onOpenFolder={() => { openFolder(item.targetPath).catch(() => null); }}
+                                {isItemDownloading ? (
+                                    <Button
+                                        label={t('resources.pack.cancel')}
+                                        size="sm"
+                                        variant="secondary"
+                                        icon={<Icon icon={Square as unknown as IconType} size="sm" />}
+                                        onClick={() => { void cancelDownload(); }}
                                     />
-                                </VStack>
+                                ) : item.ready ? (
+                                    <>
+                                        <Token
+                                            label={t('resources.pack.itemReady')}
+                                            size="sm"
+                                            color="green"
+                                        />
+                                        <IconButton
+                                            label={t('common.openFolder')}
+                                            tooltip={t('common.openFolder')}
+                                            size="sm"
+                                            variant="ghost"
+                                            icon={<Icon icon={FolderOpen as unknown as IconType} size="sm" />}
+                                            onClick={() => openFolder(item.targetPath).catch(() => null)}
+                                        />
+                                        <IconButton
+                                            label={t('resources.pack.itemDelete')}
+                                            tooltip={t('resources.pack.itemDelete')}
+                                            size="sm"
+                                            variant="ghost"
+                                            isDisabled={downloading || deleting || isItemDeleting}
+                                            icon={<Icon icon={Trash2 as unknown as IconType} size="sm" />}
+                                            onClick={() => { void deleteSingleItem(item); }}
+                                        />
+                                    </>
+                                ) : (
+                                    <Button
+                                        label={t('resources.pack.itemDownload')}
+                                        size="sm"
+                                        variant="secondary"
+                                        isDisabled={downloading || deleting}
+                                        icon={<Icon icon={Download as unknown as IconType} size="sm" />}
+                                        onClick={() => { void downloadSingleItem(item); }}
+                                    />
+                                )}
+                            </SettingField>
 
-                                <Text type="supporting" color="secondary">
-                                    {t('resources.pack.step3Title')} {t('resources.pack.step3Hint')}
-                                </Text>
-                            </ManualDownloadGuide>
-                        )}
-                    </VStack>
-                ))}
+                            {item.key === 'tts' && includeTtsVoice && (
+                                <TtsVoiceCard onVoiceChange={onRefresh} />
+                            )}
+
+                            {item.key === 'transcription' && (
+                                <SettingField
+                                    title={t('resources.pack.engineLabel')}
+                                    testId={SETTING_ROW_TESTIDS.transcription}
+                                >
+                                    <Selector
+                                        label={t('resources.pack.engineLabel')}
+                                        isLabelHidden
+                                        value={transcriptionEngine}
+                                        onChange={(val) => onChangeEngine(val as TranscriptionEngine)}
+                                        options={engineOptions}
+                                        size="sm"
+                                        width={200}
+                                    />
+                                </SettingField>
+                            )}
+                        </VStack>
+                    );
+                })}
             </VStack>
         </VStack>
     );

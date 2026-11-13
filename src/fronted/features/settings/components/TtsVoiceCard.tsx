@@ -164,7 +164,7 @@ export default function TtsVoiceCard({ onVoiceChange }: TtsVoiceCardProps) {
                                         max={100}
                                         isLabelHidden
                                     />
-                                    <Text size="xsm" color="secondary" hasTabularNumbers>
+                                    <Text type="supporting" color="secondary" hasTabularNumbers>
                                         {t('resources.ttsVoice.downloadingVoice', { percent: live.percent })}
                                     </Text>
                                 </VStack>
@@ -258,7 +258,7 @@ function TtsVolumeRow({ canPreview }: { canPreview: boolean }) {
                             onChange={(e) => setTtsVolume(Number(e.target.value) / 100)}
                             className="flex-1 accent-accent-bg cursor-pointer"
                         />
-                        <Text size="xsm" color="secondary" hasTabularNumbers className="w-10 text-right">
+                        <Text type="supporting" color="secondary" hasTabularNumbers className="w-10 text-right">
                             {pct}%
                         </Text>
                     </HStack>

@@ -249,7 +249,7 @@ const AboutSetting: React.FC = () => {
             </SettingSection>
 
             <HStack justify="center" paddingBlock={2}>
-                <Text size="2xs" color="secondary" justify="center">
+                <Text type="supporting" color="secondary" justify="center">
                     {t('about.footer', { defaultValue: 'Refrain · 沉浸式英语视频学习桌面应用' })} · GNU AGPLv3
                 </Text>
             </HStack>

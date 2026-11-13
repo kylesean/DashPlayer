@@ -9,14 +9,15 @@ async function openResourcesSetting(page: Page): Promise<void> {
 }
 
 /** 切到服务与资源页的页内分区。 */
-async function openResourcesTab(page: Page, tab: '本地资源' | '云端服务' | '翻译与查词'): Promise<void> {
+async function openResourcesTab(page: Page, tab: '本地资源' | '云端服务'): Promise<void> {
     await page.getByRole('tab', { name: tab, exact: true }).click();
 }
 
 /** 「API 类型」下拉的显示文案到存储枚举值的对应表。 */
 const API_FORMAT_BY_LABEL: Record<string, string> = {
-    'OpenAI 兼容': 'openai',
-    'Anthropic 兼容': 'anthropic',
+    'OpenAI Chat Completions': 'openai',
+    'OpenAI Responses': 'openai-responses',
+    'Anthropic': 'anthropic',
     'Gemini': 'gemini',
 };
 
@@ -104,7 +105,7 @@ test.describe('服务与资源设置', () => {
         await expect.poll(() => readConfigValue(userDataDir, 'transcription.engine')).toBe('sherpa-onnx');
 
         // 翻译风格切到自定义后，提示词输入框才出现并可编辑
-        await openResourcesTab(page, '翻译与查词');
+        await openResourcesTab(page, '本地资源');
         await chooseInRow(page, 'subtitleStyle', '自定义');
         const customStyleInput = page.getByTestId('custom-subtitle-style');
         await customStyleInput.fill(CUSTOM_STYLE);
@@ -171,19 +172,17 @@ test.describe('服务与资源设置', () => {
         await expect(selectInRow(page, 'apiFormat')).toHaveText(presetFormatLabel);
     });
 
-    test('[SET-SVC-05] 新增的模型可以删除，被功能占用的模型不能删除', async ({ session, userDataDir }) => {
+    test('[SET-SVC-05] 模型可自由启用/关闭与删除', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
         await openResourcesTab(page, '云端服务');
 
-        // 内置默认模型被整句讲解等功能占用，删除按钮应当禁用
         const inUseRow = page.getByTestId(`model-row-${DEFAULT_MODEL}`);
         await expect(inUseRow).toBeVisible();
-        await expect(inUseRow.getByRole('button', { name: '删除' })).toBeDisabled();
+        await expect(inUseRow.getByRole('button', { name: '删除' })).toBeEnabled();
 
-        // 新加的模型没被任何功能占用，可以删掉
         const temporaryModel = 'e2e-model-temp';
-        await page.getByPlaceholder('输入模型标识，如 gpt-4o-mini').fill(temporaryModel);
+        await page.getByPlaceholder('输入模型标识，如 deepseek-flash').fill(temporaryModel);
         await page.getByRole('button', { name: '添加' }).click();
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).toContain(temporaryModel);
 
@@ -191,7 +190,7 @@ test.describe('服务与资源设置', () => {
         await expect(temporaryRow.getByRole('button', { name: '删除' })).toBeEnabled();
         await deleteModelRow(page, temporaryRow);
 
-        // 删除同样要写回配置，而不是只从界面表格里消失
+        // 删除同样要写回配置，而不是只从界面列表里消失
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).not.toContain(temporaryModel);
         await expect(page.getByTestId(`model-row-${temporaryModel}`)).toHaveCount(0);
     });
@@ -201,12 +200,12 @@ test.describe('服务与资源设置', () => {
         await openResourcesSetting(page);
         await openResourcesTab(page, '云端服务');
 
-        await page.getByPlaceholder('输入模型标识，如 gpt-4o-mini').fill(NEW_MODEL);
+        await page.getByPlaceholder('输入模型标识，如 deepseek-flash').fill(NEW_MODEL);
         await page.getByRole('button', { name: '添加' }).click();
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.available')).toContain(NEW_MODEL);
 
         // 功能下拉里的模型清单来自详情缓存，保存成功后缓存会立刻刷新，新模型无需重进页面即可选中
-        await openResourcesTab(page, '翻译与查词');
+        await openResourcesTab(page, '本地资源');
         await chooseInRow(page, 'subtitleTranslation', NEW_MODEL);
 
         // 引擎原本就是云端，写盘上唯一的变化是「上次选的模型」这个槽位
@@ -219,7 +218,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-07] 字幕翻译下拉不再提供已下线的本地轻量引擎，切到关闭后引擎落盘并回显', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
-        await openResourcesTab(page, '翻译与查词');
+        await openResourcesTab(page, '本地资源');
 
         // OPUS-MT 轻量管线已移除：下拉里不能再出现「本地基础资源包」，
         // 否则用户选了它，实际却走别的引擎，提示与真实能力不符。
@@ -238,7 +237,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-08] 词典查询切到本地增强资源包后引擎落盘，重进页面回显并提示资源未下载', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
-        await openResourcesTab(page, '翻译与查词');
+        await openResourcesTab(page, '本地资源');
 
         await chooseInRow(page, 'dictionary', '本地增强资源包');
 
@@ -253,7 +252,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-09] 整句讲解切到禁用后开关落盘为关闭，重进页面仍回显禁用', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
-        await openResourcesTab(page, '翻译与查词');
+        await openResourcesTab(page, '本地资源');
 
         // 默认开启，且默认指向内置云端模型
         await expect(selectInRow(page, 'sentenceLearning')).not.toHaveText('禁用');
@@ -271,21 +270,15 @@ test.describe('服务与资源设置', () => {
         await openResourcesSetting(page);
         await openResourcesTab(page, '云端服务');
 
-        // 新加的模型指给字幕翻译后就成了「在用」的模型，占用是现算的，删除按钮随之禁用
-        await page.getByPlaceholder('输入模型标识，如 gpt-4o-mini').fill(NEW_MODEL);
+        // 新增模型并关闭后，本地资源中不再可选，重新启用或删除均不受阻塞
+        await page.getByPlaceholder('输入模型标识，如 deepseek-flash').fill(NEW_MODEL);
         await page.getByRole('button', { name: '添加' }).click();
-        await openResourcesTab(page, '翻译与查词');
+        await openResourcesTab(page, '本地资源');
         await chooseInRow(page, 'subtitleTranslation', NEW_MODEL);
         await expect.poll(() => readConfigValue(userDataDir, 'models.openai.subtitleTranslation')).toBe(NEW_MODEL);
 
         await openResourcesTab(page, '云端服务');
         const modelRow = page.getByTestId(`model-row-${NEW_MODEL}`);
-        await expect(modelRow.getByRole('button', { name: '删除' })).toBeDisabled();
-
-        // 把字幕翻译关掉：占用应当当场解除，不需要重进页面
-        await openResourcesTab(page, '翻译与查词');
-        await chooseInRow(page, 'subtitleTranslation', '关闭');
-        await openResourcesTab(page, '云端服务');
         await expect(modelRow.getByRole('button', { name: '删除' })).toBeEnabled();
 
         await deleteModelRow(page, modelRow);
@@ -299,6 +292,7 @@ test.describe('服务与资源设置', () => {
             await openResourcesSetting(first.page);
             await openResourcesTab(first.page, '云端服务');
             await first.page.getByPlaceholder('sk-...').fill(API_KEY);
+            await first.page.getByRole('button', { name: '保存' }).click();
             await expect.poll(() => isSecretPersisted(userDataDir, 'apiKeys.openAi.key', API_KEY)).toBe(true);
         } finally {
             await first.close();
@@ -321,7 +315,7 @@ test.describe('服务与资源设置', () => {
     test('[SET-SVC-13] 把云端模型清单删空后清单保持为空，此时改动偏好仍会正常落盘', async ({ session, userDataDir }) => {
         const page = session.page;
         await openResourcesSetting(page);
-        await openResourcesTab(page, '翻译与查词');
+        await openResourcesTab(page, '本地资源');
 
         // 默认那个模型被三处占用，先逐个解绑，删除按钮才会亮
         await chooseInRow(page, 'sentenceLearning', '禁用');
@@ -341,7 +335,7 @@ test.describe('服务与资源设置', () => {
         await expect(page.getByTestId(`model-row-${DEFAULT_MODEL}`)).toHaveCount(0);
 
         // 清单为空只该拦住「要用云端」的功能，不该连带把无关偏好一起拒绝保存
-        await openResourcesTab(page, '翻译与查词');
+        await openResourcesTab(page, '本地资源');
         await chooseInRow(page, 'subtitleStyle', '简化英文');
         await expect.poll(() => readConfigValue(userDataDir, 'features.openai.subtitleTranslationMode')).toBe('simple_en');
         // 值落盘之外还要确认页面没弹保存失败横幅：保存被拒时值也不会变，

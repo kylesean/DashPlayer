@@ -44,12 +44,12 @@
     "dictTagIelts": "IELTS",
     "dictTagGre": "GRE",
     "videoCount": "{{count}} videos",
-    "favoriteWord": "Add to Vocabulary Studio",
-    "wordFavorited": "Added to Vocabulary Studio",
-    "wordAlreadyFavorited": "Already in Vocabulary Studio",
+    "favoriteWord": "Add to Context Studio",
+    "wordFavorited": "Added to Context Studio",
+    "wordAlreadyFavorited": "Already in Context Studio",
     "favoriteWordFailed": "Failed to add word",
-    "unfavoriteWord": "Remove from Vocabulary Studio",
-    "wordUnfavorited": "Removed from Vocabulary Studio",
+    "unfavoriteWord": "Remove from Context Studio",
+    "wordUnfavorited": "Removed from Context Studio",
     "unfavoriteWordFailed": "Failed to remove word",
     "wordStatusLearning": "Learning",
     "wordStatusFamiliar": "Familiar",
@@ -260,5 +260,15 @@
     "wordDetailsToggle": "Learning history",
     "dictionarySourceImported": "Local dictionary",
     "dictionarySourceBuiltin": "Built-in dictionary",
-    "dictionarySourceAi": "AI definition · may vary"
+    "dictionarySourceAi": "AI definition · may vary",
+    "authorSupport": {
+        "suitableTitle": "Great news — your hardware is well-suited for running a local AI model",
+        "suitableDescription": "If you are not sure how to deploy one, feel free to contact the author for setup assistance. Refrain is free and open-source.",
+        "title": "Need help setting up local AI? Contact the author",
+        "description": "Refrain is free and open-source. If you need help choosing or configuring a local AI service, feel free to reach out to the author.",
+        "wechatLabel": "WeChat: {{wechat}}",
+        "emailLabel": "Email: {{email}}",
+        "copied": "Copied {{label}}: {{value}}",
+        "copyFailed": "Copy failed"
+    }
 }

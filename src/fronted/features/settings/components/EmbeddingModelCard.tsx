@@ -1,15 +1,21 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
-import { Download, Image, Sparkles, Trash2 } from 'lucide-react';
+import { Download, Globe, Image, RefreshCw, Sparkles, Square, Trash2 } from 'lucide-react';
+import { Banner } from '@astryxdesign/core/Banner';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { HStack } from '@astryxdesign/core/HStack';
+import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { Text } from '@astryxdesign/core/Text';
 import { Token } from '@astryxdesign/core/Token';
 import { VStack } from '@astryxdesign/core/VStack';
 
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
+import {
+    subscribeEmbeddingDownloadProgress,
+    type EmbeddingDownloadProgressEvent,
+} from '@/fronted/features/settings/settingsEvents';
 
 /** 语义模型状态。 */
 export interface EmbeddingModelStatus {
@@ -21,41 +27,74 @@ export interface EmbeddingModelStatus {
     multimodalReady: boolean;
     /** 多模态投影体积。 */
     multimodalBytes: number;
+    downloading?: boolean;
+    phase?: 'idle' | 'downloading' | 'verifying';
+    downloaded?: number;
+    total?: number;
+    error?: string | null;
+    modelPath?: string;
+    downloadUrls?: string[];
 }
 
 /**
  * 可选语义模型卡片。
  *
- * 语义向量只增强内容推荐的「兴趣相近」判断；未安装时推荐自动使用词面相似度，
- * 因此这里不把它做成必选项，也不与对话模型的选择状态混在一起。
+ * 支持一键下载、实时进度展示、取消下载，以及镜像手动下载指引；
+ * 未安装时内容推荐会自动回退云端配置或词面相似度。
  */
 export default function EmbeddingModelCard({
     status,
     onInstalled,
+    onOpenProxySettings,
 }: {
     status: EmbeddingModelStatus | null;
     onInstalled: () => void;
+    onOpenProxySettings?: () => void;
 }) {
     const { t } = useTranslation('settings');
     const [installing, setInstalling] = useState(false);
     const [installingMultimodal, setInstallingMultimodal] = useState(false);
     const [removing, setRemoving] = useState(false);
+    const [localError, setLocalError] = useState<string | null>(null);
+    const [liveProgress, setLiveProgress] = useState<EmbeddingDownloadProgressEvent | null>(null);
     const busyRef = useRef(false);
-    const busy = installing || installingMultimodal || removing;
+
+    useEffect(() => {
+        const unsubscribe = subscribeEmbeddingDownloadProgress((detail) => {
+            setLiveProgress(detail);
+            if (detail.phase === 'idle') {
+                onInstalled();
+            }
+        });
+        return unsubscribe;
+    }, [onInstalled]);
+
+    const activePhase = liveProgress && liveProgress.phase !== 'idle'
+        ? liveProgress.phase
+        : (status?.phase && status.phase !== 'idle' ? status.phase : null);
+    const isDownloading = installing || installingMultimodal || activePhase !== null || Boolean(status?.downloading);
+    const progressPercent = liveProgress && liveProgress.phase !== 'idle'
+        ? liveProgress.percent
+        : (status?.total ? Math.min(100, Math.round(((status.downloaded ?? 0) / status.total) * 100)) : 0);
+    const busy = isDownloading || removing;
 
     const install = async () => {
         if (busyRef.current) return;
         busyRef.current = true;
         setInstalling(true);
+        setLocalError(null);
         try {
             await settingsApi.downloadEmbeddingModel();
             toast.success(t('resources.embedding.installed'));
             onInstalled();
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error));
+            const message = error instanceof Error ? error.message : String(error);
+            setLocalError(message);
+            toast.error(message);
         } finally {
             busyRef.current = false;
             setInstalling(false);
+            setLiveProgress(null);
         }
     };
 
@@ -63,15 +102,27 @@ export default function EmbeddingModelCard({
         if (busyRef.current) return;
         busyRef.current = true;
         setInstallingMultimodal(true);
+        setLocalError(null);
         try {
             await settingsApi.downloadEmbeddingMultimodal();
             toast.success(t('resources.embedding.multimodalInstalled'));
             onInstalled();
         } catch (error) {
-            toast.error(error instanceof Error ? error.message : String(error));
+            const message = error instanceof Error ? error.message : String(error);
+            setLocalError(message);
+            toast.error(message);
         } finally {
             busyRef.current = false;
             setInstallingMultimodal(false);
+            setLiveProgress(null);
+        }
+    };
+
+    const cancelDownload = async () => {
+        try {
+            await settingsApi.cancelEmbeddingModelDownload?.();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : String(error));
         }
     };
 
@@ -91,9 +142,11 @@ export default function EmbeddingModelCard({
         }
     };
 
+    const displayError = !isDownloading ? (localError || status?.error || null) : null;
+
     return (
         <Card variant="default" padding={3}>
-            <VStack gap={2}>
+            <VStack gap={2} width="100%">
                 <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
                     <HStack gap={2} vAlign="center">
                         <Sparkles className="h-4 w-4 text-secondary" />
@@ -102,7 +155,15 @@ export default function EmbeddingModelCard({
                             <Token label={t('resources.embedding.ready')} size="sm" color="green" />
                         )}
                     </HStack>
-                    {!status?.ready ? (
+                    {isDownloading ? (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            label={t('resources.embedding.cancel')}
+                            icon={<Square className="h-3.5 w-3.5" />}
+                            onClick={() => { void cancelDownload(); }}
+                        />
+                    ) : !status?.ready ? (
                         <Button
                             variant="secondary"
                             size="sm"
@@ -122,14 +183,59 @@ export default function EmbeddingModelCard({
                         />
                     )}
                 </HStack>
-                <Text size="2xs" color="secondary">
-                    {t('resources.embedding.description', { size: status?.sizeLabel ?? '168 MB' })}
+                <Text type="supporting" color="secondary">
+                    {t('resources.embedding.description', { size: status?.sizeLabel ?? '256 MB' })}
                 </Text>
+
+                {isDownloading && (
+                    <VStack gap={1.5} width="100%">
+                        <ProgressBar
+                            label={t('resources.embedding.title')}
+                            value={progressPercent}
+                            max={100}
+                            isLabelHidden
+                        />
+                        <Text type="supporting" color="secondary" hasTabularNumbers>
+                            {activePhase === 'verifying'
+                                ? t('resources.embedding.phaseVerifying')
+                                : t('resources.embedding.phaseDownloading', { percent: progressPercent })}
+                        </Text>
+                    </VStack>
+                )}
+
+                {displayError && (
+                    <VStack gap={2} width="100%">
+                        <Banner
+                            status="error"
+                            title={t('resources.pack.failed', { message: displayError })}
+                            description={t('resources.pack.proxyHint')}
+                        />
+                        <HStack gap={2} wrap="wrap">
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                label={t('resources.pack.retry')}
+                                icon={<RefreshCw className="h-3.5 w-3.5" />}
+                                onClick={() => { void install(); }}
+                            />
+                            {onOpenProxySettings && (
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('resources.pack.openProxySettings')}
+                                    icon={<Globe className="h-3.5 w-3.5" />}
+                                    onClick={onOpenProxySettings}
+                                />
+                            )}
+                        </HStack>
+                    </VStack>
+                )}
+
                 {status?.ready && (
                     <HStack justify="between" vAlign="center" wrap="wrap" gap={3}>
                         <HStack gap={2} vAlign="center">
                             <Image className="h-3.5 w-3.5 text-secondary" />
-                            <Text size="2xs" color="secondary">
+                            <Text type="supporting" color="secondary">
                                 {status.multimodalReady
                                     ? t('resources.embedding.multimodalReady')
                                     : t('resources.embedding.multimodalHint')}

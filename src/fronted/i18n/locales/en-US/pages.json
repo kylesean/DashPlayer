@@ -1,12 +1,12 @@
 {
     "vocabularyStudio": {
-        "title": "Vocabulary Studio",
+        "title": "Context Studio",
         "description": "Focus on vocabulary clips and quickly revisit authentic contexts",
         "recover": {
-            "loading": "Restoring Vocabulary Studio clips from local files...",
-            "success": "Vocabulary Studio clips restored successfully",
+            "loading": "Restoring Context Studio clips from local files...",
+            "success": "Context Studio clips restored successfully",
             "error": "Failed to restore. Please try again later.",
-            "button": "Restore Vocabulary Studio Clips from Local"
+            "button": "Restore Context Studio Clips from Local"
         },
         "fetchWordsFailed": "Failed to load words",
         "clipDeleteFailed": "Failed to delete clip",
@@ -15,7 +15,7 @@
         "importSuccess": "Import completed, vocabulary clips synced",
         "importFailed": "Import failed, please retry",
         "empty": {
-            "title": "No Vocabulary Studio clips yet",
+            "title": "No Context Studio clips yet",
             "guideAdd": "Use \"Extract vocabulary clips\" in the player to generate study cuts for target words, then review them here.",
             "guideRecover": "If files exist under word_video but this page is empty, click below to rebuild the database records."
         },

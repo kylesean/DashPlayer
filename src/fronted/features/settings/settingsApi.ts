@@ -275,6 +275,8 @@ export const settingsApi = {
      */
     selectTtsVoice: (voiceId: string) =>
         backendClient.call('sherpa-tts/voices/select', { voiceId }),
+    /** 查询本地对话模型与运行时状态。 */
+    getLocalAiStatus: () => backendClient.call('local-ai/status'),
     /** 将全部本地功能切换到指定模型。 */
     useLocalAiModel: (modelId: string) => backendClient.call('local-ai/use', { modelId }),
     /** 清除当前字幕翻译配置（引擎、模型、风格一致）的翻译缓存，返回删除条数。 */
@@ -293,6 +295,8 @@ export const settingsApi = {
     getEmbeddingModelStatus: () => backendClient.call('local-ai/embedding-status'),
     /** 下载并校验本地语义向量模型。 */
     downloadEmbeddingModel: () => backendClient.call('local-ai/embedding-download'),
+    /** 取消正在进行的语义向量或多模态投影下载。 */
+    cancelEmbeddingModelDownload: () => backendClient.call('local-ai/embedding-cancel-download'),
     /** 下载多模态投影（图像/音频向量）；文本推荐不依赖它。 */
     downloadEmbeddingMultimodal: () => backendClient.call('local-ai/embedding-multimodal-download'),
     /** 删除已安装的语义模型与多模态投影。 */
@@ -324,8 +328,11 @@ export const settingsApi = {
      * @param model 待测试的模型标识，必须是当前可用模型列表中的一项。
      * @returns 测试结果。
      */
-    testOpenAi: (model: string) =>
-        backendClient.call('settings/service-credentials/test-openai', { model }),
+    testOpenAi: (model: string, providerId?: string) =>
+        backendClient.call('settings/service-credentials/test-openai', {
+            model,
+            ...(providerId ? { providerId } : {}),
+        }),
 
     /**
      * 查询快捷键设置。

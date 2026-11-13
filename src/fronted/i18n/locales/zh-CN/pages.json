@@ -1,12 +1,12 @@
 {
     "vocabularyStudio": {
-        "title": "词汇工坊",
+        "title": "语境工坊",
         "description": "聚焦生词片段，快速定位并回看真实语境",
         "recover": {
-            "loading": "正在从本地恢复词汇工坊片段...",
-            "success": "词汇工坊片段恢复完成",
+            "loading": "正在从本地恢复语境工坊片段...",
+            "success": "语境工坊片段恢复完成",
             "error": "恢复失败，请稍后重试",
-            "button": "从本地恢复词汇工坊片段"
+            "button": "从本地恢复语境工坊片段"
         },
         "fetchWordsFailed": "获取生词列表失败",
         "clipDeleteFailed": "删除片段失败",

@@ -44,12 +44,12 @@
     "dictTagIelts": "雅思",
     "dictTagGre": "GRE",
     "videoCount": "{{count}} 个视频",
-    "favoriteWord": "收藏到词汇工坊",
-    "wordFavorited": "已收藏到词汇工坊",
-    "wordAlreadyFavorited": "该单词已在词汇工坊中",
+    "favoriteWord": "收藏到语境工坊",
+    "wordFavorited": "已收藏到语境工坊",
+    "wordAlreadyFavorited": "该单词已在语境工坊中",
     "favoriteWordFailed": "收藏单词失败",
-    "unfavoriteWord": "从词汇工坊移除",
-    "wordUnfavorited": "已从词汇工坊移除",
+    "unfavoriteWord": "从语境工坊移除",
+    "wordUnfavorited": "已从语境工坊移除",
     "unfavoriteWordFailed": "移除单词失败",
     "wordStatusLearning": "学习中",
     "wordStatusFamiliar": "有印象",
@@ -260,5 +260,15 @@
     "wordDetailsToggle": "学习记录",
     "dictionarySourceImported": "本地词典",
     "dictionarySourceBuiltin": "内置词典",
-    "dictionarySourceAi": "AI 释义 · 仅供参考"
+    "dictionarySourceAi": "AI 释义 · 仅供参考",
+    "authorSupport": {
+        "suitableTitle": "恭喜你，您的硬件配置非常推荐运行本地 AI 模型",
+        "suitableDescription": "如果不知道如何部署，欢迎联系作者协助配置与指导，本软件开源免费使用。",
+        "title": "需要本地 AI 部署协助？可联系作者",
+        "description": "本软件开源免费使用；如不确定如何选择或部署本地 AI 服务，欢迎联系作者获取协助。",
+        "wechatLabel": "WeChat：{{wechat}}",
+        "emailLabel": "Email：{{email}}",
+        "copied": "已复制 {{label}}：{{value}}",
+        "copyFailed": "复制失败"
+    }
 }

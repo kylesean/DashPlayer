@@ -4,6 +4,16 @@
     "copyFailed": "复制失败",
     "openUrlFailed": "打开链接失败",
     "openFolderFailed": "打开文件夹失败",
+    "hardware": {
+        "summary": "{{memory}} GB 内存 · {{cores}} 核 CPU · {{gpu}}",
+        "gpuMetal": "Metal 加速",
+        "gpuVulkan": "Vulkan 加速",
+        "gpuCpu": "纯 CPU 模式",
+        "recommendedStandard": "已为你匹配「标准开箱包」——离线听写、发音、词典与语义搜索开箱即用；下方已按本机硬件筛选 Local LLM 选型",
+        "recommendedLight": "内存低于 8 GB，推荐「轻量基础包」以保证流畅运行；AI 翻译与讲解可按需配置云端或轻量本地接口",
+        "asrWhisperCpp": "whisper.cpp（硬件加速）",
+        "asrSherpaOnnx": "Parakeet（兼容模式）"
+    },
     "steps": {
         "storage": {
             "heroTitle": "选择保存位置",
@@ -13,11 +23,14 @@
             "chooseFolder": "选择文件夹",
             "saved": "保存位置已更新",
             "unavailable": "这个文件夹当前不可用，请重新选择一个。",
-            "note": "运行所需的资源约 1 GB，建议选一个空间充足的位置；之后也能在「设置中心 → 存储」里修改。"
+            "note": "标准开箱包约 1.1 GB（轻量基础包约 800 MB），建议选空间充足的位置；之后也能在「设置中心 → 存储」修改。"
         },
         "models": {
             "ttsTitle": "单词与例句发音",
             "transcriptionTitle": "字幕语音识别",
+            "dictionaryEnhancementTitle": "WordNet 3.1 英英词典",
+            "localAiTitle": "本地 AI 语言模型",
+            "embeddingTitle": "本地语义搜索模型",
             "manualGuideTitle": "下载不下来？查看手动下载教程",
             "copyLink": "复制链接",
             "backupSource": "备用下载源",
@@ -27,15 +40,15 @@
         },
         "download": {
             "heroTitle": "下载运行所需资源",
-            "heroDesc": "应用需要这些资源才能正常工作，安装一次即可。",
+            "heroDesc": "已根据你的电脑硬件推荐最优组合，一次下载即可开箱学习。",
             "action": "下载",
-            "packSize": "约 1 GB",
+            "packSize": "{{size}}",
             "downloadingEnv": "正在下载所需资源…",
             "verifying": "正在校验…",
             "extracting": "正在解压…",
             "installing": "正在安装…",
             "cancel": "取消",
-            "ready": "已就绪",
+            "ready": "所选资源已就绪",
             "finish": "完成",
             "retry": "重试",
             "skip": "跳过",
@@ -43,7 +56,59 @@
             "etaMinutes": "剩余约 {{minutes}} 分 {{seconds}} 秒",
             "etaLong": "剩余超过 1 小时",
             "finishing": "正在完成设置…",
-            "progressLabel": "下载进度"
+            "progressLabel": "下载进度",
+            "activeItemProgress": "正在安装「{{item}}」 · {{phase}}",
+            "tiers": {
+                "standardTitle": "标准开箱包",
+                "standardDesc": "离线识别 + 高清发音 + 词典 + 本地语义搜索，基础学习功能即装即用",
+                "lightTitle": "轻量基础包",
+                "lightDesc": "离线识别 + 高清发音 + 词典，磁盘与内存占用更小，适合轻量设备",
+                "customTitle": "自定义组件",
+                "customDesc": "自由勾选需要本地下载的核心与增强组件",
+                "recommendedBadge": "推荐",
+                "selectedSize": "需下载约 {{size}}",
+                "allReadyLabel": "当前所选资源均已安装"
+            },
+            "items": {
+                "tts": {
+                    "title": "单词与例句发音",
+                    "desc": "Kokoro 离线自然英/美音色引擎",
+                    "size": "~320 MB"
+                },
+                "transcription": {
+                    "title": "字幕语音识别（{{engine}}）",
+                    "descWhisper": "GPU 硬件加速高精度离线字幕生成",
+                    "descSherpa": "跨平台 CPU 兼容模式离线字幕生成",
+                    "sizeWhisper": "~540 MB",
+                    "sizeSherpa": "~465 MB"
+                },
+                "dictionaryEnhancement": {
+                    "title": "WordNet 3.1 英英词典",
+                    "desc": "完整离线英英释义、词性与同义词库",
+                    "size": "~16 MB"
+                },
+                "localAi": {
+                    "title": "本地 AI 模型（{{model}}）",
+                    "desc": "离线字幕翻译、AI 查词与整句深度讲解（已按内存匹配）"
+                },
+                "embedding": {
+                    "title": "本地语义搜索（EmbeddingGemma 2）",
+                    "desc": "语义关联视频推荐；未安装时支持云端自动回退",
+                    "size": "~255 MB"
+                }
+            },
+            "cloud": {
+                "toggle": "已有云端或本地 AI 接口？顺便配好即刻启用（可选）",
+                "preferHint": "检测到电脑内存偏紧，填入云端服务商密钥或接入本地 AI 接口即可获得完整 AI 翻译与讲解体验：",
+                "presetLabel": "服务商",
+                "apiKeyLabel": "API Key",
+                "apiKeyPlaceholder": "sk-...",
+                "apiKeyOptionalPlaceholder": "本地服务可留空",
+                "modelPlaceholder": "手动输入模型 ID",
+                "saveButton": "保存并启用 AI 接口",
+                "saving": "保存中…",
+                "savedBadge": "已配置 {{provider}}，完成引导后将直接用于 AI 功能"
+            }
         },
         "manual": {
             "title": "手动下载",

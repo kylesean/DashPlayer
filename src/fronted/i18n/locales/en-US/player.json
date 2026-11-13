@@ -197,7 +197,7 @@
         "workflow1": "Scan subtitles from the current video",
         "workflow2": "Match target words in your vocabulary list",
         "workflow3": "Automatically cut video clips for matched words",
-        "workflow4": "Save clips to Vocabulary Studio for review",
+        "workflow4": "Save clips to Context Studio for review",
         "suitableTitle": "Best for:",
         "suitable1": "Quickly generating context-rich video flashcards for new words",
         "suitable2": "Batch-creating bite-sized vocabulary review clips"

@@ -176,7 +176,7 @@ export default function ImportedDictionaryCard() {
                     />
                 </HStack>
             ))}
-            <Text size="2xs" color="secondary">{t('resources.dictionaryPack.formats')}</Text>
+            <Text type="supporting" color="secondary">{t('resources.dictionaryPack.formats')}</Text>
             <AlertDialog
                 isOpen={pendingDelete !== null}
                 onOpenChange={(open) => {

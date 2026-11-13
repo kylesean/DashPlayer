@@ -232,45 +232,46 @@ export function useServiceResourceActions({
         });
     };
 
-    const testOpenAiModel = async (model: string) => {
-        if (testingOpenAiModelsRef.current.has(model)) return;
-        const epoch = (openAiEpochRef.current.get(model) ?? 0) + 1;
-        openAiEpochRef.current.set(model, epoch);
-        testingOpenAiModelsRef.current.add(model);
+    const testOpenAiModel = async (model: string, providerId?: string) => {
+        const resultKey = providerId ? `${providerId}:${model}` : model;
+        if (testingOpenAiModelsRef.current.has(resultKey)) return;
+        const epoch = (openAiEpochRef.current.get(resultKey) ?? 0) + 1;
+        openAiEpochRef.current.set(resultKey, epoch);
+        testingOpenAiModelsRef.current.add(resultKey);
 
         try {
             await flushCredentials();
         } catch (flushError) {
-            testingOpenAiModelsRef.current.delete(model);
+            testingOpenAiModelsRef.current.delete(resultKey);
             toast.error(`${t('common.saveFailed')}\n${flushError instanceof Error ? flushError.message : String(flushError)}`);
             return;
         }
 
-        if (openAiEpochRef.current.get(model) !== epoch || !mountedRef.current) {
-            testingOpenAiModelsRef.current.delete(model);
+        if (openAiEpochRef.current.get(resultKey) !== epoch || !mountedRef.current) {
+            testingOpenAiModelsRef.current.delete(resultKey);
             return;
         }
 
-        setTestingOpenAiModel(model);
-        setOpenAiTestResults((prev) => ({ ...prev, [model]: null }));
+        setTestingOpenAiModel(resultKey);
+        setOpenAiTestResults((prev) => ({ ...prev, [resultKey]: null }));
         try {
-            const result = await settingsApi.testOpenAi(model);
-            if (openAiEpochRef.current.get(model) !== epoch || !mountedRef.current) {
+            const result = await settingsApi.testOpenAi(model, providerId);
+            if (openAiEpochRef.current.get(resultKey) !== epoch || !mountedRef.current) {
                 return;
             }
-            setOpenAiTestResults((prev) => ({ ...prev, [model]: result }));
+            setOpenAiTestResults((prev) => ({ ...prev, [resultKey]: result }));
         } catch (error) {
-            if (openAiEpochRef.current.get(model) !== epoch || !mountedRef.current) {
+            if (openAiEpochRef.current.get(resultKey) !== epoch || !mountedRef.current) {
                 return;
             }
             setOpenAiTestResults((prev) => ({
                 ...prev,
-                [model]: { success: false, message: error instanceof Error ? error.message : String(error) },
+                [resultKey]: { success: false, message: error instanceof Error ? error.message : String(error) },
             }));
         } finally {
-            testingOpenAiModelsRef.current.delete(model);
-            if (mountedRef.current && openAiEpochRef.current.get(model) === epoch) {
-                setTestingOpenAiModel((current) => (current === model ? null : current));
+            testingOpenAiModelsRef.current.delete(resultKey);
+            if (mountedRef.current && openAiEpochRef.current.get(resultKey) === epoch) {
+                setTestingOpenAiModel((current) => (current === resultKey ? null : current));
             }
         }
     };

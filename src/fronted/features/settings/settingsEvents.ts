@@ -11,11 +11,18 @@ export type ArchiveDownloadProgressEvent = RendererApiDefinitions['settings/sher
  */
 export type LocalAiDownloadProgressEvent = RendererApiDefinitions['settings/local-ai-model-download-progress']['params'];
 
+/**
+ * 语义向量模型下载进度事件负载。
+ */
+export type EmbeddingDownloadProgressEvent = RendererApiDefinitions['settings/embedding-model-download-progress']['params'];
+
 type ArchiveProgressListener = (progress: ArchiveDownloadProgressEvent) => void;
 type LocalAiProgressListener = (progress: LocalAiDownloadProgressEvent) => void;
+type EmbeddingProgressListener = (progress: EmbeddingDownloadProgressEvent) => void;
 
 const archiveListeners = new Set<ArchiveProgressListener>();
 const localAiListeners = new Set<LocalAiProgressListener>();
+const embeddingListeners = new Set<EmbeddingProgressListener>();
 
 /**
  * 订阅离线模型解压与下载进度事件（sherpa-tts / whisper-cpp / parakeet）。
@@ -40,6 +47,19 @@ export function subscribeLocalAiDownloadProgress(listener: LocalAiProgressListen
     localAiListeners.add(listener);
     return () => {
         localAiListeners.delete(listener);
+    };
+}
+
+/**
+ * 订阅语义向量模型下载进度事件。
+ *
+ * @param listener 进度回调函数。
+ * @returns 取消订阅函数。
+ */
+export function subscribeEmbeddingDownloadProgress(listener: EmbeddingProgressListener): () => void {
+    embeddingListeners.add(listener);
+    return () => {
+        embeddingListeners.delete(listener);
     };
 }
 
@@ -81,6 +101,16 @@ export function registerSettingsRendererApis(register: RegisterRendererApi): voi
 
     register('settings/local-ai-model-download-progress', async (params) => {
         localAiListeners.forEach((listener) => {
+            try {
+                listener(params);
+            } catch {
+                // 忽略单个监听器的异常
+            }
+        });
+    });
+
+    register('settings/embedding-model-download-progress', async (params) => {
+        embeddingListeners.forEach((listener) => {
             try {
                 listener(params);
             } catch {

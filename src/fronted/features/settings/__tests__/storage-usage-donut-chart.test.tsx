@@ -74,6 +74,6 @@ describe('StorageUsageDonutChart', () => {
         expect(screen.getByText('66.7%')).toBeInTheDocument();
 
         const tooltip = screen.getByText('label-videos').parentElement?.parentElement;
-        expect(tooltip).toHaveClass('bg-body', 'border-border/50', 'text-xs');
+        expect(tooltip).toHaveClass('bg-body', 'border-border', 'text-sm');
     });
 });

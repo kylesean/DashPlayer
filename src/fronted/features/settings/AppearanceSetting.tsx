@@ -448,7 +448,7 @@ const AppearanceSetting: React.FC = () => {
                                         <Text
                                             type="body"
                                             weight="medium"
-                                            size={currentFontSize === 'fontSizeSmall' ? 'xsm' : currentFontSize === 'fontSizeLarge' ? 'base' : 'sm'}
+                                            size={currentFontSize === 'fontSizeSmall' ? 'sm' : currentFontSize === 'fontSizeLarge' ? 'lg' : 'base'}
                                             justify="center"
                                         >
                                             {t('appearance.subtitlePreviewSampleEn')}
@@ -456,7 +456,7 @@ const AppearanceSetting: React.FC = () => {
                                         <Text
                                             type="supporting"
                                             color="secondary"
-                                            size={currentFontSize === 'fontSizeSmall' ? '4xs' : currentFontSize === 'fontSizeLarge' ? 'sm' : 'xsm'}
+                                            size={currentFontSize === 'fontSizeSmall' ? 'sm' : currentFontSize === 'fontSizeLarge' ? 'base' : 'sm'}
                                             justify="center"
                                         >
                                             {t('appearance.subtitlePreviewSampleZh')}

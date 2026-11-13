@@ -69,7 +69,7 @@ const UsageTooltip: React.FC<UsageTooltipProps> = ({
     return (
         <div
             className={cn(
-                'min-w-[8rem] rounded-lg border border-border/50 bg-body px-2.5 py-1.5 text-xs shadow-xl',
+                'min-w-[8rem] rounded-lg border border-border bg-body px-2.5 py-1.5 text-sm shadow-xl',
             )}
         >
             <div className="flex min-w-32 items-center justify-between gap-4 leading-none">
@@ -105,7 +105,7 @@ const StorageUsageDonutChart: React.FC<StorageUsageDonutChartProps> = ({
     return (
         <div
             className={cn(
-                'flex justify-center text-xs',
+                'flex justify-center text-sm',
                 '[&_.recharts-layer]:outline-none',
                 '[&_.recharts-sector]:stroke-transparent [&_.recharts-sector]:outline-none',
                 '[&_.recharts-surface]:outline-none',

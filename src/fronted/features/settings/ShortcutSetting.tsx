@@ -99,7 +99,7 @@ const formatKeySymbol = (key: string): string => {
  */
 const KeyBadge: React.FC<{ keys: string }> = ({ keys }) => {
     if (!keys || keys.trim() === '') {
-        return <Text size="xsm" color="secondary">—</Text>;
+        return <Text type="supporting" color="secondary">—</Text>;
     }
     const list = keys.split(',').map((k) => k.trim()).filter(Boolean);
     return (
@@ -310,7 +310,7 @@ const RecordDialogBody: React.FC<RecordDialogBodyProps> = ({
                                         </span>
                                     </span>
                                 ) : (
-                                    <Text size="xsm" color="secondary">
+                                    <Text type="supporting" color="secondary">
                                         {t('shortcut.listeningPromptHint')}
                                     </Text>
                                 )}
@@ -366,7 +366,7 @@ const RecordDialogBody: React.FC<RecordDialogBodyProps> = ({
                 <Card variant="default" padding={3}>
                     <HStack gap={2} wrap="wrap" vAlign="center">
                         {shortcuts.length === 0 ? (
-                            <Text size="xsm" color="secondary">
+                            <Text type="supporting" color="secondary">
                                 {emptyShortcutsLabel}
                             </Text>
                         ) : (

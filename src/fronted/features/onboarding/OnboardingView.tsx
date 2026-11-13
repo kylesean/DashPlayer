@@ -2,18 +2,23 @@ import { CONFETTI_COLORS } from '@/fronted/styles/decorationPalette';
 import React from 'react';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import { create as createConfetti } from 'canvas-confetti';
+import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
+import { CheckboxInput } from '@astryxdesign/core/CheckboxInput';
 import { HStack } from '@astryxdesign/core/HStack';
 import { Icon, type IconType } from '@astryxdesign/core/Icon';
 import { ProgressBar } from '@astryxdesign/core/ProgressBar';
 import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import TitleBar from '@/fronted/components/layout/TitleBar/TitleBar';
 import { TITLE_BAR_HEIGHT } from '@/fronted/components/layout/TitleBar/titleBarMetrics';
 import {
     CheckCircle2,
+    Cloud,
     Copy,
+    Cpu,
     Download,
     ExternalLink,
     FileVideo,
@@ -25,7 +30,13 @@ import {
     Check,
     XCircle,
 } from 'lucide-react';
-import { useOnboardingBundle } from '@/fronted/features/onboarding/hooks/useOnboardingBundle';
+import { useOnboardingBundle, type BundleTierChoice } from '@/fronted/features/onboarding/hooks/useOnboardingBundle';
+import {
+    CLOUD_AI_PROVIDER_PRESETS,
+    isLocalLlmEndpoint,
+} from '@/common/constants/cloud-ai-provider-presets';
+import { isHardwareSuitableForLocalAi } from '@/common/utils/hardware-profile';
+import { AuthorSupportBanner } from '@/fronted/components/shared/AuthorSupportBanner';
 
 // 版本号与 QA fixture 共用同一常量：两边各写一份字面量时，bump 后 QA 会静默失效。
 export { CURRENT_ONBOARDING_VERSION } from '@/common/constants/onboarding';
@@ -36,6 +47,14 @@ const RIPPLE_ROWS = 5;
 /** 点阵涟漪的呼吸周期（秒）：下载中更紧凑，让背景跟着进度"活"起来。 */
 const RIPPLE_DURATION_IDLE = 3.6;
 const RIPPLE_DURATION_ACTIVE = 1.4;
+
+/** 引导页内可选快速配置的四家主流云端服务预设。 */
+const QUICK_PRESET_IDS = [
+    'openai',
+    'anthropic',
+    'google-gemini',
+    'deepseek',
+] as const;
 
 /** 把字节/秒格式化为网速文案。 */
 function formatSpeed(bytesPerSecond: number): string {
@@ -48,14 +67,7 @@ function formatSpeed(bytesPerSecond: number): string {
 /** 随机烟花连放的束数。 */
 const FIREWORK_BURSTS = 4;
 
-/**
- * 完成页的全屏庆祝动画。
- *
- * 用 canvas-confetti 在自建的全屏 canvas 上绘制，分三段递进：
- * 左右两侧斜向礼炮对射 → 中央星形爆发 → 随机位置的烟花连放，整段约 4 秒。
- * 动画跑在 Web Worker + OffscreenCanvas 上，不阻塞主线程；
- * 开启 `disableForReducedMotion`，偏好减少动效的用户直接跳过。
- */
+/** 完成页的全屏庆祝动画。 */
 const Confetti: React.FC = () => {
     React.useEffect(() => {
         const canvas = document.createElement('canvas');
@@ -73,14 +85,10 @@ const Confetti: React.FC = () => {
         const fire = createConfetti(canvas, { resize: true, useWorker: true, disableForReducedMotion: true });
         const base = { colors: CONFETTI_COLORS, disableForReducedMotion: true };
 
-        // 两侧礼炮对射：扁平纸条 + 高初速，斜向上打到画面中部。
         void fire({ ...base, particleCount: 60, angle: 58, spread: 58, origin: { x: 0, y: 0.78 }, startVelocity: 60, scalar: 1.1, flat: true, ticks: 260 });
         void fire({ ...base, particleCount: 60, angle: 122, spread: 58, origin: { x: 1, y: 0.78 }, startVelocity: 60, scalar: 1.1, flat: true, ticks: 260 });
-
-        // 中央星形爆发：星星与圆片混合，飘落更慢。
         void fire({ ...base, particleCount: 110, spread: 110, origin: { x: 0.5, y: 0.4 }, startVelocity: 44, scalar: 1.2, shapes: ['star', 'circle'], gravity: 0.9, decay: 0.91, ticks: 300 });
 
-        // 随机位置烟花连放，把动画尾巴拉长到约 4 秒。
         const timers = Array.from({ length: FIREWORK_BURSTS }, (_, index) => window.setTimeout(() => {
             void fire({
                 ...base,
@@ -106,12 +114,7 @@ const Confetti: React.FC = () => {
     return null;
 };
 
-/**
- * 下载步骤背后的点阵涟漪。
- *
- * 小圆点按对角线错开延迟做透明度与缩放呼吸，只用 transform / opacity，不做大面积模糊；
- * 下载中周期变短。系统开启「减少动效」时由 CSS 直接停掉动画。
- */
+/** 下载步骤背后的点阵涟漪。 */
 const DotRippleBackground: React.FC<{ active: boolean }> = ({ active }) => {
     const dots = React.useMemo(
         () => Array.from({ length: RIPPLE_COLUMNS * RIPPLE_ROWS }, (_, index) => {
@@ -147,25 +150,42 @@ export interface OnboardingViewProps {
     onCompleted?: () => void;
 }
 
-
 export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) => {
     const { t } = useI18nTranslation('onboarding');
     const {
         screen,
         dispatch,
         finishing,
+        hardware,
+        advice,
         storagePath,
         storageAvailable,
         choosingStorage,
         handleChooseStorage,
+        selectedTier,
+        selectTier,
+        toggleItem,
+        allBundleEntries,
         bundleEntries,
         downloadingBundle,
         overallPercent,
         progressLabel,
         live,
         allReady,
+        pendingSizeLabel,
         bundleError,
         remainingLabel,
+        cloudQuickOpen,
+        setCloudQuickOpen,
+        cloudPresetId,
+        selectCloudPreset,
+        cloudApiKey,
+        setCloudApiKey,
+        cloudModelId,
+        setCloudModelId,
+        cloudSaving,
+        cloudSavedProvider,
+        saveQuickCloudSetup,
         downloadBundle,
         cancelBundleDownload,
         openManualGuide,
@@ -175,7 +195,55 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
         openFolder,
     } = useOnboardingBundle();
 
+    const gpuLabel = React.useMemo(() => {
+        if (!hardware) return '';
+        if (hardware.gpuAcceleration === 'metal') return t('hardware.gpuMetal');
+        if (hardware.gpuAcceleration === 'vulkan') return t('hardware.gpuVulkan');
+        return t('hardware.gpuCpu');
+    }, [hardware, t]);
 
+    const tierCards: Array<{ key: BundleTierChoice; title: string; desc: string; recommended?: boolean }> = [
+        {
+            key: 'standard',
+            title: t('steps.download.tiers.standardTitle'),
+            desc: t('steps.download.tiers.standardDesc'),
+            recommended: advice.recommendedOnboardingTier === 'standard',
+        },
+        {
+            key: 'light',
+            title: t('steps.download.tiers.lightTitle'),
+            desc: t('steps.download.tiers.lightDesc'),
+            recommended: advice.recommendedOnboardingTier === 'light',
+        },
+        {
+            key: 'custom',
+            title: t('steps.download.tiers.customTitle'),
+            desc: t('steps.download.tiers.customDesc'),
+        },
+    ];
+
+    const quickPresets = React.useMemo(
+        () => QUICK_PRESET_IDS
+            .map((id) => CLOUD_AI_PROVIDER_PRESETS.find((preset) => preset.id === id))
+            .filter((preset): preset is NonNullable<typeof preset> => Boolean(preset)),
+        [],
+    );
+    const selectedQuickPreset = React.useMemo(
+        () => quickPresets.find((preset) => preset.id === cloudPresetId) ?? quickPresets[0],
+        [cloudPresetId, quickPresets],
+    );
+    const quickPresetNeedsKey = selectedQuickPreset
+        ? !isLocalLlmEndpoint(selectedQuickPreset.endpoint)
+        : true;
+    const suitableForLocalAi = React.useMemo(
+        () => isHardwareSuitableForLocalAi(hardware),
+        [hardware],
+    );
+
+    const manualEntries = React.useMemo(
+        () => bundleEntries.filter((entry) => entry.urls && entry.urls.length > 0),
+        [bundleEntries],
+    );
 
     return (
         <div
@@ -191,11 +259,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
 
             {screen !== 'done' && <DotRippleBackground active={downloadingBundle} />}
 
-            {/*
-              收尾中：保留下载页的视觉位置，只把主操作区换成「正在收尾」。
-              收尾通常只有一次 IPC 往返，但本地推理引擎探测可能慢到几秒，
-              这里必须有可见反馈，否则用户会以为按钮没响应而重复点击。
-            */}
             {finishing && (
                 <main className="relative z-10 flex flex-1 items-center justify-center px-8 pb-14">
                     <div
@@ -214,8 +277,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
             )}
 
             {screen === 'storage' && (
-                <main className="relative z-10 flex flex-1 items-center justify-center px-8 pb-10">
-                    <div className="flex w-full max-w-lg flex-col items-center gap-8 text-center">
+                <main className="relative z-10 flex flex-1 items-center justify-center overflow-y-auto scrollbar-none px-8 pb-10">
+                    <div className="flex w-full max-w-lg flex-col items-center gap-7 text-center">
                         <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-bg/12 text-accent">
                             <span className="absolute inset-0 rounded-full bg-accent-bg/20 blur-2xl" aria-hidden="true" />
                             <Folder className="relative h-7 w-7" />
@@ -225,6 +288,29 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                             <h1 className="text-3xl font-bold tracking-tight">{t('steps.storage.heroTitle')}</h1>
                             <p className="text-sm text-secondary leading-relaxed">{t('steps.storage.heroDesc')}</p>
                         </div>
+
+                        {hardware && (
+                            <div
+                                data-testid="onboarding-hardware-summary"
+                                className="flex w-full items-start gap-2.5 rounded-xl border border-border/60 bg-card/70 px-4 py-3 text-left text-sm"
+                            >
+                                <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+                                <div className="min-w-0 space-y-0.5">
+                                    <div className="font-medium text-primary">
+                                        {t('hardware.summary', {
+                                            memory: hardware.totalMemoryGb,
+                                            cores: hardware.cpuCount,
+                                            gpu: gpuLabel,
+                                        })}
+                                    </div>
+                                    <div className="text-xs text-secondary leading-relaxed">
+                                        {advice.recommendedOnboardingTier === 'standard'
+                                            ? t('hardware.recommendedStandard')
+                                            : t('hardware.recommendedLight')}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="w-full space-y-3.5 rounded-2xl border border-border/70 bg-card/70 p-5 text-left shadow-sm">
                             <div className="space-y-2">
@@ -269,9 +355,8 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                 </main>
             )}
 
-            {(screen === 'download' || finishing) && (
+            {screen === 'download' && (
                 <>
-                    {/* 返回：左上角小元素 */}
                     <div className="absolute top-11 left-6 z-20">
                         <Button
                             label={t('steps.manual.back')}
@@ -283,7 +368,6 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                         />
                     </div>
 
-                    {/* 跳过：右上角小元素 */}
                     <div className="absolute top-11 right-6 z-20">
                         <Button
                             label={t('steps.download.skip')}
@@ -294,22 +378,92 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                         />
                     </div>
 
-                    <main className="relative z-10 flex flex-1 items-center justify-center px-8 pb-14">
-                        <div className="flex w-full max-w-xl flex-col items-center gap-7 text-center">
-                            {/* 图标与光晕 */}
-                            <span className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-bg/12 text-accent">
+                    <main className="relative z-10 flex flex-1 flex-col items-center overflow-y-auto scrollbar-none px-6 pt-12 pb-10">
+                        <div className="flex w-full max-w-2xl flex-col items-center gap-5 text-center">
+                            <span className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-bg/12 text-accent">
                                 <span className="absolute inset-0 rounded-full bg-accent-bg/20 blur-2xl" aria-hidden="true" />
-                                <Download className="relative h-7 w-7" />
+                                <Download className="relative h-6 w-6" />
                             </span>
 
-                            <div className="space-y-2">
-                                <h1 className="text-3xl font-bold tracking-tight">{t('steps.download.heroTitle')}</h1>
+                            <div className="space-y-1.5">
+                                <h1 className="text-2xl font-bold tracking-tight">{t('steps.download.heroTitle')}</h1>
                                 <p className="text-sm text-secondary">{t('steps.download.heroDesc')}</p>
+                            </div>
+
+                            {/* 方案档位切换 */}
+                            <div className="grid w-full grid-cols-1 gap-2.5 text-left sm:grid-cols-3">
+                                {tierCards.map((tier) => {
+                                    const active = selectedTier === tier.key;
+                                    return (
+                                        <button
+                                            key={tier.key}
+                                            type="button"
+                                            disabled={downloadingBundle}
+                                            data-testid={`onboarding-tier-${tier.key}`}
+                                            onClick={() => selectTier(tier.key)}
+                                            className={`flex flex-col gap-1.5 rounded-xl border p-3.5 text-left transition-colors ${
+                                                active
+                                                    ? 'border-accent bg-accent-bg/10'
+                                                    : 'border-border/70 bg-card/70 hover:bg-card'
+                                            } ${downloadingBundle ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-sm font-semibold text-primary">{tier.title}</span>
+                                                {tier.recommended && (
+                                                    <Badge
+                                                        variant="info"
+                                                        label={t('steps.download.tiers.recommendedBadge')}
+                                                    />
+                                                )}
+                                            </div>
+                                            <p className="text-xs leading-relaxed text-secondary">{tier.desc}</p>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* 资源组件明细清单 */}
+                            <div className="w-full divide-y divide-border/50 rounded-xl border border-border/70 bg-card/75 text-left">
+                                {allBundleEntries.map((entry) => (
+                                    <div key={entry.key} className="flex flex-col gap-2 px-4 py-2.5">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex min-w-0 items-start gap-2.5">
+                                                <div className="pt-0.5">
+                                                    <CheckboxInput
+                                                        label={entry.title}
+                                                        isLabelHidden
+                                                        size="sm"
+                                                        value={entry.checked}
+                                                        isDisabled={downloadingBundle || !entry.optional}
+                                                        onChange={() => toggleItem(entry.key)}
+                                                    />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-sm font-medium text-primary">{entry.title}</div>
+                                                    <div className="text-xs text-secondary">{entry.description}</div>
+                                                </div>
+                                            </div>
+                                            <div className="shrink-0">
+                                                {entry.ready ? (
+                                                    <Badge
+                                                        variant="success"
+                                                        label={t('steps.download.ready')}
+                                                    />
+                                                ) : (
+                                                    <span className="text-xs font-medium text-secondary tabular-nums">
+                                                        {entry.checked ? entry.sizeLabel : '—'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                ))}
                             </div>
 
                             {/* 主操作区 */}
                             {downloadingBundle ? (
-                                <div className="flex w-full max-w-sm flex-col items-center gap-3">
+                                <div className="flex w-full max-w-md flex-col items-center gap-2.5">
                                     <div className="flex items-baseline gap-1">
                                         <span className="text-4xl font-semibold tabular-nums tracking-tight">{overallPercent}</span>
                                         <span className="text-lg text-secondary">%</span>
@@ -333,10 +487,10 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                     />
                                 </div>
                             ) : allReady ? (
-                                <div className="flex flex-col items-center gap-4">
+                                <div className="flex flex-col items-center gap-3">
                                     <span className="inline-flex items-center gap-2 text-sm font-medium text-success-text">
                                         <CheckCircle2 className="h-4 w-4" />
-                                        {t('steps.download.ready')}
+                                        {t('steps.download.tiers.allReadyLabel')}
                                     </span>
                                     <Button
                                         label={t('steps.download.finish')}
@@ -349,7 +503,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                     />
                                 </div>
                             ) : (
-                                <div className="flex flex-col items-center gap-3">
+                                <div className="flex flex-col items-center gap-2.5">
                                     <Button
                                         label={bundleError ? t('steps.download.retry') : t('steps.download.action')}
                                         variant="primary"
@@ -360,7 +514,9 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                     >
                                         <HStack gap={1.5} align="center">
                                             <span>{bundleError ? t('steps.download.retry') : t('steps.download.action')}</span>
-                                            <span className="text-sm font-normal opacity-75">{t('steps.download.packSize')}</span>
+                                            <span className="text-sm font-normal opacity-75">
+                                                {t('steps.download.packSize', { size: pendingSizeLabel })}
+                                            </span>
                                         </HStack>
                                     </Button>
                                     {bundleError && (
@@ -372,20 +528,91 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                                 </div>
                             )}
 
-                            {/* 手动下载入口：单独一页，避免在这里挤 */}
-                            <Button
-                                label={t('steps.models.manualGuideTitle')}
-                                variant="ghost"
-                                size="sm"
-                                icon={<Icon icon={HelpCircle as unknown as IconType} size="sm" />}
-                                onClick={() => { void openManualGuide(); }}
-                            />
+                            {/* 可选：顺手配置云端 API（低内存设备特别友好） */}
+                            <div className="w-full text-left">
+                                <button
+                                    type="button"
+                                    onClick={() => setCloudQuickOpen(!cloudQuickOpen)}
+                                    className="flex w-full items-center justify-center gap-1.5 text-xs font-medium text-secondary hover:text-primary"
+                                >
+                                    <Cloud className="h-3.5 w-3.5" />
+                                    <span>{t('steps.download.cloud.toggle')}</span>
+                                </button>
+
+                                {(cloudQuickOpen || advice.preferCloudLlm) && (
+                                    <div className="mt-2.5 space-y-3 rounded-xl border border-border/60 bg-card/75 p-3.5">
+                                        {advice.preferCloudLlm && (
+                                            <p className="text-xs text-secondary">{t('steps.download.cloud.preferHint')}</p>
+                                        )}
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {quickPresets.map((preset) => (
+                                                <Button
+                                                    key={preset.id}
+                                                    label={preset.name}
+                                                    size="sm"
+                                                    variant={cloudPresetId === preset.id ? 'primary' : 'secondary'}
+                                                    onClick={() => selectCloudPreset(preset.id)}
+                                                />
+                                            ))}
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                            <TextInput
+                                                label={t('steps.download.cloud.apiKeyLabel')}
+                                                type="password"
+                                                value={cloudApiKey}
+                                                onChange={setCloudApiKey}
+                                                placeholder={quickPresetNeedsKey
+                                                    ? t('steps.download.cloud.apiKeyPlaceholder')
+                                                    : t('steps.download.cloud.apiKeyOptionalPlaceholder')}
+                                                size="sm"
+                                                width="100%"
+                                            />
+                                            <TextInput
+                                                label="Model"
+                                                value={cloudModelId}
+                                                onChange={setCloudModelId}
+                                                placeholder={t('steps.download.cloud.modelPlaceholder', { defaultValue: '手动输入模型 ID' })}
+                                                size="sm"
+                                                width="100%"
+                                            />
+                                        </div>
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            {cloudSavedProvider ? (
+                                                <span className="inline-flex items-center gap-1.5 text-xs text-success-text">
+                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                    {t('steps.download.cloud.savedBadge', { provider: cloudSavedProvider })}
+                                                </span>
+                                            ) : (
+                                                <span />
+                                            )}
+                                            <Button
+                                                label={cloudSaving ? t('steps.download.cloud.saving') : t('steps.download.cloud.saveButton')}
+                                                size="sm"
+                                                variant="secondary"
+                                                isLoading={cloudSaving}
+                                                isDisabled={cloudSaving || (quickPresetNeedsKey && !cloudApiKey.trim()) || !cloudModelId.trim()}
+                                                onClick={() => { void saveQuickCloudSetup(); }}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {suitableForLocalAi && <AuthorSupportBanner compact suitableForLocalAi />}
+
+                            {manualEntries.length > 0 && (
+                                <Button
+                                    label={t('steps.models.manualGuideTitle')}
+                                    variant="ghost"
+                                    size="sm"
+                                    icon={<Icon icon={HelpCircle as unknown as IconType} size="sm" />}
+                                    onClick={() => { void openManualGuide(); }}
+                                />
+                            )}
                         </div>
                     </main>
-
                 </>
             )}
-
 
             {screen === 'manual' && (
                 <main className="relative z-10 flex flex-1 flex-col items-center overflow-y-auto scrollbar-none px-8 py-8">
@@ -406,7 +633,7 @@ export const OnboardingView: React.FC<OnboardingViewProps> = ({ onCompleted }) =
                         </div>
 
                         <div className="space-y-4">
-                            {bundleEntries.map((entry) => (
+                            {manualEntries.map((entry) => (
                                 <Card key={entry.key} variant="default" padding={4}>
                                     <VStack gap={4} width="100%">
                                         <Text type="body" weight="semibold">{entry.title}</Text>

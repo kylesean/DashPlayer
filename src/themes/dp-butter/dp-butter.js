@@ -466,8 +466,8 @@ export const dpButterTheme = {
         "--color-text-secondary": "#605f52"
       },
       "variant:muted": {
-        "--color-text-primary": "#1d1c11",
-        "--color-text-secondary": "#605f52"
+        "--color-text-primary": "light-dark(#1d1c11, #f3f2e2)",
+        "--color-text-secondary": "light-dark(#605f52, #adac9e)"
       }
     },
     "section": {
