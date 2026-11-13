@@ -352,9 +352,6 @@ export class SettingServiceImpl implements SettingService {
             case 'player.vocabularyGuidance':
                 value = this.requireEnumValue(value, VOCABULARY_GUIDANCE_LEVELS, request.key);
                 break;
-            case 'features.openai.autoGenerateStudyCard':
-                value = this.requireBooleanString(value, request.key) ? 'true' : 'false';
-                break;
             case 'providers.embedding':
                 value = this.requireEnumValue(value, EMBEDDING_ENGINES, request.key);
                 break;

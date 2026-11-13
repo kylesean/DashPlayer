@@ -39,7 +39,6 @@ export const SettingKeyObj = {
     /** 语义向量提供方：'auto' | 'local' | 'openai' | 'none'。 */
     'providers.embedding': 'auto',
     'features.openai.enableSentenceLearning': 'true',
-    'features.openai.autoGenerateStudyCard': 'false',
     'features.openai.subtitleTranslationMode': 'zh',
     'features.openai.subtitleCustomStyle': '',
     'learning.activePromptPresetId': 'image-schema-tutor',

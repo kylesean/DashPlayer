@@ -15,7 +15,6 @@ import type { StorageSettingVO } from '@/common/contracts/storage-setting-vo';
 import type { SubtitleTimestampAdjustmentInput } from '@/common/contracts/subtitle-timestamp-adjustment';
 import { TRANSCRIPTION_ENGINES, type TranscriptionEngine } from '@/common/contracts/transcription-engine';
 import type { YoutubeImportSettingSaveVO } from '@/common/contracts/youtube-import';
-import type { AnalysisStartParams } from '@/common/types/analysis';
 import type {
     ChatSendMessageParams,
     ChatSessionCloseParams,
@@ -74,7 +73,6 @@ export const runtimeSettingSaveSchema: z.ZodType<RuntimeSettingSaveRequest> = z.
         'player.adaptiveChinese',
         'player.sceneCues',
         'userSelect.playbackRateStack',
-        'features.openai.autoGenerateStudyCard',
         'learning.activePromptPresetId',
     ]),
     value: z.string(),
@@ -281,11 +279,6 @@ export const chatSessionCloseSchema: z.ZodType<ChatSessionCloseParams> = z.objec
 
 /** 整句学习停止生成请求校验架构。 */
 export const chatSessionStopSchema: z.ZodType<ChatSessionStopParams> = z.object({
-    sessionId: nonEmptyStringSchema,
-});
-
-/** 结构化句子分析启动请求校验架构。 */
-export const analysisStartSchema: z.ZodType<AnalysisStartParams> = z.object({
     sessionId: nonEmptyStringSchema,
 });
 

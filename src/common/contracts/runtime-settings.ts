@@ -32,7 +32,6 @@ export const runtimeSettingKeys = [
     'providers.dictionary',
     'providers.embedding',
     'features.openai.subtitleTranslationMode',
-    'features.openai.autoGenerateStudyCard',
     'learning.activePromptPresetId',
     'appearance.theme',
     'appearance.themeFamily',
@@ -65,7 +64,6 @@ export type RuntimeWritableSettingKey =
     | 'player.sceneCues'
     | 'userSelect.playbackRateStack'
     | 'providers.embedding'
-    | 'features.openai.autoGenerateStudyCard'
     | 'learning.activePromptPresetId';
 
 /**
