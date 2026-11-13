@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelMessage } from 'ai';
 import {
-    buildStudyCardPrompt,
     composeChatSystemPrompt,
     ensureChatRoleMessage,
     toLocalChatMessagesWithWindow,
@@ -35,23 +34,6 @@ describe('ChatPromptBuilder 双层提示词与上下文保护', () => {
         expect(updated[0].content).toContain('new persona focus');
         expect(updated[0].content).not.toContain('old persona');
         expect(updated).toHaveLength(2);
-    });
-
-    it('buildStudyCardPrompt 注入个人记忆提示与物理意象字段规范并包含 JSON 关键字', () => {
-        const prompt = buildStudyCardPrompt({
-            text: 'I am drowning in deadlines.',
-            precedingLines: ['How is your week going?'],
-            followingLines: ['Hang in there!'],
-            memoryHints: {
-                focusWords: ['drowning'],
-                masteredWords: ['week'],
-            },
-        });
-        expect(prompt).toContain('JSON');
-        expect(prompt).toContain('coreImage');
-        expect(prompt).toContain('drowning');
-        expect(prompt).toContain('week');
-        expect(prompt).toContain('Hang in there!');
     });
 
     it('toLocalChatMessagesWithWindow 在超长多轮后裁剪中间旧轮次并保留字幕参考材料锚点', () => {

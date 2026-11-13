@@ -93,7 +93,6 @@ import type {
     SentenceStudyNoteSaveParams,
     SentenceStudyRecordVO,
 } from '@/common/types/chat';
-import type { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
 import type {
     ServiceCredentialSettingDetailVO,
     ServiceCredentialSettingSaveVO,
@@ -304,11 +303,6 @@ interface ChatDef {
     'chat/prompt-presets/reset': { params: LearningPromptPresetResetParams, return: LearningPromptPresetVO };
     /** 聊天语音输入转写（复用本地离线 ASR）。 */
     'chat/transcribe-audio': { params: ChatTranscribeAudioParams, return: ChatTranscribeAudioResult };
-}
-
-interface ChatAnalysisDef {
-    'chat/analysis/start': { params: AnalysisStartParams, return: AnalysisStartResult };
-    'chat/analysis/stop': { params: ChatSessionStopParams, return: void };
 }
 
 interface WatchHistoryDef {
@@ -744,7 +738,6 @@ export type ApiDefinitions = ApiDefinition
     & SystemDef
     & AiTransDef
     & ChatDef
-    & ChatAnalysisDef
     & WatchHistoryDef
     & SubtitleControllerDef
     & SherpaTtsModelDef
@@ -793,8 +786,6 @@ export const API_ROUTE_KEYS = [
     'ai-trans/update-subtitle-demand',
     'ai-trans/word',
     'ai-trans/word-insight',
-    'chat/analysis/start',
-    'chat/analysis/stop',
     'chat/complete-sentence',
     'chat/learning/available',
     'chat/prompt-presets/list',

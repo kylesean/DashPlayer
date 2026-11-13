@@ -14,7 +14,6 @@ import type {
     SentenceStudyNoteSaveParams,
     SentenceStudyRecordVO,
 } from '@/common/types/chat';
-import type { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
 
 /**
  * 整句学习工作台调用的后端接口。
@@ -30,11 +29,6 @@ export const chatApi = {
         backendClient.call('chat/session/update-preset', params),
 
     sendMessage: (params: ChatSendMessageParams) => backendClient.call('chat/send-message', params),
-
-    startAnalysis: (params: AnalysisStartParams): Promise<AnalysisStartResult> =>
-        backendClient.call('chat/analysis/start', params),
-
-    stopAnalysis: (sessionId: string) => backendClient.call('chat/analysis/stop', { sessionId }),
 
     pickSentenceVocabulary: (text: string) => backendClient.call('vocabulary/pick-sentence', { text }),
 

@@ -5,8 +5,6 @@ import {
     isStepCount,
     type LanguageModel,
     type ModelMessage,
-    Output,
-    parsePartialJson,
     streamText,
     toUIMessageStream,
     tool,
@@ -14,7 +12,6 @@ import {
 } from 'ai';
 import { z } from 'zod';
 import { getMainLogger } from '@/backend/infrastructure/logger';
-import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import TYPES from '@/backend/ioc/types';
 import type AiProviderService from '@/backend/services/AiProviderService';
@@ -32,15 +29,9 @@ import type {
     SubtitleSearchHit,
     SubtitleToolLine,
 } from '@/common/types/chat';
-import type { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
-import {
-    SentenceStudyCardSchema,
-    type SentenceStudyCard,
-} from '@/common/types/aiRes/AiUnifiedAnalysisRes';
 import { WithRateLimit } from '@/backend/utils/concurrency/decorators';
 import { isUserCancellation } from '@/common/utils/cancellation';
 import {
-    buildStudyCardPrompt,
     buildSubtitleContext,
     ensureChatRoleMessage,
     splitSystemMessages,
@@ -53,9 +44,6 @@ import type CacheService from '@/backend/services/CacheService';
 import type SentenceStudyNoteRepository from '@/backend/services/repositories/SentenceStudyNoteRepository';
 import type LearningPromptPresetService from '@/backend/services/chat/LearningPromptPresetService';
 import type { LearningMessageBlock } from '@/fronted/features/chat/types';
-
-/** 本地流式首卡增量 JSON 尝试解析的最小时间间隔，避免高频反序列化抖动。 */
-const LOCAL_PARTIAL_EMIT_INTERVAL_MS = 120;
 
 const describeStreamError = (error: unknown): string => {
     if (error instanceof APICallError) {
@@ -90,9 +78,6 @@ export default interface ChatSessionService {
     stop(sessionId: string): void;
     updatePreset(params: ChatSessionUpdatePresetParams): void;
     sendMessage(params: ChatSendMessageParams): Promise<ChatSendMessageResult>;
-    startAnalysis(params: AnalysisStartParams): Promise<AnalysisStartResult>;
-    /** 只中止当前会话的精读分析 run；不影响同会话的聊天流。 */
-    stopAnalysis(sessionId: string): void;
 }
 
 /**
@@ -126,13 +111,6 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         this.chatSessionStore.stop(sessionId);
     }
 
-    public stopAnalysis(sessionId: string): void {
-        const session = this.chatSessionStore.get(sessionId);
-        if (session.analysisRunId) {
-            this.chatSessionStore.stopRun(sessionId, session.analysisRunId);
-        }
-    }
-
     public updatePreset(params: ChatSessionUpdatePresetParams): void {
         this.chatSessionStore.updatePreset(params.sessionId, {
             presetId: params.presetId,
@@ -157,66 +135,6 @@ export class ChatSessionServiceImpl implements ChatSessionService {
             return resolved.rawPrompt;
         }
         return undefined;
-    }
-
-    @WithRateLimit('gpt')
-    public async startAnalysis(params: AnalysisStartParams): Promise<AnalysisStartResult> {
-        const sessionId = params.sessionId;
-        const session = this.chatSessionStore.get(sessionId);
-        // 并发去重：同一会话已有精读 run 在跑时幂等返回它的 messageId，
-        // 必须在首个 await 之前同步占坑，避免重入 await 窗口启动两个并发分析 run。
-        if (session.analysisRunId) {
-            return { messageId: session.analysisRunId };
-        }
-        const messageId = this.createMessageId();
-        const abortSignal = this.chatSessionStore.startRun(sessionId, messageId);
-        session.analysisRunId = messageId;
-
-        let model: LanguageModel | null = null;
-        let localModelId: string | null = null;
-        let prompt = '';
-        try {
-            model = this.resolveCloudModelOrNull();
-            if (!model) {
-                localModelId = await this.sentenceLearningService.resolveLocalModelId();
-                if (!localModelId) {
-                    throw new Error(CLOUD_AI_NOT_CONFIGURED_MESSAGE);
-                }
-            }
-            abortSignal.throwIfAborted();
-            const personaPrompt = await this.resolveSessionPersonaPrompt(session);
-            abortSignal.throwIfAborted();
-            if (this.chatSessionStore.get(sessionId).closed) {
-                throw new Error(`chat session is closed: ${sessionId}`);
-            }
-            prompt = buildStudyCardPrompt({
-                text: session.originalTopic,
-                paragraphLines: session.paragraphLines,
-                subtitleOverview: this.tryGetSubtitleOverview(session.subtitleFileHash, session.anchorSentenceIndex),
-                memoryHints: session.memoryHints,
-                personaPrompt,
-            });
-        } catch (error) {
-            this.chatSessionStore.finishRun(sessionId, messageId);
-            throw error;
-        }
-
-        this.rendererGateway.fireAndForget('chat/analysis/stream', {
-            sessionId,
-            messageId,
-            chunk: { type: 'start', messageId },
-        });
-        if (model) {
-            this.runAnalysisStream(sessionId, messageId, model, prompt, abortSignal)
-                .catch((error) => this.handleAnalysisError(sessionId, messageId, error))
-                .finally(() => this.chatSessionStore.finishRun(sessionId, messageId));
-        } else {
-            this.runAnalysisLocal(sessionId, messageId, localModelId as string, prompt, abortSignal)
-                .catch((error) => this.handleAnalysisError(sessionId, messageId, error))
-                .finally(() => this.chatSessionStore.finishRun(sessionId, messageId));
-        }
-
-        return { messageId };
     }
 
     @WithRateLimit('gpt')
@@ -676,163 +594,6 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         };
     }
 
-    /**
-     * 本地大模型真流式生成统一精读首卡（SentenceStudyCardSchema）：
-     * 消费 llama-server SSE JSON token，节流增量解析部分对象实时回推 `data-analysis`，
-     * 并在收尾后自动写入 SQLite 句级缓存。
-     */
-    private async runAnalysisLocal(
-        sessionId: string,
-        messageId: string,
-        modelId: string,
-        prompt: string,
-        abortSignal: AbortSignal,
-    ): Promise<void> {
-        const startedAt = Date.now();
-        this.logger.info('analysis local stream start', { sessionId, messageId, modelId });
-
-        let accumulated = '';
-        let lastPartialEmitAt = 0;
-        let parseSeq = 0;
-        let latestEmittedSeq = 0;
-        let finished = false;
-
-        const output = await this.localAiService.streamText(
-            prompt,
-            modelId,
-            {
-                onDelta: (delta) => {
-                    accumulated += delta;
-                    const now = Date.now();
-                    if (now - lastPartialEmitAt < LOCAL_PARTIAL_EMIT_INTERVAL_MS) {
-                        return;
-                    }
-                    lastPartialEmitAt = now;
-                    const seq = ++parseSeq;
-                    const snapshot = accumulated;
-                    void parsePartialJson(snapshot).then((parsed) => {
-                        if (abortSignal.aborted || finished || seq < latestEmittedSeq) {
-                            return;
-                        }
-                        if (parsed.value && typeof parsed.value === 'object' && !Array.isArray(parsed.value)) {
-                            latestEmittedSeq = seq;
-                            this.rendererGateway.fireAndForget('chat/analysis/stream', {
-                                sessionId,
-                                messageId,
-                                chunk: { type: 'data-analysis', id: messageId, data: parsed.value },
-                            });
-                        }
-                    }).catch(() => undefined);
-                },
-            },
-            abortSignal,
-            {
-                schema: z.toJSONSchema(SentenceStudyCardSchema),
-                temperature: 0.4,
-            },
-        );
-        finished = true;
-
-        const parsed = SentenceStudyCardSchema.safeParse(parseMaybeJson(output));
-        if (!parsed.success) {
-            this.logger.error('analysis local 结构无效', {
-                modelId,
-                rawText: output.slice(0, 500),
-                issues: parsed.error.issues,
-            });
-            throw new Error('本地模型分析输出不符合契约');
-        }
-
-        await this.persistStudyCard(sessionId, parsed.data);
-        this.logger.info('analysis local stream done', { sessionId, messageId, durationMs: Date.now() - startedAt });
-        this.rendererGateway.fireAndForget('chat/analysis/stream', {
-            sessionId,
-            messageId,
-            chunk: { type: 'data-analysis', id: messageId, data: parsed.data },
-        });
-        this.rendererGateway.fireAndForget('chat/analysis/stream', {
-            sessionId,
-            messageId,
-            chunk: { type: 'finish', finishReason: 'stop' },
-        });
-    }
-
-    private async runAnalysisStream(
-        sessionId: string,
-        messageId: string,
-        model: LanguageModel,
-        prompt: string,
-        abortSignal: AbortSignal,
-    ): Promise<void> {
-        const startedAt = Date.now();
-        this.logger.info('analysis stream start', { sessionId, messageId });
-        const result = streamText({
-            model,
-            output: Output.object({ schema: SentenceStudyCardSchema }),
-            prompt,
-            abortSignal,
-            timeout: { firstChunkMs: 30_000, chunkMs: 60_000 },
-        });
-        let chunkCount = 0;
-        for await (const partial of result.partialOutputStream) {
-            chunkCount += 1;
-            if (chunkCount === 1 || chunkCount % 20 === 0) {
-                this.logger.debug('analysis stream chunk', {
-                    sessionId,
-                    messageId,
-                    chunkCount,
-                    keys: Object.keys(partial ?? {}),
-                });
-            }
-            this.rendererGateway.fireAndForget('chat/analysis/stream', {
-                sessionId,
-                messageId,
-                chunk: {
-                    type: 'data-analysis',
-                    id: messageId,
-                    data: partial,
-                },
-            });
-        }
-        const finalObject = await result.output;
-        await this.persistStudyCard(sessionId, finalObject);
-        this.logger.info('analysis stream done', {
-            sessionId,
-            messageId,
-            chunkCount,
-            durationMs: Date.now() - startedAt,
-        });
-        this.rendererGateway.fireAndForget('chat/analysis/stream', {
-            sessionId,
-            messageId,
-            chunk: { type: 'data-analysis', id: messageId, data: finalObject },
-        });
-        this.rendererGateway.fireAndForget('chat/analysis/stream', {
-            sessionId,
-            messageId,
-            chunk: { type: 'finish', finishReason: 'stop' },
-        });
-    }
-
-    private async persistStudyCard(sessionId: string, studyCard: SentenceStudyCard): Promise<void> {
-        if (!this.studyNoteRepository) return;
-        try {
-            const session = this.chatSessionStore.get(sessionId);
-            if (!session.subtitleFileHash || session.anchorSentenceIndex === undefined) return;
-            await this.studyNoteRepository.saveStudyCard({
-                sentenceKey: session.sentenceKey,
-                videoId: session.videoId,
-                fileHash: session.subtitleFileHash,
-                sentenceIndex: session.anchorSentenceIndex,
-                originalText: session.originalTopic,
-                studyCard,
-                presetId: session.presetId ?? null,
-            });
-        } catch (error) {
-            this.logger.warn('failed to persist sentence study card', { sessionId, error });
-        }
-    }
-
     private async persistSessionMessages(sessionId: string): Promise<void> {
         if (!this.studyNoteRepository) return;
         try {
@@ -865,20 +626,5 @@ export class ChatSessionServiceImpl implements ChatSessionService {
             ? { type: 'abort', reason: '用户已取消生成' }
             : { type: 'error', errorText: errorMessage };
         this.rendererGateway.fireAndForget('chat/stream', { sessionId, chunk });
-    }
-
-    private handleAnalysisError(sessionId: string, messageId: string, error: unknown): void {
-        const cancelled = isUserCancellation(error);
-        const errorMessage = describeStreamError(error);
-        if (!cancelled) {
-            this.logger.error('analysis stream failed', { error: errorMessage });
-        }
-        this.rendererGateway.fireAndForget('chat/analysis/stream', {
-            sessionId,
-            messageId,
-            chunk: cancelled
-                ? { type: 'abort', reason: '用户已取消分析' }
-                : { type: 'error', errorText: errorMessage },
-        });
     }
 }

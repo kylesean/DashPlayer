@@ -1,7 +1,6 @@
 import type { ModelMessage } from 'ai';
 import type { LocalChatMessage } from '@/backend/services/LocalAiService';
 import { BUILTIN_LEARNING_PROMPT_PRESETS } from '@/backend/services/chat/LearningPromptPresets';
-import type { SentenceMemoryHints } from '@/common/types/vo/SentenceVocabularyVO';
 
 /**
  * 会话创建时冻结的字幕规模概览。
@@ -80,91 +79,6 @@ export const composeChatSystemPrompt = (
     }
     return sections.join('\n');
 };
-
-/**
- * 构建整句学习统一首卡（SentenceStudyCardSchema）的上下文感知提示词。
- */
-export const buildStudyCardPrompt = (params: {
-    text: string;
-    precedingLines?: string[];
-    followingLines?: string[];
-    paragraphLines?: string[];
-    subtitleOverview?: SubtitleOverview;
-    memoryHints?: SentenceMemoryHints;
-    personaPrompt?: string;
-}): string => {
-    const formatLines = (lines?: string[]) => (lines && lines.length > 0
-        ? lines.map((line, index) => `${index + 1}. ${line}`).join('\n')
-        : '（无）');
-
-    const overviewText = formatSubtitleOverview(params.subtitleOverview);
-    const hasSplitContext = (params.precedingLines?.length ?? 0) > 0 || (params.followingLines?.length ?? 0) > 0;
-    const focusWords = params.memoryHints?.focusWords ?? [];
-    const masteredWords = params.memoryHints?.masteredWords ?? [];
-
-    const parts: string[] = [
-        '你在为一档沉浸式英语影视精读工作台生成“整句精读首卡”。',
-        '所有中文讲解与译文必须使用自然流畅的简体中文，保留必要的英文词组与片段；只输出一个合法 JSON 对象，不要包含 markdown 代码块包裹或多余文字。',
-        '',
-        `当前字幕行：\n${params.text}`,
-    ];
-
-    if (hasSplitContext) {
-        parts.push(
-            '',
-            `前文紧邻台词（时间升序）：\n${formatLines(params.precedingLines)}`,
-            '',
-            `后续紧邻台词（时间升序）：\n${formatLines(params.followingLines)}`,
-        );
-    } else if (params.paragraphLines && params.paragraphLines.length > 0) {
-        parts.push('', `周边台词上下文：\n${formatLines(params.paragraphLines)}`);
-    }
-
-    if (overviewText) {
-        parts.push('', overviewText);
-    }
-
-    if (focusWords.length > 0 || masteredWords.length > 0) {
-        const memoryLines: string[] = ['', '# 学习者记忆信号（用于精准筛选 focalPoints）'];
-        if (focusWords.length > 0) {
-            memoryLines.push(`- 重点候选词（到期/在学/刚查过，若确属关键难点请优先拆解）：${focusWords.join(', ')}`);
-        }
-        if (masteredWords.length > 0) {
-            memoryLines.push(`- 已熟练掌握词（除非在本句属于罕见“熟词僻义”，否则不要浪费 focalPoints 名额）：${masteredWords.join(', ')}`);
-        }
-        parts.push(...memoryLines);
-    }
-
-    if (params.personaPrompt && params.personaPrompt.trim().length > 0) {
-        parts.push('', `# 当前导师风格参考\n${params.personaPrompt.trim().slice(0, 600)}`);
-    }
-
-    parts.push(
-        '',
-        '# 输出 JSON 契约（SentenceStudyCardSchema）',
-        '1. `sentence`：',
-        '   - `completeText`：结合前后台词把被字幕断行截断的当前句补全为完整英文句子；若当前行本就完整则保持原句，不擅自改写。',
-        '   - `contextualTranslation`：贴合当下剧情情绪与口气的自然中文译文。',
-        '   - `chunks`：2~5 个按自然停顿与意群切分的英文片段（按顺序覆盖完整句）。',
-        '2. `focalPoints`（0~2 条；简单日常句可返回空数组 `[]`，宁缺毋滥）：',
-        '   - 挑选句中最值得讲透的高价值词、动词短语、俚语或微妙语用表达。',
-        '   - `expression`：句中出现的目标表达；`kind`：word / phrase / slang / nuance；`tag`：如“熟词僻义”“物理动词”“地道搭配”。',
-        '   - `coreImage`（核心亮点）：用 1~2 句直观中文描绘它最底层的物理空间画面、身体动作或力学体感（不要背词典定义）。',
-        '   - `meaningInContext`：点明母语者如何从上面的物理画面抽象投射到当前语境，并给出地道中文含义。',
-        '3. `listeningLens`（0~2 条；语速清晰无连音陷阱可返回空数组 `[]`）：',
-        '   - `span`：出现音变的连续英文词段；`phenomenon`：连读 / 弱读 / 失爆 / 语调重音；`tip`：1 句听音抓手。',
-        '4. `sentenceLens`：',
-        '   - `structureInsight`：1 句大白话点破这句话的语序重心或表达组织方式（禁用枯燥语法学术语）。',
-        '   - `subtext`：1 句点出说话人此刻的潜台词、态度或情绪温度。',
-    );
-
-    return parts.join('\n');
-};
-
-/**
- * 构建整句学习的结构化分析提示词（兼容旧单参调用，内部转发至统一首卡提示词）。
- */
-export const buildAnalysisPrompt = (text: string): string => buildStudyCardPrompt({ text });
 
 /**
  * 把消息列表中的 system 角色消息拆分出来，供 AI SDK v7 的 streamText(system, messages) 使用。

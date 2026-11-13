@@ -62,7 +62,6 @@ const seedSession = (fileHash: string): void => {
         anchorFileHash: fileHash,
         hasLearningContext: true,
         learningVisible: false,
-        analysis: null,
     });
 };
 
@@ -125,54 +124,5 @@ describe('chatStore 同句判重的跨视频边界', () => {
         expect(chatApi.closeSession).toHaveBeenCalledWith('sess-first');
         expect(useChatPanel.getState().chatSessionId).toBe('sess-second');
         expect(useChatPanel.getState().anchorIndex).toBe(1);
-    });
-
-    it('startAnalysis 在途时若已被 stopAnalysis 或早到 stream 完成，返回后不得覆盖为 streaming/空卡片', async () => {
-        const stopAnalysisMock = vi.fn().mockResolvedValue(undefined);
-        const startAnalysisMock = vi.fn();
-        (chatApi as Record<string, unknown>).stopAnalysis = stopAnalysisMock;
-        (chatApi as Record<string, unknown>).startAnalysis = startAnalysisMock;
-
-        useChatPanel.setState({ chatSessionId: 'sess-a', analysisStatus: 'idle', analysis: null });
-
-        let resolveStart!: (val: { messageId: string }) => void;
-        startAnalysisMock.mockImplementationOnce(() => new Promise((resolve) => {
-            resolveStart = resolve;
-        }));
-
-        const pStart = useChatPanel.getState().startAnalysis();
-        expect(useChatPanel.getState().analysisStatus).toBe('streaming');
-
-        // 停止请求先于 IPC 返回到达
-        await useChatPanel.getState().stopAnalysis();
-        expect(useChatPanel.getState().analysisStatus).toBe('aborted');
-
-        resolveStart({ messageId: 'msg-aborted' });
-        await pStart;
-        expect(useChatPanel.getState().analysisStatus).toBe('aborted');
-        expect(stopAnalysisMock).toHaveBeenCalledWith('sess-a');
-
-        // 场景 B：IPC 返回前 stream chunk（start -> finish）已经完成
-        startAnalysisMock.mockImplementationOnce(() => new Promise((resolve) => {
-            resolveStart = resolve;
-        }));
-        useChatPanel.setState({ analysisStatus: 'idle', analysisMessageId: null, analysis: null });
-        const pEarly = useChatPanel.getState().startAnalysis();
-
-        useChatPanel.getState().receiveAnalysisStream({
-            sessionId: 'sess-a',
-            messageId: 'msg-fast',
-            chunk: { type: 'start', messageId: 'msg-fast' },
-        });
-        useChatPanel.getState().receiveAnalysisStream({
-            sessionId: 'sess-a',
-            messageId: 'msg-fast',
-            chunk: { type: 'finish' },
-        });
-        expect(useChatPanel.getState().analysisStatus).toBe('done');
-
-        resolveStart({ messageId: 'msg-fast' });
-        await pEarly;
-        expect(useChatPanel.getState().analysisStatus).toBe('done');
     });
 });

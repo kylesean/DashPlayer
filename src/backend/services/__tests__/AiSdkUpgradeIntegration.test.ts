@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // 服务模块会经 simple-logger 依赖 electron（读取 userData 路径），
 // vitest 下必须 mock，否则 require('electron') 只返回可执行文件路径字符串。
@@ -33,11 +33,9 @@ vi.mock('@/backend/infrastructure/settings/store', () => ({
 import { z } from 'zod';
 import { Output, streamText, type LanguageModel } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
-import { convertArrayToReadableStream, MockLanguageModelV4 } from 'ai/test';
 
 import { loadAiSdkTestConfig } from '@/test/aiSdkTestConfig';
 import { splitSystemMessages } from '@/backend/services/chat/ChatPromptBuilder';
-import { ChatSessionServiceImpl } from '../ChatSessionService';
 import { TranslateServiceImpl } from '../TranslateService';
 import { BuiltinDictionaryStoreImpl } from '@/backend/infrastructure/translate/BuiltinDictionaryStoreImpl';
 import { createBuiltinDictionaryFixture } from '@/test/builtinDictionaryFixture';
@@ -48,10 +46,7 @@ import type SettingService from '../SettingService';
 import type LocalAiService from '../LocalAiService';
 import type ImportedDictionaryService from '../ImportedDictionaryService';
 import type EnglishDictionaryService from '../EnglishDictionaryService';
-import type SentenceLearningService from '../SentenceLearningService';
-import type CacheService from '../CacheService';
 import type ResourceFallbackService from '../ResourceFallbackService';
-import { InMemoryChatSessionStore } from '@/backend/services/chat/ChatSessionStore';
 import type RendererGateway from '@/backend/services/gateways/renderer/RendererGateway';
 import type WordTranslatesRepository from '@/backend/services/repositories/WordTranslatesRepository';
 
@@ -78,32 +73,6 @@ const buildLiveModel = (modelId: string): LanguageModel => {
     return provider.chatModel(modelId);
 };
 
-/**
- * 构造一个返回固定文本流、不发真实请求的 mock 模型，供离线回归测试使用。
- *
- * @param text 模型固定返回的文本内容。
- * @returns 可直接传给 streamText 的 LanguageModel。
- */
-const buildMockTextModel = (text: string): LanguageModel => {
-    const streamParts = [
-        { type: 'text-start' as const, id: 'mock-text' },
-        { type: 'text-delta' as const, id: 'mock-text', delta: text },
-        { type: 'text-end' as const, id: 'mock-text' },
-        {
-            type: 'finish' as const,
-            finishReason: { unified: 'stop' as const, raw: 'stop' },
-            usage: {
-                inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
-                outputTokens: { total: 5, text: 5, reasoning: 0 },
-            },
-        },
-    ];
-    return new MockLanguageModelV4({
-        doStream: async () => ({
-            stream: convertArrayToReadableStream(streamParts),
-        }),
-    }) as unknown as LanguageModel;
-};
 
 const runTests = (): void => {
     // 离线回归：不发真实请求，默认测试（yarn test）就能跑，守护整句学习面板的模型调用与流式回推路径。
@@ -141,69 +110,6 @@ const runTests = (): void => {
             });
         });
 
-        describe('ChatSessionServiceImpl.startAnalysis（打开面板时唯一一次模型调用）', () => {
-            it('结构化分析能流式回推意群与词组并在 finish 结束，而不是空流直接 done', async () => {
-                const events: Array<{ event: string; payload: Record<string, unknown> }> = [];
-                const analyzed = JSON.stringify({
-                    sentence: {
-                        completeText: 'Hello world',
-                        contextualTranslation: '你好，世界',
-                        chunks: ['Hello world'],
-                    },
-                    focalPoints: [{
-                        expression: 'hello world',
-                        kind: 'phrase',
-                        coreImage: '一个人站上舞台对着整个世界招手打招呼的开场瞬间。',
-                        meaningInContext: '常规的开场问候语：你好，世界。',
-                    }],
-                    listeningLens: [],
-                    sentenceLens: {
-                        structureInsight: '两个实词直接并列作为呼告语。',
-                        subtext: '友好、开场式的问候。',
-                    },
-                });
-                const provider: AiProviderService = {
-                    getModel: vi.fn(() => buildMockTextModel(analyzed)),
-                    createModelById: vi.fn(() => buildMockTextModel(analyzed)),
-                };
-                const gateway: RendererGateway = {
-                    call: vi.fn(),
-                    fireAndForget: vi.fn((_path: never, params: Record<string, unknown>) => {
-                        const chunk = params.chunk as { type?: string } | undefined;
-                        events.push({ event: chunk?.type ?? 'unknown', payload: params });
-                    }) as RendererGateway['fireAndForget'],
-                };
-                const store = {
-                    get: vi.fn(() => ({ originalTopic: 'Hello world' })),
-                    startRun: vi.fn(() => new AbortController().signal),
-                    finishRun: vi.fn(),
-                };
-                const sessionService = new ChatSessionServiceImpl(
-                    provider,
-                    {} as LocalAiService,
-                    {} as SentenceLearningService,
-                    gateway,
-                    store as never,
-                    {} as CacheService,
-                );
-
-                await sessionService.startAnalysis({ sessionId: 's-analysis' });
-                // startAnalysis 是 fire-and-forget 模式，流式结果在后台异步回推，轮询等待 finish 事件。
-                const deadline = Date.now() + 10000;
-                while (!events.some((e) => e.event === 'finish') && Date.now() < deadline) {
-                    await new Promise((resolve) => setTimeout(resolve, 10));
-                }
-                const chunks = events.filter((e) => e.event === 'data-analysis');
-                const done = events.find((e) => e.event === 'finish');
-                expect(chunks.length).toBeGreaterThan(0);
-                const lastChunk = chunks[chunks.length - 1];
-                const partial = (lastChunk.payload.chunk as {
-                    data?: { sentence?: { chunks?: string[] } };
-                }).data;
-                expect(partial?.sentence?.chunks?.[0]).toContain('Hello world');
-                expect(done).toBeDefined();
-            }, 15000);
-        });
 
     });
 
@@ -277,64 +183,6 @@ const runTests = (): void => {
             }, 60000);
         });
 
-
-        describe('ChatSessionServiceImpl（播放页对话/句子分析路径）', () => {
-            let sessionService: ChatSessionServiceImpl;
-            let provider: AiProviderService;
-            let gateway: RendererGateway;
-            const events: Array<{ event: string; payload: Record<string, unknown> }> = [];
-
-            beforeAll(() => {
-                provider = {
-                    getModel: vi.fn(() => buildLiveModel(testConfig!.model)),
-                    createModelById: vi.fn(() => buildLiveModel(testConfig!.model)),
-                };
-                gateway = {
-                    call: vi.fn(),
-                    fireAndForget: vi.fn((_path: never, params: Record<string, unknown>) => {
-                        const chunk = params.chunk as { type?: string } | undefined;
-                        events.push({ event: chunk?.type ?? 'unknown', payload: params });
-                    }) as RendererGateway['fireAndForget'],
-                };
-                const store = new InMemoryChatSessionStore();
-                sessionService = new ChatSessionServiceImpl(
-                    provider,
-                    {} as LocalAiService,
-                    {} as SentenceLearningService,
-                    gateway,
-                    store,
-                    {} as CacheService,
-                );
-            });
-
-            it('真实连接：startAnalysis() 能产出结构化分析并通过事件回推', async () => {
-                const { sessionId } = sessionService.create({
-                    videoId: 'v1',
-                    subtitleFileHash: 'h1',
-                    anchorSentenceIndex: 0,
-                    originalTopic: 'Hello world',
-                    paragraphLines: ['Hello world'],
-                });
-                events.length = 0;
-                await sessionService.startAnalysis({
-                    sessionId,
-                });
-                // startAnalysis 是 fire-and-forget 模式，流式结果在后台异步回推，轮询等待 done 事件。
-                const deadline = Date.now() + 45000;
-                while (!events.some((e) => e.event === 'finish') && Date.now() < deadline) {
-                    await new Promise((resolve) => setTimeout(resolve, 100));
-                }
-                const chunks = events.filter((e) => e.event === 'data-analysis');
-                const done = events.find((e) => e.event === 'finish');
-                expect(chunks.length).toBeGreaterThan(0);
-                expect(done).toBeDefined();
-                const lastChunk = chunks[chunks.length - 1];
-                const partial = (lastChunk.payload.chunk as { data?: { sentence?: unknown } }).data;
-                expect(partial).toBeDefined();
-                expect(partial?.sentence).toBeDefined();
-            }, 60000);
-
-        });
 
         describe('TranslateServiceImpl（词典路径）', () => {
             const rendererEvents: Array<{ path: string; params: Record<string, unknown> }> = [];

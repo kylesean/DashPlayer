@@ -1,7 +1,6 @@
 import { inject, injectable } from 'inversify';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import {
-    analysisStartSchema,
     chatSendMessageSchema,
     chatSessionCloseSchema,
     chatSessionCreateSchema,
@@ -36,7 +35,6 @@ import type {
     SentenceStudyNoteSaveParams,
     SentenceStudyRecordVO,
 } from '@/common/types/chat';
-import type { AnalysisStartParams, AnalysisStartResult } from '@/common/types/analysis';
 import type SentenceLearningService from '@/backend/services/SentenceLearningService';
 import { describeAsrFailure, isNoSpeechError } from '@/common/utils/practice/asr-error';
 import type SentenceStudyNoteRepository from '@/backend/services/repositories/SentenceStudyNoteRepository';
@@ -78,15 +76,6 @@ export default class ChatStreamController implements Controller {
         registerRoute('chat/send-message', async (params: ChatSendMessageParams): Promise<ChatSendMessageResult> => {
             return this.chatSessionService.sendMessage(params);
         }, { schema: chatSendMessageSchema });
-
-        registerRoute('chat/analysis/start', async (params: AnalysisStartParams): Promise<AnalysisStartResult> => {
-            return this.chatSessionService.startAnalysis(params);
-        }, { schema: analysisStartSchema });
-
-        // 只中止精读分析 run：用户停止聊天回复不应误杀同会话的分析流，反之亦然。
-        registerRoute('chat/analysis/stop', async (params: ChatSessionStopParams): Promise<void> => {
-            this.chatSessionService.stopAnalysis(params.sessionId);
-        }, { schema: chatSessionStopSchema });
 
         registerRoute('chat/complete-sentence', async (
             params: CompleteSentenceParams,

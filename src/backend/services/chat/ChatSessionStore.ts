@@ -42,8 +42,6 @@ export type ChatSession = {
     closed: boolean;
     /** 当前仍在执行的生成请求。 */
     runs: Map<string, AbortController>;
-    /** 当前在跑的精读分析 run（sendMessage 的 run 不在此列）；null 表示没有。 */
-    analysisRunId: string | null;
     /**
      * 会话内已确认「不支持工具调用」的模型 id 集合（降级记忆）。
      * 按 model id 键控：换模型/预设自动失效重试；会话内存活，进程重启自然清零。
@@ -131,7 +129,6 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
             persistedMessages: restored,
             closed: false,
             runs: new Map(),
-            analysisRunId: null,
             toolsUnsupportedModelIds: new Set<string>(),
         };
         this.sessions.set(id, session);
@@ -211,9 +208,6 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
     public finishRun(sessionId: string, runId: string): void {
         const session = this.get(sessionId);
         session.runs.delete(runId);
-        if (session.analysisRunId === runId) {
-            session.analysisRunId = null;
-        }
     }
 
     public stopRun(sessionId: string, runId: string): boolean {
@@ -224,9 +218,6 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
         }
         controller.abort('chat run stopped');
         session.runs.delete(runId);
-        if (session.analysisRunId === runId) {
-            session.analysisRunId = null;
-        }
         return true;
     }
 
@@ -236,7 +227,6 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
             controller.abort('chat run stopped');
         }
         session.runs.clear();
-        session.analysisRunId = null;
     }
 
     public close(sessionId: string): void {
@@ -245,7 +235,6 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
             return;
         }
         session.closed = true;
-        session.analysisRunId = null;
         for (const controller of session.runs.values()) {
             controller.abort('chat session closed');
         }

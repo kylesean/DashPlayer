@@ -1,5 +1,5 @@
 /**
- * 管理播放器整句学习工作台的会话、首卡精读缓存、教学预设、笔记沉淀与上下文操作。
+ * 管理播放器整句学习工作台的会话、教学预设、笔记沉淀与上下文操作。
  */
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
@@ -12,8 +12,6 @@ import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { TypeGuards } from '@/common/utils/TypeGuards';
 import { chatApi } from '@/fronted/features/chat/chatApi';
 import useSetting from '@/fronted/features/settings/settingsStore';
-import type { AnalysisStreamEvent, DeepPartial } from '@/common/types/analysis';
-import type { SentenceStudyCard } from '@/common/types/aiRes/AiUnifiedAnalysisRes';
 import {
     buildSentenceStudyKey,
     type LearningPromptPresetVO,
@@ -45,12 +43,7 @@ export type ChatPanelState = {
     anchorFileHash: string | null;
     conversationEpoch: number;
     topicKey: string | null;
-    /** 统一精读首卡（SentenceStudyCard）及其流式分片；idle/streaming/done/error/aborted */
-    analysis: DeepPartial<SentenceStudyCard> | null;
-    analysisMessageId: string | null;
-    analysisStatus: 'idle' | 'streaming' | 'done' | 'error' | 'aborted';
-    analysisError: string | null;
-    /** 个人学习者记忆提示（随本地选词产出，注入后台首卡生成） */
+    /** 个人学习者记忆提示（随本地选词产出，随会话创建上报后端） */
     memoryHints: SentenceMemoryHints | null;
     /** 从 SQLite 恢复的历史对话轮次 */
     restoredMessages: PersistedChatMessage[];
@@ -83,10 +76,6 @@ export type ChatPanelActions = {
     clear: () => void;
     resetConversationView: () => void;
     sent: (msg: string) => void;
-    receiveAnalysisStream: (event: AnalysisStreamEvent) => void;
-    startAnalysis: () => Promise<void>;
-    /** 中止当前精读分析流（只停 analysis run，不影响聊天回复流）。 */
-    stopAnalysis: () => Promise<void>;
     setNoteSummary: (noteSummary: string) => void;
     saveNoteSummary: (summary?: string) => Promise<void>;
     appendToNoteSummary: (snippet: string) => Promise<void>;
@@ -126,10 +115,6 @@ const empty = (): ChatPanelState => ({
     anchorFileHash: null,
     conversationEpoch: 0,
     topicKey: null,
-    analysis: null,
-    analysisMessageId: null,
-    analysisStatus: 'idle',
-    analysisError: null,
     memoryHints: null,
     restoredMessages: [],
     noteSummary: '',
@@ -254,8 +239,6 @@ const isCloudLearningAvailable = async (): Promise<boolean> => {
 // 会话创建的在途令牌：每次发起创建都递增代数；旧创建完成时发现令牌易主就丢弃并关闭会话，
 // 不再阻塞后续切句/快速重选的并发请求，也不会让 clear() 强行复位后出现双写。
 let sessionCreationToken = 0;
-let analysisStreamChunkCount = 0;
-let analysisStartEpoch = 0;
 let learningEntryInFlight = false;
 let learningCloseRequested = false;
 let learningRequestEpoch = 0;
@@ -273,7 +256,6 @@ const startSessionForTopic = async (
         presetId?: string;
         memoryHints?: SentenceMemoryHints | null;
         restoredMessages?: PersistedChatMessage[];
-        cachedStudyCard?: SentenceStudyCard | null;
         cachedNoteSummary?: string;
         draftPrompt?: string;
     },
@@ -328,8 +310,6 @@ const startSessionForTopic = async (
         memoryHints: options?.memoryHints ?? null,
         restoredMessages: options?.restoredMessages ?? [],
         noteSummary: options?.cachedNoteSummary ?? '',
-        analysis: options?.cachedStudyCard ?? null,
-        analysisStatus: options?.cachedStudyCard ? 'done' : 'idle',
         input: options?.draftPrompt ?? '',
     });
 
@@ -361,7 +341,6 @@ const startSessionForTopic = async (
         paragraphLineCount: paragraphLines.length,
         anchorSentenceIndex: anchor.index,
         restoredCount: options?.restoredMessages?.length ?? 0,
-        hasCachedCard: Boolean(options?.cachedStudyCard),
     });
 
     applyLearningTransition({ chatSessionId: sessionId });
@@ -491,7 +470,6 @@ const useChatPanel = create(
                         presetId,
                         memoryHints: pickedVocab?.memoryHints ?? null,
                         restoredMessages: studyRecord?.messages ?? [],
-                        cachedStudyCard: cachedCard,
                         cachedNoteSummary: studyRecord?.noteSummary ?? '',
                         draftPrompt: options?.draftPrompt,
                     },
@@ -561,7 +539,6 @@ const useChatPanel = create(
         clear: () => {
             learningRequestEpoch += 1;
             sessionCreationToken += 1;
-            analysisStartEpoch += 1;
             learningEntryInFlight = false;
             learningCloseRequested = false;
             const sessionId = get().chatSessionId;
@@ -590,147 +567,6 @@ const useChatPanel = create(
                     content: msg,
                 },
             });
-        },
-        receiveAnalysisStream: (event: AnalysisStreamEvent) => {
-            if (event.sessionId !== get().chatSessionId) {
-                return;
-            }
-            if (event.chunk.type === 'start') {
-                analysisStreamChunkCount = 0;
-                chatLogger.info('analysis stream started in renderer', {
-                    sessionId: event.sessionId,
-                    messageId: event.chunk.messageId ?? event.messageId,
-                });
-                set({
-                    analysis: {},
-                    analysisMessageId: event.chunk.messageId ?? event.messageId,
-                    analysisStatus: 'streaming',
-                    analysisError: null,
-                });
-                return;
-            }
-
-            if (event.messageId !== get().analysisMessageId) {
-                return;
-            }
-
-            if (event.chunk.type === 'data-analysis') {
-                const partial = event.chunk.data as DeepPartial<SentenceStudyCard>;
-                analysisStreamChunkCount += 1;
-                if (analysisStreamChunkCount === 1 || analysisStreamChunkCount % 20 === 0) {
-                    chatLogger.debug('analysis chunk', {
-                        chunkCount: analysisStreamChunkCount,
-                        keys: Object.keys(partial ?? {}),
-                    });
-                }
-                const merged = mergeAnalysisPartial(get().analysis ?? {}, partial);
-                const completeText = merged.sentence?.completeText?.trim();
-                const contextualTranslation = merged.sentence?.contextualTranslation?.trim();
-                set({
-                    analysis: merged,
-                    analysisStatus: 'streaming',
-                    ...(completeText ? { topicText: completeText } : {}),
-                    ...(contextualTranslation ? { topicTranslation: contextualTranslation } : {}),
-                });
-                return;
-            }
-            if (event.chunk.type === 'finish') {
-                chatLogger.info('analysis stream finished in renderer', {
-                    sessionId: event.sessionId,
-                    messageId: event.messageId,
-                    chunkCount: analysisStreamChunkCount,
-                });
-                set({
-                    analysisStatus: 'done',
-                });
-                return;
-            }
-            if (event.chunk.type === 'error') {
-                chatLogger.error('analysis stream failed in renderer', {
-                    sessionId: event.sessionId,
-                    messageId: event.messageId,
-                    errorText: event.chunk.errorText,
-                });
-                set({
-                    analysisStatus: 'error',
-                    analysisError: event.chunk.errorText,
-                });
-                return;
-            }
-            if (event.chunk.type === 'abort') {
-                // 中止进入显式 aborted 态：半成品卡片保留展示（用户看得到已生成的内容），
-                // 并提示可重新生成。此前 abort 直接落 idle，半卡与 idle 组合会击穿空态判断，
-                // 用户看到残卡却没有任何中止提示。
-                set({
-                    analysisStatus: 'aborted',
-                    analysisMessageId: null,
-                });
-            }
-        },
-        startAnalysis: async () => {
-            const sessionId = get().chatSessionId;
-            if (!sessionId) {
-                return;
-            }
-            // 前端同步占坑去重：避免 startAnalysis await 窗口内重复点击或覆盖已提前抵达的流式 chunk
-            if (get().analysisStatus === 'streaming') {
-                return;
-            }
-            const reqEpoch = ++analysisStartEpoch;
-            set({
-                analysis: {},
-                analysisMessageId: null,
-                analysisStatus: 'streaming',
-                analysisError: null,
-            });
-            try {
-                const { messageId } = await chatApi.startAnalysis({ sessionId });
-                if (get().chatSessionId !== sessionId) {
-                    return;
-                }
-                if (reqEpoch !== analysisStartEpoch || get().analysisStatus === 'aborted') {
-                    // startAnalysis 仍在途时已被 stopAnalysis/切句中止：补发停流请求，且不再切回 streaming
-                    void chatApi.stopAnalysis(sessionId).catch(() => undefined);
-                    return;
-                }
-                // 若 'start'/分片/finish 事件已在 IPC 返回前到达，analysisMessageId 已被流事件设为该 messageId，绝不覆盖
-                if (get().analysisMessageId !== messageId) {
-                    set({
-                        analysisMessageId: messageId,
-                        analysisStatus: 'streaming',
-                    });
-                }
-            } catch (error) {
-                if (get().chatSessionId !== sessionId || reqEpoch !== analysisStartEpoch) {
-                    return;
-                }
-                const message = error instanceof Error ? error.message : String(error);
-                chatLogger.error('failed to start analysis', { sessionId, error: message });
-                set({
-                    analysis: {},
-                    analysisMessageId: null,
-                    analysisStatus: 'error',
-                    analysisError: message,
-                });
-            }
-        },
-
-        stopAnalysis: async () => {
-            const sessionId = get().chatSessionId;
-            if (!sessionId || get().analysisStatus !== 'streaming') {
-                return;
-            }
-            analysisStartEpoch += 1;
-            // 本地先落 aborted 态（半卡保留展示），后端 abort chunk 会随后到达
-            set({ analysisStatus: 'aborted', analysisMessageId: null });
-            try {
-                await chatApi.stopAnalysis(sessionId);
-            } catch (error) {
-                chatLogger.warn('failed to stop analysis', {
-                    sessionId,
-                    error: error instanceof Error ? error.message : String(error),
-                });
-            }
         },
         setNoteSummary: (noteSummary: string) => {
             set({ noteSummary });
@@ -925,37 +761,5 @@ export function getInternalContext(): string | null {
     }
     return context.value;
 }
-
-const mergeAnalysisPartial = (
-    current: DeepPartial<SentenceStudyCard>,
-    partial: DeepPartial<SentenceStudyCard>,
-): DeepPartial<SentenceStudyCard> => {
-    const mergeValue = (base: unknown, update: unknown): unknown => {
-        if (Array.isArray(base) || Array.isArray(update)) {
-            const baseArr = Array.isArray(base) ? base : [];
-            const updateArr = Array.isArray(update) ? update : [];
-            const length = Math.max(baseArr.length, updateArr.length);
-            return Array.from({ length }).map((_, index) => {
-                if (index in updateArr) {
-                    return mergeValue(baseArr[index], updateArr[index]);
-                }
-                return baseArr[index];
-            });
-        }
-        if (base && typeof base === 'object' && update && typeof update === 'object') {
-            const result: Record<string, unknown> = { ...(base as Record<string, unknown>) };
-            Object.entries(update as Record<string, unknown>).forEach(([key, value]) => {
-                result[key] = mergeValue(result[key], value);
-            });
-            return result;
-        }
-        if (update !== undefined) {
-            return update;
-        }
-        return base;
-    };
-
-    return mergeValue(current, partial) as DeepPartial<SentenceStudyCard>;
-};
 
 export default useChatPanel;

@@ -1,7 +1,6 @@
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import type { RendererTranslationItem } from '@/common/types/TranslationResult';
 import type { ChatStreamEvent } from '@/common/types/chat';
-import type { AnalysisStreamEvent } from '@/common/types/analysis';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 
 /**
@@ -82,18 +81,12 @@ interface ChatRendererDef {
     'chat/stream': { params: ChatStreamEvent, return: void };
 }
 
-interface AnalysisRendererDef {
-    'chat/analysis/stream': { params: AnalysisStreamEvent, return: void };
-}
-
-
 // 使用交叉类型合并所有前端API定义
 export type RendererApiDefinitions = UIRendererDef
     & TranslationRendererDef
     & DictionaryRendererDef
     & VideoLearningRendererDef
-    & ChatRendererDef
-    & AnalysisRendererDef;
+    & ChatRendererDef;
 
 // 定义前端API函数类型
 type RendererApiFunction<P, R> = (params: P) => R | Promise<R>;
