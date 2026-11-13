@@ -155,12 +155,48 @@ const resolveDefaultPresetId = (): string => {
     }
 };
 
+/**
+ * learningEntry 可见性三元组（learningVisible / sentenceResolveError / chatSessionId，
+ * 连带 hasLearningContext）的唯一写入点。
+ *
+ * 为什么收敛：此前这组字段散落在 9 处 setState 里，一致性靠各入口「顺手清理」维持，
+ * 新增入口漏清一项就会复现「可见但无会话」「失败残留」类怪状态。所有部分写入必须
+ * 走本函数（不变量在此断言）；整体复位走 {@link resetLearningState}。相位派生的
+ * 纯函数见 `lib/learningSessionPhase.ts`（deriveLearningPhase）。
+ */
+const applyLearningTransition = (patch: {
+    learningVisible?: boolean;
+    sentenceResolveError?: string | null;
+    chatSessionId?: string;
+    hasLearningContext?: boolean;
+}): void => {
+    const next = { ...useChatPanel.getState(), ...patch };
+    if (next.learningVisible && !next.hasLearningContext) {
+        chatLogger.error('learning entry invariant violated: visible without context', {
+            chatSessionId: next.chatSessionId,
+            hasLearningContext: next.hasLearningContext,
+        });
+    }
+    useChatPanel.setState(patch);
+};
+
+/**
+ * learningEntry 状态整体复位：empty() 之上按需保留字段。
+ *
+ * 此前「empty() + 手写保留清单」在三处各写一份且已漂移（乐观入口保留 activePresetId、
+ * 失败 finally 保留 sentenceResolveError），新增 store 字段极易漏配对复位；
+ * 收敛为单一入口后，保留清单只需在这里改一处。
+ */
+const resetLearningState = (preserve: Partial<ChatPanelState> = {}): void => {
+    useChatPanel.setState({ ...empty(), ...preserve });
+};
+
 const enterLearning = () => {
     learningCloseRequested = false;
     usePlayer.getState().pause();
     // 练习面板可见时属于覆盖层叠覆盖层：不重新记录底层视图，避免覆写播客记忆
     beginOverlayView('learning', usePracticePanel.getState().visible);
-    useChatPanel.setState({ learningVisible: true });
+    applyLearningTransition({ learningVisible: true });
 };
 
 const enterLearningOptimistically = (sentence: Sentence): void => {
@@ -172,8 +208,7 @@ const enterLearningOptimistically = (sentence: Sentence): void => {
             chatLogger.error('failed to close previous chat session', { error });
         });
     }
-    useChatPanel.setState({
-        ...empty(),
+    resetLearningState({
         presets: preservedPresets,
         miniVideoCollapsed: preservedCollapsed,
         activePresetId: resolveDefaultPresetId(),
@@ -201,10 +236,8 @@ const isSameLiveTopic = (text: string, anchorIndex: number | null, anchorFileHas
  */
 const reopenLearning = (): void => {
     enterLearning();
-    useChatPanel.setState({
-        sentenceResolveError: null,
-        previewingEvidenceIndex: null,
-    });
+    applyLearningTransition({ sentenceResolveError: null });
+    useChatPanel.setState({ previewingEvidenceIndex: null });
 };
 
 const isCloudLearningAvailable = async (): Promise<boolean> => {
@@ -213,7 +246,7 @@ const isCloudLearningAvailable = async (): Promise<boolean> => {
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         chatLogger.error('读取整句讲解可用性失败，本次按不可用处理', { error: message });
-        useChatPanel.setState({ sentenceResolveError: message });
+        applyLearningTransition({ sentenceResolveError: message });
         return false;
     }
 };
@@ -226,6 +259,8 @@ let analysisStartEpoch = 0;
 let learningEntryInFlight = false;
 let learningCloseRequested = false;
 let learningRequestEpoch = 0;
+// 笔记持久化串行链：saveNoteSummary 的并发调用在此排队，防止后写者覆盖先写者。
+let noteSaveChain: Promise<void> = Promise.resolve();
 
 const startSessionForTopic = async (
     text: string,
@@ -278,8 +313,7 @@ const startSessionForTopic = async (
     const preservedPresets = useChatPanel.getState().presets;
     const preservedCollapsed = useChatPanel.getState().miniVideoCollapsed;
 
-    useChatPanel.setState({
-        ...empty(),
+    resetLearningState({
         presets: preservedPresets,
         miniVideoCollapsed: preservedCollapsed,
         activePresetId,
@@ -330,7 +364,7 @@ const startSessionForTopic = async (
         hasCachedCard: Boolean(options?.cachedStudyCard),
     });
 
-    useChatPanel.setState({ chatSessionId: sessionId });
+    applyLearningTransition({ chatSessionId: sessionId });
     if (!learningCloseRequested) {
         usePlayer.getState().pause();
     }
@@ -378,25 +412,22 @@ const useChatPanel = create(
             } catch (error) {
                 if (requestEpoch === learningRequestEpoch) {
                     const message = error instanceof Error ? error.message : String(error);
-                    set({ sentenceResolveError: message, learningVisible: false });
+                    applyLearningTransition({ sentenceResolveError: message, learningVisible: false });
                 }
                 throw error;
             } finally {
                 if (requestEpoch === learningRequestEpoch) {
                     learningEntryInFlight = false;
                     if (!useChatPanel.getState().chatSessionId) {
-                        const preservedPresets = get().presets;
-                        const preservedError = get().sentenceResolveError;
-                        const preservedCollapsed = get().miniVideoCollapsed;
-                        set({
-                            ...empty(),
-                            presets: preservedPresets,
-                            sentenceResolveError: preservedError,
-                            miniVideoCollapsed: preservedCollapsed,
+                        // 失败复位：保留错误文本（UI 提示用）、预设与折叠偏好，其余归零
+                        resetLearningState({
+                            presets: get().presets,
+                            sentenceResolveError: get().sentenceResolveError,
+                            miniVideoCollapsed: get().miniVideoCollapsed,
                         });
                     } else if (learningCloseRequested) {
                         learningCloseRequested = false;
-                        set({ learningVisible: false });
+                        applyLearningTransition({ learningVisible: false });
                     }
                 }
             }
@@ -468,25 +499,22 @@ const useChatPanel = create(
             } catch (error) {
                 if (requestEpoch === learningRequestEpoch) {
                     const message = error instanceof Error ? error.message : String(error);
-                    set({ sentenceResolveError: message, learningVisible: false });
+                    applyLearningTransition({ sentenceResolveError: message, learningVisible: false });
                 }
                 throw error;
             } finally {
                 if (requestEpoch === learningRequestEpoch) {
                     learningEntryInFlight = false;
                     if (!useChatPanel.getState().chatSessionId) {
-                        const preservedPresets = get().presets;
-                        const preservedError = get().sentenceResolveError;
-                        const preservedCollapsed = get().miniVideoCollapsed;
-                        set({
-                            ...empty(),
-                            presets: preservedPresets,
-                            sentenceResolveError: preservedError,
-                            miniVideoCollapsed: preservedCollapsed,
+                        // 失败复位：保留错误文本（UI 提示用）、预设与折叠偏好，其余归零
+                        resetLearningState({
+                            presets: get().presets,
+                            sentenceResolveError: get().sentenceResolveError,
+                            miniVideoCollapsed: get().miniVideoCollapsed,
                         });
                     } else if (learningCloseRequested) {
                         learningCloseRequested = false;
-                        set({ learningVisible: false });
+                        applyLearningTransition({ learningVisible: false });
                     }
                 }
             }
@@ -527,7 +555,8 @@ const useChatPanel = create(
             if (learningEntryInFlight) {
                 learningCloseRequested = true;
             }
-            set({ learningVisible: false, previewingEvidenceIndex: null });
+            applyLearningTransition({ learningVisible: false });
+            set({ previewingEvidenceIndex: null });
         },
         clear: () => {
             learningRequestEpoch += 1;
@@ -541,7 +570,7 @@ const useChatPanel = create(
                     chatLogger.error('failed to close chat session', { error });
                 });
             }
-            set(empty());
+            resetLearningState();
         },
         resetConversationView: () => {
             set({
@@ -706,34 +735,59 @@ const useChatPanel = create(
         setNoteSummary: (noteSummary: string) => {
             set({ noteSummary });
         },
-        saveNoteSummary: async (summary?: string) => {
+        saveNoteSummary: (summary?: string): Promise<void> => {
             const state = get();
             const videoId = usePlaybackSession.getState().videoId;
-            if (!videoId || state.anchorIndex === null || !state.anchorFileHash) return;
-            const nextSummary = summary !== undefined ? summary : state.noteSummary;
-            set({ noteSaving: true, noteSummary: nextSummary });
-            try {
-                await chatApi.saveStudyNote({
-                    sentenceKey: buildSentenceStudyKey(state.anchorFileHash, state.anchorIndex),
-                    videoId,
-                    fileHash: state.anchorFileHash,
-                    sentenceIndex: state.anchorIndex,
-                    originalText: state.topicText,
-                    noteSummary: nextSummary,
-                    presetId: state.activePresetId,
-                });
-            } catch (error) {
-                chatLogger.error('failed to save sentence study note', { error });
-            } finally {
-                set({ noteSaving: false });
+            if (!videoId || state.anchorIndex === null || !state.anchorFileHash) {
+                return Promise.resolve();
             }
+            const capturedAnchorFileHash = state.anchorFileHash;
+            const capturedAnchorIndex = state.anchorIndex;
+            const runPersist = async (): Promise<void> => {
+                const latest = get();
+                // 排队期间已切句/清空：旧句内容不能落到新句的键上，本次保存作废。
+                if (
+                    latest.anchorIndex !== capturedAnchorIndex
+                    || latest.anchorFileHash !== capturedAnchorFileHash
+                ) {
+                    return;
+                }
+                const nextSummary = summary !== undefined ? summary : latest.noteSummary;
+                set({ noteSaving: true });
+                try {
+                    await chatApi.saveStudyNote({
+                        sentenceKey: buildSentenceStudyKey(latest.anchorFileHash ?? '', latest.anchorIndex ?? 0),
+                        videoId,
+                        fileHash: latest.anchorFileHash ?? '',
+                        sentenceIndex: latest.anchorIndex ?? 0,
+                        originalText: latest.topicText,
+                        noteSummary: nextSummary,
+                        presetId: latest.activePresetId,
+                    });
+                } catch (error) {
+                    chatLogger.error('failed to save sentence study note', { error });
+                } finally {
+                    set({ noteSaving: false });
+                }
+            };
+            // 并发保存（blur 与「收为收获」同时触发）到达顺序不确定，后写者覆盖
+            // 先写者内容（lost-update）。串行排队而非早退丢弃：早退会让较新的待存
+            // 文本永不上盘，排队则保证每次保存都能读到执行时刻的最新文本。
+            const previous = noteSaveChain;
+            const current = previous.then(runPersist, runPersist);
+            noteSaveChain = current;
+            return current;
         },
         appendToNoteSummary: async (snippet: string) => {
             const clean = snippet.trim();
             if (!clean) return;
-            const existing = get().noteSummary.trim();
-            const next = existing ? `${existing}\n\n${clean}` : clean;
-            await get().saveNoteSummary(next);
+            // 函数式合并：与并发的输入 set 竞争时基于最新值追加，不做读-改-写
+            set((state) => {
+                const existing = state.noteSummary.trim();
+                const next = existing ? `${existing}\n\n${clean}` : clean;
+                return { noteSummary: next };
+            });
+            await get().saveNoteSummary();
         },
         persistLatestMessages: async (messages: PersistedChatMessage[]) => {
             const state = get();
