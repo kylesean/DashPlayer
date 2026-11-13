@@ -44,6 +44,11 @@ export type ChatSession = {
     runs: Map<string, AbortController>;
     /** 当前在跑的精读分析 run（sendMessage 的 run 不在此列）；null 表示没有。 */
     analysisRunId: string | null;
+    /**
+     * 会话内已确认「不支持工具调用」的模型 id 集合（降级记忆）。
+     * 按 model id 键控：换模型/预设自动失效重试；会话内存活，进程重启自然清零。
+     */
+    toolsUnsupportedModelIds: Set<string>;
 };
 
 export default interface ChatSessionStore {
@@ -56,6 +61,10 @@ export default interface ChatSessionStore {
     /** 原子认领首轮上下文注入资格；返回 true 表示本轮需要注入且已置位。 */
     claimContextInjection(sessionId: string): boolean;
     releaseContextInjection(sessionId: string): void;
+    /** 记录「该模型在本会话内不支持工具调用」。会话不存在时静默忽略。 */
+    markToolsUnsupported(sessionId: string, modelId: string): void;
+    /** 查询该模型在本会话内是否已触发过工具降级。会话不存在时返回 false。 */
+    isToolsUnsupported(sessionId: string, modelId: string): boolean;
     startRun(sessionId: string, runId: string): AbortSignal;
     finishRun(sessionId: string, runId: string): void;
     /** 只中止一个 run（如精读分析），不影响同会话的其它流。 */
@@ -123,6 +132,7 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
             closed: false,
             runs: new Map(),
             analysisRunId: null,
+            toolsUnsupportedModelIds: new Set<string>(),
         };
         this.sessions.set(id, session);
         this.evictStaleSessions();
@@ -179,6 +189,16 @@ export class InMemoryChatSessionStore implements ChatSessionStore {
         if (session && !session.closed) {
             session.contextInjected = false;
         }
+    }
+
+    public markToolsUnsupported(sessionId: string, modelId: string): void {
+        // 用非抛错的 sessions.get：降级记忆发生在流式回调深处，会话可能已关闭，
+        // 此处抛错只会变成一条无处可去的日志
+        this.sessions.get(sessionId)?.toolsUnsupportedModelIds.add(modelId);
+    }
+
+    public isToolsUnsupported(sessionId: string, modelId: string): boolean {
+        return this.sessions.get(sessionId)?.toolsUnsupportedModelIds.has(modelId) ?? false;
     }
 
     public startRun(sessionId: string, runId: string): AbortSignal {

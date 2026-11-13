@@ -78,6 +78,12 @@ const isToolsUnsupportedError = (message: string): boolean => {
     );
 };
 
+/** 从 LanguageModel 提取稳定模型 id 作为降级记忆键；取不到时返回 null（不做记忆）。 */
+const resolveToolsUnsupportedKey = (model: LanguageModel): string | null => {
+    const modelId = (model as { modelId?: unknown }).modelId;
+    return typeof modelId === 'string' && modelId.length > 0 ? modelId : null;
+};
+
 export default interface ChatSessionService {
     create(params: ChatSessionCreateParams): ChatSessionCreateResult;
     close(sessionId: string): void;
@@ -384,17 +390,23 @@ export class ChatSessionServiceImpl implements ChatSessionService {
         allowTools = true,
         alreadyStarted = false,
     ): Promise<void> {
-        const effectiveMessages = allowTools
+        // 会话级降级记忆：该模型此前在本会话已确认不支持工具时，直接走无工具路径，
+        // 不再重复「带工具请求 → 报错 → 降级」的往返。按 model id 键控，换模型/预设
+        // 自动失效重试；正则误报的影响也被限制在单个模型 × 单个会话内。
+        const toolsUnsupportedKey = resolveToolsUnsupportedKey(model);
+        const effectiveAllowTools = allowTools
+            && !(toolsUnsupportedKey && this.chatSessionStore.isToolsUnsupported(sessionId, toolsUnsupportedKey));
+        const effectiveMessages = effectiveAllowTools
             ? messages
             : ensureChatRoleMessage(messages, { personaPrompt, enableSubtitleTools: false });
         const { system, messages: promptMessages } = splitSystemMessages(effectiveMessages);
         const startedAt = Date.now();
-        this.logger.info('chat stream start', { sessionId, messageId, allowTools });
+        this.logger.info('chat stream start', { sessionId, messageId, allowTools: effectiveAllowTools });
         const result = streamText({
             model,
             system,
             messages: promptMessages,
-            ...(allowTools
+            ...(effectiveAllowTools
                 ? {
                     tools: this.buildSubtitleTools(sessionId),
                     stopWhen: isStepCount(20),
@@ -432,11 +444,15 @@ export class ChatSessionServiceImpl implements ChatSessionService {
                     if (streamStarted) continue;
                     streamStarted = true;
                 } else if (chunk.type === 'error') {
-                    if (allowTools && !hasOutput && !abortSignal.aborted && isToolsUnsupportedError(chunk.errorText)) {
+                    if (effectiveAllowTools && !hasOutput && !abortSignal.aborted && isToolsUnsupportedError(chunk.errorText)) {
+                        if (toolsUnsupportedKey) {
+                            this.chatSessionStore.markToolsUnsupported(sessionId, toolsUnsupportedKey);
+                        }
                         shouldFallbackWithoutTools = true;
                         this.logger.warn('chat stream tools unsupported, falling back without tools', {
                             sessionId,
                             messageId,
+                            modelId: toolsUnsupportedKey,
                             reason: chunk.errorText,
                         });
                         break;
@@ -497,11 +513,15 @@ export class ChatSessionServiceImpl implements ChatSessionService {
                 });
             }
         } catch (error) {
-            if (allowTools && !hasOutput && !abortSignal.aborted && isToolsUnsupportedError(describeStreamError(error))) {
+            if (effectiveAllowTools && !hasOutput && !abortSignal.aborted && isToolsUnsupportedError(describeStreamError(error))) {
+                if (toolsUnsupportedKey) {
+                    this.chatSessionStore.markToolsUnsupported(sessionId, toolsUnsupportedKey);
+                }
                 shouldFallbackWithoutTools = true;
                 this.logger.warn('chat stream tools unsupported (thrown), falling back without tools', {
                     sessionId,
                     messageId,
+                    modelId: toolsUnsupportedKey,
                     reason: describeStreamError(error),
                 });
             } else {
