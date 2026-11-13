@@ -343,7 +343,8 @@
         "batchDone": "Finished {{count}} in this set",
         "batchMoreDue": "{{count}} more due",
         "batchNext": "Next set",
-        "openClips": "Watch {{count}} clips"
+        "openClips": "Watch {{count}} clips",
+        "openStudioReview": "Open Context Studio Review →"
     },
     "learningSummary": {
         "trigger": "This session",

@@ -7,18 +7,44 @@ import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/Segme
 import { Text } from '@astryxdesign/core/Text';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
 import { Badge } from '@astryxdesign/core/Badge';
-import { ExternalLink, Pencil, Sparkles, Trash2, Volume2 } from 'lucide-react';
+import { BookOpenText, ExternalLink, Pencil, Sparkles, Trash2, Volume2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { WordItem } from '@/fronted/features/video-learning/components/WordSidebar';
 import type { WordContextOccurrence } from '@/common/types/contextStudio';
 import type { WordMemoryVO } from '@/common/types/wordMemory';
 import type { WordStatus } from '@/common/types/vocabulary';
 import type { ReviewRating } from '@/common/types/review';
+import type { Sentence } from '@/common/types/SentenceC';
+import type { SentenceStruct } from '@/common/types/SentenceStruct';
 import TimeUtil from '@/common/utils/TimeUtil';
 import { contextStudioApi } from '../contextStudioApi';
+import { renderSentenceTokens } from '@/fronted/features/player/components/srt-layout/sentence-token-renderer';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
 import { playContextAudio } from '@/fronted/infrastructure/audio/AudioPlayer';
 import { cn } from '@/fronted/lib/utils';
+
+function buildOccurrenceSentence(occ: WordContextOccurrence): Sentence {
+    const fileHash = occ.fileHash || `context-${occ.videoId || occ.id}`;
+    const index = occ.sentenceIndex ?? 0;
+    const struct: SentenceStruct = {
+        original: occ.context,
+        blocks: [],
+    };
+    return {
+        fileHash,
+        index,
+        start: occ.startTime ?? 0,
+        end: occ.endTime ?? 0,
+        adjustedStart: occ.startTime ?? null,
+        adjustedEnd: occ.endTime ?? null,
+        text: occ.context,
+        textZH: occ.contextZh ?? '',
+        key: occ.id,
+        transGroup: 1,
+        translationKey: `${fileHash}:${index}`,
+        struct,
+    };
+}
 
 export interface WordDetailCanvasProps {
     word: WordItem;
@@ -49,6 +75,11 @@ export default function WordDetailCanvas({
     const [generatingDef, setGeneratingDef] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [ratingBusy, setRatingBusy] = useState(false);
+    const [popEle, setPopEle] = useState<string | null>(null);
+
+    const handleRequestPop = (nextKey: string) => {
+        setPopEle((prev) => (prev === nextKey ? null : nextKey));
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -386,21 +417,48 @@ export default function WordDetailCanvas({
                                                 </button>
                                             </Tooltip>
                                             {occ.videoId && (
-                                                <Tooltip content={t('contextStudio.openInPlayer', { defaultValue: '定位播放' })} placement="below">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => navigate(playerUrl)}
-                                                        className="p-1 rounded-md text-secondary hover:text-primary hover:bg-body/60 transition-colors cursor-pointer"
-                                                        aria-label={t('contextStudio.openInPlayer', { defaultValue: '定位播放' })}
-                                                    >
-                                                        <ExternalLink className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </Tooltip>
+                                                <>
+                                                    <Tooltip content={t('contextStudio.openInReader', { defaultValue: '精读全文' })} placement="below">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const query = typeof occ.sentenceIndex === 'number'
+                                                                    ? `?sentence=${occ.sentenceIndex}`
+                                                                    : '';
+                                                                navigate(`/reader/${occ.videoId}${query}`);
+                                                            }}
+                                                            className="p-1 rounded-md text-secondary hover:text-primary hover:bg-body/60 transition-colors cursor-pointer"
+                                                            aria-label={t('contextStudio.openInReader', { defaultValue: '精读全文' })}
+                                                        >
+                                                            <BookOpenText className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </Tooltip>
+                                                    <Tooltip content={t('contextStudio.openInPlayer', { defaultValue: '定位播放' })} placement="below">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => navigate(playerUrl)}
+                                                            className="p-1 rounded-md text-secondary hover:text-primary hover:bg-body/60 transition-colors cursor-pointer"
+                                                            aria-label={t('contextStudio.openInPlayer', { defaultValue: '定位播放' })}
+                                                        >
+                                                            <ExternalLink className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </Tooltip>
+                                                </>
                                             )}
                                         </div>
                                     </div>
 
-                                    <p className="text-sm text-primary leading-relaxed">{occ.context}</p>
+                                    <p className="text-sm text-primary leading-relaxed select-text break-words">
+                                        {renderSentenceTokens({
+                                            sentence: buildOccurrenceSentence(occ),
+                                            text: occ.context,
+                                            popEle,
+                                            onRequestPop: handleRequestPop,
+                                            alwaysDark: false,
+                                            surface: 'transcript',
+                                            sentenceHash: occ.id,
+                                        })}
+                                    </p>
                                     {occ.contextZh && (
                                         <p className="text-sm text-secondary leading-relaxed">{occ.contextZh}</p>
                                     )}

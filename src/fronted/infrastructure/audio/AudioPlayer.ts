@@ -32,7 +32,13 @@ export const stopActiveAudio = () => {
     }
 };
 
-export const playAudioUrl = async (audioUrl: Nullable<string>) => {
+export const playAudioUrl = async (
+    audioUrl: Nullable<string>,
+    options?: {
+        playbackRate?: number;
+        waitForEnd?: boolean;
+    },
+) => {
     if (TypeGuards.isNull(audioUrl)) {
         return;
     }
@@ -41,11 +47,38 @@ export const playAudioUrl = async (audioUrl: Nullable<string>) => {
     getRendererLogger('AudioPlayer').debug('play audio url', { audioUrl });
     const nextPlayer = new Audio(audioUrl);
     nextPlayer.volume = useAudioVolume.getState().ttsVolume;
+    if (typeof options?.playbackRate === 'number' && Number.isFinite(options.playbackRate)) {
+        nextPlayer.playbackRate = Math.min(2, Math.max(0.5, options.playbackRate));
+    }
     if (epoch !== playbackEpoch) {
         return;
     }
     player = nextPlayer;
-    await nextPlayer.play();
+    if (!options?.waitForEnd) {
+        await nextPlayer.play();
+        return;
+    }
+    await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const finish = (err?: unknown) => {
+            if (settled) return;
+            settled = true;
+            nextPlayer.removeEventListener('ended', onDone);
+            nextPlayer.removeEventListener('pause', onDone);
+            nextPlayer.removeEventListener('error', onErr);
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        };
+        const onDone = () => finish();
+        const onErr = () => finish(new Error('Failed to play audio url'));
+        nextPlayer.addEventListener('ended', onDone);
+        nextPlayer.addEventListener('pause', onDone);
+        nextPlayer.addEventListener('error', onErr);
+        void nextPlayer.play().catch(finish);
+    });
 };
 
 /**
@@ -55,6 +88,7 @@ export const playMediaSegment = (
     videoPath: string,
     startTime: number,
     endTime?: number,
+    playbackRate = 1,
 ): Promise<void> => {
     const url = UrlUtil.toUrl(videoPath);
     if (!url || !Number.isFinite(startTime) || startTime < 0) {
@@ -68,6 +102,8 @@ export const playMediaSegment = (
         media.preload = 'auto';
         media.muted = false;
         media.volume = useAudioVolume.getState().ttsVolume;
+        const safeRate = Number.isFinite(playbackRate) ? Math.min(2, Math.max(0.5, playbackRate)) : 1;
+        media.playbackRate = safeRate;
         media.setAttribute('playsinline', 'true');
         media.src = url;
 
@@ -76,7 +112,7 @@ export const playMediaSegment = (
             typeof endTime === 'number' && Number.isFinite(endTime) && endTime > safeStart
                 ? endTime + 0.12
                 : safeStart + 6;
-        const maxDurationMs = Math.max(2000, (effectiveEnd - safeStart + 2) * 1000);
+        const maxDurationMs = Math.max(2000, ((effectiveEnd - safeStart) / safeRate + 2) * 1000);
 
         let settled = false;
         let playbackStarted = false;
@@ -169,13 +205,15 @@ export const playContextAudio = async (options: {
     videoPath?: string;
     startTime?: number;
     endTime?: number;
+    playbackRate?: number;
+    waitForEnd?: boolean;
 }): Promise<'native' | 'tts'> => {
-    const { text, videoPath, startTime, endTime } = options;
+    const { text, videoPath, startTime, endTime, playbackRate = 1, waitForEnd = false } = options;
     stopActiveAudio();
     const epoch = playbackEpoch;
     if (videoPath && typeof startTime === 'number' && Number.isFinite(startTime)) {
         try {
-            await playMediaSegment(videoPath, startTime, endTime);
+            await playMediaSegment(videoPath, startTime, endTime, playbackRate);
             return 'native';
         } catch (error) {
             if (epoch !== playbackEpoch) {
@@ -196,13 +234,13 @@ export const playContextAudio = async (options: {
             return 'tts';
         }
         if (url) {
-            await playAudioUrl(url);
+            await playAudioUrl(url, { playbackRate, waitForEnd });
         } else {
-            await playWord(text);
+            await playWord(text, { playbackRate, waitForEnd });
         }
     } catch {
         if (epoch === playbackEpoch) {
-            await playWord(text);
+            await playWord(text, { playbackRate, waitForEnd });
         }
     }
     return 'tts';
@@ -213,7 +251,13 @@ export const playContextAudio = async (options: {
  *
  * @param word 待朗读的英文单词。
  */
-export const playWord = async (word: string) => {
+export const playWord = async (
+    word: string,
+    options?: {
+        playbackRate?: number;
+        waitForEnd?: boolean;
+    },
+) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
         getRendererLogger('AudioPlayer').debug('speech synthesis unavailable');
         return;
@@ -221,8 +265,23 @@ export const playWord = async (word: string) => {
     stopActiveAudio();
     const utterance = new SpeechSynthesisUtterance(word);
     utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+    const baseRate = 0.9 * (options?.playbackRate ?? 1);
+    utterance.rate = Math.min(2, Math.max(0.5, baseRate));
+    if (!options?.waitForEnd) {
+        window.speechSynthesis.speak(utterance);
+        return;
+    }
+    await new Promise<void>((resolve) => {
+        let settled = false;
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+        };
+        utterance.onend = finish;
+        utterance.onerror = finish;
+        window.speechSynthesis.speak(utterance);
+    });
 };
 
 export const getTtsUrl = async (str: string) => {

@@ -10,6 +10,10 @@ export interface MemoryMapParams {
 export interface MemoryMapTopicVO {
     /** 稳定主题键；来自视频记录 ID，缺失时为字幕哈希。 */
     key: string;
+    /** 关联视频记录 ID（当主题来自视频时）。 */
+    videoId?: string | null;
+    /** 关联视频本地路径，用于前端按需获取封面缩略图。 */
+    videoPath?: string | null;
     /** 展示用主题名；来自视频文件名，无标题时为 null。 */
     label: string | null;
     /** 该主题下出现的词数。 */
@@ -18,6 +22,14 @@ export interface MemoryMapTopicVO {
     counts: Record<WordStatus, number>;
     /** 该主题下最值得复习的词，最多 8 个。 */
     words: MemoryMapWordVO[];
+    /** 该主题下当前到期的词数。 */
+    dueCount?: number;
+    /** 主题记忆健康度（0–100）。 */
+    healthScore?: number;
+    /** 主题内已复习词的平均记忆稳定度（天）。 */
+    avgStabilityDays?: number | null;
+    /** 供“专题复习启动器”使用的有序词列表（按遗忘紧急度优先，最多 25 个）。 */
+    reviewWords?: string[];
     /**
      * 由该主题真实字幕推导出的关键词，最多 3 个。
      *
@@ -42,6 +54,14 @@ export interface MemoryMapWordVO {
     lastSeenAt: string;
     /** 一句真实上下文，供回忆；没有时为 null。 */
     context: string | null;
+    /** FSRS 记忆稳定度（天）。 */
+    stability?: number;
+    /** 累计遗忘次数。 */
+    lapses?: number;
+    /** 下次到期时间（ISO 8601）。 */
+    dueAt?: string | null;
+    /** 当前估算回忆概率（0–1）；未首刷时为 null。 */
+    retrievability?: number | null;
     /**
      * 与本词在同一句字幕里共现过的其他词（按共现次数降序，最多 3 个）。
      *
@@ -49,6 +69,38 @@ export interface MemoryMapWordVO {
      * 同一视频里两个从没同句出现过的词，不该被当成一组来复习。
      */
     neighbors?: MemoryMapNeighborVO[];
+}
+
+/** 未来单日复习负荷预测。 */
+export interface MemoryForecastDayVO {
+    /** 0 = 今日（含已逾期），1..13 = 未来第 N 天。 */
+    dayOffset: number;
+    /** MM-DD 展示标签，今日为 "today"。 */
+    dateLabel: string;
+    /** 当日到期需要巩固的词数。 */
+    dueCount: number;
+}
+
+/** 全局遗忘曲线与记忆健康全景。 */
+export interface MemoryHealthOverviewVO {
+    retrievabilityBuckets: {
+        /** 已到期或 R < 0.60。 */
+        danger: number;
+        /** 0.60 <= R < 0.85。 */
+        fading: number;
+        /** R >= 0.85。 */
+        stable: number;
+        /** 新词尚未进入正式复习。 */
+        unreviewed: number;
+    };
+    /** 累计遗忘 >= 4 次的顽固难词数。 */
+    leechCount: number;
+    /** 已进入复习卡且有稳定度记录的词平均稳定度（天）。 */
+    avgStabilityDays: number | null;
+    /** 未来 14 天每日复习负荷。 */
+    forecastDays: MemoryForecastDayVO[];
+    /** 基于平均稳定度的 FSRS 遗忘衰减曲线参考点（0–30 天）。 */
+    decayCurve: Array<{ day: number; retention: number }>;
 }
 
 /** 一条共现边。 */
@@ -69,4 +121,6 @@ export interface MemoryMapVO {
     topics: MemoryMapTopicVO[];
     /** 没有视频上下文的词单独成簇；没有时为 null。 */
     looseWords: MemoryMapTopicVO | null;
+    /** 全局遗忘曲线与记忆健康统计。 */
+    memoryHealth?: MemoryHealthOverviewVO;
 }

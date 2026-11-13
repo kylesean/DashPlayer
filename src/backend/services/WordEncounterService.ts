@@ -45,9 +45,9 @@ export default interface WordEncounterService {
     record(params: WordEncounterInput): Promise<void>;
 
     /**
-     * 获取当前到期复习队列与 7/30 天回忆统计。
+     * 获取当前到期复习队列与 7/30 天回忆统计；传入 targetWords 时按专题词表提取真实卡。
      */
-    getReviewQueue(limit?: number): Promise<ReviewQueueVO>;
+    getReviewQueue(limit?: number, targetWords?: readonly string[]): Promise<ReviewQueueVO>;
 
     /**
      * 提交一次复习反馈，并同步更新词条状态与下一次复习时间。
@@ -129,9 +129,76 @@ export class WordEncounterServiceImpl implements WordEncounterService {
         await this.updateReviewCard(lemma, nextStatus ?? existing.status, params, now);
     }
 
-    public async getReviewQueue(limit = 12): Promise<ReviewQueueVO> {
+    public async getReviewQueue(limit = 12, targetWords?: readonly string[]): Promise<ReviewQueueVO> {
         const now = new Date();
         const safeLimit = Math.max(1, Math.min(50, Math.trunc(limit)));
+
+        if (targetWords && targetWords.length > 0) {
+            const seen = new Set<string>();
+            const normalizedTargets: string[] = [];
+            for (const raw of targetWords) {
+                const trimmed = raw.trim();
+                if (!trimmed) continue;
+                const lemma = lemmatizeWord(trimmed);
+                if (seen.has(lemma)) continue;
+                seen.add(lemma);
+                normalizedTargets.push(lemma);
+                if (normalizedTargets.length >= safeLimit) break;
+            }
+
+            const [dueCount, nextDueAt, last7Days, last30Days, resolvedEntries] = await Promise.all([
+                this.reviewCardRepository.countDue(now.toISOString()),
+                this.reviewCardRepository.nextDueAt(),
+                this.getRetentionSince(new Date(now.getTime() - 7 * DAY_MS).toISOString()),
+                this.getRetentionSince(new Date(now.getTime() - 30 * DAY_MS).toISOString()),
+                Promise.all(
+                    normalizedTargets.map(async (lemma) => {
+                        const [word, card] = await Promise.all([
+                            this.wordsRepository.findByWord(lemma),
+                            this.reviewCardRepository.findByWord(lemma),
+                        ]);
+                        return word ? { word, card } : null;
+                    }),
+                ),
+            ]);
+
+            const validEntries = resolvedEntries.filter(
+                (entry): entry is NonNullable<typeof entry> => entry !== null,
+            );
+            const contexts = await this.loadContexts(validEntries.map((entry) => entry.word.word));
+            const items = validEntries.map(({ word, card }) => {
+                const context = contexts.get(word.word) ?? null;
+                if (card) {
+                    return this.toReviewCardVO(card, word, context);
+                }
+                return {
+                    id: -word.id,
+                    word: word.word,
+                    translate: word.translate,
+                    status: word.status,
+                    mastery: word.mastery,
+                    confidence: word.confidence,
+                    schedule: createNewReviewSchedule(now),
+                    context,
+                };
+            });
+
+            // 到期或新卡优先排前，保留专题其余顺序
+            const nowMs = now.getTime();
+            items.sort((a, b) => {
+                const aDue = Date.parse(a.schedule.dueAt) <= nowMs ? 0 : 1;
+                const bDue = Date.parse(b.schedule.dueAt) <= nowMs ? 0 : 1;
+                return aDue - bDue;
+            });
+
+            return {
+                items,
+                dueCount,
+                nextDueAt,
+                stats: { last7Days, last30Days },
+            };
+        }
+
         const [dueCards, dueCount, nextDueAt, last7Days, last30Days] = await Promise.all([
             this.reviewCardRepository.listDue(now.toISOString(), safeLimit),
             this.reviewCardRepository.countDue(now.toISOString()),

@@ -133,8 +133,11 @@ export const videoLearningApi = {
      * @param limit 最多返回多少张卡。
      * @returns 复习队列快照。
      */
-    getReviewQueue: (limit?: number) =>
-        backendClient.call('vocabulary/review-queue', limit ? { limit } : {}),
+    getReviewQueue: (limit?: number, words?: string[]) =>
+        backendClient.call('vocabulary/review-queue', {
+            ...(limit ? { limit } : {}),
+            ...(words && words.length > 0 ? { words } : {}),
+        }),
 
     /**
      * 提交一次复习反馈。

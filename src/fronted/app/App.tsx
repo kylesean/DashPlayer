@@ -229,7 +229,7 @@ export const App = () => {
                                     />
                                     <Route
                                         path="vocabulary"
-                                        element={<Eb key="vocabulary"><ContextStudioPage /></Eb>}
+                                        element={<Navigate to="/context-studio" replace />}
                                     />
                                     <Route
                                         path="context-studio"

@@ -143,4 +143,53 @@ describe('MemoryMapSection', () => {
         expect(screen.queryByText('topicKeywords')).toBeNull();
         expect(screen.getByText('looseTitle')).toBeDefined();
     });
+
+    it('渲染 FSRS 遗忘曲线图表并支持触发专题复习启动器', () => {
+        const onLaunchTopicReview = vi.fn();
+        vi.mocked(useSWR).mockReturnValue({
+            data: {
+                ...map,
+                topics: [
+                    {
+                        ...map.topics[0],
+                        dueCount: 1,
+                        healthScore: 68,
+                        reviewWords: ['orbit', 'journey'],
+                    },
+                ],
+                memoryHealth: {
+                    retrievabilityBuckets: { fragile: 1, consolidating: 1, mastered: 0 },
+                    leechCount: 0,
+                    avgStabilityDays: 6.5,
+                    forecastDays: Array.from({ length: 14 }, (_, idx) => ({
+                        date: `2026-01-${String(idx + 1).padStart(2, '0')}`,
+                        dueCount: idx === 0 ? 1 : 0,
+                    })),
+                    decayCurve: [
+                        { day: 0, retention: 1 },
+                        { day: 7, retention: 0.78 },
+                        { day: 30, retention: 0.52 },
+                    ],
+                },
+            },
+            error: undefined,
+            isLoading: false,
+            mutate: vi.fn(),
+        } as never);
+
+        render(
+            <MemoryMapSection
+                defaultExpanded
+                hideCollapseToggle
+                onSelectWord={() => undefined}
+                onLaunchTopicReview={onLaunchTopicReview}
+            />,
+        );
+
+        expect(screen.getByText('forgettingCurveTitle')).toBeDefined();
+        expect(screen.getByText('forecastTitle')).toBeDefined();
+        const launchBtn = screen.getByRole('button', { name: 'launchTopicReview:2' });
+        fireEvent.click(launchBtn);
+        expect(onLaunchTopicReview).toHaveBeenCalledWith(['orbit', 'journey'], 'A Long Journey');
+    });
 });

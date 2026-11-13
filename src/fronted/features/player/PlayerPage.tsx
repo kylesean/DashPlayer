@@ -19,6 +19,8 @@ import { playerApi } from '@/fronted/features/player/playerApi';
 import useSubtitleTranslation from '@/fronted/features/player/translationStore';
 import { playerActions } from '@/fronted/features/player/components/PlayerActions';
 import { useDevPlayerEntry } from '@/fronted/features/player/dev/useDevPlayerEntry';
+import { usePlayerState } from '@/fronted/features/player/playerState';
+import { setPlayerViewMode } from '@/fronted/features/player/lib/player-view-controller';
 
 const logger = getRendererLogger('PlayerWithControlsPage');
 const MODE_SWITCH_TOAST_ID = 'mode-switch-toast';
@@ -209,6 +211,46 @@ const PlayerWithControlsPage = () => {
         }
         playerActions.seekTo({ time: devEntry.seekSeconds, play: false });
     }, [devEntry.seekSeconds, videoLoaded]);
+
+    // 精读文稿 / 语境工坊深链跳转：`?t=<秒数>&practice=shadowing`
+    const deepLinkTimeRaw = _searchParams.get('t');
+    const deepLinkPractice = _searchParams.get('practice') === 'shadowing';
+    const sentenceCount = usePlayerState((s) => s.sentences.length);
+    const pendingDeepSeekRef = useRef<{ time: number | null; practice: boolean } | null>(null);
+    useEffect(() => {
+        const parsedTime = deepLinkTimeRaw !== null ? Number(deepLinkTimeRaw) : NaN;
+        const validTime = Number.isFinite(parsedTime) && parsedTime >= 0 ? parsedTime : null;
+        if (validTime !== null || deepLinkPractice) {
+            pendingDeepSeekRef.current = { time: validTime, practice: deepLinkPractice };
+        }
+    }, [deepLinkTimeRaw, deepLinkPractice]);
+
+    useEffect(() => {
+        const pending = pendingDeepSeekRef.current;
+        if (!pending || !videoLoaded) {
+            return;
+        }
+        if (pending.practice && sentenceCount === 0) {
+            // 等待字幕解析就绪再打开跟读面板
+            return;
+        }
+        pendingDeepSeekRef.current = null;
+        if (pending.time !== null) {
+            playerActions.seekTo({ time: pending.time, play: !pending.practice });
+        }
+        if (pending.practice) {
+            setPlayerViewMode('practice');
+        }
+        setSearchParams((prev) => {
+            if (!prev.has('t') && !prev.has('practice')) {
+                return prev;
+            }
+            const next = new URLSearchParams(prev);
+            next.delete('t');
+            next.delete('practice');
+            return next;
+        }, { replace: true });
+    }, [videoLoaded, sentenceCount, setSearchParams]);
     useEffect(() => {
         let cancelled = false;
 

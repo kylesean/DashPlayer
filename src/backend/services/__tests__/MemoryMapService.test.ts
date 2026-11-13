@@ -66,7 +66,7 @@ const buildService = (args: {
     words: Word[];
     encounters: WordEncounter[];
     cards?: ReviewCard[];
-    records?: Array<{ id: string; file_name: string }>;
+    records?: Array<{ id: string; file_name: string; base_path?: string }>;
 }) => {
     const learningDataRepository = {
         listUserWords: vi.fn().mockResolvedValue(args.words),
@@ -203,5 +203,46 @@ describe('MemoryMapService', () => {
 
         const map = await service.getMap({});
         expect(map.topics[0].keywords).toBeUndefined();
+    });
+
+    it('输出 FSRS 记忆健康全景指标（提取率分桶、14天负荷、衰减曲线、专题健康度）', async () => {
+        const service = buildService({
+            words: [
+                word({ word: 'journey', status: 'learning' }),
+                word({ word: 'orbit', status: 'known' }),
+            ],
+            encounters: [
+                encounter({ lemma: 'journey', videoId: 'video-1' }),
+                encounter({ lemma: 'orbit', videoId: 'video-1' }),
+            ],
+            cards: [
+                card('journey', new Date(NOW - 60_000).toISOString()),
+                card('orbit', new Date(NOW + 3 * 86_400_000).toISOString()),
+            ],
+            records: [{ id: 'video-1', file_name: 'space.mp4' }],
+        });
+
+        const map = await service.getMap({});
+
+        expect(map.memoryHealth).toBeDefined();
+        expect(map.memoryHealth?.forecastDays).toHaveLength(14);
+        expect(map.memoryHealth?.decayCurve[0]).toEqual({ day: 0, retention: 1 });
+        expect(map.topics[0].dueCount).toBe(1);
+        expect(typeof map.topics[0].healthScore).toBe('number');
+        expect(map.topics[0].reviewWords).toEqual(['journey']);
+    });
+
+    it('支持 DIRECTORY 类型观看记录标题兜底并返回 videoPath 供封面缩略图使用', async () => {
+        const service = buildService({
+            words: [word({ word: 'journey', status: 'learning' })],
+            encounters: [encounter({ lemma: 'journey', videoId: 'dir-video-1' })],
+            records: [{ id: 'dir-video-1', file_name: 'Course Lesson 1.mp4', base_path: '/videos/course' }],
+        });
+
+        const map = await service.getMap({});
+
+        expect(map.topics[0].label).toBe('Course Lesson 1');
+        expect(map.topics[0].videoId).toBe('dir-video-1');
+        expect(map.topics[0].videoPath).toBe('/videos/course/Course Lesson 1.mp4');
     });
 });

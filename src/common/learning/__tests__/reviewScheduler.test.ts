@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    buildForgettingCurvePoints,
     createNewReviewSchedule,
+    estimateRetrievability,
     reviewRatingFromPracticeScore,
     scheduleReview,
 } from '@/common/learning/reviewScheduler';
@@ -97,5 +99,27 @@ describe('reviewScheduler', () => {
         expect(reviewRatingFromPracticeScore(75)).toBe('good');
         expect(reviewRatingFromPracticeScore(55)).toBe('hard');
         expect(reviewRatingFromPracticeScore(54)).toBe('again');
+    });
+
+    it('estimateRetrievability 在复习当天接近 100%，随天数单调下降', () => {
+        const reviewed = scheduleReview(createNewReviewSchedule(NOW), 'good', NOW);
+        const atDay0 = estimateRetrievability(reviewed, NOW);
+        const atDay1 = estimateRetrievability(reviewed, new Date(NOW.getTime() + DAY_MS));
+        const atDay10 = estimateRetrievability(reviewed, new Date(NOW.getTime() + 10 * DAY_MS));
+
+        expect(atDay0).toBe(1);
+        expect(atDay1).not.toBeNull();
+        expect(atDay10).not.toBeNull();
+        expect(atDay1!).toBeLessThan(atDay0!);
+        expect(atDay10!).toBeLessThan(atDay1!);
+        expect(atDay10!).toBeGreaterThanOrEqual(0);
+    });
+
+    it('buildForgettingCurvePoints 返回单调递减的 0-30 天采样点', () => {
+        const points = buildForgettingCurvePoints(7);
+        expect(points.length).toBeGreaterThanOrEqual(5);
+        expect(points[0]).toEqual({ day: 0, retention: 1 });
+        expect(points[points.length - 1].day).toBe(30);
+        expect(points[points.length - 1].retention).toBeLessThan(points[0].retention);
     });
 });

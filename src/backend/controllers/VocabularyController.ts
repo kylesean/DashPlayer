@@ -83,8 +83,8 @@ export default class VocabularyController implements Controller {
         await this.wordEncounterService.record(params);
     }
 
-    public async getReviewQueue(params: { limit?: number } = {}) {
-        return this.wordEncounterService.getReviewQueue(params.limit);
+    public async getReviewQueue(params: { limit?: number; words?: string[] } = {}) {
+        return this.wordEncounterService.getReviewQueue(params.limit, params.words);
     }
 
     public async rateReview(params: ReviewRateParams) {
@@ -171,6 +171,7 @@ export default class VocabularyController implements Controller {
         registerRoute('vocabulary/review-queue', (p) => this.getReviewQueue(p), {
             schema: z.object({
                 limit: z.number().int().positive().max(50).optional(),
+                words: z.array(z.string().min(1)).max(50).optional(),
             }),
         });
         registerRoute('vocabulary/rate-review', (p) => this.rateReview(p), {

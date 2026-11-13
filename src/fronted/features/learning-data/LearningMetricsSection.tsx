@@ -49,7 +49,12 @@ function formatMetricValue(
  * 说明口径——这些数字会直接影响用户对自己学习效果的判断，不能只有数字
  * 没有定义。
  */
-export default function LearningMetricsSection() {
+export interface LearningMetricsSectionProps {
+    /** 紧凑模式：用于语境工坊记忆全景顶部展示核心体征。 */
+    compact?: boolean;
+}
+
+export default function LearningMetricsSection({ compact = false }: LearningMetricsSectionProps = {}) {
     const { t } = useTranslation('metrics');
     const { data, error, isLoading, mutate } = useSWR<LearningMetricsVO>(
         'learning-data/metrics',
@@ -83,47 +88,84 @@ export default function LearningMetricsSection() {
     }
 
     return (
-        <VStack gap={4} width="100%" data-testid="learning-metrics">
+        <VStack gap={compact ? 3 : 4} width="100%" data-testid="learning-metrics">
             <HStack vAlign="center" gap={2}>
                 <Activity className="h-4 w-4 text-accent" aria-hidden />
                 <Heading level={3}>{t('title')}</Heading>
                 <InfoTip content={t('windowHint', { days: data.windowDays })} label={t('title')} />
             </HStack>
 
-            <Card>
-                <VStack gap={1}>
-                    <HStack vAlign="center" gap={1}>
-                        <Text type="label" color="secondary">{t('northStar.label')}</Text>
-                        <InfoTip content={t('northStar.hint')} label={t('northStar.label')} />
-                    </HStack>
-                    <Text type="display-3" data-testid="learning-metrics-north-star">
-                        {formatMetricValue(data.northStar, emptyLabel, percent)}
-                    </Text>
-                    <Text type="supporting" color="secondary">{t('northStar.caption')}</Text>
-                </VStack>
-            </Card>
-
-            <Grid columns={{ minWidth: 168, max: 4 }} gap={3}>
-                {data.metrics.map((metric) => (
-                    <Card key={metric.key} padding={3}>
+            {compact ? (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <Card padding={3}>
                         <VStack gap={1}>
                             <HStack vAlign="center" gap={1}>
-                                <Text type="label" color="secondary">{t(`${metric.key}.label`)}</Text>
-                                <InfoTip
-                                    content={t(`${metric.key}.hint`)}
-                                    label={t(`${metric.key}.label`)}
-                                />
+                                <Text type="label" color="secondary">{t('northStar.label')}</Text>
+                                <InfoTip content={t('northStar.hint')} label={t('northStar.label')} />
                             </HStack>
-                            <Text
-                                type="large"
-                                data-testid={`learning-metric-${metric.key}`}
-                            >
-                                {formatMetricValue(metric, emptyLabel, percent)}
+                            <Text type="large" data-testid="learning-metrics-north-star">
+                                {formatMetricValue(data.northStar, emptyLabel, percent)}
                             </Text>
                         </VStack>
                     </Card>
-                ))}
-            </Grid>
+                    {data.metrics.slice(0, 3).map((metric) => (
+                        <Card key={metric.key} padding={3}>
+                            <VStack gap={1}>
+                                <HStack vAlign="center" gap={1}>
+                                    <Text type="label" color="secondary">{t(`${metric.key}.label`)}</Text>
+                                    <InfoTip
+                                        content={t(`${metric.key}.hint`)}
+                                        label={t(`${metric.key}.label`)}
+                                    />
+                                </HStack>
+                                <Text
+                                    type="large"
+                                    data-testid={`learning-metric-${metric.key}`}
+                                >
+                                    {formatMetricValue(metric, emptyLabel, percent)}
+                                </Text>
+                            </VStack>
+                        </Card>
+                    ))}
+                </div>
+            ) : (
+                <>
+                    <Card>
+                        <VStack gap={1}>
+                            <HStack vAlign="center" gap={1}>
+                                <Text type="label" color="secondary">{t('northStar.label')}</Text>
+                                <InfoTip content={t('northStar.hint')} label={t('northStar.label')} />
+                            </HStack>
+                            <Text type="display-3" data-testid="learning-metrics-north-star">
+                                {formatMetricValue(data.northStar, emptyLabel, percent)}
+                            </Text>
+                            <Text type="supporting" color="secondary">{t('northStar.caption')}</Text>
+                        </VStack>
+                    </Card>
+
+                    <Grid columns={{ minWidth: 168, max: 4 }} gap={3}>
+                        {data.metrics.map((metric) => (
+                            <Card key={metric.key} padding={3}>
+                                <VStack gap={1}>
+                                    <HStack vAlign="center" gap={1}>
+                                        <Text type="label" color="secondary">{t(`${metric.key}.label`)}</Text>
+                                        <InfoTip
+                                            content={t(`${metric.key}.hint`)}
+                                            label={t(`${metric.key}.label`)}
+                                        />
+                                    </HStack>
+                                    <Text
+                                        type="large"
+                                        data-testid={`learning-metric-${metric.key}`}
+                                    >
+                                        {formatMetricValue(metric, emptyLabel, percent)}
+                                    </Text>
+                                </VStack>
+                            </Card>
+                        ))}
+                    </Grid>
+                </>
+            )}
 
             {data.unavailable.length > 0 && (
                 <VStack gap={1} data-testid="learning-metrics-unavailable">

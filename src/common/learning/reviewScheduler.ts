@@ -9,7 +9,7 @@ const TEN_MINUTES_MS = 10 * 60 * 1000;
 /** 稳定度上限：一年，避免「easy 几次就排到十年后、实际等于不再复习」。 */
 const MAX_STABILITY_DAYS = 365;
 /** 累计遗忘次数达到该值即视为 leech（难词）。 */
-const LEECH_LAPSES = 4;
+export const LEECH_LAPSES = 4;
 /** 难词的稳定度封顶：反复遗忘的词不应获得超长间隔。 */
 const LEECH_MAX_STABILITY_DAYS = 60;
 
@@ -124,4 +124,40 @@ export function reviewRatingFromPracticeScore(score: number): ReviewRating {
     if (score >= 75) return 'good';
     if (score >= 55) return 'hard';
     return 'again';
+}
+
+/**
+ * 估算当前时刻的 FSRS 幂律回忆提取概率 R(t, S) ∈ [0, 1]。
+ *
+ * 新卡或从未完成过正式复习（reps === 0 / lastReviewAt 为空）返回 null，
+ * 以便界面清晰区分“尚未首刷”与“0% 回忆率”。
+ */
+export function estimateRetrievability(
+    schedule: Pick<ReviewSchedule, 'reps' | 'stability' | 'lastReviewAt'>,
+    now: Date = new Date(),
+): number | null {
+    if (schedule.reps <= 0 || !schedule.lastReviewAt) {
+        return null;
+    }
+    const lastMs = Date.parse(schedule.lastReviewAt);
+    if (!Number.isFinite(lastMs)) {
+        return null;
+    }
+    const elapsedDays = Math.max(0, (now.getTime() - lastMs) / DAY_MS);
+    const stability = Math.max(0.15, schedule.stability || 0.5);
+    return clamp((1 + (19 / 81) * (elapsedDays / stability)) ** -0.5, 0, 1);
+}
+
+/**
+ * 基于平均记忆稳定度生成理论遗忘衰减曲线参考点（0–30 天）。
+ */
+export function buildForgettingCurvePoints(
+    avgStabilityDays: number,
+): Array<{ day: number; retention: number }> {
+    const stability = Math.max(0.5, avgStabilityDays);
+    const sampleDays = [0, 1, 2, 3, 5, 7, 14, 30];
+    return sampleDays.map((day) => ({
+        day,
+        retention: clamp((1 + (19 / 81) * (day / stability)) ** -0.5, 0, 1),
+    }));
 }

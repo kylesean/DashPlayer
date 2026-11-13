@@ -133,16 +133,56 @@ export const normalizeTopicLabel = (fileName: string | null | undefined): string
 };
 
 /**
- * 构建一个主题簇的展示数据。
+ * 构建一个主题簇的展示数据（含热力健康度与专题复习候选队列）。
  */
 export const buildMemoryTopic = (args: {
     key: string;
     label: string | null;
+    videoId?: string | null;
+    videoPath?: string | null;
     words: MemoryMapWordVO[];
-}): MemoryMapTopicVO => ({
-    key: args.key,
-    label: args.label,
-    wordCount: args.words.length,
-    counts: countByStatus(args.words),
-    words: selectTopicWords(args.words),
-});
+}): MemoryMapTopicVO => {
+    const counts = countByStatus(args.words);
+    const dueCount = args.words.filter((w) => w.due).length;
+    const activeNonIgnored = args.words.filter((w) => w.status !== 'ignored');
+    const stabilities = activeNonIgnored
+        .map((w) => w.stability)
+        .filter((val): val is number => typeof val === 'number' && val > 0);
+    const avgStabilityDays = stabilities.length > 0
+        ? Number((stabilities.reduce((a, b) => a + b, 0) / stabilities.length).toFixed(1))
+        : null;
+
+    // 计算主题记忆健康度（0–100）：综合当前提取率/掌握度，无数据时回退到阶段占比
+    let healthScore = 100;
+    if (activeNonIgnored.length > 0) {
+        const sumScore = activeNonIgnored.reduce((acc, item) => {
+            if (item.status === 'known') {
+                return acc + (item.retrievability ?? 0.95);
+            }
+            if (typeof item.retrievability === 'number') {
+                return acc + item.retrievability;
+            }
+            return acc + (item.status === 'familiar' ? 0.65 : 0.25);
+        }, 0);
+        healthScore = Math.round((sumScore / activeNonIgnored.length) * 100);
+    }
+
+    const reviewCandidates = selectTopicWords(
+        activeNonIgnored.filter((w) => w.due || w.status === 'learning' || w.status === 'familiar'),
+        25,
+    );
+
+    return {
+        key: args.key,
+        ...(args.videoId ? { videoId: args.videoId } : {}),
+        ...(args.videoPath ? { videoPath: args.videoPath } : {}),
+        label: args.label,
+        wordCount: args.words.length,
+        counts,
+        words: selectTopicWords(args.words),
+        dueCount,
+        healthScore,
+        avgStabilityDays,
+        reviewWords: reviewCandidates.map((w) => w.word),
+    };
+};

@@ -490,7 +490,7 @@ export default function ReviewDock({
                             clipCount={clipStats?.data?.[card.word.toLowerCase()]?.count ?? 0}
                             onOpenClips={(word) => {
                                 popover.hide();
-                                navigate(`/vocabulary?word=${encodeURIComponent(word)}`);
+                                navigate(`/context-studio?word=${encodeURIComponent(word)}`);
                             }}
                         />
                     </div>
@@ -531,7 +531,18 @@ export default function ReviewDock({
                 )}
 
                 {popover.isOpen && (
-                    <div className="mt-2 flex justify-end px-1">
+                    <div className="mt-2 flex items-center justify-between gap-2 px-1">
+                        <button
+                            type="button"
+                            data-testid="review-dock-open-studio"
+                            onClick={() => {
+                                popover.hide();
+                                navigate('/context-studio?view=review');
+                            }}
+                            className="flex h-7 items-center gap-1 rounded-lg px-2 text-metadata text-accent transition-colors hover:bg-muted/60 cursor-pointer"
+                        >
+                            {t('reviewDock.openStudioReview', { defaultValue: '进入语境工坊集中复习 →' })}
+                        </button>
                         <button
                             type="button"
                             data-testid="review-dock-return"

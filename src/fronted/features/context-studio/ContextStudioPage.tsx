@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { t as i18nT } from 'i18next';
+import { Virtuoso } from 'react-virtuoso';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
@@ -15,7 +16,9 @@ import {
     Layers,
     Search,
     Sparkles,
+    Square,
     Upload,
+    Volume2,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import PageHeader from '@/fronted/components/shared/common/PageHeader';
@@ -23,20 +26,34 @@ import MemoryMapSection from '@/fronted/features/learning-data/MemoryMapSection'
 import WordEditDialog from '@/fronted/features/video-learning/components/WordEditDialog';
 import type { WordItem } from '@/fronted/features/video-learning/components/WordSidebar';
 import { videoLearningApi } from '@/fronted/features/video-learning/videoLearningApi';
+import { playContextAudio, stopActiveAudio } from '@/fronted/infrastructure/audio/AudioPlayer';
 import { contextStudioApi } from './contextStudioApi';
 import WordDetailCanvas from './components/WordDetailCanvas';
 import SentenceDetailCanvas from './components/SentenceDetailCanvas';
-import type { SavedSentenceVO } from '@/common/types/contextStudio';
+import { ReviewSessionCanvas } from './components/ReviewSessionCanvas';
+import {
+    SAVED_SENTENCE_TAGS,
+    type SavedSentenceTag,
+    type SavedSentenceVO,
+} from '@/common/types/contextStudio';
+import type { ReviewCardVO } from '@/common/types/review';
 import type { WordStatus } from '@/common/types/vocabulary';
 import { cn } from '@/fronted/lib/utils';
 
 type AssetFilter = 'all' | 'words' | 'sentences' | 'due' | 'learning' | 'familiar' | 'known';
 type SegmentFilter = 'all' | 'words' | 'sentences';
+type StudioViewMode = 'workspace' | 'review' | 'memory';
+
+const VALID_FILTERS = new Set<AssetFilter>(['all', 'words', 'sentences', 'due', 'learning', 'familiar', 'known']);
 
 type StudioSelection =
     | { kind: 'word'; word: WordItem }
     | { kind: 'sentence'; sentence: SavedSentenceVO }
     | null;
+
+type FilteredAssetEntry =
+    | { kind: 'word'; word: WordItem }
+    | { kind: 'sentence'; sentence: SavedSentenceVO };
 
 const STATUS_BADGE_VARIANT: Record<WordStatus, 'warning' | 'teal' | 'success' | 'neutral'> = {
     learning: 'warning',
@@ -45,13 +62,21 @@ const STATUS_BADGE_VARIANT: Record<WordStatus, 'warning' | 'teal' | 'success' | 
     ignored: 'neutral',
 };
 
+const SENTENCE_TAG_DEFAULT_LABEL: Record<SavedSentenceTag, string> = {
+    expression: '地道表达',
+    pronunciation: '发音连读',
+    grammar: '长难句',
+    general: '通用',
+};
+
 const REVIEW_QUEUE_LIMIT = 50;
-const LIST_PAGE_SIZE = 100;
+const VIRTUALIZE_ASSET_THRESHOLD = 60;
 
 interface StudioAssetsSnapshot {
     words?: WordItem[];
     sentences?: SavedSentenceVO[];
     dueWords?: Set<string>;
+    dueCards?: ReviewCardVO[];
     dueCount?: number;
 }
 
@@ -70,6 +95,7 @@ async function fetchStudioAssetsSnapshot(): Promise<StudioAssetsSnapshot> {
         snapshot.sentences = sentencesRes.value;
     }
     if (reviewRes.status === 'fulfilled' && Array.isArray(reviewRes.value.items)) {
+        snapshot.dueCards = reviewRes.value.items;
         snapshot.dueWords = new Set(reviewRes.value.items.map((card) => card.word.toLowerCase()));
         snapshot.dueCount = reviewRes.value.dueCount ?? reviewRes.value.items.length;
     }
@@ -84,16 +110,62 @@ export default function ContextStudioPage() {
     const [words, setWords] = useState<WordItem[]>([]);
     const [sentences, setSentences] = useState<SavedSentenceVO[]>([]);
     const [dueWords, setDueWords] = useState<Set<string>>(new Set());
+    const [dueCards, setDueCards] = useState<ReviewCardVO[]>([]);
     const [dueTotalCount, setDueTotalCount] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [studioView, setStudioView] = useState<'workspace' | 'map'>('workspace');
-    const [topicQueue, setTopicQueue] = useState<string[]>([]);
+    const viewParam = searchParams.get('view');
+    const studioView: StudioViewMode =
+        viewParam === 'review'
+            ? 'review'
+            : viewParam === 'memory' || viewParam === 'map'
+                ? 'memory'
+                : 'workspace';
 
-    const [activeFilter, setActiveFilter] = useState<AssetFilter>('all');
+    const setStudioView = useCallback(
+        (nextView: StudioViewMode) => {
+            setSearchParams(
+                (prev) => {
+                    const next = new URLSearchParams(prev);
+                    if (nextView === 'workspace') {
+                        next.delete('view');
+                    } else {
+                        next.set('view', nextView);
+                    }
+                    return next;
+                },
+                { replace: true },
+            );
+        },
+        [setSearchParams],
+    );
+
+    const [topicCards, setTopicCards] = useState<ReviewCardVO[] | null>(null);
+    const [activeReviewTopic, setActiveReviewTopic] = useState<string | null>(null);
+    const [reviewSessionKey, setReviewSessionKey] = useState(0);
+
+    const [activeFilter, setActiveFilter] = useState<AssetFilter>(() => {
+        const filterParam = searchParams.get('filter') as AssetFilter | null;
+        return filterParam && VALID_FILTERS.has(filterParam) ? filterParam : 'all';
+    });
+    const [activeSentenceTag, setActiveSentenceTag] = useState<SavedSentenceTag | 'all'>('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [visibleLimit, setVisibleLimit] = useState(LIST_PAGE_SIZE);
     const [explicitSelection, setExplicitSelection] = useState<StudioSelection>(null);
     const [editingWord, setEditingWord] = useState<WordItem | null>(null);
+    const [playlistPlaying, setPlaylistPlaying] = useState(false);
+    const playlistRunIdRef = useRef(0);
+
+    const stopSentencePlaylist = useCallback(() => {
+        playlistRunIdRef.current += 1;
+        setPlaylistPlaying(false);
+        stopActiveAudio();
+    }, []);
+
+    useEffect(() => {
+        return () => {
+            playlistRunIdRef.current += 1;
+            stopActiveAudio();
+        };
+    }, []);
 
     const loadAllAssets = useCallback(async () => {
         setLoading(true);
@@ -102,6 +174,7 @@ export default function ContextStudioPage() {
             if (snapshot.words) setWords(snapshot.words);
             if (snapshot.sentences) setSentences(snapshot.sentences);
             if (snapshot.dueWords) setDueWords(snapshot.dueWords);
+            if (snapshot.dueCards) setDueCards(snapshot.dueCards);
             if (snapshot.dueCount !== undefined) setDueTotalCount(snapshot.dueCount);
         } catch {
             toast.error(i18nT('pages:contextStudio.loadFailed', { defaultValue: '加载语境资产失败' }));
@@ -118,6 +191,7 @@ export default function ContextStudioPage() {
                 if (snapshot.words) setWords(snapshot.words);
                 if (snapshot.sentences) setSentences(snapshot.sentences);
                 if (snapshot.dueWords) setDueWords(snapshot.dueWords);
+                if (snapshot.dueCards) setDueCards(snapshot.dueCards);
                 if (snapshot.dueCount !== undefined) setDueTotalCount(snapshot.dueCount);
             })
             .catch(() => {
@@ -134,51 +208,6 @@ export default function ContextStudioPage() {
             cancelled = true;
         };
     }, []);
-
-    // 根据深链 ?word= 派生选中状态，或使用显式选中
-    const selection = useMemo<StudioSelection>(() => {
-        if (explicitSelection) {
-            return explicitSelection;
-        }
-        if (deepLinkWord) {
-            const matched = words.find((w) => w.word.toLowerCase() === deepLinkWord.toLowerCase());
-            if (matched) {
-                return { kind: 'word', word: matched };
-            }
-            return {
-                kind: 'word',
-                word: {
-                    id: -1,
-                    word: deepLinkWord,
-                    translate: '',
-                    created_at: '',
-                    updated_at: '',
-                },
-            };
-        }
-        if (words.length > 0) {
-            return { kind: 'word', word: words[0] };
-        }
-        if (sentences.length > 0) {
-            return { kind: 'sentence', sentence: sentences[0] };
-        }
-        return null;
-    }, [deepLinkWord, explicitSelection, words, sentences]);
-
-    const sortedWords = useMemo(() => {
-        if (topicQueue.length === 0) {
-            return words;
-        }
-        const order = new Map(topicQueue.map((w, idx) => [w.toLowerCase(), idx]));
-        return words.slice().sort((a, b) => {
-            const ia = order.get(a.word.toLowerCase());
-            const ib = order.get(b.word.toLowerCase());
-            if (ia === undefined && ib === undefined) return 0;
-            if (ia === undefined) return 1;
-            if (ib === undefined) return -1;
-            return ia - ib;
-        });
-    }, [topicQueue, words]);
 
     // 统计各分类数量
     const counts = useMemo(() => {
@@ -204,13 +233,29 @@ export default function ContextStudioPage() {
         };
     }, [words, sentences, dueWords, dueTotalCount]);
 
-    const filteredItems = useMemo(() => {
+    const sentenceTagCounts = useMemo(() => {
+        const result: Record<SavedSentenceTag, number> = {
+            expression: 0,
+            pronunciation: 0,
+            grammar: 0,
+            general: 0,
+        };
+        for (const item of sentences) {
+            const tag = item.tag ?? 'general';
+            if (tag in result) {
+                result[tag] += 1;
+            }
+        }
+        return result;
+    }, [sentences]);
+
+    const filteredItems = useMemo<FilteredAssetEntry[]>(() => {
         const q = searchTerm.trim().toLowerCase();
         const showWords = activeFilter !== 'sentences';
         const showSentences = activeFilter === 'all' || activeFilter === 'sentences';
 
-        const wordEntries = showWords
-            ? sortedWords
+        const wordEntries: FilteredAssetEntry[] = showWords
+            ? words
                   .filter((w) => {
                       const st = w.status ?? 'learning';
                       if (activeFilter === 'due' && !dueWords.has(w.word.toLowerCase())) return false;
@@ -226,9 +271,12 @@ export default function ContextStudioPage() {
                   .map((word) => ({ kind: 'word' as const, word }))
             : [];
 
-        const sentenceEntries = showSentences
+        const sentenceEntries: FilteredAssetEntry[] = showSentences
             ? sentences
                   .filter((s) => {
+                      if (activeFilter === 'sentences' && activeSentenceTag !== 'all' && s.tag !== activeSentenceTag) {
+                          return false;
+                      }
                       if (!q) return true;
                       return (
                           s.text.toLowerCase().includes(q) ||
@@ -240,7 +288,64 @@ export default function ContextStudioPage() {
             : [];
 
         return [...sentenceEntries, ...wordEntries];
-    }, [activeFilter, sortedWords, sentences, dueWords, searchTerm]);
+    }, [activeFilter, activeSentenceTag, words, sentences, dueWords, searchTerm]);
+
+    // 根据深链 ?word=、显式选中或当前筛选队列首项派生右侧画布聚焦资产
+    const selection = useMemo<StudioSelection>(() => {
+        if (explicitSelection) {
+            if (activeFilter === 'sentences' && explicitSelection.kind !== 'sentence') {
+                // 切到金句模式时不再保留上一个生词详情
+            } else if (
+                activeFilter !== 'all' &&
+                activeFilter !== 'sentences' &&
+                explicitSelection.kind !== 'word'
+            ) {
+                // 切到生词子分类时不再保留上一个金句详情
+            } else {
+                return explicitSelection;
+            }
+        }
+        if (deepLinkWord && activeFilter !== 'sentences') {
+            const matched = words.find((w) => w.word.toLowerCase() === deepLinkWord.toLowerCase());
+            if (matched) {
+                return { kind: 'word', word: matched };
+            }
+            return {
+                kind: 'word',
+                word: {
+                    id: -1,
+                    word: deepLinkWord,
+                    translate: '',
+                    created_at: '',
+                    updated_at: '',
+                },
+            };
+        }
+        if (activeFilter === 'sentences') {
+            const firstSentence = filteredItems.find((item) => item.kind === 'sentence');
+            if (firstSentence) {
+                return { kind: 'sentence', sentence: firstSentence.sentence };
+            }
+        } else {
+            const firstWord = filteredItems.find((item) => item.kind === 'word');
+            if (firstWord) {
+                return { kind: 'word', word: firstWord.word };
+            }
+            const first = filteredItems[0];
+            if (first) {
+                return first.kind === 'sentence'
+                    ? { kind: 'sentence', sentence: first.sentence }
+                    : { kind: 'word', word: first.word };
+            }
+        }
+        if (words.length > 0 && activeFilter !== 'sentences') {
+            return { kind: 'word', word: words[0] };
+        }
+        if (sentences.length > 0 && (activeFilter === 'all' || activeFilter === 'sentences')) {
+            return { kind: 'sentence', sentence: sentences[0] };
+        }
+        return null;
+    }, [activeFilter, deepLinkWord, explicitSelection, filteredItems, words, sentences]);
 
     const segmentValue: SegmentFilter =
         activeFilter === 'sentences'
@@ -249,9 +354,66 @@ export default function ContextStudioPage() {
                 ? 'words'
                 : 'all';
 
+    const handleSelectFilter = useCallback(
+        (nextFilter: AssetFilter) => {
+            if (nextFilter !== 'sentences') {
+                setActiveSentenceTag('all');
+                stopSentencePlaylist();
+            }
+            setExplicitSelection(null);
+            setActiveFilter(nextFilter);
+        },
+        [stopSentencePlaylist],
+    );
+
     const handleSegmentChange = (val: string) => {
-        setActiveFilter(val as SegmentFilter);
+        handleSelectFilter(val as SegmentFilter);
     };
+
+    const startSentencePlaylist = useCallback(async () => {
+        const sentenceQueue = filteredItems
+            .filter((entry): entry is { kind: 'sentence'; sentence: SavedSentenceVO } => entry.kind === 'sentence')
+            .map((entry) => entry.sentence);
+        if (sentenceQueue.length === 0) return;
+
+        const runId = playlistRunIdRef.current + 1;
+        playlistRunIdRef.current = runId;
+        setPlaylistPlaying(true);
+
+        for (const item of sentenceQueue) {
+            if (playlistRunIdRef.current !== runId) {
+                break;
+            }
+            setExplicitSelection({ kind: 'sentence', sentence: item });
+            await playContextAudio({
+                text: item.text,
+                videoPath: item.videoPath,
+                startTime: item.startTime,
+                endTime: item.endTime,
+                waitForEnd: true,
+            });
+        }
+
+        if (playlistRunIdRef.current === runId) {
+            setPlaylistPlaying(false);
+        }
+    }, [filteredItems]);
+
+    const handleReviewWordCompleted = useCallback((wordText: string, nextStatus?: WordStatus) => {
+        const normalized = wordText.toLowerCase();
+        setDueWords((prev) => {
+            const next = new Set(prev);
+            next.delete(normalized);
+            return next;
+        });
+        setDueCards((prev) => prev.filter((card) => card.word.toLowerCase() !== normalized));
+        setDueTotalCount((prev) => Math.max(0, prev - 1));
+        if (nextStatus) {
+            setWords((prev) =>
+                prev.map((w) => (w.word.toLowerCase() === normalized ? { ...w, status: nextStatus } : w)),
+            );
+        }
+    }, []);
 
     const handleMemoryMapWord = useCallback(
         (wordText: string) => {
@@ -265,28 +427,32 @@ export default function ContextStudioPage() {
             setActiveFilter('words');
             setStudioView('workspace');
         },
-        [words, setSearchParams],
+        [words, setSearchParams, setStudioView],
     );
 
-    const handleStartTopicQueue = useCallback(
-        (queue: string[]) => {
-            setTopicQueue(queue);
-            setActiveFilter('words');
-            setStudioView('workspace');
-            if (queue[0]) {
-                const found = words.find((w) => w.word.toLowerCase() === queue[0].toLowerCase());
-                if (found) {
-                    setExplicitSelection({ kind: 'word', word: found });
+    const handleLaunchTopicReview = useCallback(
+        async (topicWords: string[], topicLabel: string) => {
+            if (topicWords.length === 0) return;
+            try {
+                const res = await videoLearningApi.getReviewQueue(REVIEW_QUEUE_LIMIT, topicWords);
+                const items = Array.isArray(res.items) ? res.items : [];
+                if (items.length === 0) {
+                    toast(
+                        t('contextStudio.topicReviewEmpty', {
+                            defaultValue: '该专题暂无可复习词汇',
+                        }),
+                    );
+                    return;
                 }
+                setTopicCards(items);
+                setActiveReviewTopic(topicLabel);
+                setReviewSessionKey((prev) => prev + 1);
+                setStudioView('review');
+            } catch {
+                // IPC 边界（registerRoute）已自动向全局事件总线发送错误提示，此处避免重复弹窗
             }
-            toast.success(
-                t('contextStudio.topicQueueStarted', {
-                    count: queue.length,
-                    defaultValue: `已按主题优先级排列 ${queue.length} 个词汇`,
-                }),
-            );
         },
-        [words, t],
+        [setStudioView, t],
     );
 
     const handleExportTemplate = async () => {
@@ -337,6 +503,105 @@ export default function ContextStudioPage() {
                 : 'text-secondary hover:text-primary hover:bg-muted/60',
         );
 
+    const renderAssetCard = (entry: FilteredAssetEntry) => {
+        if (entry.kind === 'sentence') {
+            const isSelected =
+                selection?.kind === 'sentence' &&
+                selection.sentence.sentenceKey === entry.sentence.sentenceKey;
+            const sentenceTag = entry.sentence.tag ?? 'general';
+            return (
+                <button
+                    key={`sent-${entry.sentence.sentenceKey}`}
+                    type="button"
+                    onClick={() => setExplicitSelection({ kind: 'sentence', sentence: entry.sentence })}
+                    className={cn(
+                        'w-full text-left rounded-lg border p-2.5 transition-colors cursor-pointer flex flex-col gap-1',
+                        isSelected
+                            ? 'bg-accent-bg/10 border-accent-bg/40'
+                            : 'bg-surface/40 border-transparent hover:bg-muted/60',
+                    )}
+                >
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1.5 text-metadata font-medium text-accent shrink-0">
+                            <Bookmark className="w-3 h-3 fill-current" />
+                            <span>
+                                {t(`contextStudio.tag.${sentenceTag}`, {
+                                    defaultValue: SENTENCE_TAG_DEFAULT_LABEL[sentenceTag],
+                                })}
+                            </span>
+                        </span>
+                        <span className="text-metadata text-secondary truncate">
+                            {entry.sentence.videoTitle}
+                        </span>
+                    </div>
+                    <p className="text-sm font-medium text-primary line-clamp-2 leading-snug">
+                        {entry.sentence.text}
+                    </p>
+                    {entry.sentence.textZh && (
+                        <p className="text-metadata text-secondary line-clamp-1">
+                            {entry.sentence.textZh}
+                        </p>
+                    )}
+                </button>
+            );
+        }
+
+        const isSelected =
+            selection?.kind === 'word' &&
+            selection.word.word.toLowerCase() === entry.word.word.toLowerCase();
+        const status: WordStatus = entry.word.status ?? 'learning';
+        const isDue = dueWords.has(entry.word.word.toLowerCase());
+
+        return (
+            <button
+                key={`word-${entry.word.id}-${entry.word.word}`}
+                type="button"
+                onClick={() => setExplicitSelection({ kind: 'word', word: entry.word })}
+                className={cn(
+                    'w-full text-left rounded-lg border p-2.5 transition-colors cursor-pointer flex flex-col gap-1',
+                    isSelected
+                        ? 'bg-accent-bg/10 border-accent-bg/40'
+                        : 'bg-surface/40 border-transparent hover:bg-muted/60',
+                )}
+            >
+                <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-primary truncate">
+                        {entry.word.word}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                        {isDue && (
+                            <span
+                                className="w-1.5 h-1.5 rounded-full bg-warning-text"
+                                title={t('contextStudio.dueBadge', { defaultValue: '今日待复习' })}
+                            />
+                        )}
+                        <Badge
+                            variant={STATUS_BADGE_VARIANT[status]}
+                            label={t(`contextStudio.status.${status}`, {
+                                defaultValue:
+                                    status === 'learning'
+                                        ? '待学'
+                                        : status === 'familiar'
+                                            ? '有印象'
+                                            : status === 'known'
+                                                ? '已掌握'
+                                                : '忽略',
+                            })}
+                        />
+                    </div>
+                </div>
+                <p className="text-metadata text-secondary line-clamp-1">
+                    {entry.word.translate?.trim() || t('contextStudio.noTranslation', { defaultValue: '暂无释义' })}
+                </p>
+            </button>
+        );
+    };
+
+    const filteredSentenceCount = useMemo(
+        () => filteredItems.filter((item) => item.kind === 'sentence').length,
+        [filteredItems],
+    );
+
     return (
         <div className="flex flex-col h-full w-full overflow-hidden bg-body">
             {/* 顶部页面标题栏 */}
@@ -347,34 +612,56 @@ export default function ContextStudioPage() {
                         defaultValue: '真实视频语境中的生词与金句',
                     })}
                     rightSlot={
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2">
                             <div className="shrink-0">
                                 <SegmentedControl
                                     size="sm"
                                     value={studioView}
-                                    onChange={(val) => setStudioView(val === 'map' ? 'map' : 'workspace')}
+                                    onChange={(val) => {
+                                        if (val === 'review') {
+                                            setTopicCards(null);
+                                            setActiveReviewTopic(null);
+                                            setReviewSessionKey((prev) => prev + 1);
+                                            setStudioView('review');
+                                        } else if (val === 'memory') {
+                                            setStudioView('memory');
+                                        } else {
+                                            setStudioView('workspace');
+                                        }
+                                    }}
                                     label={t('contextStudio.viewModeLabel', { defaultValue: '工坊视图切换' })}
                                 >
                                     <SegmentedControlItem
                                         value="workspace"
-                                        label={t('contextStudio.viewWorkspace', { defaultValue: '工作台' })}
+                                        label={t('contextStudio.viewWorkspace', { defaultValue: '语境资产' })}
                                     />
                                     <SegmentedControlItem
-                                        value="map"
-                                        label={t('contextStudio.viewMap', { defaultValue: '记忆图谱' })}
+                                        value="review"
+                                        label={
+                                            counts.due > 0
+                                                ? t('contextStudio.viewReviewWithCount', {
+                                                      count: counts.due,
+                                                      defaultValue: `今日训练 (${counts.due})`,
+                                                  })
+                                                : t('contextStudio.viewReview', { defaultValue: '今日训练' })
+                                        }
+                                    />
+                                    <SegmentedControlItem
+                                        value="memory"
+                                        label={t('contextStudio.viewMemory', { defaultValue: '记忆全景' })}
                                     />
                                 </SegmentedControl>
                             </div>
                             <Button
                                 size="sm"
-                                variant="secondary"
+                                variant="ghost"
                                 icon={<Upload className="w-3.5 h-3.5" />}
                                 label={t('contextStudio.importWords', { defaultValue: '导入' })}
                                 onClick={() => void handleImportWords()}
                             />
                             <Button
                                 size="sm"
-                                variant="secondary"
+                                variant="ghost"
                                 icon={<Download className="w-3.5 h-3.5" />}
                                 label={t('contextStudio.exportTemplate', { defaultValue: '导出' })}
                                 onClick={() => void handleExportTemplate()}
@@ -384,16 +671,50 @@ export default function ContextStudioPage() {
                 />
             </div>
 
-            {/* 主体工作区：三栏工作台 ↔ 全屏记忆图谱 */}
+            {/* 主体工作区：三栏工作台 ↔ 今日主动回忆训练 ↔ 记忆全景 */}
             <div className="flex-1 min-h-0 px-6 pb-5 pt-2 overflow-hidden">
-                {studioView === 'map' ? (
+                {studioView === 'review' ? (
+                    <ReviewSessionCanvas
+                        key={reviewSessionKey}
+                        cards={topicCards ?? dueCards}
+                        allWords={words}
+                        topicLabel={activeReviewTopic}
+                        onSwitchToDueQueue={
+                            activeReviewTopic
+                                ? () => {
+                                      setTopicCards(null);
+                                      setActiveReviewTopic(null);
+                                      setReviewSessionKey((prev) => prev + 1);
+                                  }
+                                : undefined
+                        }
+                        onRated={(wordText, res) => handleReviewWordCompleted(wordText, res.status)}
+                        onOpenWord={(wordText) => {
+                            const found = words.find((w) => w.word.toLowerCase() === wordText.toLowerCase());
+                            if (found) {
+                                setExplicitSelection({ kind: 'word', word: found });
+                            } else {
+                                setSearchParams({ word: wordText });
+                                setExplicitSelection(null);
+                            }
+                            setActiveFilter('words');
+                            setStudioView('workspace');
+                        }}
+                        onExit={() => {
+                            setTopicCards(null);
+                            setActiveReviewTopic(null);
+                            setStudioView('workspace');
+                        }}
+                    />
+                ) : studioView === 'memory' ? (
                     <Card padding={0} height="100%" className="h-full min-h-0 flex flex-col overflow-hidden">
                         <div className="flex-1 min-h-0 overflow-y-auto p-5">
                             <MemoryMapSection
                                 defaultExpanded
                                 hideCollapseToggle
+                                showMetrics
                                 onSelectWord={handleMemoryMapWord}
-                                onStartTopicQueue={handleStartTopicQueue}
+                                onLaunchTopicReview={handleLaunchTopicReview}
                             />
                         </div>
                     </Card>
@@ -408,7 +729,7 @@ export default function ContextStudioPage() {
                             <button
                                 type="button"
                                 className={navButtonClass(activeFilter === 'all')}
-                                onClick={() => setActiveFilter('all')}
+                                onClick={() => handleSelectFilter('all')}
                             >
                                 <span className="flex items-center gap-2 truncate">
                                     <Layers className="w-3.5 h-3.5 shrink-0" />
@@ -419,7 +740,7 @@ export default function ContextStudioPage() {
                             <button
                                 type="button"
                                 className={navButtonClass(activeFilter === 'words')}
-                                onClick={() => setActiveFilter('words')}
+                                onClick={() => handleSelectFilter('words')}
                             >
                                 <span className="flex items-center gap-2 truncate">
                                     <BookOpen className="w-3.5 h-3.5 shrink-0" />
@@ -430,7 +751,7 @@ export default function ContextStudioPage() {
                             <button
                                 type="button"
                                 className={navButtonClass(activeFilter === 'sentences')}
-                                onClick={() => setActiveFilter('sentences')}
+                                onClick={() => handleSelectFilter('sentences')}
                             >
                                 <span className="flex items-center gap-2 truncate">
                                     <Bookmark className="w-3.5 h-3.5 shrink-0" />
@@ -440,46 +761,106 @@ export default function ContextStudioPage() {
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-1">
-                            <span className="px-2.5 pb-1 text-metadata font-medium text-secondary">
-                                {t('contextStudio.navMemory', { defaultValue: '记忆与复习' })}
-                            </span>
-                            <button
-                                type="button"
-                                className={navButtonClass(activeFilter === 'due')}
-                                onClick={() => setActiveFilter('due')}
-                            >
-                                <span className="flex items-center gap-2 truncate">
-                                    <Clock className="w-3.5 h-3.5 shrink-0 text-warning-text" />
-                                    <span>{t('contextStudio.filterDue', { defaultValue: '今日待复习' })}</span>
+                        {activeFilter === 'sentences' ? (
+                            <div className="flex flex-col gap-2">
+                                <div className="flex flex-col gap-1">
+                                    <span className="px-2.5 pb-1 text-metadata font-medium text-secondary">
+                                        {t('contextStudio.navSentenceTags', { defaultValue: '金句标签' })}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className={navButtonClass(activeSentenceTag === 'all')}
+                                        onClick={() => setActiveSentenceTag('all')}
+                                    >
+                                        <span className="truncate">
+                                            {t('contextStudio.tagAll', { defaultValue: '全部金句' })}
+                                        </span>
+                                        <span className="text-metadata tabular-nums opacity-80">{counts.sentences}</span>
+                                    </button>
+                                    {SAVED_SENTENCE_TAGS.map((tagKey) => (
+                                        <button
+                                            key={tagKey}
+                                            type="button"
+                                            className={navButtonClass(activeSentenceTag === tagKey)}
+                                            onClick={() => setActiveSentenceTag(tagKey)}
+                                        >
+                                            <span className="truncate">
+                                                {t(`contextStudio.tag.${tagKey}`, {
+                                                    defaultValue: SENTENCE_TAG_DEFAULT_LABEL[tagKey],
+                                                })}
+                                            </span>
+                                            <span className="text-metadata tabular-nums opacity-80">
+                                                {sentenceTagCounts[tagKey]}
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {filteredSentenceCount > 0 && (
+                                    <div className="pt-2 border-t border-border/40 px-1">
+                                        <Button
+                                            size="sm"
+                                            variant={playlistPlaying ? 'destructive' : 'secondary'}
+                                            icon={playlistPlaying ? <Square className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                                            className="w-full justify-center"
+                                            label={
+                                                playlistPlaying
+                                                    ? t('contextStudio.stopPlaylist', { defaultValue: '停止连播' })
+                                                    : t('contextStudio.playPlaylist', { defaultValue: '顺序连播' })
+                                            }
+                                            onClick={() => {
+                                                if (playlistPlaying) {
+                                                    stopSentencePlaylist();
+                                                } else {
+                                                    void startSentencePlaylist();
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-1">
+                                <span className="px-2.5 pb-1 text-metadata font-medium text-secondary">
+                                    {t('contextStudio.navMemory', { defaultValue: '记忆与复习' })}
                                 </span>
-                                <span className="text-metadata tabular-nums font-medium text-warning-text">{counts.due}</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={navButtonClass(activeFilter === 'learning')}
-                                onClick={() => setActiveFilter('learning')}
-                            >
-                                <span className="truncate">{t('contextStudio.status.learning', { defaultValue: '待学' })}</span>
-                                <span className="text-metadata tabular-nums opacity-80">{counts.learning}</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={navButtonClass(activeFilter === 'familiar')}
-                                onClick={() => setActiveFilter('familiar')}
-                            >
-                                <span className="truncate">{t('contextStudio.status.familiar', { defaultValue: '有印象' })}</span>
-                                <span className="text-metadata tabular-nums opacity-80">{counts.familiar}</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={navButtonClass(activeFilter === 'known')}
-                                onClick={() => setActiveFilter('known')}
-                            >
-                                <span className="truncate">{t('contextStudio.status.known', { defaultValue: '已掌握' })}</span>
-                                <span className="text-metadata tabular-nums opacity-80">{counts.known}</span>
-                            </button>
-                        </div>
+                                <button
+                                    type="button"
+                                    className={navButtonClass(activeFilter === 'due')}
+                                    onClick={() => handleSelectFilter('due')}
+                                >
+                                    <span className="flex items-center gap-2 truncate">
+                                        <Clock className="w-3.5 h-3.5 shrink-0 text-warning-text" />
+                                        <span>{t('contextStudio.filterDue', { defaultValue: '今日待复习' })}</span>
+                                    </span>
+                                    <span className="text-metadata tabular-nums font-medium text-warning-text">{counts.due}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={navButtonClass(activeFilter === 'learning')}
+                                    onClick={() => handleSelectFilter('learning')}
+                                >
+                                    <span className="truncate">{t('contextStudio.status.learning', { defaultValue: '待学' })}</span>
+                                    <span className="text-metadata tabular-nums opacity-80">{counts.learning}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={navButtonClass(activeFilter === 'familiar')}
+                                    onClick={() => handleSelectFilter('familiar')}
+                                >
+                                    <span className="truncate">{t('contextStudio.status.familiar', { defaultValue: '有印象' })}</span>
+                                    <span className="text-metadata tabular-nums opacity-80">{counts.familiar}</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    className={navButtonClass(activeFilter === 'known')}
+                                    onClick={() => handleSelectFilter('known')}
+                                >
+                                    <span className="truncate">{t('contextStudio.status.known', { defaultValue: '已掌握' })}</span>
+                                    <span className="text-metadata tabular-nums opacity-80">{counts.known}</span>
+                                </button>
+                            </div>
+                        )}
                     </aside>
 
                     {/* 中栏：资产卡片流 */}
@@ -521,7 +902,7 @@ export default function ContextStudioPage() {
                             </div>
                         </div>
 
-                        <div className="flex-1 min-h-0 overflow-y-auto p-2 flex flex-col gap-1.5">
+                        <div className="flex-1 min-h-0 flex flex-col">
                             {loading ? (
                                 <div className="p-6 text-center text-sm text-secondary">
                                     {t('contextStudio.loading', { defaultValue: '正在加载语境资产...' })}
@@ -530,110 +911,18 @@ export default function ContextStudioPage() {
                                 <div className="p-6 text-center text-sm text-secondary">
                                     {t('contextStudio.emptyList', { defaultValue: '暂无符合条件的语境资产' })}
                                 </div>
-                            ) : (
-                                <>
-                                    {filteredItems.slice(0, visibleLimit).map((entry) => {
-                                        if (entry.kind === 'sentence') {
-                                        const isSelected =
-                                            selection?.kind === 'sentence' &&
-                                            selection.sentence.sentenceKey === entry.sentence.sentenceKey;
-                                        return (
-                                            <button
-                                                key={`sent-${entry.sentence.sentenceKey}`}
-                                                type="button"
-                                                onClick={() => setExplicitSelection({ kind: 'sentence', sentence: entry.sentence })}
-                                                className={cn(
-                                                    'w-full text-left rounded-lg border p-2.5 transition-colors cursor-pointer flex flex-col gap-1',
-                                                    isSelected
-                                                        ? 'bg-accent-bg/10 border-accent-bg/40'
-                                                        : 'bg-surface/40 border-transparent hover:bg-muted/60',
-                                                )}
-                                            >
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className="inline-flex items-center gap-1 text-metadata font-medium text-accent">
-                                                        <Bookmark className="w-3 h-3 fill-current" />
-                                                        <span>{t('contextStudio.sentenceBadge', { defaultValue: '金句' })}</span>
-                                                    </span>
-                                                    <span className="text-metadata text-secondary truncate">
-                                                        {entry.sentence.videoTitle}
-                                                    </span>
-                                                </div>
-                                                <p className="text-sm font-medium text-primary line-clamp-2 leading-snug">
-                                                    {entry.sentence.text}
-                                                </p>
-                                                {entry.sentence.textZh && (
-                                                    <p className="text-metadata text-secondary line-clamp-1">
-                                                        {entry.sentence.textZh}
-                                                    </p>
-                                                )}
-                                            </button>
-                                        );
-                                    }
-
-                                    const isSelected =
-                                        selection?.kind === 'word' &&
-                                        selection.word.word.toLowerCase() === entry.word.word.toLowerCase();
-                                    const status: WordStatus = entry.word.status ?? 'learning';
-                                    const isDue = dueWords.has(entry.word.word.toLowerCase());
-
-                                    return (
-                                        <button
-                                            key={`word-${entry.word.id}-${entry.word.word}`}
-                                            type="button"
-                                            onClick={() => setExplicitSelection({ kind: 'word', word: entry.word })}
-                                            className={cn(
-                                                'w-full text-left rounded-lg border p-2.5 transition-colors cursor-pointer flex flex-col gap-1',
-                                                isSelected
-                                                    ? 'bg-accent-bg/10 border-accent-bg/40'
-                                                    : 'bg-surface/40 border-transparent hover:bg-muted/60',
-                                            )}
-                                        >
-                                            <div className="flex items-center justify-between gap-2">
-                                                <span className="text-sm font-semibold text-primary truncate">
-                                                    {entry.word.word}
-                                                </span>
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    {isDue && (
-                                                        <span
-                                                            className="w-1.5 h-1.5 rounded-full bg-warning-text"
-                                                            title={t('contextStudio.dueBadge', { defaultValue: '今日待复习' })}
-                                                        />
-                                                    )}
-                                                    <Badge
-                                                        variant={STATUS_BADGE_VARIANT[status]}
-                                                        label={t(`contextStudio.status.${status}`, {
-                                                            defaultValue:
-                                                                status === 'learning'
-                                                                    ? '待学'
-                                                                    : status === 'familiar'
-                                                                        ? '有印象'
-                                                                        : status === 'known'
-                                                                            ? '已掌握'
-                                                                            : '忽略',
-                                                        })}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <p className="text-metadata text-secondary line-clamp-1">
-                                                {entry.word.translate?.trim() || t('contextStudio.noTranslation', { defaultValue: '暂无释义' })}
-                                            </p>
-                                        </button>
-                                    );
-                                    })}
-                                    {filteredItems.length > visibleLimit && (
-                                        <div className="pt-1 pb-2 flex justify-center">
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                onClick={() => setVisibleLimit((prev) => prev + LIST_PAGE_SIZE)}
-                                                label={t('contextStudio.loadMore', {
-                                                    count: filteredItems.length - visibleLimit,
-                                                    defaultValue: `加载更多（剩余 ${filteredItems.length - visibleLimit} 条）`,
-                                                })}
-                                            />
-                                        </div>
+                            ) : filteredItems.length > VIRTUALIZE_ASSET_THRESHOLD ? (
+                                <Virtuoso
+                                    className="flex-1 min-h-0"
+                                    data={filteredItems}
+                                    itemContent={(_, entry) => (
+                                        <div className="px-2 pb-1.5 first:pt-2">{renderAssetCard(entry)}</div>
                                     )}
-                                </>
+                                />
+                            ) : (
+                                <div className="flex-1 min-h-0 overflow-y-auto p-2 flex flex-col gap-1.5">
+                                    {filteredItems.map(renderAssetCard)}
+                                </div>
                             )}
                         </div>
                     </section>
@@ -655,14 +944,7 @@ export default function ContextStudioPage() {
                                         prev.map((w) => (w.word === wordText ? { ...w, status: nextStatus } : w)),
                                     );
                                 }}
-                                onReviewRated={(wordText) => {
-                                    setDueWords((prev) => {
-                                        const next = new Set(prev);
-                                        next.delete(wordText.toLowerCase());
-                                        return next;
-                                    });
-                                    setDueTotalCount((prev) => Math.max(0, prev - 1));
-                                }}
+                                onReviewRated={(wordText) => handleReviewWordCompleted(wordText)}
                             />
                         ) : selection?.kind === 'sentence' ? (
                             <SentenceDetailCanvas

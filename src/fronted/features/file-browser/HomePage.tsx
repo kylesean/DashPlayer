@@ -28,6 +28,7 @@ import FileSelector, { FileAction } from '@/fronted/features/file-browser/compon
 import { getRendererLogger } from '@/fronted/log/simple-logger';
 import { fileBrowserApi } from '@/fronted/features/file-browser/fileBrowserApi';
 import YoutubeImportButton from '@/fronted/features/youtube-import/YoutubeImportButton';
+import { DailyStudyPulse } from '@/fronted/features/file-browser/components/DailyStudyPulse';
 import YoutubeImportHero from '@/fronted/features/youtube-import/YoutubeImportHero';
 import { useTranslation as useI18nTranslation } from 'react-i18next';
 import ContentCompassSection from '@/fronted/features/content-compass/ContentCompassSection';
@@ -126,18 +127,13 @@ const HomePage = () => {
             content={
                 <LayoutContent isScrollable padding={6}>
                     {hasHistory ? (
-                        <VStack gap={8} width="100%">
-                            {/* 顶部快速打开区域：简洁优雅的卡片 */}
-                            <Card variant="default" padding={4}>
+                        <VStack gap={6} width="100%">
+                            {/* 顶部快速打开区域：紧凑工具条 */}
+                            <Card variant="default" padding={3}>
                                 <HStack vAlign="center" hAlign="between" gap={4} width="100%">
-                                    <VStack gap={0.5}>
-                                        <Text type="body" weight="semibold">
-                                            {tc('quickStartTitle')}
-                                        </Text>
-                                        <Text type="supporting" color="secondary">
-                                            {tc('quickStartDesc')}
-                                        </Text>
-                                    </VStack>
+                                    <Text type="body" weight="semibold">
+                                        {tc('quickStartTitle')}
+                                    </Text>
                                     <HStack vAlign="center" gap={3}>
                                         <div className="w-36">
                                             <FileSelector
@@ -158,6 +154,8 @@ const HomePage = () => {
                                     </HStack>
                                 </HStack>
                             </Card>
+
+                            <DailyStudyPulse />
 
                             <ContentCompassSection
                                 excludeVideoIds={vps?.slice(0, 3).map((video) => video.id)}

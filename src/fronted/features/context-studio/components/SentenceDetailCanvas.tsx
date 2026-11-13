@@ -6,15 +6,37 @@ import { Card } from '@astryxdesign/core/Card';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { Text } from '@astryxdesign/core/Text';
 import { Tooltip } from '@astryxdesign/core/Tooltip';
-import { BookmarkMinus, ExternalLink, Mic, Save, Volume2 } from 'lucide-react';
+import { BookmarkMinus, BookOpenText, ExternalLink, Mic, Save, Volume2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { SavedSentenceTag, SavedSentenceVO } from '@/common/types/contextStudio';
 import { SAVED_SENTENCE_TAGS } from '@/common/types/contextStudio';
+import type { Sentence } from '@/common/types/SentenceC';
 import TimeUtil from '@/common/utils/TimeUtil';
+import { renderSentenceTokens } from '@/fronted/features/player/components/srt-layout/sentence-token-renderer';
 import { contextStudioApi } from '../contextStudioApi';
 import { useSavedSentences } from '../savedSentencesStore';
 import { playContextAudio } from '@/fronted/infrastructure/audio/AudioPlayer';
 import { cn } from '@/fronted/lib/utils';
+
+function buildSavedSentenceObj(sentence: SavedSentenceVO): Sentence {
+    return {
+        fileHash: sentence.fileHash || `sentence-${sentence.videoId}`,
+        index: sentence.sentenceIndex,
+        start: sentence.startTime,
+        end: sentence.endTime,
+        adjustedStart: sentence.startTime,
+        adjustedEnd: sentence.endTime,
+        text: sentence.text,
+        textZH: sentence.textZh,
+        key: sentence.sentenceKey,
+        transGroup: 1,
+        translationKey: sentence.sentenceKey,
+        struct: {
+            original: sentence.text,
+            blocks: [],
+        },
+    };
+}
 
 export interface SentenceDetailCanvasProps {
     sentence: SavedSentenceVO;
@@ -34,6 +56,11 @@ export default function SentenceDetailCanvas({
     const [savingNote, setSavingNote] = useState(false);
     const [speaking, setSpeaking] = useState(false);
     const [removing, setRemoving] = useState(false);
+    const [popEle, setPopEle] = useState<string | null>(null);
+
+    const handleRequestPop = (nextKey: string) => {
+        setPopEle((prev) => (prev === nextKey ? null : nextKey));
+    };
 
     const hasNativeAudio = Boolean(sentence.videoPath && sentence.endTime > sentence.startTime);
     const speakLabel = hasNativeAudio
@@ -175,8 +202,16 @@ export default function SentenceDetailCanvas({
             {/* 句型原文与译文卡片 */}
             <Card variant="muted" padding={5}>
                 <div className="flex flex-col gap-3">
-                    <p className="text-lg font-semibold text-primary leading-relaxed select-text">
-                        {sentence.text}
+                    <p className="text-lg font-semibold text-primary leading-relaxed select-text break-words">
+                        {renderSentenceTokens({
+                            sentence: buildSavedSentenceObj(sentence),
+                            text: sentence.text,
+                            popEle,
+                            onRequestPop: handleRequestPop,
+                            alwaysDark: false,
+                            surface: 'transcript',
+                            sentenceHash: sentence.sentenceKey,
+                        })}
                     </p>
                     {sentence.textZh && (
                         <p className="text-base text-secondary leading-relaxed select-text">
@@ -197,6 +232,13 @@ export default function SentenceDetailCanvas({
                         </Tooltip>
                         {sentence.videoId && (
                             <>
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    icon={<BookOpenText className="w-3.5 h-3.5" />}
+                                    label={t('contextStudio.openInReader', { defaultValue: '精读全文' })}
+                                    onClick={() => navigate(`/reader/${sentence.videoId}?sentence=${sentence.sentenceIndex}`)}
+                                />
                                 <Button
                                     size="sm"
                                     variant="secondary"

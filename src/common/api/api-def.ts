@@ -543,7 +543,7 @@ interface VocabularyDef {
         return: void
     };
     'vocabulary/review-queue': {
-        params: { limit?: number },
+        params: { limit?: number; words?: string[] },
         return: ReviewQueueVO
     };
     'vocabulary/rate-review': {

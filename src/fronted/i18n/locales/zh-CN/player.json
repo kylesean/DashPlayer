@@ -343,7 +343,8 @@
         "batchDone": "这一组已完成 {{count}} 张",
         "batchMoreDue": "还有 {{count}} 个到期词",
         "batchNext": "继续下一组",
-        "openClips": "看这 {{count}} 个片段"
+        "openClips": "看这 {{count}} 个片段",
+        "openStudioReview": "进入语境工坊集中复习 →"
     },
     "learningSummary": {
         "trigger": "本次学习",
