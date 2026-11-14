@@ -25,6 +25,7 @@ import { LOCAL_AI_INTEGRITY_MARKER_SUFFIX } from './LocalModelInstaller';
 import { probeReachableDownloadUrl } from '@/backend/utils/probeDownloadUrl';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+import type { CommonDownloadPhase } from '@/common/contracts/model-download-phase';
 
 /** 向量维度；EmbeddingGemma 2 固定 768 维，用于拒绝异常响应。 */
 const EMBEDDING_DIMENSION = LOCAL_EMBEDDING_DIMENSION;
@@ -69,7 +70,7 @@ export class LocalEmbeddingRuntime {
     /** 当前下载任务的取消控制器；remove() 或 cancelDownload() 可中止在途写入。 */
     private downloadController: AbortController | null = null;
     private activeDownloadTarget: 'base' | 'multimodal' = 'base';
-    private downloadPhase: 'idle' | 'downloading' | 'verifying' = 'idle';
+    private downloadPhase: CommonDownloadPhase = 'idle';
     private downloadedBytes = 0;
     private totalBytes = 0;
     private lastError: string | null = null;

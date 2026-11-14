@@ -1,7 +1,7 @@
 import type { OpenAIDictionaryResult } from '@/common/types/DictionaryResult';
 import type { RendererTranslationItem } from '@/common/types/TranslationResult';
 import type { ChatStreamEvent } from '@/common/types/chat';
-import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
+import type { CommonDownloadPhase, ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 
 /**
  * 前端API定义文件 - 定义后端可以调用的前端方法
@@ -29,11 +29,11 @@ interface UIRendererDef {
     'settings/sense-voice-model-download-progress': { params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase }, return: void };
     'settings/whisper-cpp-model-download-progress': { params: { percent: number; downloaded: number; total: number; phase: ModelDownloadPhase }, return: void };
     'settings/local-ai-model-download-progress': {
-        params: { modelId: string; percent: number; downloaded: number; total: number; phase: 'idle' | 'downloading' | 'verifying' },
+        params: { modelId: string; percent: number; downloaded: number; total: number; phase: CommonDownloadPhase },
         return: void
     };
     'settings/embedding-model-download-progress': {
-        params: { target: 'base' | 'multimodal'; percent: number; downloaded: number; total: number; phase: 'idle' | 'downloading' | 'verifying' },
+        params: { target: 'base' | 'multimodal'; percent: number; downloaded: number; total: number; phase: CommonDownloadPhase },
         return: void
     };
 }

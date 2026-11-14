@@ -6,6 +6,7 @@
  * 升级版本时同步更新 `scripts/download.mjs` 的资源名与 SHA-256。
  */
 export const LLAMA_RUNTIME_VERSION = 'b12292';
+import type { CommonDownloadPhase } from '@/common/contracts/model-download-phase';
 
 /** 本地模型性能档位。 */
 export type LocalAiTier = 'light' | 'standard' | 'pro';
@@ -29,7 +30,7 @@ export interface LocalEmbeddingStatus {
     /** 当前正在下载的对象。 */
     activeTarget?: 'base' | 'multimodal' | null;
     /** 当前阶段。 */
-    phase?: 'idle' | 'downloading' | 'verifying';
+    phase?: CommonDownloadPhase;
     /** 当前已下载字节数。 */
     downloaded?: number;
     /** 当前下载目标总字节数。 */
@@ -214,7 +215,7 @@ export interface LocalAiModelStatus {
     /** 是否已完整安装。 */
     ready: boolean;
     /** 下载任务阶段；自定义模型恒为 idle。 */
-    phase: 'idle' | 'downloading' | 'verifying';
+    phase: CommonDownloadPhase;
     /** 已下载字节数。 */
     downloaded: number;
     /** 总字节数。 */
