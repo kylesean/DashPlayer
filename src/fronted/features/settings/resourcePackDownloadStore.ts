@@ -1,9 +1,10 @@
 import { useSyncExternalStore } from 'react';
 import { subscribeArchiveDownloadProgress } from '@/fronted/features/settings/settingsEvents';
+import { createDownloadProgressTracker, type DownloadLiveSnapshot } from '@/fronted/lib/downloadProgressTracker';
 import type { ModelDownloadPhase } from '@/common/contracts/model-download-phase';
 
 const PROGRESS_RENDER_INTERVAL_MS = 200;
-const SPEED_SMOOTHING = 0.25;
+const SPEED_SMOOTHING = 0.25; // 本页调参档（偏稳重），算法见 downloadProgressTracker
 
 export interface DownloadLiveStats {
     percent: number;
@@ -45,8 +46,7 @@ interface PackRuntime {
     epoch: number;
     cancelRequested: boolean;
     activeEntry: PackDownloadEntry | null;
-    liveSnapshot: DownloadLiveStats;
-    speedSample: { at: number; downloaded: number } | null;
+    tracker: ReturnType<typeof createDownloadProgressTracker>;
     renderTimer: ReturnType<typeof setInterval> | null;
     unsubscribeProgress: (() => void) | null;
     onRefresh?: () => void;
@@ -76,23 +76,6 @@ function stopRuntimeTimers(runtime: PackRuntime): void {
         runtime.unsubscribeProgress();
         runtime.unsubscribeProgress = null;
     }
-}
-
-function trackRuntimeProgress(runtime: PackRuntime, downloaded: number, total: number): void {
-    const now = Date.now();
-    const last = runtime.speedSample;
-    let speed = runtime.liveSnapshot.speed;
-    if (last && now > last.at && downloaded >= last.downloaded) {
-        const instant = ((downloaded - last.downloaded) * 1000) / (now - last.at);
-        speed = speed === 0 ? instant : speed * (1 - SPEED_SMOOTHING) + instant * SPEED_SMOOTHING;
-    }
-    runtime.speedSample = { at: now, downloaded };
-    runtime.liveSnapshot = {
-        percent: total > 0 ? Math.min(100, Math.floor((downloaded / total) * 100)) : 0,
-        downloaded,
-        total,
-        speed,
-    };
 }
 
 export function getPackDownloadState(packId: string): PackDownloadState {
@@ -132,8 +115,7 @@ export async function startPackDownload(options: {
         epoch,
         cancelRequested: false,
         activeEntry: null,
-        liveSnapshot: { percent: 0, downloaded: 0, total: 0, speed: 0 },
-        speedSample: null,
+        tracker: createDownloadProgressTracker(SPEED_SMOOTHING),
         renderTimer: null,
         unsubscribeProgress: null,
         onRefresh,
@@ -145,7 +127,7 @@ export async function startPackDownload(options: {
         if (packRuntimes.get(packId)?.epoch !== epoch) return;
         setPackState(packId, (prev) => ({ ...prev, activePhase: detail.phase }));
         if (detail.phase === 'downloading' && detail.total > 0) {
-            trackRuntimeProgress(runtime, detail.downloaded, detail.total);
+            runtime.tracker.track(detail.downloaded, detail.total);
         }
         if (detail.phase === 'idle') {
             runtime.onRefresh?.();
@@ -154,7 +136,7 @@ export async function startPackDownload(options: {
 
     runtime.renderTimer = setInterval(() => {
         if (packRuntimes.get(packId)?.epoch !== epoch) return;
-        const snap = { ...runtime.liveSnapshot };
+        const snap: DownloadLiveSnapshot = { ...runtime.tracker.getSnapshot() };
         setPackState(packId, (prev) => {
             if (
                 prev.live.percent === snap.percent
@@ -180,8 +162,7 @@ export async function startPackDownload(options: {
     try {
         for (const entry of entries) {
             runtime.activeEntry = entry;
-            runtime.liveSnapshot = { percent: 0, downloaded: 0, total: 0, speed: 0 };
-            runtime.speedSample = null;
+            runtime.tracker.reset();
             setPackState(packId, (prev) => ({
                 ...prev,
                 activeItemKey: entry.key,

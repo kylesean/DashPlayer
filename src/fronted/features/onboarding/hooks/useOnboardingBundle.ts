@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { settingsApi } from '@/fronted/features/settings/settingsApi';
 import { englishDictionaryApi } from '@/fronted/features/settings/englishDictionaryApi';
 import { getSystemInfo, markOnboardingCompleted, type SystemInfo } from '@/fronted/features/onboarding/onboardingApi';
+import { createDownloadProgressTracker } from '@/fronted/lib/downloadProgressTracker';
 import {
     subscribeArchiveDownloadProgress,
     subscribeEmbeddingDownloadProgress,
@@ -37,7 +38,7 @@ export type BundleItemKey =
 /** 引导页方案档位：`standard` 全本地推荐 / `light` 轻量核心 / `custom` 自定义。 */
 export type BundleTierChoice = OnboardingTier | 'custom';
 
-/** 网速的指数滑动平均系数，抑制进度事件抖动。 */
+/** 网速的指数滑动平均系数（本页调参档：偏快速响应），算法见 downloadProgressTracker。 */
 const SPEED_SMOOTHING = 0.3;
 
 /** 进度与网速刷新到 UI 的最小间隔（毫秒）。 */
@@ -190,10 +191,10 @@ export function useOnboardingBundle() {
         totalBytes: 0,
     });
     const [live, setLive] = React.useState({ percent: 0, downloaded: 0, total: 0, speed: 0 });
-    const liveRef = React.useRef({ percent: 0, downloaded: 0, total: 0, speed: 0 });
+    // 非响应式进度内核：EMA 平滑与快照统一走共享 tracker，渲染节流仍由本 hook 的 interval 负责
+    const progressTracker = React.useRef(createDownloadProgressTracker(SPEED_SMOOTHING));
     const [bundleError, setBundleError] = React.useState<string | null>(null);
     const cancelRequestedRef = React.useRef(false);
-    const speedSampleRef = React.useRef<{ at: number; downloaded: number } | null>(null);
 
     const applyStatuses = React.useCallback((result: Awaited<ReturnType<typeof fetchOnboardingStatuses>>) => {
         if (result.hardware) {
@@ -246,26 +247,13 @@ export function useOnboardingBundle() {
     }, [applyStatuses]);
 
     const trackProgress = React.useCallback((downloaded: number, total: number) => {
-        const now = Date.now();
-        const last = speedSampleRef.current;
-        let speed = liveRef.current.speed;
-        if (last && now > last.at && downloaded >= last.downloaded) {
-            const instant = ((downloaded - last.downloaded) * 1000) / (now - last.at);
-            speed = speed === 0 ? instant : speed * (1 - SPEED_SMOOTHING) + instant * SPEED_SMOOTHING;
-        }
-        speedSampleRef.current = { at: now, downloaded };
-        liveRef.current = {
-            percent: total > 0 ? Math.min(100, Math.floor((downloaded / total) * 100)) : 0,
-            downloaded,
-            total,
-            speed,
-        };
+        progressTracker.current.track(downloaded, total);
     }, []);
 
     React.useEffect(() => {
         if (!downloadingBundle) return undefined;
         const timer = window.setInterval(() => {
-            setLive({ ...liveRef.current });
+            setLive({ ...progressTracker.current.getSnapshot() });
         }, PROGRESS_RENDER_INTERVAL_MS);
         return () => window.clearInterval(timer);
     }, [downloadingBundle]);
@@ -723,9 +711,8 @@ export function useOnboardingBundle() {
                 activeItemRef.current = entry.key;
                 setActiveItem(entry.key);
                 setActivePhase(null);
-                liveRef.current = { percent: 0, downloaded: 0, total: entry.bytes, speed: 0 };
+                progressTracker.current.reset(entry.bytes);
                 setLive({ percent: 0, downloaded: 0, total: entry.bytes, speed: 0 });
-                speedSampleRef.current = null;
                 await runBundleEntry(entry.key);
                 if (cancelRequestedRef.current) break;
                 doneBytes += entry.bytes;
