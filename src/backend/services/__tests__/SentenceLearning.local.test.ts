@@ -11,6 +11,7 @@ vi.mock('electron', () => ({
 }));
 
 import { SentenceLearningServiceImpl } from '@/backend/services/SentenceLearningService';
+import { storeSet } from '@/backend/infrastructure/settings/store';
 import type AiProviderService from '@/backend/services/AiProviderService';
 import type LocalAiService from '@/backend/services/LocalAiService';
 
@@ -19,7 +20,9 @@ const buildService = (options: {
     cloudModel: 'configured' | null;
     localStatus: { runtimeReady: boolean; hasReadyModel: boolean } | null;
     localGenerate?: (prompt: string) => unknown;
+    enabled?: boolean;
 }) => {
+    storeSet('features.openai.enableSentenceLearning', options.enabled === false ? 'false' : 'true');
     const aiProviderService = {
         getModel: vi.fn(() => (options.cloudModel === 'configured' ? {} : null)),
     } as unknown as AiProviderService;
@@ -102,5 +105,17 @@ describe('整句学习的本地回退', () => {
         // 云端路径的 generateObject 由 AI SDK 驱动,这里只验证本地探测未被依赖
         expect(vi.mocked(localAiService.getStatus)).toHaveBeenCalled();
         expect(aiProviderService.getModel('sentenceLearning')).not.toBeNull();
+    });
+
+    it('整句学习被禁用时，即使本地模型就绪也不应回退到本地推理', async () => {
+        const { service, localAiService } = buildService({
+            cloudModel: null,
+            localStatus: { runtimeReady: true, hasReadyModel: true },
+            enabled: false,
+        });
+
+        await expect(service.resolveLocalModelId()).resolves.toBeNull();
+        await expect(service.isLearningAvailable()).resolves.toBe(false);
+        expect(localAiService.getStatus).not.toHaveBeenCalled();
     });
 });

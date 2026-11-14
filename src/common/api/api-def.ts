@@ -235,6 +235,7 @@ interface SystemDef {
     'system/window-buttons/visibility': { params: boolean, return: void };
     'system/check-update': { params: { mode?: 'toast' } | undefined, return: UpdateCheckResult };
     'system/open-url': { params: string, return: void };
+    'system/clipboard/write': { params: string, return: void };
     'system/app-version': { params: void, return: string };
     /**
      * 确保 macOS 麦克风授权已就绪（未决定时主进程弹系统授权框）；仅 'granted' 表示可以录音。
@@ -914,6 +915,7 @@ export const API_ROUTE_KEYS = [
     'subtitle/srt/parse-to-sentences',
     'subtitle/text/parse-structs',
     'system/app-version',
+    'system/clipboard/write',
     'system/check-update',
     'system/config/get',
     'system/config/set',

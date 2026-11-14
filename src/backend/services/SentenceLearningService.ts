@@ -2,6 +2,7 @@ import { inject, injectable } from 'inversify';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { getMainLogger } from '@/backend/infrastructure/logger';
+import { storeGet } from '@/backend/infrastructure/settings/store';
 import { parseMaybeJson } from '@/common/utils/ai/parseMaybeJson';
 import TYPES from '@/backend/ioc/types';
 import type AiProviderService from '@/backend/services/AiProviderService';
@@ -140,8 +141,11 @@ export class SentenceLearningServiceImpl implements SentenceLearningService {
         return parsed.data;
     }
 
-    /** 解析本地推理可用的模型 id；运行时缺失或使用中模型未安装时返回 null。 */
+    /** 解析本地推理可用的模型 id；整句学习未启用、运行时缺失或使用中模型未安装时返回 null。 */
     public async resolveLocalModelId(): Promise<string | null> {
+        if (storeGet('features.openai.enableSentenceLearning') !== 'true') {
+            return null;
+        }
         try {
             const status = await this.localAiService.getStatus();
             if (!status.runtimeReady) return null;

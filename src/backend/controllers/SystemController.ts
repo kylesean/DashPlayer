@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import registerRoute from '@/backend/controllers/ipc/registerRoute';
 import { nonEmptyStringSchema, windowStateSchema } from '@/backend/controllers/ipc/routeSchemas';
-import { app, dialog, shell, systemPreferences } from 'electron';
+import { app, clipboard, dialog, shell, systemPreferences } from 'electron';
 import path from 'path';
 import type { WindowState } from '@/common/types/Types';
 import { readSystemInfo } from '@/backend/utils/systemInfo';
@@ -285,6 +285,11 @@ export default class SystemController implements Controller {
         });
         registerRoute('system/open-url', (p) => this.openUrl(p), {
             schema: z.url({ protocol: /^https?$/ }),
+        });
+        registerRoute('system/clipboard/write', async (text) => {
+            clipboard.writeText(text);
+        }, {
+            schema: z.string(),
         });
         registerRoute('system/app-version', () => this.appVersion());
         registerRoute('system/ensure-microphone', () => this.ensureMicrophone());
