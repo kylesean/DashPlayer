@@ -3,6 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <title>Refrain</title>
+    <script>
+      // 首屏先套用上次生效的主题，避免深色用户看到一帧浅色（桌面主题设置在后端存储，
+      // 同步读取不到，这里用 App.tsx 每次应用主题时写入的 localStorage 镜像近似）。
+      // 键名与 src/fronted/app/App.tsx 一致，改动必须两处同步。跟随系统的用户在本次
+      // 启动内仍由 App 现场重判，镜像可能过期一瞬。
+      (function () {
+        try {
+          var theme = localStorage.getItem('refrain.theme');
+          if (theme === 'dark' || theme === 'light') {
+            document.documentElement.classList.add(theme);
+            document.documentElement.dataset.theme = theme;
+          }
+        } catch (error) {
+          // 隐私模式下 localStorage 不可用，保持默认浅色（与旧行为一致）。
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

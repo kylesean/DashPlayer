@@ -134,6 +134,13 @@ export const App = () => {
             document.documentElement.classList.add(effective);
             document.documentElement.dataset.testid = 'app-root';
             document.documentElement.dataset.theme = effective;
+            // 写入首帧镜像：index.html 的内联脚本在 React 挂载前读它防主题闪白。
+            // 键名与 index.html 一致，改动必须两处同步。
+            try {
+                localStorage.setItem('refrain.theme', effective);
+            } catch {
+                // 隐私模式写入失败可忽略：下次启动退回无镜像的默认浅色。
+            }
         };
 
         applyTheme();
