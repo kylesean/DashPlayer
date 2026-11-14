@@ -1,1 +1,0 @@
-ALTER TABLE `dp_sentence_practice_record` ADD `resegmented` integer DEFAULT true NOT NULL;
