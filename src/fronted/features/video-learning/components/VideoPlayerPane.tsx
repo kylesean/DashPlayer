@@ -373,6 +373,12 @@ export default function VideoPlayerPane({
           pendingGuard.index === currentSentence.index &&
           pendingGuard.fileHash === currentSentence.fileHash;
         if (!matchesTarget) {
+          // 守卫失败不再静默：保留 pendingHighlight 等后续匹配是设计内行为，
+          // 但每次抑制都要留下痕迹，否则「外部 lineIdx 停在过期值」无从排查。
+          logger.warn('pending highlight guard deferred sync', {
+            pending: `${pendingGuard.fileHash}:${pendingGuard.index}`,
+            current: `${currentSentence.fileHash}:${currentSentence.index}`,
+          });
           return;
         }
         pendingHighlightRef.current = null;
