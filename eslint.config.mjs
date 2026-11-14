@@ -163,7 +163,7 @@ export default tseslint.config(
         },
     },
     {
-        // 单元测试禁止遗留独占聚焦调用。
+        // 单元测试禁止遗留独占聚焦调用或无条件跳过。
         files: ['src/**/__tests__/**/*.{ts,tsx,js,jsx}', 'src/**/*.{test,spec}.{ts,tsx,js,jsx}'],
         rules: {
             'no-restricted-syntax': [
@@ -172,6 +172,11 @@ export default tseslint.config(
                     selector:
                         "CallExpression[callee.object.name=/^(describe|it|test)$/][callee.property.name='only']",
                     message: '禁止提交 describe.only / it.only / test.only，调试完请移除。',
+                },
+                {
+                    selector:
+                        "CallExpression[callee.object.name=/^(describe|it|test)$/][callee.property.name='skip']",
+                    message: '禁止无条件 describe.skip / it.skip / test.skip；环境门控请使用 skipIf(condition)。',
                 },
             ],
         },

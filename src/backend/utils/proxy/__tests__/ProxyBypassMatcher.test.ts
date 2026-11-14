@@ -39,10 +39,8 @@ describe('直连规则解析', () => {
 
     it('解析 IP 通配符', () => {
         const parsed = parseProxyBypassRule('192.168.1.*');
-        expect(parsed?.type).toBe('ipWildcard');
-        if (parsed?.type === 'ipWildcard') {
-            expect(parsed.regex.test('192.168.1.50')).toBe(true);
-        }
+        expect(parsed).toMatchObject({ type: 'ipWildcard' });
+        expect((parsed as Extract<NonNullable<typeof parsed>, { type: 'ipWildcard' }>).regex.test('192.168.1.50')).toBe(true);
     });
 
     it('解析 CIDR', () => {
@@ -52,10 +50,10 @@ describe('直连规则解析', () => {
 
     it('解析带端口的规则', () => {
         const parsed = parseProxyBypassRule('example.com:8080');
-        expect(parsed?.type).toBe('domain');
-        if (parsed?.type === 'domain') {
-            expect(parsed.port).toBe('8080');
-        }
+        expect(parsed).toMatchObject({
+            type: 'domain',
+            port: '8080',
+        });
     });
 
     it('跳过空白与非法规则', () => {

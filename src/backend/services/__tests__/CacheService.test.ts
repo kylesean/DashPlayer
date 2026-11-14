@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CacheServiceImpl } from '../CacheService';
 import type { SrtSentence } from '@/common/types/SentenceC';
 
 describe('CacheServiceImpl', () => {
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it('sets and gets cached values', () => {
         const cache = new CacheServiceImpl();
         const mockSrt = { fileHash: 'hash-1', sentences: [] } as unknown as SrtSentence;
@@ -12,14 +16,15 @@ describe('CacheServiceImpl', () => {
         expect(cache.get('cache:srt', 'non-existent')).toBeNull();
     });
 
-    it('expires items after TTL', async () => {
+    it('expires items after TTL', () => {
+        vi.useFakeTimers();
         const cache = new CacheServiceImpl();
         const mockSrt = { fileHash: 'hash-ttl', sentences: [] } as unknown as SrtSentence;
         cache.set('cache:srt', 'hash-ttl', mockSrt, 10);
 
         expect(cache.get('cache:srt', 'hash-ttl')).toBe(mockSrt);
 
-        await new Promise((r) => setTimeout(r, 25));
+        vi.advanceTimersByTime(15);
         expect(cache.get('cache:srt', 'hash-ttl')).toBeNull();
     });
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sentence } from '@/common/types/SentenceC';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { useTrainingModeStore } from '@/fronted/features/player/trainingStore';
@@ -60,6 +60,10 @@ describe('playerStore 逐句循环在末句的 completed 逃逸', () => {
         usePlayer.getState().setSource('file:///test.mp4');
         usePlayer.getState().loadSubtitles(SENTENCES);
         usePlayer.setState({ playbackRate: 1.0 });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('末句播完两遍后越过句末，计划续开新一轮而不是永久滞留', () => {

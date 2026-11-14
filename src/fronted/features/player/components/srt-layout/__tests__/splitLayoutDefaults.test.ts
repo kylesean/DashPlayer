@@ -25,10 +25,11 @@ describe('getDefaultInnerSplit', () => {
         );
     });
 
-    it('always totals 100 percent', () => {
-        for (const fontSize of ['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge', undefined]) {
+    it.each(['fontSizeSmall', 'fontSizeMedium', 'fontSizeLarge', undefined] as const)(
+        'always totals 100 percent for %s',
+        (fontSize) => {
             const { stage, subtitle } = getDefaultInnerSplit(fontSize);
             expect(stage + subtitle).toBe(100);
-        }
-    });
+        },
+    );
 });

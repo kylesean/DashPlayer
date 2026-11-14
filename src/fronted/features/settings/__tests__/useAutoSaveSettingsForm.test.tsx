@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
 import { useAutoSaveSettingsForm } from '@/fronted/features/settings/useAutoSaveSettingsForm';
@@ -18,10 +18,10 @@ interface TestForm {
     url: string;
 }
 
-/** 等待防抖与保存链跑完。 */
+/** 推进假时钟使防抖与保存微任务链跑完。 */
 const settle = async (ms = 80): Promise<void> => {
     await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, ms));
+        await vi.advanceTimersByTimeAsync(ms);
     });
 };
 
@@ -41,6 +41,14 @@ const mountForm = (onSave: (values: TestForm) => Promise<void>) => renderHook(()
 });
 
 describe('设置自动保存表单', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it('首次初始化必须应用服务端快照，否则页面永远停在加载态', async () => {
         const { result } = mountForm(async () => undefined);
 
@@ -71,7 +79,7 @@ describe('设置自动保存表单', () => {
         // 保存 b 成功：基线推进到 b，随后 mutate 重取把 b 交回 initialize
         await act(async () => {
             releaseFirstSave();
-            await new Promise((resolve) => setTimeout(resolve, 0));
+            await vi.advanceTimersByTimeAsync(0);
         });
         act(() => result.current.auto.initialize({ url: 'b' }));
 

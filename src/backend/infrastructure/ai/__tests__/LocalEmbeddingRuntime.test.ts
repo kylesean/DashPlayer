@@ -127,10 +127,10 @@ describe('LocalEmbeddingRuntime', () => {
         } as never);
 
         await runtime.getStatus();
-        // getStatus 里的清理是 fire-and-forget，等一轮事件循环。
-        await new Promise((resolve) => setTimeout(resolve, 50));
-
-        await expect(fs.access(legacyDir)).rejects.toThrow();
+        // getStatus 里的清理是 fire-and-forget，用条件轮询等待目录被移除。
+        await vi.waitFor(async () => {
+            await expect(fs.access(legacyDir)).rejects.toThrow();
+        });
     });
 
     it('删除模型会同时移除文本模型与多模态投影', async () => {

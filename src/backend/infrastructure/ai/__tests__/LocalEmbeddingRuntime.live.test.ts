@@ -35,7 +35,9 @@ const hasModel = async (id: string, file: string, bytes: number): Promise<boolea
     }
 };
 
-const ready = await hasModel(LOCAL_EMBEDDING_MODEL.id, LOCAL_EMBEDDING_MODEL.file, LOCAL_EMBEDDING_MODEL.bytes)
+const liveEnabled = process.env.DP_RUN_LIVE_TESTS === 'true';
+const ready = liveEnabled
+    && await hasModel(LOCAL_EMBEDDING_MODEL.id, LOCAL_EMBEDDING_MODEL.file, LOCAL_EMBEDDING_MODEL.bytes)
     && await hasModel(LOCAL_EMBEDDING_MMPROJ.id, LOCAL_EMBEDDING_MMPROJ.file, LOCAL_EMBEDDING_MMPROJ.bytes);
 
 describe.skipIf(!ready)('LocalEmbeddingRuntime 真实模型', () => {

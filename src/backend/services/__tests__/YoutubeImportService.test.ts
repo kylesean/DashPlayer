@@ -415,11 +415,11 @@ describe('YouTube 导入服务', () => {
         });
 
         it('配置了 cookies 文件时把路径传给下载网关', async () => {
-            settingsValues.set('youtubeImport.cookiesFilePath', '/home/kyle/cookies.txt');
+            settingsValues.set('youtubeImport.cookiesFilePath', '/path/to/cookies.txt');
             const { taskId } = await service.start(VIDEO_URL);
             await waitForTerminalTask(dpTaskService, taskId);
 
-            expect(ytDlpGateway.downloads[0].cookiesFilePath).toBe('/home/kyle/cookies.txt');
+            expect(ytDlpGateway.downloads[0].cookiesFilePath).toBe('/path/to/cookies.txt');
         });
 
         it('未配置 cookies 时不向网关传 cookies 参数', async () => {

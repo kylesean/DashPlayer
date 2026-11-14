@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Sentence } from '@/common/types/SentenceC';
 import { usePlayer } from '@/fronted/features/player/playerStore';
 import { PRACTICE_CLIP_TAIL_SECONDS } from '@/fronted/features/player/lib/practice-clip-range';
@@ -41,6 +41,10 @@ describe('playerStore 练习受控区间试听 playPracticeClip', () => {
             makeSentence(1, 3.5, 6),
         ]);
         usePlayer.setState({ playbackRate: 1.0 });
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
     });
 
     it('播放越过句末时自动停在区间终点、不切到下一句，并恢复暂存倍速与触发回调', () => {

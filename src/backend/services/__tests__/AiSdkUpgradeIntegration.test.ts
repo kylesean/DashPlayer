@@ -35,7 +35,6 @@ import { Output, streamText, type LanguageModel } from 'ai';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
 import { loadAiSdkTestConfig } from '@/test/aiSdkTestConfig';
-import { splitSystemMessages } from '@/backend/services/chat/ChatPromptBuilder';
 import { TranslateServiceImpl } from '../TranslateService';
 import { BuiltinDictionaryStoreImpl } from '@/backend/infrastructure/translate/BuiltinDictionaryStoreImpl';
 import { createBuiltinDictionaryFixture } from '@/test/builtinDictionaryFixture';
@@ -53,8 +52,7 @@ import type WordTranslatesRepository from '@/backend/services/repositories/WordT
 // 真实连接测试默认不跑（会发起计费请求）：需显式设置 DP_RUN_LIVE_AI_TESTS=true，
 // 且开发环境配置文件（config.dev.json）里已配置 Key 时才执行。
 const testConfig = loadAiSdkTestConfig();
-const liveTestsEnabled = process.env.DP_RUN_LIVE_AI_TESTS === 'true';
-const describeLive = liveTestsEnabled && testConfig ? describe : describe.skip;
+const liveTestsEnabled = process.env.DP_RUN_LIVE_AI_TESTS === 'true' && Boolean(testConfig);
 
 /**
  * 构造一个与生产 getModel 完全一致的直连测试模型：
@@ -73,47 +71,8 @@ const buildLiveModel = (modelId: string): LanguageModel => {
     return provider.chatModel(modelId);
 };
 
-
 const runTests = (): void => {
-    // 离线回归：不发真实请求，默认测试（yarn test）就能跑，守护整句学习面板的模型调用与流式回推路径。
-    describe('整句学习面板（AI SDK v7 离线回归）', () => {
-        describe('splitSystemMessages（system 消息拆分）', () => {
-            it('能把开头 system 消息拆出并保留剩余消息', () => {
-                const { system, messages } = splitSystemMessages([
-                    { role: 'system', content: '你是学习伙伴' },
-                    { role: 'user', content: '用户问题' },
-                    { role: 'assistant', content: '助手回答' },
-                ]);
-                expect(system).toBe('你是学习伙伴');
-                expect(messages).toEqual([
-                    { role: 'user', content: '用户问题' },
-                    { role: 'assistant', content: '助手回答' },
-                ]);
-            });
-
-            it('多个 system 消息按原顺序用空行拼接', () => {
-                const { system, messages } = splitSystemMessages([
-                    { role: 'system', content: '第一条' },
-                    { role: 'user', content: '问题' },
-                    { role: 'system', content: '第二条' },
-                ]);
-                expect(system).toBe('第一条\n\n第二条');
-                expect(messages).toEqual([{ role: 'user', content: '问题' }]);
-            });
-
-            it('没有 system 消息时返回 undefined 且消息不变', () => {
-                const { system, messages } = splitSystemMessages([
-                    { role: 'user', content: '问题' },
-                ]);
-                expect(system).toBeUndefined();
-                expect(messages).toEqual([{ role: 'user', content: '问题' }]);
-            });
-        });
-
-
-    });
-
-    describeLive('AI SDK 升级验证（ai v7 + @ai-sdk/openai-compatible）', () => {
+    describe.skipIf(!liveTestsEnabled)('AI SDK 升级验证（ai v7 + @ai-sdk/openai-compatible）', () => {
         describe('streamText 文本流（聊天/欢迎语等通用路径）', () => {
             it('真实连接：messages 输入能流式产出文本并正常结束', async () => {
                 const result = streamText({
@@ -270,10 +229,10 @@ const runTests = (): void => {
                 const service = buildService();
                 const result = await service.transWord('serendipity', true);
                 expect(result).not.toBeNull();
-                if (result && 'definitions' in result) {
-                    expect(result.word.toLowerCase()).toBe('serendipity');
-                    expect(result.definitions.length).toBeGreaterThan(0);
-                }
+                expect(result).toHaveProperty('definitions');
+                const dictResult = result as Extract<NonNullable<typeof result>, { definitions: unknown[] }>;
+                expect(dictResult.word.toLowerCase()).toBe('serendipity');
+                expect(dictResult.definitions.length).toBeGreaterThan(0);
             }, 60000);
         });
     });

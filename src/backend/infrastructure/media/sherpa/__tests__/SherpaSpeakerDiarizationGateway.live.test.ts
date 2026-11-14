@@ -38,7 +38,9 @@ const exists = async (filePath: string): Promise<boolean> => {
     }
 };
 
-const ready = await exists(`${MODELS_ROOT}/${DIARIZATION_SEGMENTATION_DIRECTORY}/${DIARIZATION_SEGMENTATION_FILE}`)
+const liveEnabled = process.env.DP_RUN_LIVE_TESTS === 'true';
+const ready = liveEnabled
+    && await exists(`${MODELS_ROOT}/${DIARIZATION_SEGMENTATION_DIRECTORY}/${DIARIZATION_SEGMENTATION_FILE}`)
     && await exists(`${MODELS_ROOT}/${DIARIZATION_EMBEDDING_DIRECTORY}/${DIARIZATION_EMBEDDING_FILE}`)
     && await exists(AUDIO_PATH);
 

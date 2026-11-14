@@ -3,10 +3,43 @@ import type { ModelMessage } from 'ai';
 import {
     composeChatSystemPrompt,
     ensureChatRoleMessage,
+    splitSystemMessages,
     toLocalChatMessagesWithWindow,
 } from '@/backend/services/chat/ChatPromptBuilder';
 
 describe('ChatPromptBuilder 双层提示词与上下文保护', () => {
+    describe('splitSystemMessages（system 消息拆分）', () => {
+        it('能把开头 system 消息拆出并保留剩余消息', () => {
+            const { system, messages } = splitSystemMessages([
+                { role: 'system', content: '你是学习伙伴' },
+                { role: 'user', content: '用户问题' },
+                { role: 'assistant', content: '助手回答' },
+            ]);
+            expect(system).toBe('你是学习伙伴');
+            expect(messages).toEqual([
+                { role: 'user', content: '用户问题' },
+                { role: 'assistant', content: '助手回答' },
+            ]);
+        });
+
+        it('多个 system 消息按原顺序用空行拼接', () => {
+            const { system, messages } = splitSystemMessages([
+                { role: 'system', content: '第一条' },
+                { role: 'user', content: '问题' },
+                { role: 'system', content: '第二条' },
+            ]);
+            expect(system).toBe('第一条\n\n第二条');
+            expect(messages).toEqual([{ role: 'user', content: '问题' }]);
+        });
+
+        it('没有 system 消息时返回 undefined 且消息不变', () => {
+            const { system, messages } = splitSystemMessages([
+                { role: 'user', content: '问题' },
+            ]);
+            expect(system).toBeUndefined();
+            expect(messages).toEqual([{ role: 'user', content: '问题' }]);
+        });
+    });
     it('双层拼装永远保留 [[tts:...]] 朗读协议，即使教学人设完全自定义', () => {
         const customPersona = '请用幽默夸张的相声捧哏语气讲解每个短语。';
         const withTools = composeChatSystemPrompt(customPersona, { enableSubtitleTools: true });

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const electronState = vi.hoisted(() => ({ isPackaged: false }));
 
@@ -23,6 +23,10 @@ const setProcessProperty = (key: string, value: unknown): void => {
     Object.defineProperty(process, key, { value, configurable: true });
 };
 
+const originalNodeEnv = process.env.NODE_ENV;
+const originalDefaultApp = (process as NodeJS.Process & { defaultApp?: unknown }).defaultApp;
+const originalResourcesPath = (process as NodeJS.Process & { resourcesPath?: unknown }).resourcesPath;
+
 describe('runtimeEnv', () => {
     beforeEach(() => {
         electronState.isPackaged = false;
@@ -30,6 +34,16 @@ describe('runtimeEnv', () => {
         // 默认模拟普通 Node/打包进程：没有 defaultApp，也没有 Electron resourcesPath。
         setProcessProperty('defaultApp', undefined);
         setProcessProperty('resourcesPath', undefined);
+    });
+
+    afterEach(() => {
+        if (originalNodeEnv === undefined) {
+            delete process.env.NODE_ENV;
+        } else {
+            process.env.NODE_ENV = originalNodeEnv;
+        }
+        setProcessProperty('defaultApp', originalDefaultApp);
+        setProcessProperty('resourcesPath', originalResourcesPath);
     });
 
     it('未打包运行时为开发态', () => {

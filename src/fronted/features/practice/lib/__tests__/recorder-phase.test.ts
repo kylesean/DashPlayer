@@ -9,6 +9,24 @@ import {
 const PHASES: PracticeRecorderPhase[] = ['idle', 'requesting', 'recording', 'processing'];
 const EVENTS: PracticeRecorderEvent[] = ['START', 'MIC_READY', 'STOP', 'CANCEL', 'SCORED', 'EMPTY'];
 
+const LEGAL_COMBINATIONS = new Set([
+    'idle+START',
+    'requesting+MIC_READY',
+    'requesting+CANCEL',
+    'recording+STOP',
+    'recording+CANCEL',
+    'recording+EMPTY',
+    'processing+SCORED',
+]);
+
+const ALL_PHASE_EVENT_ROWS: Array<[PracticeRecorderPhase, PracticeRecorderEvent, boolean]> = PHASES.flatMap(
+    (phase) => EVENTS.map((event): [PracticeRecorderPhase, PracticeRecorderEvent, boolean] => [
+        phase,
+        event,
+        LEGAL_COMBINATIONS.has(`${phase}+${event}`),
+    ]),
+);
+
 describe('跟读录音的阶段转移', () => {
     it('主路径：空闲 → 等待麦克风 → 采集 → 评分 → 空闲', () => {
         expect(nextRecorderPhase('idle', 'START')).toBe('requesting');
@@ -39,34 +57,19 @@ describe('跟读录音的阶段转移', () => {
         expect(nextRecorderPhase('recording', 'START')).toBeNull();
     });
 
-    it('空闲时不会有收尾类事件生效', () => {
-        for (const event of ['STOP', 'SCORED', 'EMPTY', 'MIC_READY'] as const) {
-            expect(nextRecorderPhase('idle', event), event).toBeNull();
-        }
-    });
+    it.each(['STOP', 'SCORED', 'EMPTY', 'MIC_READY'] as const)(
+        '空闲时收尾类事件 %s 不生效',
+        (event) => {
+            expect(nextRecorderPhase('idle', event)).toBeNull();
+        },
+    );
 
-    it('全事件矩阵：只有下表列出的组合合法', () => {
-        const legal = new Set([
-            'idle+START',
-            'requesting+MIC_READY',
-            'requesting+CANCEL',
-            'recording+STOP',
-            'recording+CANCEL',
-            'recording+EMPTY',
-            'processing+SCORED',
-        ]);
-        for (const phase of PHASES) {
-            for (const event of EVENTS) {
-                const key = `${phase}+${event}`;
-                const next = nextRecorderPhase(phase, event);
-                if (legal.has(key)) {
-                    expect(next, key).not.toBeNull();
-                } else {
-                    expect(next, key).toBeNull();
-                }
-            }
-        }
-    });
+    it.each(ALL_PHASE_EVENT_ROWS)(
+        '事件矩阵：%s + %s 合法性应为 %s',
+        (phase, event, isLegal) => {
+            expect(nextRecorderPhase(phase, event) !== null).toBe(isLegal);
+        },
+    );
 
     it('只有采集阶段算占用麦克风', () => {
         expect(isCapturing('recording')).toBe(true);

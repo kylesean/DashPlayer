@@ -32,13 +32,13 @@ describe('播放页视图互斥', () => {
         });
     });
 
-    it('由字段推导视图时能还原每一种合法状态', () => {
-        const modes: PlayerViewMode[] = ['play', 'learning', 'practice', 'podcast'];
-        for (const mode of modes) {
+    it.each(['play', 'learning', 'practice', 'podcast'] as const satisfies readonly PlayerViewMode[])(
+        '由字段推导视图时能还原合法状态 %s',
+        (mode) => {
             expect(derivePlayerViewMode(viewModeFlags(mode))).toBe(mode);
             expect(hasPlayerViewConflict(viewModeFlags(mode))).toBe(false);
-        }
-    });
+        },
+    );
 
     it('非法组合按覆盖层优先级退化为可解释结果：播客 > 练习 > 学习', () => {
         // 播客层是全屏覆盖层，学习页即使为真也被盖住，用户实际看到的是播客。

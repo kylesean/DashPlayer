@@ -1,10 +1,16 @@
-import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import ProxySetting from '@/fronted/features/settings/ProxySetting';
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const KEY = 'settings/proxy/detail';
+
+const originalPointerMethods = {
+    hasPointerCapture: HTMLElement.prototype.hasPointerCapture,
+    setPointerCapture: HTMLElement.prototype.setPointerCapture,
+    releasePointerCapture: HTMLElement.prototype.releasePointerCapture,
+    scrollIntoView: HTMLElement.prototype.scrollIntoView,
+};
 
 beforeAll(() => {
     if (typeof window !== 'undefined') {
@@ -12,6 +18,15 @@ beforeAll(() => {
         HTMLElement.prototype.setPointerCapture = () => {};
         HTMLElement.prototype.releasePointerCapture = () => {};
         HTMLElement.prototype.scrollIntoView = () => {};
+    }
+});
+
+afterAll(() => {
+    if (typeof window !== 'undefined') {
+        HTMLElement.prototype.hasPointerCapture = originalPointerMethods.hasPointerCapture;
+        HTMLElement.prototype.setPointerCapture = originalPointerMethods.setPointerCapture;
+        HTMLElement.prototype.releasePointerCapture = originalPointerMethods.releasePointerCapture;
+        HTMLElement.prototype.scrollIntoView = originalPointerMethods.scrollIntoView;
     }
 });
 
@@ -44,7 +59,6 @@ describe('ProxySetting（SWR 版本）', () => {
 
         renderPage();
         expect(await findModeRadio('proxy.modeCustom')).toBeChecked();
-        await sleep(200);
         expect(calls).toHaveLength(0);
     });
 
@@ -58,7 +72,6 @@ describe('ProxySetting（SWR 版本）', () => {
 
         renderPage();
         expect(await findModeRadio('proxy.modeNone')).toBeChecked();
-        await sleep(200);
     });
 
     it('system 模式未探测到系统代理时显示直连警告', async () => {
@@ -87,8 +100,7 @@ describe('ProxySetting（SWR 版本）', () => {
         } as never;
 
         renderPage();
-        await findModeRadio('proxy.modeSystem');
-        await sleep(200);
+        expect(await findModeRadio('proxy.modeSystem')).toBeChecked();
         expect(screen.queryByText('proxy.directConnectionWarning')).toBeNull();
     });
 
