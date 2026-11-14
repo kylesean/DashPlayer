@@ -149,7 +149,7 @@ export default class ContextStudioService {
                 .where(eq(watchHistory.id, input.videoId))
                 .limit(1);
             if (rows[0]?.fileName) {
-                videoTitle = rows[0].fileName.replace(/\.[^.]+$/, '');
+                videoTitle = MediaUtil.formatDisplayTitle(rows[0].fileName);
             }
         }
         return this.savedSentenceRepo.upsert({
@@ -175,7 +175,7 @@ export default class ContextStudioService {
             const videoPath = path.join(row.base_path, row.file_name);
             this.mediaPathRegistry?.allowFile(videoPath);
             map.set(row.id, {
-                title: row.file_name.replace(/\.[^.]+$/, ''),
+                title: MediaUtil.formatDisplayTitle(row.file_name),
                 videoPath,
                 srtFile: row.srt_file,
             });
@@ -312,7 +312,7 @@ export default class ContextStudioService {
                 this.mediaPathRegistry?.allowFile(videoPath);
                 return {
                     videoId: row.id,
-                    title: row.file_name.replace(/\.[^.]+$/, ''),
+                    title: MediaUtil.formatDisplayTitle(row.file_name),
                     srtFile: row.srt_file ?? '',
                     videoPath,
                     updatedAt: row.updated_at,

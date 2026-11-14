@@ -69,4 +69,19 @@ export default class MediaUtil {
         const fileSeparator = path.lastIndexOf('/') > 0 ? '/' : '\\';
         return path.substring(path.lastIndexOf(fileSeparator) + 1);
     }
+
+    /**
+     * 将磁盘媒体文件名格式化为面向用户的展示标题：
+     * 剥离常见媒体/字幕扩展名，以及 yt-dlp 落盘时附加的 ` [11位YouTubeID]` 后缀。
+     */
+    public static formatDisplayTitle(fileName: string): string {
+        if (StrUtil.isBlank(fileName)) {
+            return '';
+        }
+        const lower = fileName.toLowerCase();
+        const matchedExt = AllFormats.find((ext) => lower.endsWith(ext));
+        const withoutExt = matchedExt ? fileName.slice(0, -matchedExt.length) : fileName;
+        const withoutYtId = withoutExt.replace(/\s+\[[A-Za-z0-9_-]{11}\]$/u, '');
+        return withoutYtId.length > 0 ? withoutYtId : withoutExt;
+    }
 }

@@ -71,17 +71,6 @@ export default interface MobileAccessService {
 }
 
 /**
- * 去掉文件扩展名，用于最近播放列表的标题展示。
- *
- * @param fileName 文件名。
- * @returns 不含扩展名的文件名。
- */
-const stripExtension = (fileName: string): string => {
-    const extension = path.extname(fileName);
-    return extension === '' ? fileName : fileName.slice(0, -extension.length);
-};
-
-/**
  * 判断端口是否为合法整数。
  *
  * @param port 待校验端口。
@@ -424,7 +413,7 @@ export class MobileAccessServiceImpl implements MobileAccessService {
         const histories = await this.watchHistoryService.listBasic('');
         return histories.slice(0, RECENT_LIMIT).map((history) => {
             const displayName = history.displayFileName ?? history.fileName;
-            const fileName = stripExtension(displayName);
+            const fileName = MediaUtil.formatDisplayTitle(displayName);
             const folderName = path.basename(history.basePath);
             return {
                 id: history.id,
@@ -528,7 +517,7 @@ export class MobileAccessServiceImpl implements MobileAccessService {
         }
 
         const displayName = detail.displayFileName ?? detail.fileName;
-        const fileName = stripExtension(displayName);
+        const fileName = MediaUtil.formatDisplayTitle(displayName);
         const folderName = path.basename(detail.basePath);
         return {
             id: detail.id,
