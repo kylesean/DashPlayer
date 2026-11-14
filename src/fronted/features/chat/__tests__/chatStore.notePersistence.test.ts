@@ -174,4 +174,24 @@ describe('chatStore 笔记持久化串行化', () => {
         const calls = vi.mocked(chatApi.saveStudyNote).mock.calls as unknown as SaveStudyNoteParams[][];
         expect(calls[0]?.[0]?.noteSummary).toBe('abc\n\ndef ghi');
     });
+
+    it('clear 后极短时间内重开同一句：排队中的旧写入因代际失效而被丢弃', async () => {
+        const resolvers = stubManualSave();
+
+        const first = useChatPanel.getState().saveNoteSummary();
+        await flushMicrotasks();
+        const staleQueued = useChatPanel.getState().saveNoteSummary('stale snapshot');
+
+        // 清空并立刻重开同一句（anchorIndex/anchorFileHash 相同）
+        useChatPanel.getState().clear();
+        seedNoteContext('fresh session note');
+
+        resolvers[0]?.();
+        await flushMicrotasks();
+        await Promise.allSettled([first, staleQueued]);
+
+        const calls = vi.mocked(chatApi.saveStudyNote).mock.calls as unknown as SaveStudyNoteParams[][];
+        expect(calls).toHaveLength(1);
+        expect(calls[0]?.[0]?.noteSummary).toBe('v1');
+    });
 });

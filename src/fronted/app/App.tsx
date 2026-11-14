@@ -37,6 +37,11 @@ import { themes, type ThemeSlug } from '../../astryx-themes';
 import type { AppearanceThemeFamily } from '@/common/contracts/appearance-setting-vo';
 import { DARK_ONLY_THEME_SLUGS, THEME_SLUG_BY_FAMILY } from '@/fronted/app/themeFamilies';
 import { resolveStartupGate, type StartupGate } from '@/fronted/app/lib/startup-gate';
+import {
+    normalizeMirroredTheme,
+    resolveEffectiveThemeMode,
+    type MirroredTheme,
+} from '@/fronted/app/lib/startup-theme';
 import type { MigrationFailureDetail } from '@/common/contracts/migration-failure';
 
 const UPDATE_CHECK_DELAY_MS = 6000;
@@ -90,8 +95,13 @@ RouterLinkAdapter.displayName = 'RouterLinkAdapter';
  */
 export const App = () => {
     const { t } = useI18nTranslation('toast');
+    const settingsInit = useSetting((s) => s.init);
     const theme = useSetting((s) => s.values.get('appearance.theme'));
     const themeFamily = useSetting((s) => s.values.get('appearance.themeFamily')) || 'neutral';
+    // 保留 index.html 首帧内联镜像应用的明暗，防止运行时设置尚未水合前被覆盖回浅色或被 Theme 剥离
+    const [preInitMirrorTheme] = React.useState<MirroredTheme | null>(() => (
+        typeof document === 'undefined' ? null : normalizeMirroredTheme(document.documentElement.dataset.theme)
+    ));
     // 主题家族由后端枚举校验过；未识别时优雅回退 dp-neutral，杜绝渲染期抛错导致白屏死锁
     const themeSlug: ThemeSlug = THEME_SLUG_BY_FAMILY[themeFamily as AppearanceThemeFamily] ?? 'dp-neutral';
     // 深色专用主题（如 Gothic）无视保存的浅色/跟随系统设置，强制 dark
@@ -121,6 +131,12 @@ export const App = () => {
 
     // 同步外观主题到 html 根节点：支持 light、dark 及跟随系统（system）
     useEffect(() => {
+        document.documentElement.dataset.testid = 'app-root';
+        // 运行时设置尚在 IPC 水合中：保留 index.html 首屏镜像已套用的明暗，
+        // 避免尚未拿到配置时先把 dark 覆写成 light 并在 localStorage 中污染镜像。
+        if (!settingsInit) {
+            return;
+        }
         const rawTheme = isDarkOnlyTheme ? 'dark' : theme || 'light';
         const resolveEffectiveTheme = (): 'dark' | 'light' => {
             if (rawTheme === 'dark') return 'dark';
@@ -132,7 +148,6 @@ export const App = () => {
             const effective = resolveEffectiveTheme();
             document.documentElement.classList.remove('dark', 'light');
             document.documentElement.classList.add(effective);
-            document.documentElement.dataset.testid = 'app-root';
             document.documentElement.dataset.theme = effective;
             // 写入首帧镜像：index.html 的内联脚本在 React 挂载前读它防主题闪白。
             // 键名与 index.html 一致，改动必须两处同步。
@@ -153,7 +168,7 @@ export const App = () => {
                 mediaQuery.removeEventListener('change', listener);
             };
         }
-    }, [theme, isDarkOnlyTheme]);
+    }, [theme, isDarkOnlyTheme, settingsInit]);
 
     useEffect(() => {
         applyLanguageSetting(languageSetting).catch(() => undefined);
@@ -195,9 +210,12 @@ export const App = () => {
         return () => window.clearTimeout(timer);
     }, [t]);
 
-    const effectiveThemeMode: 'light' | 'dark' | 'system' = isDarkOnlyTheme
-        ? 'dark'
-        : theme === 'dark' ? 'dark' : theme === 'light' ? 'light' : 'system';
+    const effectiveThemeMode = resolveEffectiveThemeMode({
+        settingsInit,
+        mirroredTheme: preInitMirrorTheme,
+        theme,
+        isDarkOnlyTheme,
+    });
     const activeTheme = themes[themeSlug] ?? themes['dp-neutral'];
 
     return (

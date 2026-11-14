@@ -173,6 +173,7 @@ const applyLearningTransition = (patch: {
  * 收敛为单一入口后，保留清单只需在这里改一处。
  */
 const resetLearningState = (preserve: Partial<ChatPanelState> = {}): void => {
+    noteContextEpoch += 1;
     useChatPanel.setState({ ...empty(), ...preserve });
 };
 
@@ -244,6 +245,8 @@ let learningCloseRequested = false;
 let learningRequestEpoch = 0;
 // 笔记持久化串行链：saveNoteSummary 的并发调用在此排队，防止后写者覆盖先写者。
 let noteSaveChain: Promise<void> = Promise.resolve();
+// 每次整体复位（clear / 切句进入）递增，防止 clear 后极短时间重开同句时旧队列任务穿透校验。
+let noteContextEpoch = 0;
 
 const startSessionForTopic = async (
     text: string,
@@ -579,11 +582,13 @@ const useChatPanel = create(
             }
             const capturedAnchorFileHash = state.anchorFileHash;
             const capturedAnchorIndex = state.anchorIndex;
+            const capturedNoteContextEpoch = noteContextEpoch;
             const runPersist = async (): Promise<void> => {
                 const latest = get();
-                // 排队期间已切句/清空：旧句内容不能落到新句的键上，本次保存作废。
+                // 排队期间已切句/清空（含清零后立即重开同句）：旧句/旧代际任务作废，不落盘。
                 if (
-                    latest.anchorIndex !== capturedAnchorIndex
+                    noteContextEpoch !== capturedNoteContextEpoch
+                    || latest.anchorIndex !== capturedAnchorIndex
                     || latest.anchorFileHash !== capturedAnchorFileHash
                 ) {
                     return;

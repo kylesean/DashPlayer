@@ -7,7 +7,10 @@
  * 能连到哪里」钉死，是这层失守之后的最后一道闸。
  *
  * 各条目的来历（都对着实际用法核过）：
- * - `script-src 'self'`：打包产物只有外链的 `<script type="module">`，没有内联脚本。
+ * - `script-src 'self' 'sha256-...'`：打包产物外链 `<script type="module">` 走 `'self'`，
+ *   另有一段 `index.html` 的首屏主题内联脚本（防止深色用户首帧闪白）按 sha256 精确放行。
+ *   修改该内联脚本必须同步更新这里的哈希——`content-security-policy.test.ts` 会对源文件
+ *   重新计算并兜底校验，避免构建产物在生产期静默被 CSP 拦截。
  *   `file://` 页面下 `'self'` 按同目录匹配，已经在 Electron 45 上实测通过。
  * - `style-src 'self' 'unsafe-inline'`：framer-motion 与 Astryx 大量使用行内
  *   style 属性（约 20 处），行内 style 属性需要 `'unsafe-inline'`。
@@ -32,7 +35,7 @@
  */
 export const DESKTOP_CONTENT_SECURITY_POLICY = [
     "default-src 'self'",
-    "script-src 'self'",
+    "script-src 'self' 'sha256-wZtLNEQgaUNU+sX+6PSHfa2tXefxGKgcvNPLhTnlrdM='",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' media: data: blob:",
     "font-src 'self' data:",

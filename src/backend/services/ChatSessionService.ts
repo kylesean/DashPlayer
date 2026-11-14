@@ -66,10 +66,16 @@ const isToolsUnsupportedError = (message: string): boolean => {
     );
 };
 
-/** 从 LanguageModel 提取稳定模型 id 作为降级记忆键；取不到时返回 null（不做记忆）。 */
+/** 从 LanguageModel 提取「provider:modelId」作为降级记忆键；取不到 modelId 时返回 null（不做记忆）。 */
 const resolveToolsUnsupportedKey = (model: LanguageModel): string | null => {
     const modelId = (model as { modelId?: unknown }).modelId;
-    return typeof modelId === 'string' && modelId.length > 0 ? modelId : null;
+    if (typeof modelId !== 'string' || modelId.length === 0) {
+        return null;
+    }
+    const provider = (model as { provider?: unknown }).provider;
+    return typeof provider === 'string' && provider.length > 0
+        ? `${provider}:${modelId}`
+        : modelId;
 };
 
 export default interface ChatSessionService {

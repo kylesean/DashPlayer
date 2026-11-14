@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { UIMessage } from 'ai';
 
-import { toMessageBlocks } from '../useSentenceLearningChat';
+import { toMessageBlocks, toMessageViews } from '../useSentenceLearningChat';
 
 type ToolPartShape = {
     type: 'tool-search_subtitles' | 'tool-get_subtitle_context';
@@ -65,5 +65,30 @@ describe('toMessageBlocks 的 tool 卡 running 钳制', () => {
         } as unknown as UIMessage;
         const blocks = toMessageBlocks(message, true);
         expect(blocks).toEqual([{ kind: 'text', text: 'hello' }]);
+    });
+});
+
+describe('toMessageViews 的活跃轮次隔离', () => {
+    it('新一轮对话 isBusy=true 时，历史出错轮次滞留的 input-available 不应重新转圈', () => {
+        const staleAssistant = {
+            ...messageWith([searchPart('input-available')]),
+            id: 'm-old',
+        };
+        const newUser: UIMessage = {
+            id: 'm-user-2',
+            role: 'user',
+            parts: [{ type: 'text', text: 'retry' }],
+        };
+        const activeAssistant = {
+            ...messageWith([searchPart('input-available')]),
+            id: 'm-new',
+        };
+
+        const duringSubmit = toMessageViews([staleAssistant, newUser], true);
+        expect(duringSubmit[0]?.blocks[0]).toMatchObject({ kind: 'search', running: false });
+
+        const duringStream = toMessageViews([staleAssistant, newUser, activeAssistant], true);
+        expect(duringStream[0]?.blocks[0]).toMatchObject({ kind: 'search', running: false });
+        expect(duringStream[2]?.blocks[0]).toMatchObject({ kind: 'search', running: true });
     });
 });

@@ -66,6 +66,16 @@ const toMessageView = (message: UIMessage, streamActive: boolean): LearningMessa
     blocks: toMessageBlocks(message, streamActive),
 });
 
+/**
+ * 仅允许处于流活跃窗口中的「末尾助手消息」维持 running 态：
+ * 早期轮次即便因上次报错/中断遗留了未终结的 tool part，新一轮发起对话时也不应重新转圈。
+ */
+export const toMessageViews = (messages: UIMessage[], isBusy: boolean): LearningMessageView[] =>
+    messages.map((message, index) => {
+        const streamActive = isBusy && index === messages.length - 1 && message.role === 'assistant';
+        return toMessageView(message, streamActive);
+    });
+
 const persistedToUiMessages = (persisted: PersistedChatMessage[]): UIMessage[] => {
     return persisted.map((item) => {
         const parts: UIMessage['parts'] = [];
@@ -193,7 +203,7 @@ export const useSentenceLearningChat = () => {
     }, [chatSessionId, consumeQueuedMessage, queuedMessage, sendMessage, status]);
 
     const messageViews = useMemo(
-        () => messages.map((message) => toMessageView(message, isBusy)),
+        () => toMessageViews(messages, isBusy),
         [messages, isBusy],
     );
 

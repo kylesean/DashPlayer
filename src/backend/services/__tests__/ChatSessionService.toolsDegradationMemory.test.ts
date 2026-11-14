@@ -61,6 +61,25 @@ const makeTextSseResponse = (text: string) => {
     return new Response(payload, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
 };
 
+const makeChatSseResponse = (text: string) => {
+    const chunk = {
+        id: 'chatcmpl_x',
+        object: 'chat.completion.chunk',
+        created: 0,
+        model: 'deepseek-chat',
+        choices: [{ index: 0, delta: { role: 'assistant', content: text }, finish_reason: null }],
+    };
+    const done = {
+        id: 'chatcmpl_x',
+        object: 'chat.completion.chunk',
+        created: 0,
+        model: 'deepseek-chat',
+        choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+    };
+    const payload = `data: ${JSON.stringify(chunk)}\n\ndata: ${JSON.stringify(done)}\n\ndata: [DONE]\n\n`;
+    return new Response(payload, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+};
+
 const makeService = (
     store: InMemoryChatSessionStore,
     mockFetch: typeof fetch,
@@ -117,7 +136,7 @@ describe('ChatSessionService 工具降级的会话级记忆', () => {
 
         expect(requestBodies[0]?.tools).toBeDefined();
         expect(requestBodies[1]?.tools).toBeUndefined();
-        expect(session.toolsUnsupportedModelIds.has('deepseek-chat')).toBe(true);
+        expect(session.toolsUnsupportedModelIds.has('openai.responses:deepseek-chat')).toBe(true);
 
         // 第二条消息：命中降级记忆，直接无工具，且不再产生 400 往返
         await service.sendMessage({ sessionId: session.id, content: '第二条' });
@@ -143,7 +162,7 @@ describe('ChatSessionService 工具降级的会话级记忆', () => {
             subtitleFileHash: 'h1',
             anchorSentenceIndex: 0,
         });
-        store.markToolsUnsupported(sessionA.id, 'deepseek-chat');
+        store.markToolsUnsupported(sessionA.id, 'openai.responses:deepseek-chat');
 
         const service = makeService(store, mockFetch);
         const sessionB = store.create({
@@ -158,6 +177,49 @@ describe('ChatSessionService 工具降级的会话级记忆', () => {
         await vi.waitFor(() => expect(requestBodies).toHaveLength(1));
 
         expect(requestBodies[0]?.tools).toBeDefined();
-        expect(store.isToolsUnsupported(sessionB.id, 'deepseek-chat')).toBe(false);
+        expect(store.isToolsUnsupported(sessionB.id, 'openai.responses:deepseek-chat')).toBe(false);
+    });
+
+    it('降级记忆按 provider+modelId 隔离：同会话切换不同 provider 的同名模型仍先尝试工具', async () => {
+        const requestBodies: Array<Record<string, unknown>> = [];
+        const mockFetch: typeof fetch = async (_input, init) => {
+            const body = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+            requestBodies.push(body);
+            return makeChatSseResponse('好的。');
+        };
+
+        const store = new InMemoryChatSessionStore();
+        const session = store.create({
+            videoId: 'v1',
+            originalTopic: 'Yes.',
+            paragraphLines: ['Yes.'],
+            subtitleFileHash: 'h1',
+            anchorSentenceIndex: 0,
+        });
+        // 记录的是 responses provider 降级，切换到 chat provider 同名 modelId 不应误命中
+        store.markToolsUnsupported(session.id, 'openai.responses:deepseek-chat');
+
+        const chatModel = createOpenAI({
+            baseURL: 'https://mock.degradation.local/v1',
+            apiKey: 'test-key',
+            fetch: mockFetch,
+        }).chat('deepseek-chat');
+        const rendererGateway = {
+            fireAndForget: vi.fn(),
+            call: vi.fn(),
+        } as unknown as RendererGateway;
+        const service = new ChatSessionServiceImpl(
+            { getModel: vi.fn().mockReturnValue(chatModel) } as unknown as AiProviderService,
+            {} as LocalAiService,
+            {} as SentenceLearningService,
+            rendererGateway,
+            store,
+            { get: vi.fn().mockReturnValue(null) } as unknown as CacheService,
+        );
+
+        await service.sendMessage({ sessionId: session.id, content: '换 provider 后第一条' });
+        await vi.waitFor(() => expect(requestBodies).toHaveLength(1));
+
+        expect(requestBodies[0]?.tools).toBeDefined();
     });
 });
