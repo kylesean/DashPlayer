@@ -43,7 +43,7 @@ import type { ChatSession } from '@/backend/services/chat/ChatSessionStore';
 import type CacheService from '@/backend/services/CacheService';
 import type SentenceStudyNoteRepository from '@/backend/services/repositories/SentenceStudyNoteRepository';
 import type LearningPromptPresetService from '@/backend/services/chat/LearningPromptPresetService';
-import type { LearningMessageBlock } from '@/fronted/features/chat/types';
+import type { LearningMessageBlock } from '@/frontend/features/chat/types';
 
 const describeStreamError = (error: unknown): string => {
     if (error instanceof APICallError) {

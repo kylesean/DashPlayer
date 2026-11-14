@@ -10,16 +10,16 @@
  *   node scripts/download-fonts.mjs
  *
  * 产物：
- * - src/fronted/styles/fonts/<family>/<subset>-<n>.woff2
- * - src/fronted/styles/fonts/<family>/OFL.txt
- * - src/fronted/styles/fonts.css
+ * - src/frontend/styles/fonts/<family>/<subset>-<n>.woff2
+ * - src/frontend/styles/fonts/<family>/OFL.txt
+ * - src/frontend/styles/fonts.css
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));
-const stylesDir = path.join(projectRoot, 'src/fronted/styles');
+const stylesDir = path.join(projectRoot, 'src/frontend/styles');
 const outRoot = path.join(stylesDir, 'fonts');
 const cssFile = path.join(stylesDir, 'fonts.css');
 

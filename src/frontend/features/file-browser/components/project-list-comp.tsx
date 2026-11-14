@@ -1,0 +1,84 @@
+import React from 'react';
+import useSWR from 'swr';
+import { apiPath } from '@/frontend/lib/swr-util';
+import { cn } from '@/frontend/lib/utils';
+import type WatchHistoryVO from '@/common/types/WatchHistoryVO';
+import StrUtil from '@/common/utils/str-util';
+import { getRendererLogger } from '@/frontend/log/simple-logger';
+import { fileBrowserApi } from '@/frontend/features/file-browser/fileBrowserApi';
+
+const logger = getRendererLogger('ProjectListComp');
+
+export interface ProjectListCompProps {
+    projEle: (p: WatchHistoryVO, handleClick: () => void) => React.JSX.Element;
+    videoEle: (p: WatchHistoryVO) => React.JSX.Element;
+    backEle?: (root: boolean, currentPath: string, handleClick: () => void) => React.JSX.Element;
+    className?: string;
+    enterProj?: string;
+}
+
+const ProjectListComp = ({ className, videoEle, projEle, backEle, enterProj = '' }: ProjectListCompProps) => {
+    const [basePath, setBasePath] = React.useState<string|null>(null);
+    const finalPath = basePath ?? enterProj;
+    logger.debug('Project list final path', { finalPath });
+    const { data: basicData } = useSWR(
+        [apiPath('watch-history/list/basic'), finalPath],
+        ([, bp]) => fileBrowserApi.listBasicWatchHistoryByPath(bp)
+    );
+    const [fullData, setFullData] = React.useState<typeof basicData>(undefined);
+    const data = fullData ?? basicData;
+    const isRoot = StrUtil.isBlank(finalPath);
+    React.useEffect(() => {
+        let cancelled = false;
+        window.setTimeout(() => setFullData(undefined), 0);
+        const idleId = window.requestIdleCallback(() => {
+            fileBrowserApi.listWatchHistoryByPath(finalPath)
+                .then((result) => {
+                    if (!cancelled) {
+                        setFullData(result);
+                    }
+                })
+                .catch((error) => {
+                    logger.warn('failed to load full watch history list', {
+                        error: error instanceof Error ? error.message : String(error)
+                    });
+                });
+        }, { timeout: 1500 });
+
+        return () => {
+            cancelled = true;
+            window.cancelIdleCallback(idleId);
+        };
+    }, [finalPath]);
+    const backNode = backEle?.(isRoot, finalPath, () => {
+        setBasePath('');
+    });
+    return (
+        <div className={cn('flex flex-col h-full', className)}>
+            <div className={cn('h-0 flex-1 overflow-y-auto scrollbar-none flex flex-col gap-1 pr-0.5')}>
+                {backNode && (
+                    <div className="mb-1">
+                        {backNode}
+                    </div>
+                )}
+                {isRoot && data?.map((item) => {
+                    const handleClick = () => {
+                        if (item.isFolder) {
+                            setBasePath(item.basePath);
+                        }
+                    };
+                    return React.cloneElement(projEle(item, handleClick), { key: item.id });
+                })}
+                {!isRoot && data?.map((item) => {
+                    return React.cloneElement(videoEle(item), { key: item.id });
+                })}
+            </div>
+        </div>
+    );
+};
+ProjectListComp.defaultProps = {
+    className: '',
+    backEle: () => <></>
+};
+
+export default ProjectListComp;

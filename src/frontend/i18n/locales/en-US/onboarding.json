@@ -1,0 +1,137 @@
+{
+    "nextStep": "Next",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "openUrlFailed": "Failed to open the link",
+    "openFolderFailed": "Failed to open the folder",
+    "hardware": {
+        "summary": "{{memory}} GB RAM · {{cores}} CPU Cores · {{gpu}}",
+        "gpuMetal": "Metal GPU",
+        "gpuVulkan": "Vulkan GPU",
+        "gpuCpu": "CPU Inference",
+        "recommendedStandard": "Matched to Standard Pack — offline ASR, TTS, WordNet & Semantic Search ready out of the box; Cloud or custom Local LLM can be configured as needed",
+        "recommendedLight": "Under 8 GB RAM detected — Light Essentials Pack recommended for smooth performance; Cloud or lightweight local API optional",
+        "asrWhisperCpp": "whisper.cpp (GPU)",
+        "asrSherpaOnnx": "Parakeet (Compatible)"
+    },
+    "steps": {
+        "storage": {
+            "heroTitle": "Choose where to save",
+            "heroDesc": "Videos, subtitles and the resources the app needs all live in the same folder.",
+            "pathLabel": "Current location",
+            "pathLoading": "Loading…",
+            "chooseFolder": "Choose folder",
+            "saved": "Location updated",
+            "unavailable": "This folder is not available right now — please pick another one.",
+            "note": "The Standard Pack uses ~1.1 GB (Light Essentials ~800 MB). Choose a location with enough space; you can change this later in Settings → Storage."
+        },
+        "models": {
+            "ttsTitle": "Word & Sentence Pronunciation",
+            "transcriptionTitle": "Speech-to-Subtitle",
+            "dictionaryEnhancementTitle": "WordNet 3.1 English Dictionary",
+            "localAiTitle": "Local AI Language Model",
+            "embeddingTitle": "Local Semantic Search Model",
+            "manualGuideTitle": "Download not working? Manual install guide",
+            "copyLink": "Copy link",
+            "backupSource": "Backup source",
+            "openInBrowser": "Open in browser",
+            "copyPath": "Copy path",
+            "openFolder": "Open folder"
+        },
+        "download": {
+            "heroTitle": "Download required resources",
+            "heroDesc": "Curated automatically for your hardware — one click to get ready out of the box.",
+            "action": "Download",
+            "packSize": "{{size}}",
+            "downloadingEnv": "Downloading resources…",
+            "verifying": "Verifying…",
+            "extracting": "Extracting…",
+            "installing": "Installing…",
+            "cancel": "Cancel",
+            "ready": "Selected resources ready",
+            "finish": "Finish",
+            "retry": "Retry",
+            "skip": "Skip",
+            "etaSeconds": "about {{seconds}}s left",
+            "etaMinutes": "about {{minutes}}m {{seconds}}s left",
+            "etaLong": "over 1 hour left",
+            "finishing": "Finishing setup…",
+            "progressLabel": "Download progress",
+            "activeItemProgress": "Installing “{{item}}” · {{phase}}",
+            "tiers": {
+                "standardTitle": "Standard Pack",
+                "standardDesc": "Offline ASR + TTS + Dictionary + Semantic Search — ready out of the box",
+                "lightTitle": "Light Essentials",
+                "lightDesc": "Offline ASR + TTS + Dictionary with small disk/memory footprint; pair with Cloud or local LLM API",
+                "customTitle": "Custom Selection",
+                "customDesc": "Pick individual core and optional offline components",
+                "recommendedBadge": "Recommended",
+                "selectedSize": "~{{size}} to download",
+                "allReadyLabel": "All selected items installed"
+            },
+            "items": {
+                "tts": {
+                    "title": "Word & Sentence Pronunciation",
+                    "desc": "Kokoro offline natural US/UK speech engine",
+                    "size": "~320 MB"
+                },
+                "transcription": {
+                    "title": "Speech-to-Subtitle ({{engine}})",
+                    "descWhisper": "GPU-accelerated offline high-accuracy transcription",
+                    "descSherpa": "Cross-platform CPU-compatible offline transcription",
+                    "sizeWhisper": "~540 MB",
+                    "sizeSherpa": "~465 MB"
+                },
+                "dictionaryEnhancement": {
+                    "title": "WordNet 3.1 English Dictionary",
+                    "desc": "Offline English definitions, parts of speech & synonyms",
+                    "size": "~16 MB"
+                },
+                "localAi": {
+                    "title": "Local AI Model ({{model}})",
+                    "desc": "Offline subtitle translation, AI lookup & sentence analysis matched to your RAM"
+                },
+                "embedding": {
+                    "title": "Local Semantic Search (EmbeddingGemma 2)",
+                    "desc": "Semantic topic recommendations (automatically falls back to cloud if omitted)",
+                    "size": "~255 MB"
+                }
+            },
+            "cloud": {
+                "toggle": "Have a cloud or local AI endpoint? Configure it now (optional)",
+                "preferHint": "Your system has limited RAM — enter a cloud provider API key or connect a local AI endpoint for AI translation & explanations:",
+                "presetLabel": "Provider",
+                "apiKeyLabel": "API Key",
+                "apiKeyPlaceholder": "sk-...",
+                "apiKeyOptionalPlaceholder": "Optional for local servers",
+                "modelPlaceholder": "Enter model ID manually",
+                "saveButton": "Save & Enable AI API",
+                "saving": "Saving…",
+                "savedBadge": "{{provider}} configured — will be activated automatically when setup completes"
+            }
+        },
+        "manual": {
+            "title": "Manual download",
+            "desc": "If the download is not going well, grab the files below with your browser and put them in the given locations.",
+            "back": "Back",
+            "addressLabel": "Download URL",
+            "targetLabel": "Save to",
+            "footer": "Once the files are in place, go back and click “Download” — the app finishes the installation automatically."
+        },
+        "done": {
+            "title": "You're all set!",
+            "desc": "Setup is complete. Here are two quick tips to get you started."
+        },
+        "tutorial": {
+            "title": "How to Open Videos & Subtitles",
+            "desc": "Master the two most convenient ways to import media and start learning:",
+            "method1Title": "Method 1: Open a media folder (recommended)",
+            "method1Desc": "Click 'Open Folder' on the home page and select a directory containing your videos and subtitles. Refrain links them automatically.",
+            "method1Tip": "💡 Tip: Keep video and subtitle files in the same folder with matching names, e.g. movie.mp4 and movie.srt.",
+            "method2Title": "Method 2: Multi-select video and subtitle files",
+            "method2Desc": "Click 'Open File', then in the system file picker hold Ctrl / Command to select both the video file (.mp4/.mkv, etc.) and the subtitle file (.srt/.vtt, etc.).",
+            "method2Tip": "💡 Tip: Selecting both at once automatically binds the subtitles and loads the player."
+        }
+    },
+    "startUsing": "Start using"
+}

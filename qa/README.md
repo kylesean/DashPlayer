@@ -215,7 +215,7 @@ QA 拥有场景清单、契约常量与评审权；开发可以维护测试实�
 **机器强制（CI 会拦）**
 
 - `qa/**` 只允许 import `@/common/**` 的类型与常量（或等价的 `../../src/common/**` 相对路径）。
-  `@/fronted/**`、`@/backend/**` 等内部实现一律禁止——运行期契约只能走 `window.__dpDebug` 与 URL 参数，
+  `@/frontend/**`、`@/backend/**` 等内部实现一律禁止——运行期契约只能走 `window.__dpDebug` 与 URL 参数，
   否则用例会跟着实现细节一起腐烂，产品一重构就全红。由 `eslint.config.mjs` 的 `no-restricted-imports` 强制。
 - `src/**` 不允许 import `qa/**`：产品代码不能依赖用例。同样由 `eslint.config.mjs` 强制。
 - 用例 ID 与文档的绑定由 `node qa/tools/check-test-cases.mjs` 强制（只改一边就报错）。

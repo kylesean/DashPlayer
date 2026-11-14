@@ -1,0 +1,517 @@
+import { useEffect, memo, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
+import UrlUtil from '@/common/utils/UrlUtil';
+import SubtitleList from './SubtitleList';
+import type { VideoClip } from '../types';
+import { AspectRatio } from '@astryxdesign/core/AspectRatio';
+import VideoPlayerShortcut from './VideoPlayerShortcut';
+import PlayerEngine from '@/frontend/features/player/components/PlayerEngine';
+import { usePlayerState } from '@/frontend/features/player/playerState';
+import { clipLinesToSentences } from '@/common/utils/subtitle';
+import { useVocabularyState } from '@/frontend/features/player/vocabularyStore';
+import { getRendererLogger } from '@/frontend/log/simple-logger';
+
+const logger = getRendererLogger('VideoPlayerPane');
+
+/**
+ * 片段里的学习证据动作。
+ *
+ * 片段此前完全不参与学习闭环：用户在这里看了、重听了，系统一无所知。
+ * 只记两类能说明「回到了真实语境」的动作，且不写掌握度——`seen` / `replay`
+ * 在掌握度管线里本就是零证据动作（见 WordEncounterService），它们的作用是
+ * 让「上次遇见」与「重听次数」反映真实行为，而不是把播放当成学习成果。
+ */
+export const recordClipEvidence = (
+    clip: { videoName: string },
+    vocabulary: Array<{ word: string; matchedForms: string[] }>,
+    action: 'seen' | 'replay',
+): void => {
+    for (const entry of vocabulary) {
+        void videoLearningApi.recordWordEncounter({
+            word: entry.matchedForms[0] ?? entry.word,
+            action,
+            videoId: undefined,
+            fileHash: undefined,
+            sentenceIndex: undefined,
+            sentenceHash: undefined,
+            context: undefined,
+        }).catch((error: unknown) => {
+            logger.error('failed to record clip evidence', {
+                error: error instanceof Error ? error.message : String(error),
+                action,
+                word: entry.word,
+                video: clip.videoName,
+            });
+        });
+    }
+};
+import type { Sentence } from '@/common/types/SentenceC';
+import type { ClipSrtLine } from '@/common/types/clipMeta';
+import { videoLearningApi } from '@/frontend/features/video-learning/videoLearningApi';
+import type { ClipVocabularyEntry } from '@/common/types/vo/VideoLearningClipVO';
+
+const SubtitleListWithProgress = memo(function SubtitleListWithProgress({
+  lines,
+  activeIndex,
+  playing,
+  autoPause,
+  singleRepeat,
+  onPickLine,
+  onTogglePlay,
+  onToggleAutoPause,
+  onToggleSingleRepeat
+}: {
+  lines: ClipSrtLine[];
+  activeIndex: number;
+  playing: boolean;
+  autoPause: boolean;
+  singleRepeat: boolean;
+  onPickLine: (idx: number) => void;
+  onTogglePlay: () => void;
+  onToggleAutoPause: () => void;
+  onToggleSingleRepeat: () => void;
+}) {
+  return (
+    <SubtitleList
+      lines={lines}
+      activeIndex={activeIndex}
+      playing={playing}
+      autoPause={autoPause}
+      singleRepeat={singleRepeat}
+      onPickLine={onPickLine}
+      onTogglePlay={onTogglePlay}
+      onToggleAutoPause={onToggleAutoPause}
+      onToggleSingleRepeat={onToggleSingleRepeat}
+    />
+  );
+});
+
+type Props = {
+  clip: VideoClip | null;
+  lineIdx: number;                  // 当前要播放/高亮的字幕索引
+  onLineIdxChange: (idx: number) => void;
+  onPrevSentence: () => void;       // Left
+  onNextSentence: () => void;       // Right
+  onEnded: () => void;              // 视频播完
+  forcePlayKey?: number;            // 用于强制播放的key
+};
+
+export default function VideoPlayerPane({
+  clip,
+  lineIdx,
+  onLineIdxChange,
+  onPrevSentence,
+  onNextSentence,
+  onEnded,
+  forcePlayKey,
+}: Props) {
+  const { t } = useTranslation('pages');
+  // 使用新的播放器状态管理 - 精确订阅避免频繁重渲染
+  const playing = usePlayerState((s) => s.playing);
+  const currentSentence = usePlayerState((s) => s.currentSentence);
+  const sentences = usePlayerState((s) => s.sentences);
+  const autoPause = usePlayerState((s) => s.autoPause);
+  const singleRepeat = usePlayerState((s) => s.singleRepeat);
+
+  // 播放控制方法
+  const play = usePlayerState((s) => s.play);
+  const togglePlay = usePlayerState((s) => s.togglePlay);
+  const seekToTarget = usePlayerState((s) => s.seekToTarget);
+
+  // 模式控制方法
+  const setAutoPause = usePlayerState((s) => s.setAutoPause);
+  const setSingleRepeat = usePlayerState((s) => s.setSingleRepeat);
+
+  // 字幕相关方法
+  const setSource = usePlayerState((s) => s.setSource);
+  const loadSubtitles = usePlayerState((s) => s.loadSubtitles);
+  const clearSubtitles = usePlayerState((s) => s.clearSubtitles);
+  const setVocabularyWords = useVocabularyState((s) => s.setVocabularyWords);
+  const setVocabularyForms = useVocabularyState((s) => s.setVocabularyForms);
+  const clearVocabularyWords = useVocabularyState((s) => s.clearVocabularyWords);
+
+  const playerReadyRef = useRef(false);
+  const lastVideoUrlRef = useRef<string | null>(null);
+  const pendingTargetRef = useRef<{ sentence: Sentence; time: number } | null>(null);
+  const pendingHighlightRef = useRef<{ fileHash?: string; index: number } | null>(null);
+  const autoPlayRef = useRef(false);
+  // 记录上一次显式播放请求的 key，用于区分"用户点击播放"与"静默选中"
+  const lastForcePlayKeyRef = useRef(forcePlayKey);
+  const lineIdxRef = useRef(lineIdx);
+  const resolvedVocabularyCacheRef = useRef<Record<string, ClipVocabularyEntry[]>>({});
+
+  useEffect(() => {
+    lineIdxRef.current = lineIdx;
+  }, [lineIdx]);
+
+  const currentSentenceRef = useRef<Sentence | null>(currentSentence);
+  useEffect(() => {
+    currentSentenceRef.current = currentSentence;
+  }, [currentSentence]);
+
+  const queuePendingTarget = useCallback((sentence: Sentence | null | undefined) => {
+    if (!sentence) {
+      pendingTargetRef.current = null;
+      pendingHighlightRef.current = null;
+      return;
+    }
+    pendingTargetRef.current = { sentence, time: sentence.start };
+    pendingHighlightRef.current = {
+      fileHash: sentence.fileHash,
+      index: sentence.index
+    };
+  }, []);
+
+  const applyPendingTarget = useCallback(() => {
+    if (!pendingTargetRef.current) {
+      return;
+    }
+    const target = pendingTargetRef.current;
+    pendingHighlightRef.current = {
+      fileHash: target.sentence.fileHash,
+      index: target.sentence.index
+    };
+    seekToTarget({ time: target.time, target: target.sentence, play: false });
+    pendingTargetRef.current = null;
+  }, [seekToTarget]);
+
+  const handlePlayerReady = useCallback(() => {
+    playerReadyRef.current = true;
+    applyPendingTarget();
+    if (autoPlayRef.current) {
+      play();
+      autoPlayRef.current = false;
+    }
+  }, [applyPendingTarget, play]);
+
+  // 高级API
+  const prevSentence = usePlayerState((s) => s.prevSentence);
+  const nextSentence = usePlayerState((s) => s.nextSentence);
+  const repeatCurrent = usePlayerState((s) => s.repeatCurrent);
+
+  // 只读选择器（用于边界检测）
+  const isAtFirstSentence = usePlayerState((s) => s.isAtFirstSentence);
+  const isAtLastSentence = usePlayerState((s) => s.isAtLastSentence);
+
+  // 当clip或forcePlayKey发生变化时，加载新的视频和字幕
+  useEffect(() => {
+    if (clip) {
+      const videoUrl = clip.videoPath ? UrlUtil.toUrl(clip.videoPath) : '';
+      const sameVideoSource = videoUrl === lastVideoUrlRef.current && playerReadyRef.current;
+      lastVideoUrlRef.current = videoUrl;
+      setSource(videoUrl);
+
+      const sentencesConverted = clipLinesToSentences(clip.clipContent, clip.videoPath, clip.key);
+      loadSubtitles(sentencesConverted);
+
+      if (!sameVideoSource) {
+        playerReadyRef.current = false;
+      }
+      // 仅显式播放请求（点击片段卡片等使 forcePlayKey 变化）才自动起播；进页面、切换单词等静默选中保持暂停
+      const shouldAutoPlay = forcePlayKey !== undefined && forcePlayKey !== lastForcePlayKeyRef.current;
+      lastForcePlayKeyRef.current = forcePlayKey;
+      autoPlayRef.current = shouldAutoPlay;
+
+      // 真正起播才记一次「在真实语境里又见到这个词」；静默选中不算。
+      if (shouldAutoPlay) {
+        recordClipEvidence(clip, clip.vocabulary ?? [], 'seen');
+      }
+
+      const desiredIndex = lineIdxRef.current ?? -1;
+      let targetSentence: Sentence | null = null;
+      if (desiredIndex >= 0 && desiredIndex < sentencesConverted.length) {
+        targetSentence = sentencesConverted[desiredIndex];
+      } else if (sentencesConverted.length > 0) {
+        targetSentence = sentencesConverted[0];
+        if (desiredIndex !== 0) {
+          onLineIdxChange(0);
+        }
+      }
+
+      queuePendingTarget(targetSentence);
+      // 同视频文件切片段不会重触发 onReady：若底层视频已就绪，立即落地目标时间并按需起播
+      if (sameVideoSource) {
+        applyPendingTarget();
+        if (autoPlayRef.current) {
+          play();
+          autoPlayRef.current = false;
+        }
+      }
+    } else {
+      lastVideoUrlRef.current = null;
+      setSource(null);
+      clearSubtitles();
+      queuePendingTarget(null);
+      playerReadyRef.current = false;
+      autoPlayRef.current = false;
+    }
+  }, [applyPendingTarget, clip, forcePlayKey, play, setSource, loadSubtitles, clearSubtitles, onLineIdxChange, queuePendingTarget]);
+
+  useEffect(() => {
+    if (!clip) {
+      clearVocabularyWords();
+      return;
+    }
+
+    /**
+     * 将词汇条目同步到前端词汇 store，供字幕高亮使用。
+     *
+     * @param entries 当前片段的词汇条目。
+     */
+    const syncVocabularyEntries = (entries: ClipVocabularyEntry[]) => {
+      const baseWords: string[] = [];
+      const formMap: Record<string, string> = {};
+
+      entries.forEach((entry) => {
+        const word = entry.word?.toLowerCase().trim();
+        if (!word) {
+          return;
+        }
+        if (!baseWords.includes(word)) {
+          baseWords.push(word);
+        }
+        (entry.matchedForms || []).forEach((form) => {
+          const normalizedForm = form?.toLowerCase().trim();
+          if (normalizedForm) {
+            formMap[normalizedForm] = word;
+          }
+        });
+      });
+
+      setVocabularyWords(baseWords);
+      setVocabularyForms(formMap);
+    };
+
+    const baseVocabularyEntries = clip.vocabulary ?? [];
+    syncVocabularyEntries(baseVocabularyEntries);
+
+    const normalizedWords = baseVocabularyEntries
+      .map((entry) => entry.word?.toLowerCase().trim())
+      .filter((word): word is string => !!word);
+    if (normalizedWords.length === 0) {
+      return () => {
+        clearVocabularyWords();
+      };
+    }
+
+    const cachedEntries = resolvedVocabularyCacheRef.current[clip.key];
+    if (cachedEntries) {
+      syncVocabularyEntries(cachedEntries);
+      return () => {
+        clearVocabularyWords();
+      };
+    }
+
+    let disposed = false;
+    const resolveVocabulary = async () => {
+      const result = await videoLearningApi.resolveClipVocabulary(clip.clipContent, normalizedWords);
+      if (!result.success || disposed) {
+        return;
+      }
+
+      resolvedVocabularyCacheRef.current[clip.key] = result.data;
+      syncVocabularyEntries(result.data);
+    };
+
+    resolveVocabulary().catch(() => {
+      // 保持基础词高亮即可，失败时不覆盖当前已回填的数据。
+    });
+
+    return () => {
+      disposed = true;
+      clearVocabularyWords();
+    };
+  }, [clip, setVocabularyWords, setVocabularyForms, clearVocabularyWords]);
+
+  // 当外部 lineIdx 变化时，同步到播放器
+  useEffect(() => {
+    if (!clip || lineIdx < 0 || sentences.length === 0) {
+      return;
+    }
+
+    if (lineIdx >= sentences.length) {
+      const safeIndex = sentences.length - 1;
+      if (safeIndex >= 0) {
+        onLineIdxChange(safeIndex);
+      }
+      return;
+    }
+
+    const targetSentence = sentences[lineIdx];
+    if (!targetSentence) {
+      return;
+    }
+
+    const current = currentSentenceRef.current;
+    const isSameSentence =
+      current &&
+      current.index === targetSentence.index &&
+      current.fileHash === targetSentence.fileHash;
+
+    if (isSameSentence) {
+      return;
+    }
+
+    if (!playerReadyRef.current) {
+      queuePendingTarget(targetSentence);
+      return;
+    }
+
+    pendingHighlightRef.current = {
+      fileHash: targetSentence.fileHash,
+      index: targetSentence.index
+    };
+    seekToTarget({ time: targetSentence.start, target: targetSentence });
+  }, [clip, lineIdx, sentences, onLineIdxChange, queuePendingTarget, seekToTarget]);
+
+  // 监听当前句子的变化，同步到外部
+  useEffect(() => {
+    if (currentSentence && sentences.length > 0) {
+      const pendingGuard = pendingHighlightRef.current;
+      if (pendingGuard) {
+        const matchesTarget =
+          pendingGuard.index === currentSentence.index &&
+          pendingGuard.fileHash === currentSentence.fileHash;
+        if (!matchesTarget) {
+          // 守卫失败不再静默：保留 pendingHighlight 等后续匹配是设计内行为，
+          // 但每次抑制都要留下痕迹，否则「外部 lineIdx 停在过期值」无从排查。
+          logger.warn('pending highlight guard deferred sync', {
+            pending: `${pendingGuard.fileHash}:${pendingGuard.index}`,
+            current: `${currentSentence.fileHash}:${currentSentence.index}`,
+          });
+          return;
+        }
+        pendingHighlightRef.current = null;
+      }
+
+      const currentIndex = sentences.findIndex(s =>
+        s.index === currentSentence.index && s.fileHash === currentSentence.fileHash
+      );
+      if (currentIndex !== lineIdx && currentIndex >= 0) {
+        onLineIdxChange(currentIndex);
+      }
+    }
+  }, [currentSentence, sentences, lineIdx, onLineIdxChange]);
+
+  // 视频播放结束处理
+  const handlePlayerEnded = () => {
+    // 片段播完 = 一次真实的重听：记 replay 而不是 seen，后者在进入时已记过。
+    if (clip) {
+      recordClipEvidence(clip, clip.vocabulary ?? [], 'replay');
+    }
+    onEnded();
+  };
+
+  // 句子导航处理边界情况
+  const handlePrevSentence = () => {
+    if (isAtFirstSentence()) {
+      // 第一句再上一句：跳到上个视频
+      onPrevSentence();
+    } else {
+      // 否则使用播放器内部逻辑
+      prevSentence();
+    }
+  };
+
+  const handleNextSentence = () => {
+    if (isAtLastSentence()) {
+      // 最后一句再下一句：跳到下个视频
+      onNextSentence();
+    } else {
+      // 否则使用播放器内部逻辑
+      nextSentence();
+    }
+  };
+
+  // 计算当前活跃的句子索引
+  const initialIndex = currentSentence && sentences.length > 0
+    ? sentences.findIndex(s => s.index === currentSentence.index && s.fileHash === currentSentence.fileHash)
+    : lineIdx >= 0 ? lineIdx : 0;
+  const activeLineIndex = lineIdx >= 0 ? lineIdx : initialIndex;
+
+  if (!clip) {
+    // 空白骨架屏幕
+    return (
+      <div className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-2xs">
+        <div className="grid grid-cols-[320px_minmax(0,1fr)] gap-4 items-start">
+          {/* 视频播放器骨架 */}
+          <div>
+            <AspectRatio ratio={16 / 9}>
+              <div className="w-full h-full bg-muted/40 rounded-xl flex items-center justify-center border border-border/40">
+                <div className="text-center text-secondary">
+                  <div className="w-9 h-9 bg-muted/80 rounded-full mx-auto mb-1.5 flex items-center justify-center">
+                    <div className="w-4 h-4 text-secondary/70">▶</div>
+                  </div>
+                  <p className="text-metadata">{t('videoLearning.playbackGuide')}</p>
+                </div>
+              </div>
+            </AspectRatio>
+          </div>
+
+          {/* 字幕区域骨架 */}
+          <div className="overflow-auto max-h-44 scrollbar-thin">
+            <div className="space-y-1.5">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-2 rounded-xl bg-muted/30 border border-border/30">
+                  <div className="h-2.5 bg-muted/80 rounded w-16 mb-1"></div>
+                  <div className="h-3 bg-muted/80 rounded w-full mb-1"></div>
+                  <div className="h-2.5 bg-muted/60 rounded w-3/4"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border border-border/70 bg-card p-3.5 shadow-2xs">
+      <div className="grid grid-cols-[320px_minmax(0,1fr)] gap-4 items-start">
+        <div>
+          <AspectRatio ratio={16 / 9}>
+            <div className="w-full rounded-xl overflow-hidden bg-media-bg shadow-inner border border-media-bg/10">
+              <PlayerEngine
+                width="100%"
+                height="100%"
+                onReady={handlePlayerReady}
+                onEnded={handlePlayerEnded}
+              />
+            </div>
+          </AspectRatio>
+        </div>
+
+        <div className="min-h-0">
+          <SubtitleListWithProgress
+            lines={clip.clipContent ?? []}
+            activeIndex={activeLineIndex}
+            playing={playing}
+            autoPause={autoPause}
+            singleRepeat={singleRepeat}
+            onPickLine={(idx) => {
+              // 如果点击的是当前激活的句子，重新播放
+              if (idx === activeLineIndex) {
+                repeatCurrent({ loop: false });
+              } else {
+                onLineIdxChange(idx);
+              }
+            }}
+            onTogglePlay={togglePlay}
+            onToggleAutoPause={() => setAutoPause(!autoPause)}
+            onToggleSingleRepeat={() => setSingleRepeat(!singleRepeat)}
+          />
+        </div>
+      </div>
+
+      {/* 快捷键组件 */}
+      <VideoPlayerShortcut
+        onPlayPause={togglePlay}
+        onPrevSentence={handlePrevSentence}
+        onNextSentence={handleNextSentence}
+        onRepeatSentence={() => repeatCurrent({ loop: false })}
+        onChangeSingleRepeat={() => setSingleRepeat(!singleRepeat)}
+        onChangeAutoPause={() => setAutoPause(!autoPause)}
+      />
+    </div>
+  );
+}

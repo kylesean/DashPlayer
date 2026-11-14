@@ -11,7 +11,7 @@ export default tseslint.config(
     {
         ignores: [
             'vite.*.config.ts',
-            'src/fronted/components/ui/**',
+            'src/frontend/components/ui/**',
             // astryx theme build 的产物（.js / .d.ts / variants），由主题源文件编译生成，不参与源码 lint
             'src/themes/**/*.js',
             'src/themes/**/*.d.ts',
@@ -84,15 +84,15 @@ export default tseslint.config(
     },
     {
         // 功能模块内禁止直接调用底层跨进程客户端，也不允许引入测试资产。
-        files: ['src/fronted/features/**/*.{ts,tsx}'],
-        ignores: ['src/fronted/features/**/*Api.ts'],
+        files: ['src/frontend/features/**/*.{ts,tsx}'],
+        ignores: ['src/frontend/features/**/*Api.ts'],
         rules: {
             'no-restricted-imports': [
                 'error',
                 {
                     paths: [
                         {
-                            name: '@/fronted/infrastructure/electron/backendClient',
+                            name: '@/frontend/infrastructure/electron/backendClient',
                             message: '业务调用请收口到当前 feature 的 *Api.ts 文件。',
                         },
                     ],
@@ -109,7 +109,7 @@ export default tseslint.config(
     {
         // 非功能模块源码禁止引入端到端测试目录下的文件。
         files: ['src/**/*.{ts,tsx}'],
-        ignores: ['src/fronted/features/**/*.{ts,tsx}'],
+        ignores: ['src/frontend/features/**/*.{ts,tsx}'],
         rules: {
             'no-restricted-imports': [
                 'error',
@@ -134,8 +134,8 @@ export default tseslint.config(
                     patterns: [
                         {
                             group: [
-                                '@/fronted',
-                                '@/fronted/**',
+                                '@/frontend',
+                                '@/frontend/**',
                                 '@/backend',
                                 '@/backend/**',
                                 '@/app',
@@ -148,7 +148,7 @@ export default tseslint.config(
                         },
                         {
                             group: [
-                                '**/src/fronted/**',
+                                '**/src/frontend/**',
                                 '**/src/backend/**',
                                 '**/src/app/**',
                                 '**/src/test/**',

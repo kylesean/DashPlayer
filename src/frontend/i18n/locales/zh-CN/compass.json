@@ -1,0 +1,15 @@
+{
+    "title": "推荐下一部",
+    "subtitle": "根据你认识的词和正在学的内容，从媒体库挑出难易刚好的视频",
+    "localBadge": "本地分析",
+    "comprehensionHigh": "约 {{percent}}% 词已认识 · 轻松",
+    "comprehensionMedium": "约 {{percent}}% 词已认识 · 刚好",
+    "comprehensionLow": "约 {{percent}}% 词已认识 · 偏难",
+    "reasonDue": "包含「{{words}}」等 {{count}} 个待复习词",
+    "reasonLearning": "包含「{{words}}」等 {{count}} 个正在学的词",
+    "reasonInterest": "话题和你最近看的视频相近",
+    "reasonNext": "难度适中，适合现在接着看",
+    "open": "打开 {{name}}",
+    "dismiss": "不感兴趣",
+    "reviewDue": "复习这 {{count}} 个到期词"
+}

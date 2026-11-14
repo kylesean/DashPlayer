@@ -63,7 +63,7 @@ R 的顶点、碗口、斜腿三点全部来自字体，没有重绘。标记的
 
 字标是 **DM Sans SemiBold**，optical size 40，字距 −2%，已转成轮廓（`wordmark.svg` 里没有 `<text>`，运行时不需要装字体）。
 
-DM Sans 是 SIL OFL 授权，项目本来就自托管了它（`src/fronted/styles/fonts/dm-sans/`），字标和界面同源，不需要额外授权。
+DM Sans 是 SIL OFL 授权，项目本来就自托管了它（`src/frontend/styles/fonts/dm-sans/`），字标和界面同源，不需要额外授权。
 
 ## 文件
 
@@ -96,7 +96,7 @@ python3 export_app_icons.py
 cd ../../../.. && node scripts/build-mobile-icons.mjs && pnpm run build:mobile
 ```
 
-R 和句号从项目自托管的 `src/fronted/styles/fonts/dm-sans/latin-01.woff2` 解压并实例化，缓存写在 `tools/cache/`（可删，会重新生成）。`export_app_icons.py` 直接手写 ICO（DIB 条目，兼容 rcedit）与 ICNS（PNG 条目），不需要 macOS 的 `iconutil`。
+R 和句号从项目自托管的 `src/frontend/styles/fonts/dm-sans/latin-01.woff2` 解压并实例化，缓存写在 `tools/cache/`（可删，会重新生成）。`export_app_icons.py` 直接手写 ICO（DIB 条目，兼容 rcedit）与 ICNS（PNG 条目），不需要 macOS 的 `iconutil`。
 
 ## 还没做的
 

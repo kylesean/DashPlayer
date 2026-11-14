@@ -8,7 +8,7 @@
 
 ## ① seek 结算兜底 1500ms 的时长适性
 
-- **位置**：`src/fronted/features/player/components/PlayerEngine.tsx:26`（`SEEK_RESOLVE_TIMEOUT_MS = 1500`）、`:253-262`（兜底计时器登记）、`settleSeek`（`:152-162`，以结算时刻的 `video.currentTime` 兜底）。
+- **位置**：`src/frontend/features/player/components/PlayerEngine.tsx:26`（`SEEK_RESOLVE_TIMEOUT_MS = 1500`）、`:253-262`（兜底计时器登记）、`settleSeek`（`:152-162`，以结算时刻的 `video.currentTime` 兜底）。
 - **机制**：正常路径由原生 `seeked` 事件结算 seek 契约；目标时间与当前位置相同时浏览器不派发 `seeked`，靠 1500ms 兜底收尾。风险场景：慢介质（大文件冷读、HDD、网络流）上真实 seek 超过 1.5s，兜底先触发，`resolveSeek(actualTime, requestId)` 以**seek 前的旧位置**结算——`seekInFlight` 被解除，时间驱动恢复裁决，`exactPlayTime` 短暂错误，字幕高亮/句末判定可能用错位置一次。
 - **相邻面（并行审查补充）**：该兜底计时器在 `src` 切换时未显式清理；极端情况下（切视频前 1.5s 内有 seek）可能以**新视频**的 `currentTime` 结算一次旧请求。影响仅为一次 `exactPlayTime` 抖动，`loadSubtitles` 会重置 `seekInFlight`。
 - **验证环境**：`pnpm dev` 真机播放大体积视频（或网络流），跨远距离拖动进度条并观察 DevTools 里 `video.seeking` 持续时长是否逼近/超过 1.5s。
@@ -16,7 +16,7 @@
 
 ## ② setSource 切源的状态残留
 
-- **位置**：`src/fronted/features/player/playerStore.ts:1158`（`setSource`）。
+- **位置**：`src/frontend/features/player/playerStore.ts:1158`（`setSource`）。
 - **机制**：`setSource` 已清理 `currentLockTimer`、影子跟读计时器、瞬态计划、internal 全量（currentLock/tailPreview/timeOverride/seekInFlight 等）。残留风险集中在两处：
   1. `playRequestId: 0` 归零——旧源的 `video.play()` promise 仍在途时归零，新一轮 play 再次从 1 起号，旧请求可能与新请求同号；播放意图由元素级 effect 按 id 守卫，切源后元素本身重建，实际影响需运行时确认。
   2. 训练模式计数残留——`sentenceLoop`（剩余遍数/倍率）不在 `setSource` 清理范围内；换视频后若单句循环仍开着，第一句会带着旧视频剩下的遍数开循环。
@@ -31,7 +31,7 @@
 
 ## ④ useLearningRouteSync 跨视频会话错配
 
-- **位置**：`src/fronted/features/player/hooks/useLearningRouteSync.ts:75-81`（`learningVisible` 已为真时深链进入另一视频的 `/learn` 会提前 return，不发起 `createFromCurrent`）；`src/fronted/features/chat/chatStore.ts:195-198`（`isSameLiveTopic` 仅比对 `topicKey + anchorIndex`，**不含 fileHash/videoId**）。
+- **位置**：`src/frontend/features/player/hooks/useLearningRouteSync.ts:75-81`（`learningVisible` 已为真时深链进入另一视频的 `/learn` 会提前 return，不发起 `createFromCurrent`）；`src/frontend/features/chat/chatStore.ts:195-198`（`isSameLiveTopic` 仅比对 `topicKey + anchorIndex`，**不含 fileHash/videoId**）。
 - **机制**：两个场景会把 A 视频的会话错配给 B 视频：
   1. 学习页可见时，通过深链/前进导航到另一视频的 `/learn`——地址→视图 effect 早退，会话仍是 A 的句子；
   2. 两部视频的同一 index 存在相同字幕文本（剧集共用 SRT、短句极常见）——`createFromCurrent` 走 `isSameLiveTopic` 命中旧会话直接 reopen。

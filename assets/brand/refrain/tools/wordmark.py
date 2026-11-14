@@ -14,7 +14,7 @@ from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
-WOFF = os.path.join(ROOT, "src/fronted/styles/fonts/dm-sans/latin-01.woff2")
+WOFF = os.path.join(ROOT, "src/frontend/styles/fonts/dm-sans/latin-01.woff2")
 CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cache")
 
 

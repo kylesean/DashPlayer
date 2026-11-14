@@ -1,0 +1,703 @@
+{
+    "layoutTitle": "设置",
+    "common": {
+        "viewDocs": "查看文档",
+        "docs": "文档",
+        "saveFailed": "保存失败",
+        "testSuccess": "测试连接成功",
+        "testFailed": "测试连接失败",
+        "testConnection": "测试连接",
+        "testing": "测试中...",
+        "downloadDone": "下载完成",
+        "downloadFailed": "下载失败",
+        "downloading": "下载中...",
+        "download": "下载",
+        "ready": "就绪",
+        "notDownloaded": "未下载",
+        "copy": "复制",
+        "copied": "已复制下载地址",
+        "openFolder": "打开文件夹",
+        "openFolderFailed": "打开文件夹失败",
+        "openInBrowser": "在浏览器中打开",
+        "openUrlFailed": "打开链接失败",
+        "copyFailed": "复制失败",
+        "delete": "删除",
+        "cancel": "取消"
+    },
+    "sections": {
+        "shortcut": "快捷键",
+        "appearance": "外观",
+        "resources": "服务与资源",
+        "storage": "存储",
+        "proxy": "网络代理",
+        "mobile": "手机访问",
+        "import": "YouTube 导入",
+        "about": "关于与更新"
+    },
+    "appearance": {
+        "title": "外观",
+        "description": "主题风格、字号与语言偏好",
+        "themeTitle": "色彩模式",
+        "themeDescription": "明亮或暗色风格",
+        "themeSystem": "跟随系统",
+        "themeDark": "深色",
+        "themeLight": "浅色",
+        "darkOnlyThemeHint": "Gothic 为深色专用主题，已自动使用深色",
+        "themeFamilyTitle": "设计主题",
+        "themeFamilyDescription": "全局视觉设计风格与字体排版组合",
+        "themeNeutralDesc": "极简冷灰 · Figtree",
+        "themeStoneDesc": "大地温石 · Montserrat",
+        "themeGothicDesc": "暗夜哥特 · 深色专用",
+        "themeMatchaDesc": "自然抹茶 · DM Sans",
+        "themeY2kDesc": "千禧紫罗兰 · Poppins",
+        "themeButterDesc": "暖金奶油 · Outfit",
+        "themeChocolateDesc": "暖调可可 · Fraunces",
+        "fontSizeTitle": "界面字号",
+        "fontSizeDescription": "调整主要界面的文字尺寸，兼顾阅读舒适度与信息密度",
+        "fontSizeSmall": "小",
+        "fontSizeMedium": "中",
+        "fontSizeLarge": "大",
+        "subtitlePreviewTitle": "字幕字号预览",
+        "subtitlePreviewHint": "实时展示字号在播放页的效果",
+        "subtitlePreviewMain": "主字幕效果",
+        "subtitlePreviewSide": "侧边栏效果",
+        "subtitlePreviewSampleEn": "Every journey begins with a single bold step.",
+        "subtitlePreviewSampleZh": "每一个伟大的旅程，都始于勇敢迈出的第一步。",
+        "languageTitle": "界面语言",
+        "languageDescription": "选择界面显示语言",
+        "languageSystem": "跟随系统",
+        "languageZhCN": "简体中文",
+        "languageEnUS": "English",
+        "transcriptPositionTitle": "文稿面板停靠方位",
+        "transcriptPositionDescription": "字幕文稿流在播放界面的停靠位置",
+        "transcriptPositionRight": "靠右（默认）",
+        "transcriptPositionLeft": "靠左（精读）",
+        "sections": {
+            "theme": "主题",
+            "themeDesc": "配色与明暗模式",
+            "interface": "界面与文字",
+            "interfaceDesc": "语言、字号与剧本面板位置"
+        }
+    },
+    "proxy": {
+        "title": "网络代理",
+        "description": "配置应用的网络代理策略",
+        "modeTitle": "代理模式",
+        "modeSystem": "跟随系统",
+        "modeCustom": "自定义",
+        "modeNone": "不使用",
+        "modeDescription": "跟随系统代理、手动指定地址或全部直连",
+        "urlTitle": "代理地址",
+        "urlDescription": "支持 http://、https:// 与 socks5://",
+        "bypassRulesTitle": "直连规则",
+        "bypassRulesDescription": "逗号分隔的域名/IP/CIDR，命中这些地址不走代理（如 localhost,127.0.0.1）",
+        "directConnectionWarning": "未检测到有效代理：YouTube 下载等外部网络请求可能直连失败。如需代理，请选择「自定义」并填写代理地址。",
+        "sections": {
+            "connection": "连接方式",
+            "connectionDesc": "Refrain 如何访问外部网络"
+        }
+    },
+    "mobile": {
+        "title": "手机访问",
+        "description": "在局域网内通过手机浏览器浏览视频与字幕",
+        "enabledTitle": "启用手机访问",
+        "enabledDescription": "同一 Wi-Fi 下的移动设备可直接打开访问地址",
+        "portTitle": "端口",
+        "portDescription": "服务监听端口（1-65535）",
+        "addressTitle": "访问地址",
+        "statusRunning": "运行中",
+        "statusStopped": "未开启",
+        "statusFailed": "启动失败",
+        "statusNotRunning": "已开启，服务没有运行",
+        "addressEmpty": "开启服务后，这里会列出可以访问的地址。",
+        "lanEmpty": "没有检测到可用的局域网地址。",
+        "remoteHint": "需要从外网访问时，可以配合异地组网工具使用。",
+        "securityHint": "访问地址里带访问令牌，没有令牌的设备打不开页面。令牌泄露时可以重新生成，旧地址会立刻失效。",
+        "copy": "复制地址",
+        "copied": "地址已复制",
+        "open": "在浏览器中打开",
+        "refresh": "刷新",
+        "regenerateToken": "重新生成令牌",
+        "tokenRegenerated": "已生成新令牌，旧地址已失效",
+        "sections": {
+            "service": "服务",
+            "serviceDesc": "开关与监听端口",
+            "addressDesc": "在手机浏览器中打开下列地址"
+        }
+    },
+    "checkUpdate": {
+        "title": "版本更新",
+        "openReleases": "前往发布页",
+        "failedTitle": "检查更新失败",
+        "failedDescription": "暂时无法获取更新信息，请稍后重试。",
+        "errors": {
+            "rate_limited": "GitHub 请求频率受限，请几分钟后再试。",
+            "network": "暂时无法连接 GitHub，请检查网络后重试。",
+            "payload": "GitHub 返回了无法解析的数据，请稍后重试。"
+        },
+        "latestTitle": "当前已是最新版本"
+    },
+    "shortcut": {
+        "title": "快捷键",
+        "description": "自定义播放、字幕与工具操作的键盘快捷键，支持单个功能绑定多个按键组合。",
+        "searchPlaceholder": "搜索快捷键或功能名称...",
+        "groups": {
+            "playback": "播放与控制",
+            "playbackDesc": "播放、复读与跳转",
+            "subtitles": "字幕显示",
+            "subtitlesDesc": "字幕与高亮显示",
+            "timing": "时间轴微调",
+            "timingDesc": "微调时间轴",
+            "tools": "界面与工具",
+            "toolsDesc": "AI 助手与控制面板"
+        },
+        "record": "录制快捷键",
+        "edit": "编辑快捷键",
+        "resetDefault": "恢复默认",
+        "dialogTitle": "录制快捷键",
+        "dialogDescription": "请直接按下键盘上的快捷键组合，完成后点击保存。",
+        "listeningPrompt": "请按下键盘按键...",
+        "clickToListen": "点击开始录制按键",
+        "dialogCurrentShortcuts": "已绑定的快捷键",
+        "dialogNoShortcuts": "暂无快捷键（点击上方录入添加）",
+        "dialogAddRecorded": "添加此按键",
+        "dialogRemoveShortcut": "移除",
+        "dialogResetDefault": "恢复默认按键",
+        "clearAll": "清空全部",
+        "saveChanges": "完成并保存",
+        "noMatches": "未找到匹配的快捷键",
+        "tableHeader": {
+            "action": "功能",
+            "keys": "快捷键"
+        },
+        "items": {
+            "previousSentence": {
+                "title": "上一句",
+                "description": "跳转到上一句字幕"
+            },
+            "nextSentence": {
+                "title": "下一句",
+                "description": "跳转到下一句字幕"
+            },
+            "repeatSentence": {
+                "title": "单句循环播放",
+                "description": "循环重复播放当前句子"
+            },
+            "playPause": {
+                "title": "播放 / 暂停",
+                "description": "切换播放或暂停状态"
+            },
+            "repeatSingleSentence": {
+                "title": "单句重播",
+                "description": "重复播放当前句子 1 次"
+            },
+            "autoPause": {
+                "title": "自动暂停",
+                "description": "播放完一句后自动暂停"
+            },
+            "toggleEnglishDisplay": {
+                "title": "显示 / 隐藏英文字幕",
+                "description": "切换是否显示英文字幕"
+            },
+            "toggleChineseDisplay": {
+                "title": "显示 / 隐藏中文字幕",
+                "description": "切换是否显示中文字幕"
+            },
+            "toggleBilingualDisplay": {
+                "title": "显示 / 隐藏双语字幕",
+                "description": "切换是否显示双语字幕"
+            },
+            "toggleWordLevelDisplay": {
+                "title": "显示 / 隐藏逐词字幕",
+                "description": "切换逐词高亮字幕"
+            },
+            "nextTheme": {
+                "title": "切换主题",
+                "description": "在可用视觉主题间轮换"
+            },
+            "adjustBeginMinus": {
+                "title": "字幕开始时间提前",
+                "description": "将字幕开始时间提前 0.2 秒"
+            },
+            "adjustBeginPlus": {
+                "title": "字幕开始时间延后",
+                "description": "将字幕开始时间延后 0.2 秒"
+            },
+            "adjustEndMinus": {
+                "title": "字幕结束时间提前",
+                "description": "将字幕结束时间提前 0.2 秒"
+            },
+            "adjustEndPlus": {
+                "title": "字幕结束时间延后",
+                "description": "将字幕结束时间延后 0.2 秒"
+            },
+            "clearAdjust": {
+                "title": "重置字幕微调",
+                "description": "恢复字幕时间轴到默认值"
+            },
+            "nextPlaybackRate": {
+                "title": "切换播放速度",
+                "description": "在常用播放速度之间循环切换"
+            },
+            "aiChat": {
+                "title": "打开 AI 对话",
+                "description": "唤起 AI 对话面板"
+            },
+            "openControlPanel": {
+                "title": "打开控制面板",
+                "description": "打开播放器控制面板"
+            },
+            "volumeUp": {
+                "title": "增大音量",
+                "description": "按步长增加播放音量"
+            },
+            "volumeDown": {
+                "title": "减小音量",
+                "description": "按步长减小播放音量"
+            },
+            "seekBackward": {
+                "title": "后退快退",
+                "description": "后退跳过固定时长（默认 5 秒）"
+            },
+            "seekForward": {
+                "title": "前进快进",
+                "description": "前进跳过固定时长（默认 5 秒）"
+            }
+        },
+        "rerecord": "重新录制",
+        "cancel": "取消",
+        "listeningPromptHint": "等待按键输入...（可随时直接按下新按键）"
+    },
+    "about": {
+        "title": "关于与更新",
+        "slogan": "精选 YouTube 英语视频，AI 原生的沉浸式学习",
+        "appName": "Refrain",
+        "appInfoTitle": "产品信息",
+        "appInfoDescription": "版本与更新状态",
+        "resourcesTitle": "相关资源",
+        "resourcesDescription": "访问官方文档、查看源码或提交功能建议",
+        "update": {
+            "title": "检查更新",
+            "checkNow": "检查更新",
+            "retry": "重试",
+            "newVersionFound": "发现新版本可用",
+            "downloadNow": "前往下载新版本",
+            "upToDateTitle": "当前已是最新版本",
+            "failedDescription": "暂时无法获取更新信息，请稍后重试。",
+            "errors": {
+                "rate_limited": "GitHub 请求频率受限，请几分钟后再试。",
+                "network": "暂时无法连接 GitHub，请检查网络后重试。",
+                "payload": "GitHub 返回了无法解析的数据，请稍后重试。"
+            },
+            "checking": "正在检查更新..."
+        },
+        "links": {
+            "docs": "官方使用文档",
+            "docsDesc": "查看完整教程与快捷键指南",
+            "github": "GitHub 仓库",
+            "githubDesc": "欢迎提交 Issue、功能建议或 Star",
+            "releases": "版本更新日志",
+            "license": "开源协议",
+            "licenseDesc": "基于 AGPLv3 自由开源"
+        },
+        "footer": "Refrain · 沉浸式英语视频学习桌面应用"
+    },
+    "storage": {
+        "title": "存储管理",
+        "chooseLibraryFolder": "选择媒体库目录",
+        "refreshUsage": "刷新存储用量",
+        "resetDatabase": "重置数据库",
+        "resetSuccess": "数据库已成功重置",
+        "resetFailed": "数据库重置失败",
+        "resetConfirmTitle": "重置数据库？",
+        "resetConfirmDescription": "将清空全部数据库记录并重启应用；重启后会自动从本地片段文件重建收藏与词汇索引，其余数据将丢失。此操作不可撤销。",
+        "resetConfirmCancel": "取消",
+        "resetConfirmOk": "确认重置",
+        "openLibraryFolder": "打开 Library 文件夹",
+        "libraryPathTitle": "存储路径（Library Path）",
+        "libraryPathDescription": "修改后需重启应用生效",
+        "syncWordClipsFailed": "同步语境工坊片段失败，请稍后再试。",
+        "wordClipsTitle": "语境工坊片段",
+        "wordClipsSync": {
+            "success": "语境工坊片段同步成功",
+            "error": "语境工坊片段同步失败",
+            "button": "重新同步语境工坊"
+        },
+        "wordClipsHint": "片段存放在 word_video 目录，需要时可重建索引",
+        "usage": {
+            "title": "存储用量",
+            "totalLabel": "总占用",
+            "unavailable": "存储目录不可用，暂无法统计用量",
+            "empty": "媒体库当前没有占用空间的文件",
+            "categories": {
+                "videos": "视频文件",
+                "favorite_clips": "收藏片段",
+                "word_clips": "语境工坊片段",
+                "models": "本地模型",
+                "temp": "临时文件",
+                "other": "其他文件"
+            }
+        },
+        "openFailed": "打开缓存目录失败",
+        "description": "媒体库位置、磁盘占用与本地片段索引",
+        "resetHint": "清空数据库记录，收藏与词汇索引会在重启后从本地文件重建",
+        "learningData": {
+            "exportTitle": "导出学习数据",
+            "exportDescription": "导出用户词表、学习事件、复习卡、推荐反馈与 7/30 天回忆指标为 JSON",
+            "exportButton": "导出 JSON",
+            "exportSuccess": "学习数据已导出",
+            "exportFailed": "学习数据导出失败",
+            "importTitle": "导入学习数据",
+            "importDescription": "从本应用导出的 JSON 备份恢复；会整体替换现有学习记录，内置默认词表不受影响",
+            "importButton": "导入 JSON",
+            "importSuccess": "已恢复 {{words}} 个词条、{{events}} 条学习事件与 {{cards}} 张复习卡",
+            "importFailed": "学习数据导入失败",
+            "importConfirmTitle": "用备份覆盖当前学习数据？",
+            "importConfirmDescription": "当前的学习事件、复习卡、推荐反馈、练习记录与掌握度会被备份内容整体替换，词表也会按备份恢复。此操作不可撤销。",
+            "importConfirmCancel": "取消",
+            "importConfirmOk": "确认导入",
+            "clearTitle": "清除学习记录",
+            "clearDescription": "只清除学习事件、复习卡、推荐反馈与掌握度，不会删除词表、释义和学习状态",
+            "clearButton": "清除学习记录",
+            "clearSuccess": "已清除 {{encounters}} 条学习记录与 {{cards}} 张复习卡，词表与释义已保留",
+            "clearFailed": "清除学习记录失败",
+            "clearConfirmTitle": "清除学习记录？",
+            "clearConfirmDescription": "将删除全部学习事件、复习卡与推荐反馈，并把掌握度、置信度、最近遇见时间清零。词表、释义和学习状态会保留。此操作不可撤销。",
+            "clearConfirmCancel": "取消",
+            "clearConfirmOk": "确认清除",
+            "recommendationTitle": "内容推荐效果",
+            "recommendationDescription": "按视频×天去重统计曝光、打开与从推荐进入复习的比例；仅统计最近 7 天",
+            "recommendationLoading": "正在汇总推荐反馈…",
+            "recommendationEmpty": "还没有推荐曝光。打开首页后，内容指南针会开始记录本地反馈。",
+            "recommendationShown": "曝光",
+            "recommendationOpened": "打开",
+            "recommendationDismissed": "不感兴趣",
+            "recommendationReviewed": "进入复习",
+            "attributionTitle": "推荐因果漏斗（曝光 → 打开 → 复习 → 回忆成功）",
+            "attributionRow": "{{reason}}：{{shown}} → {{opened}} → {{reviewed}} → {{recalled}}",
+            "attributionReasons": {
+                "due_review": "到期词复现",
+                "learning_words": "学习中词复现",
+                "interest_match": "主题相似",
+                "next_step": "下一步"
+            }
+        },
+        "sections": {
+            "location": "存储位置",
+            "locationDesc": "媒体库文件的保存位置",
+            "usageDesc": "媒体库各类文件的磁盘占用",
+            "sync": "资源同步",
+            "syncDesc": "从本地文件重建片段索引",
+            "learningData": "学习数据",
+            "learningDataDesc": "可移植备份与学习记录治理",
+            "metrics": "学习指标",
+            "metricsDesc": "成功回忆、复习、推荐与练习的关键指标",
+            "danger": "危险操作",
+            "dangerDesc": "以下操作不可撤销"
+        },
+        "descriptionLine1": "管理媒体库所在目录与占用空间。",
+        "descriptionLine2": "更换目录后需要重新同步收藏与词汇索引。"
+    },
+    "serviceCredentials": {
+        "openai": {
+            "keyHint": "仅保存在本机；输入后需点击「保存」生效，避免误触覆盖",
+            "keyPlaceholderSaved": "已保存密钥（{{hint}}），输入新密钥后点保存替换",
+            "saveKey": "保存",
+            "cancelKeyEdit": "取消",
+            "clearKey": "清除",
+            "keySaved": "API Key 已保存",
+            "keyCleared": "API Key 已清除",
+            "providersLabel": "服务商配置",
+            "addProvider": "添加配置",
+            "customProvider": "自定义 / 本地 AI",
+            "customProviderDescription": "自由填写名称、协议类型与接口地址，适用于本地部署或第三方接口",
+            "addCustomProvider": "新建",
+            "addProviderDialogTitle": "添加服务商配置",
+            "addProviderDialogDescription": "可新建自定义 / 本地 AI 配置，或从下方模板快速创建。",
+            "deleteProvider": "移除此配置",
+            "noProvidersHint": "暂未配置服务商，点击上方「添加配置」即可新增 DeepSeek、OpenAI 或自定义 / 本地 AI。",
+            "providerNameLabel": "配置名称",
+            "providerNamePlaceholder": "如 DeepSeek、本地 AI",
+            "apiFormatLabel": "API 类型",
+            "apiFormatOpenai": "OpenAI Chat Completions",
+            "apiFormatOpenaiResponses": "OpenAI Responses",
+            "apiFormatAnthropic": "Anthropic",
+            "apiFormatGemini": "Gemini",
+            "urlLabel": "API URL",
+            "usePreset": "使用预设",
+            "endpointPlaceholder": "https://api.deepseek.com/v1",
+            "endpointHint": "可点「使用预设」自动填入",
+            "customEndpointPlaceholder": "http://127.0.0.1:8080/v1",
+            "customEndpointHint": "填写本地服务或第三方接口地址（需包含 /v1 等版本路径）",
+            "presetDialogTitle": "选择厂商预设",
+            "presetDialogDescription": "选择后自动填入接口地址与 API 类型，只需再填写 API Key 与模型。",
+            "useThisPreset": "使用",
+            "copyLink": "复制链接",
+            "openInBrowser": "在浏览器中打开",
+            "modelsLabel": "可用模型列表",
+            "tableTest": "测试",
+            "statusUntested": "未测试",
+            "modelEnableLabel": "启用模型 {{model}}",
+            "modelDisabled": "已关闭",
+            "addPlaceholder": "输入模型标识，如 deepseek-flash",
+            "addButton": "添加",
+            "duplicateModel": "模型已存在：{{model}}",
+            "deleteModelConfirm": "确定删除模型「{{model}}」？该模型会从可用列表移除。",
+            "usageSentenceLearning": "整句讲解",
+            "usageSubtitleTranslation": "字幕翻译",
+            "usageDictionary": "词典查询",
+            "quickPresetsLabel": "常用服务商预设",
+            "localEndpointHint": "当前为本地接口，API Key 可留空",
+            "localKeyPlaceholder": "本地服务可留空",
+            "applyToAllFeatures": "一键设为全部 AI 功能",
+            "appliedToAllFeatures": "已将「{{model}}」应用到字幕翻译、词典查词与整句讲解"
+        },
+        "transcription": {
+            "whisperCppModelFile": "Parakeet TDT 0.6B v3（GGUF q8_0，约 640 MB）",
+            "sherpaOnnxModelFile": "Parakeet TDT 0.6B v3（ONNX int8，约 640 MB）"
+        },
+        "localTts": {
+            "modelFile": "Piper en_US Amy Low（约 18 MB）"
+        },
+        "localModel": {
+            "deleteModel": "删除模型",
+            "step1Title": "1. 下载模型文件：",
+            "step2Title": "2. 将下载的文件保存到：",
+            "step3Title": "3. 完成安装：",
+            "backupSource": "备用下载源",
+            "copyDownloadUrl": "复制下载链接",
+            "openInBrowser": "在浏览器中打开"
+        },
+        "localAi": {
+            "inUse": "当前使用",
+            "readyNotInUse": "已就绪",
+            "use": "设为使用",
+            "useSuccess": "已切换为当前模型，本地翻译与词典将共用它",
+            "builtinModelName": "内置模型",
+            "phaseDownloading": "下载中",
+            "phaseVerifying": "校验中",
+            "cancelDownload": "取消下载",
+            "test": "测试",
+            "testing": "测试中…",
+            "deleteConfirmTitle": "删除这个本地模型？",
+            "deleteConfirmDescription": "删除后会释放本地磁盘空间，随时可以重新下载或手动导入。",
+            "cancelDelete": "取消",
+            "confirmDelete": "确认删除",
+            "deleteSuccess": "模型已删除",
+            "copyPath": "复制路径",
+            "speedWarm": "日常响应",
+            "speedTps": "翻译速度",
+            "speedTpsUnit": "字/秒",
+            "runtimeMissing": "本地增强资源包组件缺失，请重新安装应用。",
+            "customGuideTitle": "手动下载与导入",
+            "customGuideStep1": "下载指令对话版（Instruct）的 GGUF 模型文件（推荐 Qwen 系列，量化版本选 Q4_K_M 体积与效果最平衡）。",
+            "customGuideStep3": "文件放好后回到应用，新模型会自动出现在列表里；点击「设为使用」即可启用。",
+            "aboutSize": "约 {{size}}",
+            "fitRecommended": "推荐本机",
+            "fitCompatible": "可运行",
+            "fitHeavy": "内存偏紧",
+            "enableAllLocal": "一键将本地模型用于翻译/查词/讲解",
+            "enabledAllLocal": "已将字幕翻译、词典查询与整句讲解切换为本地模型"
+        }
+    },
+    "resources": {
+        "title": "服务与资源",
+        "description": "离线资源包与云端服务配置",
+        "tabs": {
+            "local": "本地资源",
+            "cloud": "云端服务",
+            "preference": "翻译与查词"
+        },
+        "overview": {
+            "hardwareTitle": "本机环境：{{memory}} GB 内存 · {{cores}} 核 CPU · {{gpu}}",
+            "gpuNone": "纯 CPU",
+            "recommendationStandard": "推荐：硬件加速识别 + 本地 2B/4B 模型",
+            "recommendationLight": "推荐：轻量离线识别 + 云端 AI 服务"
+        },
+        "extensions": {
+            "title": "专项语音扩展（按需下载）",
+            "description": "跟读音素纠错与多人对话场景分割，仅在开启对应功能时需要"
+        },
+        "pack": {
+            "title": "本地基础资源包",
+            "description": "语音识别与发音所需",
+            "sizeHint": "约 1 GB",
+            "extensionsSizeHint": "约 265 MB",
+            "ready": "已就绪",
+            "notReady": "未下载",
+            "progressHint": "共{{size}} · 已装 {{done}}/{{total}} 项",
+            "download": "下载全部",
+            "cancel": "取消下载",
+            "delete": "删除资源包",
+            "deleteConfirmTitle": "删除本地基础资源包？",
+            "deleteConfirmDescription": "删除后需要重新下载才能使用，确定要删除吗？",
+            "cancelDelete": "暂不删除",
+            "confirmDelete": "确认删除",
+            "downloaded": "本地基础资源包已就绪",
+            "extensionsDownloaded": "语音扩展模型已就绪",
+            "deleted": "本地基础资源包已删除",
+            "downloading": "正在下载所需资源…",
+            "verifying": "正在校验…",
+            "extracting": "正在解压…",
+            "installing": "正在安装…",
+            "etaSeconds": "剩余约 {{seconds}} 秒",
+            "etaMinutes": "剩余约 {{minutes}} 分 {{seconds}} 秒",
+            "etaLong": "剩余超过 1 小时",
+            "failed": "下载失败：{{message}}",
+            "proxyHint": "如遇网络或下载超时，建议先前往「网络代理」配置代理后重试。",
+            "openProxySettings": "前往配置网络代理",
+            "retry": "重试",
+            "itemDownload": "下载并配置",
+            "itemDelete": "删除",
+            "itemTts": "发音",
+            "itemTtsDesc": "查询单词和例句时自动朗读。",
+            "itemTranscription": "字幕识别",
+            "itemTranscriptionDesc": "识别视频语音并生成字幕。",
+            "itemDiarization": "说话人识别",
+            "itemDiarizationDesc": "可选。识别场景切换时是哪位说话人，让场景提示更准确。",
+            "itemDiarizationModelFile": "分割模型 + 声纹嵌入模型",
+            "itemPhonemeGop": "音素级发音评分",
+            "itemPhonemeGopDesc": "可选（约 230 MB）。离线定位跟读时具体偏弱或错读的 IPA 音素。",
+            "itemPhonemeGopModelFile": "Wav2Vec2 英文音素 CTC 模型",
+            "itemSenseVoice": "中英双语对话语音输入",
+            "itemSenseVoiceDesc": "可选（约 230 MB）。基于 SenseVoiceSmall，在 AI 精读搭档支持中文与中英混说语音提问。",
+            "itemReady": "已就绪",
+            "itemMissing": "未下载",
+            "engineLabel": "识别方式",
+            "engineHardware": "硬件加速（推荐）",
+            "engineCompat": "兼容模式",
+            "manualTitle": "手动下载与安装",
+            "manualModel": "需要的文件：{{model}}",
+            "step1Title": "1. 下载资源文件",
+            "step2Title": "2. 保存到",
+            "backupSource": "备用源：",
+            "copyUrl": "复制下载链接",
+            "openInBrowser": "在浏览器中打开",
+            "copyPath": "复制目标路径",
+            "step3Title": "3. 完成安装",
+            "step3Hint": "文件放好后，回到这里点击上方的「下载全部」，应用会自动完成校验与安装。"
+        },
+        "enhance": {
+            "title": "本地增强资源包",
+            "description": "可选。让字幕翻译与查词更自然",
+            "hardwareHintGpu": "本机适合运行本地增强资源包：{{memory}} GB 内存、{{cores}} 核 CPU、{{gpu}} 加速。",
+            "hardwareHintNoGpu": "本机可以运行本地增强资源包，但只能用 CPU，速度会慢一些（{{memory}} GB 内存、{{cores}} 核 CPU）。",
+            "hardwareHintLowSpec": "本机内存偏小，本地增强资源包可能跑不动（{{memory}} GB 内存、{{cores}} 核 CPU）。",
+            "delete": "删除资源包",
+            "deleteConfirmTitle": "删除本地增强资源包？"
+        },
+        "embedding": {
+            "title": "语义推荐增强",
+            "sectionDesc": "用于内容罗盘的视频主题语义相似度计算，按需安装",
+            "ready": "已安装",
+            "install": "安装",
+            "installing": "安装中…",
+            "remove": "删除",
+            "removing": "删除中…",
+            "removed": "已删除语义模型",
+            "installed": "语义模型已安装，内容推荐将优先使用语义相似度",
+            "description": "可选，{{size}}。EmbeddingGemma 2 支持多语言，用于判断内容主题是否相近；未安装时推荐仍可正常使用词面相似度。",
+            "multimodalInstall": "安装图像理解（529 MB）",
+            "multimodalReady": "图像理解已就绪（529 MB），可用于视频画面帧主题分析",
+            "multimodalHint": "可选组件（529 MB）：安装后可分析视频画面帧；若只需基于字幕做主题推荐，上面 168 MB 文本模型已足够。",
+            "multimodalInstalled": "图像理解组件已安装",
+            "cancel": "取消下载",
+            "phaseDownloading": "正在下载 {{percent}}%",
+            "phaseVerifying": "正在校验完整性…"
+        },
+        "cloud": {
+            "title": "云端服务",
+            "description": "填入云端服务商密钥或直接接入本地 AI 接口",
+            "fallbackHint": "云端暂时不可用，已回退到本地资源"
+        },
+        "preference": {
+            "title": "翻译与查词",
+            "description": "为每项功能选择使用的模型或引擎",
+            "subtitleLabel": "字幕翻译",
+            "subtitleDesc": "生成字幕译文时使用的引擎",
+            "dictionaryLabel": "AI 查词与语境解读",
+            "dictionaryDesc": "内置词典未收录时兜底，并支持单词卡结合上下文的语境解读",
+            "engineLocalAi": "本地增强资源包",
+            "engineLocalBase": "本地基础资源包",
+            "engineLocalMtLegacy": "本地轻量翻译（已下线，请改选其他引擎）",
+            "engineNone": "关闭",
+            "styleLabel": "翻译风格",
+            "styleZh": "翻译成中文",
+            "styleSimpleEn": "简化英文",
+            "styleCustom": "自定义",
+            "stylePlaceholder": "留空时使用默认风格…",
+            "localMtZhOnlyHint": "轻量翻译只支持中文",
+            "notReadyHint": "本地增强资源包还没下载",
+            "sentenceLabel": "整句讲解",
+            "sentenceDesc": "按快捷键为当前句打开讲解",
+            "engineDisabled": "禁用",
+            "engineNoSupplement": "仅用本地词典",
+            "cacheLabel": "翻译缓存",
+            "cacheDesc": "清除后，下次会重新请求",
+            "clearCache": "清除缓存",
+            "clearCacheDone": "已清除 {{count}} 条缓存",
+            "styleDesc": "决定字幕译文的措辞方式"
+        },
+        "dictionaries": {
+            "title": "词典",
+            "description": "导入自备词典，查询时优先于内置词典"
+        },
+        "dictionaryPack": {
+            "title": "本地词典包",
+            "description": "导入你合法持有的词典文件",
+            "import": "导入词典",
+            "formats": "支持 StarDict、CSV、SQLite",
+            "empty": "还没有导入词典",
+            "builtinName": "内置词典",
+            "builtinMeta": "{{source}} {{version}} · {{count}} 个词条 · 随应用内置，无需下载",
+            "loading": "正在读取词典列表…",
+            "meta": "{{count}} 个词条 · {{format}}",
+            "remove": "删除",
+            "removeConfirm": "删除词典「{{name}}」？文件会一并移除。",
+            "imported": "词典导入完成",
+            "importFailed": "词典导入失败：{{message}}",
+            "removeFailed": "删除词典失败：{{message}}",
+            "saveFailed": "保存词典状态失败：{{message}}"
+        },
+        "dictionaryEnhancement": {
+            "title": "英英释义增强包",
+            "description": "Princeton WordNet 3.1，补充英文释义、同义词与反义词",
+            "install": "下载并安装",
+            "installed": "已安装",
+            "downloading": "正在安装…",
+            "remove": "删除",
+            "removeConfirm": "删除英英释义增强包？已下载的数据会被移除。",
+            "cancel": "取消",
+            "installFailed": "安装失败：{{message}}",
+            "removeFailed": "删除失败：{{message}}"
+        },
+        "ttsVoice": {
+            "title": "朗读音色",
+            "volumeLabel": "TTS 朗读音量",
+            "previewAction": "试听",
+            "previewing": "合成中…",
+            "previewFailed": "试听失败：{{msg}}",
+            "description": "离线朗读单词与例句时使用的声音（推荐高拟真 Kokoro 音色）。",
+            "accentUS": "美音",
+            "accentGB": "英音",
+            "male": "男声",
+            "female": "女声",
+            "qualityLow": "轻量",
+            "qualityMedium": "标准",
+            "qualityHigh": "高清",
+            "notInstalled": "该音色尚未下载，可直接在下方点击下载",
+            "notInstalledShort": "未下载",
+            "downloadHint": "当前音色尚未安装，朗读会暂用其它已安装音色。",
+            "downloadButton": "下载音色",
+            "downloadingVoice": "正在下载 {{percent}}%",
+            "cancelDownload": "取消",
+            "downloadedToast": "音色模型已下载并就绪",
+            "upgradeHint": "新上线高拟真自然人声「Kokoro」（约 98.5 MB，单包解锁 4 组美/英男女声），语调更接近真人。",
+            "upgradeAction": "切换为 Kokoro 并下载"
+        }
+    },
+    "runtime": {
+        "subtitleEngineInvalid": "字幕翻译引擎设置值无效（{{value}}），请到“功能设置”重新选择并保存",
+        "subtitleModeInvalid": "字幕翻译风格设置值无效（{{value}}），请到“功能设置”重新选择并保存"
+    }
+}

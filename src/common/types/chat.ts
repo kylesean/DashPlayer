@@ -1,7 +1,7 @@
 import type { UIMessageChunk } from 'ai';
 import type { SentenceStudyCard } from '@/common/types/aiRes/AiUnifiedAnalysisRes';
 import type { SentenceMemoryHints } from '@/common/types/vo/SentenceVocabularyVO';
-import type { LearningMessageBlock } from '@/fronted/features/chat/types';
+import type { LearningMessageBlock } from '@/frontend/features/chat/types';
 
 /** 教学预设角色定位。 */
 export type LearningPromptRoleMode = 'study' | 'tutor' | 'listening' | 'custom';

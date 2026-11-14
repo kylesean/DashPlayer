@@ -1,0 +1,240 @@
+import type { SimpleClipQuery } from '@/common/api/dto';
+import type { ClipMeta } from '@/common/types/clipMeta';
+import type { ReviewRating } from '@/common/types/review';
+import type { ContextPackParams } from '@/common/types/contextPack';
+import { backendClient } from '@/frontend/infrastructure/electron/backendClient';
+import { requestVideoThumbnail } from '@/frontend/lib/video-thumbnail';
+
+/**
+ * 视频学习功能调用的后端接口。
+ */
+export const videoLearningApi = {
+    /**
+     * 查询视频学习片段。
+     *
+     * @param query 片段筛选和分页条件。
+     * @returns 分页片段结果。
+     */
+    search: (query: SimpleClipQuery) => backendClient.call('video-learning/search', query),
+
+    /**
+     * 删除学习片段；后端同步删除数据库记录与本地片段文件。
+     *
+     * @param key 片段键。
+     * @returns 操作结果。
+     */
+    deleteClip: (key: string) => backendClient.call('video-learning/delete', { key }),
+
+    /**
+     * 查询词汇列表。
+     *
+     * @returns 后端返回的词汇数据。
+     */
+    getVocabulary: () => backendClient.call('vocabulary/get-all', {}),
+
+    /**
+     * 查询每个单词的片段统计。
+     *
+     * @returns 单词到片段数量与最近添加视频时间的映射。
+     */
+    getWordClipStats: () => backendClient.call('video-learning/word-clip-stats'),
+
+    /**
+     * 从远端同步视频学习数据。
+     *
+     * @returns 同步结果。
+     */
+    syncFromOss: () => backendClient.call('video-learning/sync-from-oss'),
+
+    /**
+     * 导出词汇导入模板。
+     *
+     * @returns 模板导出结果。
+     */
+    exportVocabularyTemplate: () => backendClient.call('vocabulary/export-template'),
+
+    /**
+     * 导入词汇文件。
+     *
+     * @param filePath Excel 文件绝对路径。
+     * @returns 导入结果。
+     */
+    importVocabulary: (filePath: string) => backendClient.call('vocabulary/import', { filePath }),
+
+    /**
+     * 收藏单词到词汇工坊；后端负责还原为原始形态并入库。
+     *
+     * @param word 用户点击的单词原文（可能是变体）。
+     * @param translate 弹窗词典已查到的释义；提供时后端不再另行调用词典 AI。
+     * @returns 收藏结果，成功时携带入库单词与释义。
+     */
+    favoriteWord: (word: string, translate?: string) => backendClient.call('vocabulary/favorite', { word, translate }),
+
+    /**
+     * 编辑单词与释义；单词本身是业务键，需用旧单词定位。
+     *
+     * @param oldWord 编辑前的单词。
+     * @param word 编辑后的单词。
+     * @param translate 编辑后的释义。
+     * @returns 操作结果。
+     */
+    updateWord: (oldWord: string, word: string, translate: string) =>
+        backendClient.call('vocabulary/update', { oldWord, word, translate }),
+
+    /**
+     * 更新单词学习状态。
+     *
+     * @param word 单词原文。
+     * @param status 目标状态。
+     * @returns 操作结果。
+     */
+    updateWordState: (word: string, status: 'learning' | 'familiar' | 'known' | 'ignored') =>
+        backendClient.call('vocabulary/update-state', { word, status }),
+
+    /**
+     * 记录一次单词遭遇；用于后续掌握度、复习与推荐解释。
+     *
+     * @param params 单词与上下文信息。
+     * @returns 写入完成。
+     */
+    recordWordEncounter: (params: {
+        word: string;
+        action: 'seen' | 'hover' | 'open' | 'lookup' | 'replay' | 'save' | 'known' | 'ignore' | 'shadow' | 'dictation' | 'review';
+        videoId?: string;
+        fileHash?: string;
+        sentenceIndex?: number;
+        sentenceHash?: string;
+        context?: string;
+        score?: number;
+        rating?: ReviewRating;
+    }) => backendClient.call('vocabulary/record-encounter', params),
+
+    /**
+     * 获取当前句子的上下文建议。
+     *
+     * @param params 句子、播放定位与提示强度。
+     * @returns ContextPack 与唯一建议。
+     */
+    contextPack: (params: ContextPackParams) =>
+        backendClient.call('vocabulary/context-pack', params),
+
+    /**
+     * 读取一个词的学习历史（上次遇见、上次复习、当前状态）。
+     *
+     * @param word 用户点击的词形，可能不是原形。
+     * @returns 历史快照；不可用时为 null。
+     */
+    getWordMemory: (word: string) =>
+        backendClient.call('vocabulary/word-memory', { word }),
+
+    /**
+     * 获取当前到期的复习队列与回忆统计。
+     *
+     * @param limit 最多返回多少张卡。
+     * @returns 复习队列快照。
+     */
+    getReviewQueue: (limit?: number, words?: string[]) =>
+        backendClient.call('vocabulary/review-queue', {
+            ...(limit ? { limit } : {}),
+            ...(words && words.length > 0 ? { words } : {}),
+        }),
+
+    /**
+     * 提交一次复习反馈。
+     *
+     * @param word 单词原文或 lemma。
+     * @param rating 四档反馈。
+     * @param session 可选的播放上下文，用于把复习归入本次学习会话。
+     * @returns 更新后的卡与词条状态。
+     */
+    rateReview: (
+        word: string,
+        rating: ReviewRating,
+        session?: { videoId?: string; fileHash?: string },
+    ) => backendClient.call('vocabulary/rate-review', {
+        word,
+        rating,
+        videoId: session?.videoId,
+        fileHash: session?.fileHash,
+    }),
+
+    /**
+     * 删除单词。
+     *
+     * @param word 待删除的单词。
+     * @returns 操作结果。
+     */
+    deleteWord: (word: string) => backendClient.call('vocabulary/delete', { word }),
+
+    /**
+     * 调用 AI 为单词生成简明中文释义。
+     *
+     * @param word 单词。
+     * @returns 生成结果，成功时携带释义文本。
+     */
+    generateDefinition: (word: string) => backendClient.call('vocabulary/generate-definition', { word }),
+
+    /**
+     * 打开词汇导入文件选择器。
+     *
+     * @returns 用户选中的 Excel 文件路径列表。
+     */
+    // 只放 .xlsx 与 .csv：旧版 .xls（BIFF）后端已不再支持解析，
+    // 放进选择器只会让用户选完才被拒绝。
+    selectVocabularyFile: () => backendClient.call('system/select-file', ['.xlsx', '.csv']),
+
+    /**
+     * 获取视频指定时间点的缩略图。
+     *
+     * @param filePath 视频绝对路径。
+     * @param time 截图时间，单位为秒。
+     * @returns 缩略图路径。
+     */
+    getThumbnail: (filePath: string, time: number) => requestVideoThumbnail({ filePath, time }),
+
+    /**
+     * 将片段中的词汇解析为带词形信息的条目。
+     *
+     * @param lines 片段字幕行。
+     * @param words 待解析的词汇。
+     * @returns 词汇解析结果。
+     */
+    resolveClipVocabulary: (lines: ClipMeta['clip_content'], words: string[]) =>
+        backendClient.call('video-learning/resolve-clip-vocabulary', { lines, words }),
+
+    /**
+     * 查询全局自动裁切队列状态。
+     *
+     * @returns 当前队列状态。
+     */
+    getClipQueueStatus: () => backendClient.call('video-learning/clip-queue-status'),
+
+    /**
+     * 查询指定视频字幕的自动裁切状态。
+     *
+     * @param videoPath 视频绝对路径。
+     * @param srtKey 字幕文件哈希。
+     * @param srtPath 字幕文件绝对路径。
+     * @returns 当前裁切状态。
+     */
+    getClipStatus: (videoPath: string, srtKey: string, srtPath?: string) =>
+        backendClient.call('video-learning/detect-clip-status', { videoPath, srtKey, srtPath }),
+
+    /**
+     * 取消全部自动裁切任务。
+     *
+     * @returns 取消结果。
+     */
+    cancelAllAutoClip: () => backendClient.call('video-learning/cancel-auto-clip-all'),
+
+    /**
+     * 为指定视频启动自动裁切。
+     *
+     * @param videoPath 视频绝对路径。
+     * @param srtKey 字幕文件哈希。
+     * @param srtPath 字幕文件绝对路径。
+     * @returns 启动结果。
+     */
+    startAutoClip: (videoPath: string, srtKey: string, srtPath?: string) =>
+        backendClient.call('video-learning/auto-clip', { videoPath, srtKey, srtPath }),
+};

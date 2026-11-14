@@ -15,8 +15,8 @@
 
 ## 字体
 
-主题字体全部自托管在 `src/fronted/styles/fonts/`，由 `scripts/download-fonts.mjs` 生成
-`src/fronted/styles/fonts.css`（只保留 latin / latin-ext 子集，中文走系统字体）。
+主题字体全部自托管在 `src/frontend/styles/fonts/`，由 `scripts/download-fonts.mjs` 生成
+`src/frontend/styles/fonts.css`（只保留 latin / latin-ext 子集，中文走系统字体）。
 这样运行时不再请求 Google Fonts，大陆网络与离线场景都不会回落到系统字体。
 
 新增或调整主题字体后：
@@ -32,7 +32,7 @@ Astryx 官方主题并不共享同一套 spacing 基数：Matcha / Y2K 的 `--sp
 `--spacing-1`，因此 `h-8`、`w-11`、`gap-1` 这些工具类会随主题放大 1.5 倍。
 
 窗口标题栏、窗口控制按钮等系统 chrome 必须保持像素稳定，统一使用固定 px
-（高度常量见 `src/fronted/components/layout/TitleBar/titleBarMetrics.ts`），
+（高度常量见 `src/frontend/components/layout/TitleBar/titleBarMetrics.ts`），
 不要用 spacing 工具类表达尺寸。普通页面内容仍可继续使用主题 spacing，让排版跟随主题。
 
 ## 目录约定
@@ -56,5 +56,5 @@ pnpm exec astryx theme add <slug>
 pnpm exec astryx theme remove <slug>
 ```
 
-主题 slug 与后端存储值（`appearance.themeFamily`）的映射在 `src/fronted/app/App.tsx` 的
+主题 slug 与后端存储值（`appearance.themeFamily`）的映射在 `src/frontend/app/App.tsx` 的
 `THEME_SLUG_BY_FAMILY`，新增家族时两处要一起改。

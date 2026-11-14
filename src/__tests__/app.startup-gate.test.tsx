@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { App } from '../fronted/app/App';
+import { App } from '../frontend/app/App';
 
 vi.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -8,7 +8,7 @@ vi.mock('react-i18next', () => ({
     }),
 }));
 
-vi.mock('@/fronted/i18n', () => ({
+vi.mock('@/frontend/i18n', () => ({
     applyLanguageSetting: vi.fn().mockResolvedValue(undefined),
 }));
 

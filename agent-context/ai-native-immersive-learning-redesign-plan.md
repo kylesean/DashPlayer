@@ -531,7 +531,7 @@ context_embeddings
 - `src/common/types/contextPack.ts`、`src/common/learning/contextRecommendation.ts`
 - `src/backend/services/ContextPackService.ts`
 - `src/common/api/api-def.ts` 的 `vocabulary/context-pack`
-- `src/fronted/features/player/components/srt-layout/ContextSuggestionChip.tsx`
+- `src/frontend/features/player/components/srt-layout/ContextSuggestionChip.tsx`
 
 验证：
 
@@ -557,7 +557,7 @@ R2 第四阶段，embedding 与内容指南针见 R2 第五至七阶段，指标
 - `src/common/learning/contentWords.ts`
 - `src/backend/services/SubtitleComprehensionService.ts`
 - `src/backend/controllers/SubtitleController.ts` 的 `subtitle/comprehension`
-- `src/fronted/features/player/components/srt-layout/AdaptiveChineseLine.tsx`
+- `src/frontend/features/player/components/srt-layout/AdaptiveChineseLine.tsx`
 
 验证：
 
@@ -586,7 +586,7 @@ R2 第四阶段，embedding 与内容指南针见 R2 第五至七阶段，指标
 - `src/common/types/wordInsight.ts`
 - `src/backend/services/WordContextInsightService.ts`
 - `src/backend/controllers/AiTransController.ts` 的 `ai-trans/word-insight`
-- `src/fronted/features/player/components/translatable-line/word-context-insight.tsx`
+- `src/frontend/features/player/components/translatable-line/word-context-insight.tsx`
 
 验证：
 
@@ -613,8 +613,8 @@ R2 第四阶段，embedding 与内容指南针见 R2 第五至七阶段，指标
 - `src/common/types/learningRecap.ts`
 - `src/backend/services/LearningRecapService.ts`
 - `src/backend/controllers/LearningDataController.ts` 的 `learning-data/recap` 与 `learning-data/retell-feedback`
-- `src/fronted/features/player/components/learning-toolbar/LearningRecapDialog.tsx`
-- `src/fronted/features/player/components/learning-toolbar/LearningSessionDock.tsx`
+- `src/frontend/features/player/components/learning-toolbar/LearningRecapDialog.tsx`
+- `src/frontend/features/player/components/learning-toolbar/LearningSessionDock.tsx`
 
 验证：
 
@@ -650,8 +650,8 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/backend/controllers/ContentCompassController.ts`
 - `src/backend/infrastructure/db/tables/recommendationEvent.ts`
 - `drizzle/migrations/0017_content_compass_recommendations.sql`
-- `src/fronted/features/content-compass/ContentCompassSection.tsx`
-- `src/fronted/features/file-browser/HomePage.tsx`、`src/fronted/features/settings/StorageSetting.tsx`
+- `src/frontend/features/content-compass/ContentCompassSection.tsx`
+- `src/frontend/features/file-browser/HomePage.tsx`、`src/frontend/features/settings/StorageSetting.tsx`
 
 验证：
 
@@ -694,7 +694,7 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/backend/infrastructure/ai/LocalEmbeddingRuntime.ts`
 - `src/backend/services/TopicEmbeddingService.ts`
 - `src/backend/controllers/LocalAiController.ts`
-- `src/fronted/features/settings/components/EmbeddingModelCard.tsx`
+- `src/frontend/features/settings/components/EmbeddingModelCard.tsx`
 
 验证：
 
@@ -773,10 +773,10 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 核心实现：
 
 - `src/common/learning/learningMoment.ts`
-- `src/fronted/features/player/components/srt-layout/SubtitleLearningHints.tsx`
-- `src/fronted/features/player/components/srt-layout/LearningMomentChip.tsx`
-- `src/fronted/features/player/components/srt-layout/MainSubtitle.tsx`
-- `src/fronted/i18n/locales/{zh-CN,en-US}/moment.json`
+- `src/frontend/features/player/components/srt-layout/SubtitleLearningHints.tsx`
+- `src/frontend/features/player/components/srt-layout/LearningMomentChip.tsx`
+- `src/frontend/features/player/components/srt-layout/MainSubtitle.tsx`
+- `src/frontend/i18n/locales/{zh-CN,en-US}/moment.json`
 
 验证：
 
@@ -808,8 +808,8 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/common/types/learningRecap.ts`
 - `src/backend/services/LearningRecapService.ts` 的 `evaluateRolePlay`
 - `src/backend/controllers/LearningDataController.ts` 的 `learning-data/role-play-feedback`
-- `src/fronted/features/player/components/learning-toolbar/LearningRecapDialog.tsx`
-- `src/fronted/i18n/locales/{zh-CN,en-US}/recap.json`
+- `src/frontend/features/player/components/learning-toolbar/LearningRecapDialog.tsx`
+- `src/frontend/i18n/locales/{zh-CN,en-US}/recap.json`
 
 验证：
 
@@ -841,8 +841,8 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/common/utils/practice/rhythmFeedback.ts`
 - `src/common/contracts/sentence-practice.ts`
 - `src/backend/services/SentencePracticeService.ts`
-- `src/fronted/features/practice/components/ShadowingStudio.tsx`
-- `src/fronted/i18n/locales/{zh-CN,en-US}/practice.json`
+- `src/frontend/features/practice/components/ShadowingStudio.tsx`
+- `src/frontend/i18n/locales/{zh-CN,en-US}/practice.json`
 
 验证：
 
@@ -873,9 +873,9 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 
 - `src/common/types/memoryMap.ts`、`src/common/learning/memoryMap.ts`
 - `src/backend/services/MemoryMapService.ts`
-- `src/fronted/features/learning-data/MemoryMapSection.tsx`
-- `src/fronted/features/video-learning/VideoLearningPage.tsx`
-- `src/fronted/i18n/locales/{zh-CN,en-US}/memoryMap.json`
+- `src/frontend/features/learning-data/MemoryMapSection.tsx`
+- `src/frontend/features/video-learning/VideoLearningPage.tsx`
+- `src/frontend/i18n/locales/{zh-CN,en-US}/memoryMap.json`
 
 验证：
 
@@ -906,10 +906,10 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 
 - `src/common/types/contentCompass.ts`
 - `src/backend/services/ContentCompassService.ts`
-- `src/fronted/features/content-compass/ContentCompassSection.tsx`
-- `src/fronted/features/player/components/learning-toolbar/reviewDockStore.ts`
-- `src/fronted/features/player/components/learning-toolbar/ReviewDock.tsx`
-- `src/fronted/features/settings/StorageSetting.tsx`
+- `src/frontend/features/content-compass/ContentCompassSection.tsx`
+- `src/frontend/features/player/components/learning-toolbar/reviewDockStore.ts`
+- `src/frontend/features/player/components/learning-toolbar/ReviewDock.tsx`
+- `src/frontend/features/settings/StorageSetting.tsx`
 
 验证：
 
@@ -938,12 +938,12 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 核心实现：
 
 - `src/common/learning/sceneSegmentation.ts`
-- `src/fronted/features/player/components/srt-layout/SceneCue.tsx`
-- `src/fronted/features/player/components/srt-layout/MainSubtitle.tsx`
+- `src/frontend/features/player/components/srt-layout/SceneCue.tsx`
+- `src/frontend/features/player/components/srt-layout/MainSubtitle.tsx`
 - `src/common/types/store_schema.ts`
 - `src/common/contracts/runtime-settings.ts`
 - `src/backend/services/SettingService.ts`
-- `src/fronted/features/player/components/learning-toolbar/PlayerSettingsPopover.tsx`
+- `src/frontend/features/player/components/learning-toolbar/PlayerSettingsPopover.tsx`
 
 验证：
 
@@ -977,7 +977,7 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/backend/services/repositories/LearningDataRepository.ts`
 - `src/backend/infrastructure/db/repositories/LearningDataRepositoryImpl.ts`
 - `src/backend/controllers/LearningDataController.ts`
-- `src/fronted/features/settings/StorageSetting.tsx`
+- `src/frontend/features/settings/StorageSetting.tsx`
 
 验证：
 
@@ -1015,7 +1015,7 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/backend/services/TopicEmbeddingService.ts`（三级命中与自愈清理）
 - `src/backend/services/SceneIndexService.ts`
 - `src/common/learning/vectorCodec.ts`、`sceneIndexKey.ts`
-- `src/fronted/features/player/components/srt-layout/SceneCue.tsx`
+- `src/frontend/features/player/components/srt-layout/SceneCue.tsx`
 - 迁移 `0019_calm_norrin_radd.sql`、`0020_steep_raider.sql`
 
 验证：
@@ -1053,7 +1053,7 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/common/types/learningMetrics.ts`、`src/common/learning/learningMetrics.ts`
 - `src/backend/services/LearningMetricsService.ts`
 - `src/backend/controllers/LearningDataController.ts` 的 `learning-data/metrics`
-- `src/fronted/features/learning-data/LearningMetricsSection.tsx`
+- `src/frontend/features/learning-data/LearningMetricsSection.tsx`
 - i18n 命名空间 `metrics`
 
 验证：
@@ -1078,9 +1078,9 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 
 核心实现：
 
-- `src/fronted/features/player/components/learning-toolbar/recapPromptStore.ts`
-- `src/fronted/features/player/components/learning-toolbar/RecapEndedPrompt.tsx`
-- `src/fronted/features/player/components/srt-layout/Layout.tsx` 的 `handleStageEnded`
+- `src/frontend/features/player/components/learning-toolbar/recapPromptStore.ts`
+- `src/frontend/features/player/components/learning-toolbar/RecapEndedPrompt.tsx`
+- `src/frontend/features/player/components/srt-layout/Layout.tsx` 的 `handleStageEnded`
 
 验证：
 
@@ -1101,7 +1101,7 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/common/utils/practice/syllableFeedback.ts`（`splitIpaSyllables` / `compareSyllableCount` / `buildWordSyllableFeedback` / `SYLLABLE_STRESS_MARGIN`）
 - `src/common/utils/practice/rhythmFeedback.ts`（`lookupPhonetic` 输入与 `measureSyllableEnergies`）
 - `src/backend/services/SentencePracticeService.ts`（注入 `BuiltinDictionaryStore`，读 `entry.phonetic`）
-- `src/fronted/features/practice/components/ShadowingStudio.tsx`
+- `src/frontend/features/practice/components/ShadowingStudio.tsx`
 
 验证：
 
@@ -1127,7 +1127,7 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `drizzle/migrations/0022_rhythm_trend.sql`
 - `src/common/learning/rhythmTrend.ts`（`buildRhythmTrend` / `RHYTHM_TREND_MIN_SAMPLES`）
 - `src/backend/services/SentencePracticeService.ts`、`practice/rhythm-trend` 路由
-- `src/fronted/features/practice/components/PracticeDock.tsx` → `ShadowingStudio` → `RhythmFeedback`
+- `src/frontend/features/practice/components/PracticeDock.tsx` → `ShadowingStudio` → `RhythmFeedback`
 
 验证：
 
@@ -1178,7 +1178,7 @@ R3 第十三阶段，语音复述见 R3 第十九阶段。
 - `src/common/learning/memoryMap.ts` 的 `buildCooccurrenceEdges`
 - `src/common/types/memoryMap.ts` 的 `MemoryMapNeighborVO`
 - `src/backend/services/MemoryMapService.ts`
-- `src/fronted/features/learning-data/MemoryMapSection.tsx`、`src/fronted/features/video-learning/VideoLearningPage.tsx`
+- `src/frontend/features/learning-data/MemoryMapSection.tsx`、`src/frontend/features/video-learning/VideoLearningPage.tsx`
 
 验证：
 
@@ -1208,7 +1208,7 @@ R3 第十八阶段。
 - `src/common/learning/contentCompass.ts` 的 `rankContentCompassCandidates(candidates, limit, weights)`
 - `src/backend/services/ContentCompassService.ts` 的 `getAttribution` / `resolveWeights`
 - `src/backend/controllers/ContentCompassController.ts` 的 `content-compass/attribution`
-- `src/fronted/features/settings/StorageSetting.tsx`
+- `src/frontend/features/settings/StorageSetting.tsx`
 
 验证：
 
@@ -1240,7 +1240,7 @@ R3 第十八阶段。
 - `src/backend/infrastructure/db/tables/rolePlayTurn.ts`、`RolePlayTurnRepository`（含实现）
 - `src/backend/services/LearningRecapService.ts` 的 `evaluateRolePlayTurn` / `listRolePlayTurns`
 - `src/backend/controllers/LearningDataController.ts` 的 `learning-data/role-play-turn`、`learning-data/role-play-session`
-- `src/fronted/features/player/components/learning-toolbar/RolePlayDialogue.tsx`
+- `src/frontend/features/player/components/learning-toolbar/RolePlayDialogue.tsx`
 - `drizzle/migrations/0023_role_play_turn.sql`
 
 验证：
@@ -1272,8 +1272,8 @@ R3 第十八阶段。
 核心实现：
 
 - `src/common/learning/memoryMapLayout.ts`（`buildMemoryMapLayout` / `buildEdges`）
-- `src/fronted/features/learning-data/MemoryMapGraph.tsx`
-- `src/fronted/features/learning-data/MemoryMapSection.tsx`
+- `src/frontend/features/learning-data/MemoryMapGraph.tsx`
+- `src/frontend/features/learning-data/MemoryMapSection.tsx`
 - i18n 命名空间 `memoryMap` 新增视图与提示文案（中英对齐）
 
 验证：
@@ -1304,7 +1304,7 @@ R3 第十八阶段。
 - `src/common/learning/topicKeywords.ts`（`extractTopicKeywords` / `extractKeywordTerms`）
 - `src/backend/services/MemoryMapService.ts`（收集主题语境、回填关键词）
 - `src/common/types/memoryMap.ts` 的 `MemoryMapTopicVO.keywords`
-- `src/fronted/features/learning-data/MemoryMapSection.tsx`（无文件名时的主题名与关键词行）
+- `src/frontend/features/learning-data/MemoryMapSection.tsx`（无文件名时的主题名与关键词行）
 - i18n 命名空间 `memoryMap` 新增 `keywordTopic` / `topicKeywords`（中英对齐）
 
 验证：
@@ -1335,7 +1335,7 @@ R3 第十八阶段。
 - `src/backend/services/SentencePracticeService.ts` 的 `transcribeOnce`
 - `src/backend/services/LearningRecapService.ts` 的 `evaluateSpokenRetell`
 - `src/backend/controllers/LearningDataController.ts` 的 `learning-data/spoken-retell`
-- `src/fronted/features/player/components/learning-toolbar/LearningRecapDialog.tsx`（录音按钮、转写回填、系统听到提示）
+- `src/frontend/features/player/components/learning-toolbar/LearningRecapDialog.tsx`（录音按钮、转写回填、系统听到提示）
 - i18n 命名空间 `recap` 新增语音复述文案（中英对齐）
 
 验证：
@@ -1372,7 +1372,7 @@ R3 第十八阶段。
 - `src/backend/services/ProsodySignalService.ts`（ffmpeg 抽音轨 → 包络 → 按视频持久化 `dp_media_signal`，kind 为 `prosody-envelope`）
 - `src/common/learning/sceneSegmentation.ts` 新增 `prosody-shift` 边界类型与 `prosodyShifts` 选项
 - `src/common/learning/sceneIndexKey.ts`、`src/backend/services/SceneIndexService.ts`（信号接入与指纹）
-- `src/fronted/features/player/components/srt-layout/SceneCue.tsx`（标签优先级：声纹 > 画面 > 韵律 > 话题）
+- `src/frontend/features/player/components/srt-layout/SceneCue.tsx`（标签优先级：声纹 > 画面 > 韵律 > 话题）
 - i18n 命名空间 `player` 新增 `sceneCue.prosodyShift`，并修正 `sceneCuesHint` 里「不读取画面」的过时说明（中英对齐）
 
 验证：
@@ -1416,9 +1416,9 @@ R3 第十八阶段。
 - `src/common/types/vocabulary.ts`（`intensive` 档位与 `isProactiveGuidance`）
 - `src/common/learning/learningMoment.ts`（`LearningMomentCadence` / `COACH_MOMENT_CADENCE` / `INTENSIVE_MOMENT_CADENCE` / `resolveMomentCadence`）
 - `src/common/learning/contextRecommendation.ts`（建议判定改用 `isProactiveGuidance`）
-- `src/fronted/features/player/vocabularyAnnotations.ts`（强化档标注规则）
-- `src/fronted/features/player/components/srt-layout/{ContextSuggestionChip,SubtitleLearningHints}.tsx`
-- `src/fronted/features/player/components/learning-toolbar/PlayerSettingsPopover.tsx`
+- `src/frontend/features/player/vocabularyAnnotations.ts`（强化档标注规则）
+- `src/frontend/features/player/components/srt-layout/{ContextSuggestionChip,SubtitleLearningHints}.tsx`
+- `src/frontend/features/player/components/learning-toolbar/PlayerSettingsPopover.tsx`
 - `src/backend/services/SettingService.ts`（校验改用共享枚举）
 - i18n `player` 命名空间新增 `vocabularyGuidanceIntensive`，并改写提示文案（中英对齐）
 
@@ -1456,8 +1456,8 @@ R3 第十八阶段。
 - `src/backend/services/VocabularyService.ts` 的 `getWordMemory`（复用词条、复习卡与
   遭遇事件三个既有仓储，不新建表）
 - `src/backend/controllers/VocabularyController.ts` 的 `vocabulary/word-memory`
-- `src/fronted/features/player/components/translatable-line/word-memory-time.ts`
-- `src/fronted/features/player/components/translatable-line/{word.tsx,word-pop.tsx,openai-word-pop.tsx}`
+- `src/frontend/features/player/components/translatable-line/word-memory-time.ts`
+- `src/frontend/features/player/components/translatable-line/{word.tsx,word-pop.tsx,openai-word-pop.tsx}`
 - i18n `common` 命名空间新增 `wordMemory.*`（中英对齐）
 
 验证：
@@ -1487,7 +1487,7 @@ R3 第十八阶段。
 
 核心实现：
 
-- `src/fronted/features/player/components/learning-toolbar/ReviewDock.tsx`
+- `src/frontend/features/player/components/learning-toolbar/ReviewDock.tsx`
 - i18n `player.reviewDock.returnToPlayback`（中英对齐）
 
 验证：
@@ -1513,9 +1513,9 @@ R3 第十八阶段。
 
 核心实现：
 
-- `src/fronted/features/player/vocabularyAnnotations.ts`
-- `src/fronted/features/player/components/translatable-line/word.tsx`
-- `src/fronted/features/player/components/srt-layout/sentence-token-renderer.tsx`
+- `src/frontend/features/player/vocabularyAnnotations.ts`
+- `src/frontend/features/player/components/translatable-line/word.tsx`
+- `src/frontend/features/player/components/srt-layout/sentence-token-renderer.tsx`
 
 验证：
 
@@ -1531,7 +1531,7 @@ R3 第十八阶段。
 
 已落地：
 
-- 新增 `src/fronted/features/player/transcriptVocabulary.ts`：
+- 新增 `src/frontend/features/player/transcriptVocabulary.ts`：
   `countSentenceVocabulary` 复用 `resolveVocabularyAnnotation(..., 'transcript')`
   统计一句里两类可见标记，口径与正文真正画出来的标记完全一致；
   `filterTranscriptSentences` 按状态筛选，且无条件保留当前播放句
@@ -1548,9 +1548,9 @@ R3 第十八阶段。
 
 核心实现：
 
-- `src/fronted/features/player/transcriptVocabulary.ts`
-- `src/fronted/features/player/components/srt-layout/SideSentence.tsx`
-- `src/fronted/features/player/components/srt-layout/components/Subtitle.tsx`
+- `src/frontend/features/player/transcriptVocabulary.ts`
+- `src/frontend/features/player/components/srt-layout/SideSentence.tsx`
+- `src/frontend/features/player/components/srt-layout/components/Subtitle.tsx`
 - i18n `player.transcriptVocabulary.*`（中英对齐）
 
 验证：
@@ -1577,8 +1577,8 @@ R3 第十八阶段。
 
 核心实现：
 
-- `src/fronted/features/player/components/learning-toolbar/reviewBatch.ts`
-- `src/fronted/features/player/components/learning-toolbar/ReviewDock.tsx`
+- `src/frontend/features/player/components/learning-toolbar/reviewBatch.ts`
+- `src/frontend/features/player/components/learning-toolbar/ReviewDock.tsx`
 - i18n `player.reviewDock.batch*`（中英对齐）
 
 验证：
@@ -1916,10 +1916,10 @@ R2 与 R3 的二十个阶段已全部落地。交付清单逐条对照如下。
 - `src/backend/services/SentencePracticeService.ts`：把练习结果写入 Encounter/Mastery。
 - `src/backend/services/VocabularyService.ts`：拆分为用户词状态与导入/导出。
 - `src/backend/services/LocalAiService.ts`、`AiProviderService.ts`：统一到 AI Gateway。
-- `src/fronted/features/player/components/translatable-line/word.tsx`：改为读取投影状态。
-- `src/fronted/features/player/components/srt-layout/sentence-token-renderer.tsx`：复用同一状态投影。
-- `src/fronted/features/practice/PracticePanel.tsx`：接入复习坞/学习时刻。
-- `src/fronted/features/chat/LearningPage.tsx`：接入 ContextPack 与学习者记忆，而不是独立聊天入口。
+- `src/frontend/features/player/components/translatable-line/word.tsx`：改为读取投影状态。
+- `src/frontend/features/player/components/srt-layout/sentence-token-renderer.tsx`：复用同一状态投影。
+- `src/frontend/features/practice/PracticePanel.tsx`：接入复习坞/学习时刻。
+- `src/frontend/features/chat/LearningPage.tsx`：接入 ContextPack 与学习者记忆，而不是独立聊天入口。
 
 ### 11.2 需要新增的边界
 

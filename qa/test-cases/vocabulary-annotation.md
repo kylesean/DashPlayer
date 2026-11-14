@@ -5,7 +5,7 @@
 规范与状态含义见 [README.md](./README.md)。
 
 这一页只验证**跨进程链路**：后端词状态 → IPC 投影 → 主字幕注释。纯函数投影规则由
-`src/fronted/features/player/__tests__/vocabularyAnnotations.test.ts` 覆盖，这里不重复。
+`src/frontend/features/player/__tests__/vocabularyAnnotations.test.ts` 覆盖，这里不重复。
 
 夹具字幕第一句是「The player keeps your reading position steady while the layout changes.」，
 其中 `steady` 同时存在于默认词表，适合作为「默认词表不应画线」的判别词。
